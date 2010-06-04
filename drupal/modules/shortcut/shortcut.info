@@ -1,0 +1,17 @@
+; $Id: shortcut.info,v 1.4 2010/03/06 06:33:14 dries Exp $
+name = Shortcut
+description = Allows users to manage customizable lists of shortcut links.
+package = Core
+version = VERSION
+core = 7.x
+files[] = shortcut.module
+files[] = shortcut.admin.inc
+files[] = shortcut.install
+files[] = shortcut.test
+configure = admin/config/user-interface/shortcut
+
+; Information added by drupal.org packaging script on 2010-05-23
+version = "7.0-alpha5"
+project = "drupal"
+datestamp = "1274628610"
+

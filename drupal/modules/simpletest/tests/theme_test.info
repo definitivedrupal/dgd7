@@ -1,0 +1,14 @@
+; $Id: theme_test.info,v 1.1 2010/03/21 04:05:24 webchick Exp $
+name = "Theme test"
+description = "Support module for theme system testing."
+package = Testing
+version = VERSION
+core = 7.x
+files[] = theme_test.module
+hidden = TRUE
+
+; Information added by drupal.org packaging script on 2010-05-23
+version = "7.0-alpha5"
+project = "drupal"
+datestamp = "1274628610"
+

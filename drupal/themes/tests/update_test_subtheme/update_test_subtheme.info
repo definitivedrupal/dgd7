@@ -1,0 +1,13 @@
+; $Id: update_test_subtheme.info,v 1.1 2009/10/08 15:40:34 dries Exp $
+name = Update test subtheme
+description = Test theme which uses update_test_basetheme as the base theme.
+core = 7.x
+engine = phptemplate
+base theme = update_test_basetheme
+hidden = TRUE
+
+; Information added by drupal.org packaging script on 2010-05-23
+version = "7.0-alpha5"
+project = "drupal"
+datestamp = "1274628610"
+

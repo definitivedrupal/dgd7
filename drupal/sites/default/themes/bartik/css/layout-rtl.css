@@ -1,0 +1,16 @@
+/* $Id$ */
+
+/**
+ * Basic layout styles RTL overrides
+ */
+#content,
+.sidebar,
+#triptych-first,
+#triptych-middle,
+#triptych-last,
+#footer-firstcolumn,
+#footer-secondcolumn,
+#footer-thirdcolumn,
+#footer-fourthcolumn {
+  float: right;
+}

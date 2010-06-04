@@ -1,0 +1,14 @@
+; $Id: node_test.info,v 1.1 2009/04/02 20:47:54 dries Exp $
+name = "Node module tests"
+description = "Support module for node related testing."
+package = Testing
+version = VERSION
+core = 7.x
+files[] = node_test.module
+hidden = TRUE
+
+; Information added by drupal.org packaging script on 2010-05-23
+version = "7.0-alpha5"
+project = "drupal"
+datestamp = "1274628610"
+

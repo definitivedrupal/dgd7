@@ -1,0 +1,16 @@
+; $Id: dblog.info,v 1.7 2009/06/08 09:23:51 dries Exp $
+name = Database logging
+description = Logs and records system events to the database.
+package = Core
+version = VERSION
+core = 7.x
+files[] = dblog.module
+files[] = dblog.admin.inc
+files[] = dblog.install
+files[] = dblog.test
+
+; Information added by drupal.org packaging script on 2010-05-23
+version = "7.0-alpha5"
+project = "drupal"
+datestamp = "1274628610"
+

@@ -1,0 +1,14 @@
+; $Id: common_test.info,v 1.1 2009/07/02 04:27:23 webchick Exp $
+name = "Common Test"
+description = "Support module for Common tests."
+package = Testing
+version = VERSION
+core = 7.x
+files[] = common_test.module
+hidden = TRUE
+
+; Information added by drupal.org packaging script on 2010-05-23
+version = "7.0-alpha5"
+project = "drupal"
+datestamp = "1274628610"
+

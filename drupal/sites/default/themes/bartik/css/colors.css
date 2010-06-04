@@ -1,0 +1,36 @@
+/* $Id$ */
+
+/**
+ * Styles and colors that the color module modifies.
+ */
+body {
+  background-color: #161617;
+  color: #ffffff;
+}
+#page-wrapper,
+body.overlay {
+  background-color: #ffffff;
+  color: #3b3b3b;
+}
+#header {
+  background-color: #000000;
+  background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, from(#000000), to(#3d3d3d));
+  background-image: -moz-linear-gradient(-90deg, #000000, #3d3d3d);
+}
+a {
+  color: #0073b6;
+}
+a:hover,
+a:focus {
+  color: #018fe2;
+}
+a:active {
+  color: #23aeff;
+}
+.sidebar .block {
+  background-color: #feffff;
+  border-color: #d0d0d0;
+}
+#footer-wrapper {
+  background: #161617;
+}

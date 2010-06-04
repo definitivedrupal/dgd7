@@ -1,0 +1,13 @@
+; $Id: trigger_test.info,v 1.1 2009/05/27 16:29:05 webchick Exp $
+name = "Trigger Test"
+description = "Support module for Trigger tests."
+package = Testing
+core = 7.x
+files[] = trigger_test.module
+hidden = TRUE
+
+; Information added by drupal.org packaging script on 2010-05-23
+version = "7.0-alpha5"
+project = "drupal"
+datestamp = "1274628610"
+

@@ -1,0 +1,13 @@
+; $Id: contextual.info,v 1.1 2009/12/06 01:00:27 dries Exp $
+name = Contextual links
+description = Provides contextual links to perform actions related to elements on a page.
+package = Core
+version = VERSION
+core = 7.x
+files[] = contextual.module
+
+; Information added by drupal.org packaging script on 2010-05-23
+version = "7.0-alpha5"
+project = "drupal"
+datestamp = "1274628610"
+

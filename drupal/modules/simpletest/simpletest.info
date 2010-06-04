@@ -1,0 +1,45 @@
+; $Id: simpletest.info,v 1.16 2010/02/03 18:16:23 webchick Exp $
+name = Testing
+description = Provides a framework for unit and functional testing.
+package = Core
+version = VERSION
+core = 7.x
+files[] = simpletest.module
+files[] = simpletest.pages.inc
+files[] = simpletest.install
+files[] = simpletest.test
+files[] = drupal_web_test_case.php
+configure = admin/config/development/testing/settings
+
+; Tests in tests directory.
+files[] = tests/actions.test
+files[] = tests/ajax.test
+files[] = tests/batch.test
+files[] = tests/bootstrap.test
+files[] = tests/cache.test
+files[] = tests/common.test
+files[] = tests/database_test.test
+files[] = tests/error.test
+files[] = tests/file.test
+files[] = tests/filetransfer.test
+files[] = tests/form.test
+files[] = tests/graph.test
+files[] = tests/image.test
+files[] = tests/lock.test
+files[] = tests/mail.test
+files[] = tests/menu.test
+files[] = tests/module.test
+files[] = tests/path.test
+files[] = tests/registry.test
+files[] = tests/schema.test
+files[] = tests/session.test
+files[] = tests/theme.test
+files[] = tests/unicode.test
+files[] = tests/update.test
+files[] = tests/xmlrpc.test
+
+; Information added by drupal.org packaging script on 2010-05-23
+version = "7.0-alpha5"
+project = "drupal"
+datestamp = "1274628610"
+

@@ -1,0 +1,16 @@
+; $Id: file.info,v 1.1 2009/08/29 12:52:32 dries Exp $
+name = File
+description = Defines a file field type.
+package = Core
+version = VERSION
+core = 7.x
+files[] = file.module
+files[] = file.field.inc
+files[] = file.install
+files[] = tests/file.test
+
+; Information added by drupal.org packaging script on 2010-05-23
+version = "7.0-alpha5"
+project = "drupal"
+datestamp = "1274628610"
+

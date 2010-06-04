@@ -1,0 +1,19 @@
+; $Id: comment.info,v 1.12 2009/11/17 21:24:18 dries Exp $
+name = Comment
+description = Allows users to comment on and discuss published content.
+package = Core
+version = VERSION
+core = 7.x
+files[] = comment.module
+files[] = comment.admin.inc
+files[] = comment.pages.inc
+files[] = comment.install
+files[] = comment.test
+files[] = comment.tokens.inc
+configure = admin/content/comment
+
+; Information added by drupal.org packaging script on 2010-05-23
+version = "7.0-alpha5"
+project = "drupal"
+datestamp = "1274628610"
+

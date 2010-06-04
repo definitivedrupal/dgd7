@@ -1,0 +1,14 @@
+; $Id: session_test.info,v 1.1 2008/08/16 21:11:02 dries Exp $
+name = "Session test"
+description = "Support module for session data testing."
+package = Testing
+version = VERSION
+core = 7.x
+files[] = session_test.module
+hidden = TRUE
+
+; Information added by drupal.org packaging script on 2010-05-23
+version = "7.0-alpha5"
+project = "drupal"
+datestamp = "1274628610"
+

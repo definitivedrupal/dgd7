@@ -1,0 +1,14 @@
+;$Id: list_test.info,v 1.1 2009/12/14 20:18:55 dries Exp $
+name = "List test"
+description = "Support module for the List module tests."
+core = 7.x
+package = Testing
+files[] = list_test.module
+version = VERSION
+hidden = TRUE
+
+; Information added by drupal.org packaging script on 2010-05-23
+version = "7.0-alpha5"
+project = "drupal"
+datestamp = "1274628610"
+

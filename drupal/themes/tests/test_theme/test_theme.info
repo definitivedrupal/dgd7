@@ -1,0 +1,11 @@
+; $Id: test_theme.info,v 1.1 2010/03/21 04:05:24 webchick Exp $
+name = Test theme
+description = Theme for testing the theme system
+core = 7.x
+engine = phptemplate
+hidden = TRUE
+; Information added by drupal.org packaging script on 2010-05-23
+version = "7.0-alpha5"
+project = "drupal"
+datestamp = "1274628610"
+

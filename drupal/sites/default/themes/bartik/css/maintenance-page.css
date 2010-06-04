@@ -1,0 +1,41 @@
+body.maintenance-page  {
+  background-color: #fff;
+  color: #000;
+}
+.maintenance-page #page-wrapper {
+  margin-left: auto;
+  margin-right: auto;
+  width: 800px;
+  border: 1px solid #666;
+  margin-top: 40px;
+}
+.maintenance-page #page {
+  margin: 20px 40px 50px;
+}
+.maintenance-page #header, 
+.maintenance-page #messages, 
+.maintenance-page #main {
+  width: auto;
+}
+.maintenance-page #header {
+  background-color: #fff;
+  background-image: none;
+}
+.maintenance-page #header,
+.maintenance-page #header a,
+.maintenance-page #header a:hover,
+.maintenance-page #header a:hover {
+  color: #000;
+}
+.maintenance-page #main {
+  margin: 0;
+}
+.maintenance-page  h1#page-title {
+  line-height: 1em;
+}
+.maintenance-page #messages {
+  padding: 0;
+}
+.maintenance-page #footer-wrapper {
+  display: none;
+}

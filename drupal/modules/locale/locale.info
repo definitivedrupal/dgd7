@@ -1,0 +1,17 @@
+; $Id: locale.info,v 1.15 2010/03/25 11:46:21 dries Exp $
+name = Locale
+description = Adds language handling functionality and enables the translation of the user interface to languages other than English.
+package = Core
+version = VERSION
+core = 7.x
+files[] = locale.module
+files[] = locale.install
+files[] = locale.admin.inc
+files[] = locale.test
+configure = admin/config/regional/language
+
+; Information added by drupal.org packaging script on 2010-05-23
+version = "7.0-alpha5"
+project = "drupal"
+datestamp = "1274628610"
+

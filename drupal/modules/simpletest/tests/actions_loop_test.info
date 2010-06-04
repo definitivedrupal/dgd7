@@ -1,0 +1,14 @@
+; $Id: actions_loop_test.info,v 1.1 2009/08/22 16:16:19 webchick Exp $
+name = Actions loop test
+description = Support module for action loop testing.
+package = Testing
+version = VERSION
+core = 7.x
+files[] = actions_loop_test.module
+hidden = TRUE
+
+; Information added by drupal.org packaging script on 2010-05-23
+version = "7.0-alpha5"
+project = "drupal"
+datestamp = "1274628610"
+

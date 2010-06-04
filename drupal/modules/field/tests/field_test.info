@@ -1,0 +1,18 @@
+;$Id: field_test.info,v 1.1 2009/11/20 23:29:28 webchick Exp $
+name = "Field API Test"
+description = "Support module for the Field API tests."
+core = 7.x
+package = Testing
+files[] = field_test.module
+files[] = field_test.entity.inc
+files[] = field_test.field.inc
+files[] = field_test.storage.inc
+files[] = field_test.install
+version = VERSION
+hidden = TRUE
+
+; Information added by drupal.org packaging script on 2010-05-23
+version = "7.0-alpha5"
+project = "drupal"
+datestamp = "1274628610"
+

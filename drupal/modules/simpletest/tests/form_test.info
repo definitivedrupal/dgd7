@@ -1,0 +1,14 @@
+; $Id: form_test.info,v 1.1 2009/01/28 07:43:26 webchick Exp $
+name = "FormAPI Test"
+description = "Support module for Form API tests."
+package = Testing
+version = VERSION
+core = 7.x
+files[] = form_test.module
+hidden = TRUE
+
+; Information added by drupal.org packaging script on 2010-05-23
+version = "7.0-alpha5"
+project = "drupal"
+datestamp = "1274628610"
+

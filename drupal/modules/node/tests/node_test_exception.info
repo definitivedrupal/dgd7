@@ -1,0 +1,14 @@
+; $Id: node_test_exception.info,v 1.1 2009/11/19 04:00:47 webchick Exp $
+name = "Node module exception tests"
+description = "Support module for node related exception testing."
+package = Testing
+version = VERSION
+core = 7.x
+files[] = node_test_exception.module
+hidden = TRUE
+
+; Information added by drupal.org packaging script on 2010-05-23
+version = "7.0-alpha5"
+project = "drupal"
+datestamp = "1274628610"
+
