@@ -22,7 +22,7 @@
 
       // Footer background
       $('#preview #footer-wrapper', form).css('background-color', $('#palette input[name="palette[footer]"]', form).val());
-      
+
       $('#preview .sidebar .block', form).css('border-color', $('#palette input[name="palette[sidebarborders]"]', form).val());
 
       // CSS3 Gradients

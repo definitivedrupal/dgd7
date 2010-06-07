@@ -1,3 +1,5 @@
+/* $Id$ */
+
 body.maintenance-page  {
   background-color: #fff;
   color: #000;
@@ -12,8 +14,8 @@ body.maintenance-page  {
 .maintenance-page #page {
   margin: 20px 40px 50px;
 }
-.maintenance-page #header, 
-.maintenance-page #messages, 
+.maintenance-page #header,
+.maintenance-page #messages,
 .maintenance-page #main {
   width: auto;
 }

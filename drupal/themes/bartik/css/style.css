@@ -5,7 +5,6 @@
 body,
 #preview {
   background-color: #fff;
-  font-family: Georgia, "Times New Roman", Times, serif;
   line-height: 1.4em;
   font-size: 0.8em;
   word-wrap: break-word;
@@ -75,7 +74,8 @@ ul.primary,
 div.field-type-taxonomy-term-reference,
 div.messages,
 div.meta,
-p.comment-time {
+p.comment-time,
+table {
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
@@ -83,7 +83,7 @@ input,
 textarea,
 select,
 a.button {
-  font-family: "Lucida Grande", "Lucida Sans Unicode", Verdana, sans-serif; 
+  font-family: "Lucida Grande", "Lucida Sans Unicode", Verdana, sans-serif;
 }
 
 /* ------------------ Reset Styles ------------------ */
@@ -123,12 +123,10 @@ a.feed-icon {
   padding: 15px 0 0 0;
 }
 
-
 /* ------------------ Table Styles ------------------ */
 
 table {
   border-spacing: 0;
-  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 0.85em;
   width: 100%;
   margin: 10px 0;
@@ -159,7 +157,7 @@ tr th {
 tr.odd {
   background-color: #e4e4e4;
 }
-tr, 
+tr,
 tr.even {
   background-color: #efefef;
 }
@@ -171,7 +169,6 @@ tr.even {
 #block-system-main table ul.links li {
   padding: 0 1em 0 0;
 }
-
 
 /* ------------------ List Styles ------------------ */
 
@@ -196,7 +193,6 @@ ul.menu li {
 ul.tips {
   padding: 0 0 0 1.25em;  /* LTR */
 }
-
 
 /* ------------------ Header ------------------ */
 
@@ -298,7 +294,6 @@ ul.tips {
   float: right; /* LTR */
   font-size: 13px;
   padding: 4px 10px 5px;
-  font-family: Helvetica, Arial, sans-serif;
   text-transform: uppercase;
   font-size: 80%;
 }
@@ -350,7 +345,6 @@ ul.tips {
 #header #block-user-login #user-login-form div.item-list { /* hide create new account + email replacement password links */
   display: none;
 }
-
 
 /* --------------- Main Navigation ------------ */
 
@@ -411,7 +405,6 @@ ul.tips {
   padding-left: 2px; /* LTR */
 }
 
-
 /* ------------------- Main ------------------- */
 
 #main,
@@ -419,7 +412,6 @@ ul.tips {
   margin-top: 20px;
   margin-bottom: 40px;
 }
-
 
 /* ----------------- Featured ----------------- */
 
@@ -438,7 +430,6 @@ ul.tips {
   margin: 0;
   padding: 0;
 }
-
 
 /* ----------------- Content ------------------ */
 
@@ -518,14 +509,13 @@ h1#page-title,
   text-align: center;
 }
 #block-system-main ul.links {
-  font-family: Arial, sans-serif;
   color: #68696b;
   font-size: 80%;
 }
 #block-system-main .field-type-image img,
 #block-system-main .user-picture img {
   border: 1px solid #d3d7d9;
-  margin:0;
+  margin: 0;
 }
 
 /* ----------------- Comments ----------------- */
@@ -580,7 +570,6 @@ h1#page-title,
   margin-left: 40px; /* LTR */
 }
 
-
 /* ------------------ Sidebar ----------------- */
 
 .sidebar .block {
@@ -603,7 +592,6 @@ h1#page-title,
   background: none;
   border-bottom: 1px solid #d6d6d6;
 }
-
 
 /* ----------------- Triptych ----------------- */
 
@@ -658,7 +646,6 @@ h1#page-title,
 #triptych-last #block-system-powered-by {
   text-align: right;
 }
-
 
 /* ------------------ Footer ------------------ */
 
@@ -730,7 +717,7 @@ h1#page-title,
 #footer-columns .content li a:hover,
 #footer-columns .content li a:focus {
   background-color: #1f1f21;
-  background-color: rgba(255,255,255,.05); 
+  background-color: rgba(255,255,255,.05);
 }
 #footer {
   font-size: 92%;
@@ -773,7 +760,6 @@ h1#page-title,
   background-color: #1f1f1f;
 }
 
-
 /* --------------- System Tabs  --------------- */
 
 .tabs {
@@ -788,9 +774,10 @@ h1#page-title,
   background: transparent url(../images/tabs-border.png) repeat-x left bottom;
 }
 .tabs ul.primary li {
-  display: inline-block;
+  display: block;
+  float: left; /* LTR */
   vertical-align: bottom;
-  margin: 0;
+  margin: 0 5px 0 0; /* LTR */
 }
 .tabs ul.primary li a.active {
   border-bottom: 1px solid #fff;
@@ -800,9 +787,9 @@ h1#page-title,
   height: 1.8em;
   line-height: 1.8em;
   display: block;
-  float: left; /* LTR */
+  float: left; /* not LTR */
   padding: 0 10px 3px;
-  margin: 0 1px 0 0; /* LTR */
+  margin: 0;
   text-shadow: 0 1px 0 #fff;
   -khtml-border-radius-topleft: 6px;
   -moz-border-radius-topleft: 6px;
@@ -817,7 +804,8 @@ h1#page-title,
   border-bottom: none;
 }
 .tabs ul.secondary li {
-  display: inline-block;
+  display: block;
+  float: left; /* LTR */
 }
 .tabs ul.secondary li:last-child {
   border-right: none; /* LTR */
@@ -848,7 +836,6 @@ ul.action-links li a {
   margin: 0 10px 0 0;
 }
 
-
 /* ---------------- Messages  ----------------- */
 
 #messages {
@@ -856,29 +843,27 @@ ul.action-links li a {
   margin: 0 auto;
 }
 div.messages {
-  padding:1.2em 2em 1em;
+  padding: 1.2em 2em 1em;
   margin: 8px 0;
 }
 div.status, tr.status {
-  background-color:#c7ffc0;
+  background-color: #c7ffc0;
   border: 1px solid #89d47f;
 }
 div.warning, tr.warning {
-  background-color:#fcfca7;
+  background-color: #fcfca7;
   border: 1px solid #e1c46b;
 }
 div.error, tr.error {
-  background-color:#ffcccc;
+  background-color: #ffcccc;
   border: 1px solid #fb6b6b;
 }
-
 
 /* -------------- User Profile   -------------- */
 
 .profile .user-picture {
   float: none;
 }
-
 
 /* -------------- Password Meter  ------------- */
 
@@ -902,7 +887,6 @@ div.password-confirm {
   margin-top: 0.2em;
 }
 
-
 /* ---------------- Buttons    ---------------- */
 
 input.form-submit,
@@ -914,7 +898,6 @@ a.button {
   border-right-color: #d2d2d2;
   color: #3a3a3a;
   cursor: pointer;
-  font-family: "Lucida Grande", Verdana, sans-serif;
   font-size: 90%;
   font-weight: normal;
   text-align: center;
@@ -933,7 +916,6 @@ a.button:active {
   text-decoration: none;
   color: #5a5a5a;
 }
-
 
 /* -------------- Form Elements   ------------- */
 
@@ -1072,7 +1054,6 @@ div.vertical-tabs .vertical-tabs-panes fieldset.vertical-tabs-pane {
   padding: 1em;
 }
 
-
 /* --------------- Search Form ---------------- */
 
 #block-search-form .content {
@@ -1106,7 +1087,6 @@ div.vertical-tabs .vertical-tabs-panes fieldset.vertical-tabs-pane {
   background: url(../images/search-button.png) no-repeat left center;
 }
 
-
 /* -------------- Shortcut Links -------------- */
 
 .shortcut-wrapper {
@@ -1123,7 +1103,6 @@ div.add-or-remove-shortcuts {
   padding-top: 0.8em;
 }
 
-
 /* ---------- Admin-specific Theming ---------- */
 
 .page-admin #block-system-main img {
@@ -1134,6 +1113,13 @@ div.add-or-remove-shortcuts {
 }
 .page-admin #admin-dblog img {
   margin: 0 5px;
+}
+/* Fix spacing when Seven is used in the overlay. */
+#system-theme-settings fieldset {
+  padding: 0;
+}
+#system-theme-settings fieldset .fieldset-legend {
+  margin-top: 0;
 }
 
 /* Configuration */
@@ -1161,7 +1147,6 @@ div.admin-panel dd {
 div.admin-panel .description {
   margin: 0 0 14px 7px;
 }
-
 
 /* ---------- Overlay layout styles ----------- */
 
@@ -1191,7 +1176,6 @@ div.admin-panel .description {
   width: auto;
 }
 
-
 /* ---------- Poll ----------- */
 .node .poll {
   margin: 2em 0;
@@ -1214,7 +1198,7 @@ div.admin-panel .description {
   text-align: right;
 }
 .poll .text {
-  clear:right;
+  clear: right;
 }
 .poll .total {
   font-size: 95%;
@@ -1240,7 +1224,6 @@ div.admin-panel .description {
 #footer-wrapper .poll .bar .foreground {
   background-color: #ddd;
 }
-
 
 /* ---------- Color Form ----------- */
 
@@ -1285,4 +1268,3 @@ div.admin-panel .description {
 .overlay #preview #footer-wrapper {
   display: block;
 }
-

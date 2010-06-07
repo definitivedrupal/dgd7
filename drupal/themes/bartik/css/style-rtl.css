@@ -41,7 +41,7 @@ ul.tips {
 #header div.block-menu,
 #header div#block-system-main-menu,
 #header div#block-system-secondary-menu {
-  float: right; 
+  float: right;
 }
 #header .block-menu li a,
 #header #block-system-main-menu li a,
@@ -168,9 +168,13 @@ ul.tips {
 
 /* --------------- System Tabs  --------------- */
 
-.tabs ul.primary li a {
+.tabs ul.primary li {
+   margin: 0 0 0 5px;
   float: right;
-  margin: 0 0 0 1px;
+  zoom: 1;
+}
+.tabs ul.secondary li {
+  float: right;
 }
 .tabs ul.secondary li:last-child {
   border-left: none;
@@ -202,13 +206,11 @@ html.js input.throbbing {
   background-position: 1% -16px;
 }
 
-
 /* -------------- Shortcut Links ------------- */
 
 .shortcut-wrapper h1#page-title {
   float: right;
 }
-
 
 /* ---------- Poll ----------- */
 

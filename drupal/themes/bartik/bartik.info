@@ -37,10 +37,3 @@ regions[footer_fourthcolumn] = Footer fourth column
 regions[footer] = Footer
 
 settings[shortcut_module_link] = 1
-
-; Information added by drupal.org packaging script on 2010-05-18
-version = "7.x-1.0-rc1"
-core = "7.x"
-project = "bartik"
-datestamp = "1274165703"
-
