@@ -65,6 +65,9 @@ DirectoryIndex index.php index.html index.htm
 <IfModule mod_rewrite.c>
   RewriteEngine on
 
+  RewriteCond %{HTTP_HOST} ^(www\.|)(definitivedrupal.com|dgd7.com|dgd7.org|dgd7.us|essentialdrupal.com|essentiald7.net|essentiald7.com|essentialdrupal.net|essetialdrupal7.com) [NC]
+  RewriteRule ^(.*)$ http://definitivedrupal.org/$1 [L,R=301]
+
   # Block access to "hidden" directories whose names begin with a period. This
   # includes directories used by version control systems such as Subversion or
   # Git to store control files. Files whose names begin with a period, as well
