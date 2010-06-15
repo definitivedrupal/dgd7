@@ -3,23 +3,17 @@
 /* Bring in the rest of the theme's CSS styles. */
 @import url("../css/style.css");
 
-/**
- * From color.css
- */
+/* From color.css. */
 #preview, #preview-header {
   background-color: #000000;
 }
-
-/**
- * Undoing Seven's reset.
- */
+/* Undoing Seven's reset. */
 #preview #preview-header #preview-logo img {
   border: 0;
 }
 
-/**
- * Basic layout styles
- */
+/* ---------- Basic Preview Styles ----------- */
+
 #preview {
   width: 640px;
   overflow: hidden;

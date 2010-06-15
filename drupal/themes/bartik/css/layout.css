@@ -1,8 +1,7 @@
 /* $Id$ */
 
-/**
- * Basic layout styles
- */
+/* ---------- Basic Layout Styles ----------- */
+
 #header div.section,
 #navigation div.section,
 #featured div.section,
@@ -10,7 +9,7 @@
 #main,
 #triptych,
 #footer-columns,
-#footer  {
+#footer {
   width: 960px;
   margin-left: auto;
   margin-right: auto;
@@ -33,6 +32,10 @@
 }
 .two-sidebars #content {
   width: 480px;
+}
+.no-sidebars #content {
+  width: 960px;
+  float: none;
 }
 .sidebar {
   width: 240px;

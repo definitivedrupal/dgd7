@@ -1,8 +1,7 @@
 /* $Id$ */
 
-/**
- * Styles and colors that the color module modifies.
- */
+/* ---------- Color Module Styles ----------- */
+
 body {
   background-color: #161617;
   color: #ffffff;
@@ -11,6 +10,9 @@ body {
 body.overlay {
   background-color: #ffffff;
   color: #3b3b3b;
+}
+#navigation ul.links li.active-trail a {
+  background: #ffffff;
 }
 #header {
   background-color: #000000;

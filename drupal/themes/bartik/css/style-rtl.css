@@ -130,7 +130,7 @@ ul.tips {
 
 /* -------------- Password Meter  ------------- */
 
-#password-strength  {
+#password-strength {
   left: auto;
   margin-top: 2em;
   right: 16em;
@@ -169,7 +169,7 @@ ul.tips {
 /* --------------- System Tabs  --------------- */
 
 .tabs ul.primary li {
-   margin: 0 0 0 5px;
+  margin: 0 0 0 5px;
   float: right;
   zoom: 1;
 }
@@ -179,7 +179,7 @@ ul.tips {
 .tabs ul.secondary li:last-child {
   border-left: none;
 }
-ul.action-links li a  {
+ul.action-links li a {
   background-position: right center;
   padding-left: 0;
   padding-right: 15px;
