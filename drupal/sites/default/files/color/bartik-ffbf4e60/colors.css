@@ -1,0 +1,38 @@
+/* $Id$ */
+
+/* ---------- Color Module Styles ----------- */
+
+body {
+  background-color: #161617;
+  color: #ffffff;
+}
+#page-wrapper,
+body.overlay {
+  background-color: #ffffff;
+  color: #000000;
+}
+#navigation ul.links li.active-trail a {
+  background: #ffffff;
+}
+#header {
+  background-color: #ffee07;
+  background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, from(#ffee07), to(#000000));
+  background-image: -moz-linear-gradient(-90deg, #ffee07, #000000);
+}
+a {
+  color: #0073b6;
+}
+a:hover,
+a:focus {
+  color: #008ee2;
+}
+a:active {
+  color: #22adff;
+}
+.sidebar .block {
+  background-color: #feffff;
+  border-color: #d0d0d0;
+}
+#footer-wrapper {
+  background: #161617;
+}
