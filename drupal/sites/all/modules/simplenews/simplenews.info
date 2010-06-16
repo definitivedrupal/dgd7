@@ -1,0 +1,25 @@
+; $Id: simplenews.info,v 1.17 2010/03/29 21:13:44 sutharsan Exp $
+name = Simplenews
+description = Send newsletters to subscribed email addresses.
+package = Mail
+core = 7.x
+
+files[] = simplenews-block.tpl.php
+files[] = simplenews-newsletter-body.tpl.php
+files[] = simplenews-newsletter-footer.tpl.php
+files[] = simplenews.admin.inc
+files[] = simplenews.install
+files[] = simplenews.module
+files[] = simplenews.subscription.inc
+files[] = views/simplenews.views.inc
+files[] = views/handlers/simplenews_handler_field_newsletter_status.inc
+files[] = views/handlers/simplenews_handler_field_category_name.inc
+files[] = views/handlers/simplenews_handler_filter_newsletter_status.inc
+files[] = tests/simplenews.test
+
+; Information added by drupal.org packaging script on 2010-04-23
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "simplenews"
+datestamp = "1271981717"
+

@@ -1,0 +1,15 @@
+; $Id: simplenews_access.info,v 1.1 2010/03/15 22:24:13 sutharsan Exp $
+name = Simplenews access
+description = Provide access control for Simplenews.
+dependencies[] = simplenews
+package = Mail
+core = 7.x
+
+files[] = simplenews_access.module
+
+; Information added by drupal.org packaging script on 2010-04-23
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "simplenews"
+datestamp = "1271981717"
+
