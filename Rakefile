@@ -34,7 +34,7 @@ end
 
 task :prod do
   set :environment, "production"
-  set :domain, "sojourner.mayfirst.org"
+  set :domain, "definitivedrupal@sojourner.mayfirst.org"
   set :repository, "vlad@git.agaric.com:/srv/git/#{application}.git"
   set :web_command, "/etc/init.d/apache2"
   set :web_user, "www-data"
@@ -45,7 +45,7 @@ task :prod do
   set :db_user, "#{application}"
   set :db_pass, "example"
   set :deploy_to, "/var/local/drupal/#{application}"
-  set :release_path, "#{deploy_to}/web"
+  set :release_path, "#{deploy_to}/drupal"
 
   role :app, domain
   role :web, domain

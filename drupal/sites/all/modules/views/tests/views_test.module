@@ -1,0 +1,30 @@
+<?php
+// $Id: views_test.module,v 1.1.2.5 2010/05/24 09:13:58 dereine Exp $
+
+/**
+ * Implements hook_permission().
+ */
+function views_test_permission() {
+  return array(
+    'views_test test permission' => array(
+      'title' => t('Test permission'),
+      'description' => t('views_test test permission'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function views_test_views_api() {
+  return array(
+    'api' => 2.0,
+  );
+}
+
+/**
+ * Implements hook_views_data()
+ */
+function views_test_views_data() {
+  return variable_get('views_test_views_data', array());
+}

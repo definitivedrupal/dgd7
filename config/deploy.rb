@@ -58,7 +58,7 @@ namespace :vlad do
 
     if environment == "test"
       sudo "chmod g+w #{deploy_to}"
-      sudo "chown #{web_user}:staff #{files_dir}"
+      sudo "chown -R #{web_user}:staff #{files_dir}"
     end
   end
 
