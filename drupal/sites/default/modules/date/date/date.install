@@ -1,0 +1,9 @@
+<?php
+// $Id: date.install,v 1.43 2010/02/28 15:02:34 karens Exp $
+/**
+ * @file
+ * Installation code for CCK date module.
+ */
+function date_update_last_removed() {
+  return 6005;
+}
