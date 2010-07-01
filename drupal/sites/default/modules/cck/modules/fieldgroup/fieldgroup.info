@@ -1,0 +1,14 @@
+; $Id: fieldgroup.info,v 1.12 2009/02/03 19:53:47 karens Exp $
+name = Fieldgroup
+description = Create display groups for CCK fields.
+dependencies[] = cck
+files[]=fieldgroup.module
+package = CCK
+core = 7.x
+
+; Information added by drupal.org packaging script on 2010-06-22
+version = "7.x-2.x-dev"
+core = "7.x"
+project = "cck"
+datestamp = "1277164965"
+

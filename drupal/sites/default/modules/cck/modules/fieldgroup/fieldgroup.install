@@ -1,0 +1,44 @@
+<?php
+// $Id: fieldgroup.install,v 1.41 2010/04/23 15:41:28 karens Exp $
+
+/**
+ * @file
+ * Implementation of hook_install().
+ */
+function fieldgroup_install() {
+  db_query("UPDATE {system} SET weight = 9 WHERE name = 'fieldgroup'");
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function fieldgroup_uninstall() {
+}
+
+/**
+ * Implementation of hook_schema.
+ */
+function fieldgroup_schema() {
+  $schema['field_group'] = array(
+    'fields' => array(
+      'group_type' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'standard'),
+      'bundle'     => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => ''),
+      'group_name' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => ''),
+      'label'      => array('type' => 'varchar', 'length' => 255, 'not null' => TRUE, 'default' => ''),
+      'settings'   => array('type' => 'text', 'size' => 'medium', 'not null' => TRUE),
+      'weight'     => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+    ),
+    'primary key' => array('bundle', 'group_name'),
+  );
+
+  $schema['field_group_fields'] = array(
+    'fields' => array(
+      'bundle'     => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => ''),
+      'group_name' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => ''),
+      'field_name' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => ''),
+    ),
+    'primary key' => array('bundle', 'group_name', 'field_name'),
+  );
+
+  return $schema;
+}

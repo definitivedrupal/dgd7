@@ -1,0 +1,13 @@
+; $Id: node_reference.info,v 1.6 2009/03/21 21:57:42 karens Exp $
+name = Node Reference
+description = Defines a field type for referencing one node from another.
+files[]=node_reference.module
+package = CCK
+core = 7.x
+
+; Information added by drupal.org packaging script on 2010-06-22
+version = "7.x-2.x-dev"
+core = "7.x"
+project = "cck"
+datestamp = "1277164965"
+
