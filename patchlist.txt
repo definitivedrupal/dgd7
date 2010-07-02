@@ -1,0 +1,2 @@
+cck user_reference module:
+http://drupal.org/node/843608
