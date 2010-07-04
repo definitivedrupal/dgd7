@@ -1,0 +1,55 @@
+diff -u -r /home/ben/code/dgd7/drupal/sites/default/files/coder_upgrade/old/submitagain/submitagain.info /home/ben/code/dgd7/drupal/sites/default/files/coder_upgrade/new/submitagain/submitagain.info
+--- submitagain.info	2010-06-16 11:30:11.000000000 -0700
++++ submitagain.info	2010-07-02 18:45:01.234815214 -0700
+@@ -1,11 +1,13 @@
+ ; $Id: submitagain.info,v 1.3 2008/01/17 03:41:39 deekayen Exp $
+ name = Submit Again
+ description = Adds an extra button to selected node types *Submit and make another*
+-core = 6.x
++core = 7.x
+ 
+ ; Information added by drupal.org packaging script on 2010-06-16
+ version = "6.x-1.4"
+-core = "6.x"
++core = 7.x
+ project = "submitagain"
+ datestamp = "1276713011"
+ 
++
++files[] = submitagain.module
+diff -u -r /home/ben/code/dgd7/drupal/sites/default/files/coder_upgrade/old/submitagain/submitagain.module /home/ben/code/dgd7/drupal/sites/default/files/coder_upgrade/new/submitagain/submitagain.module
+--- submitagain.module	2010-06-16 11:26:14.000000000 -0700
++++ submitagain.module	2010-07-02 18:45:01.224707554 -0700
+@@ -14,7 +14,7 @@
+  */
+ function submitagain_form_alter(&$form, $form_state, $form_id) {
+   if (strpos($form_id, '_node_form') && !isset($form['nid']['#value'])) {
+-    if (variable_get('submitagain_'. $form['type']['#value'], FALSE)) {
++    if (variable_get('submitagain_' . $form['type']['#value'], FALSE)) {
+       $form['buttons']['submit_again'] = array(
+         '#type' => 'submit',
+         '#value' => t('Save and create another'),
+@@ -26,9 +26,9 @@
+ }
+ 
+ function submitagain_node_form_submit($form, &$form_state) {
+-  $link = l(t('Visit your new post.'), 'node/'. $form_state['nid']);
++  $link = l(t('Visit your new post.'), 'node/' . $form_state['nid']);
+   drupal_set_message($link);
+-  
++
+   // Go back to same node/add/x form and also disregard destination= on querystring.
+   $form_state['redirect'] = NULL;
+   unset($_REQUEST['destination'], $_REQUEST['edit']['destination']);
+@@ -42,8 +42,8 @@
+     $form['submission']['submitagain'] = array(
+       '#type' => 'checkbox',
+       '#title' => t('Submit again?'),
+-      '#default_value' => variable_get('submitagain_'. $form['#node_type']->type, FALSE),
++      '#default_value' => variable_get('submitagain_' . $form['#node_type']->type, FALSE),
+       '#description' => t('Enable this checkbox if you want to provide a "Save and create another" button for your users.')
+     );
+   }
+-}
+\ No newline at end of file
++}
