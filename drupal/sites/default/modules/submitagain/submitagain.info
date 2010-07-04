@@ -1,0 +1,11 @@
+; $Id: submitagain.info,v 1.3 2008/01/17 03:41:39 deekayen Exp $
+name = Submit Again
+description = Adds an extra button to selected node types *Submit and make another*
+core = 6.x
+
+; Information added by drupal.org packaging script on 2010-06-16
+version = "6.x-1.4"
+core = "6.x"
+project = "submitagain"
+datestamp = "1276713011"
+

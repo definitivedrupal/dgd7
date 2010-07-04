@@ -1,0 +1,49 @@
+<?php
+// $Id: submitagain.module,v 1.2.2.7 2010/06/16 18:26:14 weitzman Exp $
+
+/**
+ * @file
+ * Add a new button to node creation forms that
+ * allows the content author to return to the node
+ * creation form after saving new content instead
+ * of going to the view page of the new content.
+ */
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function submitagain_form_alter(&$form, $form_state, $form_id) {
+  if (strpos($form_id, '_node_form') && !isset($form['nid']['#value'])) {
+    if (variable_get('submitagain_'. $form['type']['#value'], FALSE)) {
+      $form['buttons']['submit_again'] = array(
+        '#type' => 'submit',
+        '#value' => t('Save and create another'),
+        '#weight' => 41,
+        '#submit' => array('node_form_submit', 'submitagain_node_form_submit'),
+      );
+    }
+  }
+}
+
+function submitagain_node_form_submit($form, &$form_state) {
+  $link = l(t('Visit your new post.'), 'node/'. $form_state['nid']);
+  drupal_set_message($link);
+  
+  // Go back to same node/add/x form and also disregard destination= on querystring.
+  $form_state['redirect'] = NULL;
+  unset($_REQUEST['destination'], $_REQUEST['edit']['destination']);
+}
+
+/**
+ * Alter content type settings to add "Submit Again?" checkbox
+ */
+function submitagain_form_node_type_form_alter(&$form, &$form_state) {
+  if (isset($form['identity']['type'])) {
+    $form['submission']['submitagain'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Submit again?'),
+      '#default_value' => variable_get('submitagain_'. $form['#node_type']->type, FALSE),
+      '#description' => t('Enable this checkbox if you want to provide a "Save and create another" button for your users.')
+    );
+  }
+}
