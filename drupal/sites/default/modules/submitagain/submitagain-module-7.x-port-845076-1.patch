@@ -1,0 +1,39 @@
+--- submitagain.module.orig	2010-06-16 11:26:14.000000000 -0700
++++ submitagain.module	2010-07-05 06:21:56.316446316 -0700
+@@ -14,8 +14,8 @@
+  */
+ function submitagain_form_alter(&$form, $form_state, $form_id) {
+   if (strpos($form_id, '_node_form') && !isset($form['nid']['#value'])) {
+-    if (variable_get('submitagain_'. $form['type']['#value'], FALSE)) {
+-      $form['buttons']['submit_again'] = array(
++    if (variable_get('submitagain_' . $form['type']['#value'], FALSE)) {
++      $form['actions']['submit_again'] = array(
+         '#type' => 'submit',
+         '#value' => t('Save and create another'),
+         '#weight' => 41,
+@@ -26,9 +26,9 @@ function submitagain_form_alter(&$form, 
+ }
+ 
+ function submitagain_node_form_submit($form, &$form_state) {
+-  $link = l(t('Visit your new post.'), 'node/'. $form_state['nid']);
++  $link = l(t('Visit your new post.'), 'node/' . $form_state['nid']);
+   drupal_set_message($link);
+-  
++
+   // Go back to same node/add/x form and also disregard destination= on querystring.
+   $form_state['redirect'] = NULL;
+   unset($_REQUEST['destination'], $_REQUEST['edit']['destination']);
+@@ -38,12 +38,12 @@ function submitagain_node_form_submit($f
+  * Alter content type settings to add "Submit Again?" checkbox
+  */
+ function submitagain_form_node_type_form_alter(&$form, &$form_state) {
+-  if (isset($form['identity']['type'])) {
++  if (isset($form['type'])) {
+     $form['submission']['submitagain'] = array(
+       '#type' => 'checkbox',
+       '#title' => t('Submit again?'),
+-      '#default_value' => variable_get('submitagain_'. $form['#node_type']->type, FALSE),
++      '#default_value' => variable_get('submitagain_' . $form['#node_type']->type, FALSE),
+       '#description' => t('Enable this checkbox if you want to provide a "Save and create another" button for your users.')
+     );
+   }
