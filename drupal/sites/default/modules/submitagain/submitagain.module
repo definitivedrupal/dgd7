@@ -15,7 +15,7 @@
 function submitagain_form_alter(&$form, $form_state, $form_id) {
   if (strpos($form_id, '_node_form') && !isset($form['nid']['#value'])) {
     if (variable_get('submitagain_' . $form['type']['#value'], FALSE)) {
-      $form['buttons']['submit_again'] = array(
+      $form['actions']['submit_again'] = array(
         '#type' => 'submit',
         '#value' => t('Save and create another'),
         '#weight' => 41,
