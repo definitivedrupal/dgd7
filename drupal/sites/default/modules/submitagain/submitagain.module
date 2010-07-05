@@ -38,7 +38,7 @@ function submitagain_node_form_submit($form, &$form_state) {
  * Alter content type settings to add "Submit Again?" checkbox
  */
 function submitagain_form_node_type_form_alter(&$form, &$form_state) {
-  if (isset($form['identity']['type'])) {
+  if (isset($form['type'])) {
     $form['submission']['submitagain'] = array(
       '#type' => 'checkbox',
       '#title' => t('Submit again?'),
