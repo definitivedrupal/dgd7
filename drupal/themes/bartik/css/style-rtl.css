@@ -48,6 +48,7 @@ ul.tips {
 #header #block-system-secondary-menu li a {
   float: right;
   border-left: 1px solid #555;
+
   border-right: none;
 }
 #header .block-menu li.first a,
@@ -154,6 +155,7 @@ ul.tips {
 #footer li a {
   float: right;
   border-left: 1px solid #555;
+  border-color: rgba(255,255,255,0.15);  
   border-right: none;
 }
 #footer li.first a {
@@ -175,6 +177,9 @@ ul.tips {
 }
 .tabs ul.secondary li {
   float: right;
+}
+.tabs ul.secondary li:first-child {
+  padding-right: 0;
 }
 .tabs ul.secondary li:last-child {
   border-left: none;
@@ -204,6 +209,19 @@ html.js input.form-autocomplete {
 }
 html.js input.throbbing {
   background-position: 1% -16px;
+}
+
+/* Comment form */
+#comment-form .form-type-textfield label,
+#comment-form .form-type-item label {
+  float: right;
+}
+#comment-form .form-type-textfield input,
+#comment-form .form-item .username {
+  float: left;
+}
+#comment-form .form-item .description {
+  float: left;
 }
 
 /* -------------- Shortcut Links ------------- */

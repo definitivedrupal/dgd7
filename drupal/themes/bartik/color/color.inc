@@ -1,7 +1,7 @@
 <?php
 // $Id$
 
-// Put the logo path into JavaScript for the Preview JS.
+// Put the logo path into JavaScript for the live preview.
 drupal_add_js(array('color' => array('logo' => theme_get_setting('logo', 'bartik'))), 'setting');
 
 $info = array(
@@ -15,6 +15,7 @@ $info = array(
     'sidebar' => t('Sidebar background'),
     'sidebarborders' => t('Sidebar borders'),
     'footer' => t('Footer background'),
+    'titleslogan' => t('Title and slogan'),
   ),
   // Pre-defined color schemes.
   'schemes' => array(
@@ -23,51 +24,69 @@ $info = array(
       'colors' => array(
         'bg' => '#ffffff',
         'link' => '#0073b6',
-        'top' => '#000000',
-        'bottom' => '#3d3d3d',
+        'top' => '#4a4a4a',
+        'bottom' => '#4e4e4e',
         'text' => '#3b3b3b',
         'sidebar' => '#feffff',
         'sidebarborders' => '#d0d0d0',
         'footer' => '#161617',
+        'titleslogan' => '#fffeff',
       ),
     ),
     'Blue Lagoon' => array(
       'title' => t('Blue Lagoon'),
       'colors' => array(
         'bg' => '#ffffff',
-        'link' => '#0073b6',
-        'top' => '#2385c2',
-        'bottom' => '#5ab5ee',
+        'link' => '#288CC9',
+        'top' => '#0779bf',
+        'bottom' => '#48a9e4',
         'text' => '#3b3b3b',
-        'sidebar' => '#feffff',
-        'sidebarborders' => '#4377ac',
-        'footer' => '#00143d',
+        'sidebar' => '#f6f6f2',
+        'sidebarborders' => '#f9f9f9',
+        'footer' => '#2d1e0f',
+        'titleslogan' => '#fffeff',
+      ),
+    ),
+    'Firehouse' => array(
+      'title' => t('Firehouse'),
+      'colors' => array(
+        'bg' => '#ffffff',
+        'link' => '#d6121f',
+        'top' => '#cd2d2d',
+        'bottom' => '#cf3535',
+        'text' => '#3b3b3b',
+        'sidebar' => '#f1f1f1',
+        'sidebarborders' => '#c2c2c2',
+        'footer' => '#1f1d1c',
+        'titleslogan' => '#fffeff',
       ),
     ),
     'Plum' => array(
       'title' => t('Plum'),
       'colors' => array(
-        'bg' => '#f6eecc',
-        'link' => '#6b2454',
-        'top' => '#461453',
-        'bottom' => '#6b2454',
-        'text' => '#2c233f',
-        'sidebar' => '#f0f0f0',
-        'sidebarborders' => '#4e2e44',
-        'footer' => '#452632',
+        'bg' => '#fffdf7',
+        'link' => '#9d408d',
+        'top' => '#4c1c58',
+        'bottom' => '#593662',
+        'text' => '#301313',
+        'sidebar' => '#f8f3e7',
+        'sidebarborders' => '#e4e3d4',
+        'footer' => '#2C2C28',
+        'titleslogan' => '#fffeff',
       ),
     ),
-    'Fresh' => array(
-      'title' => t('Fresh'),
+    'Ice' => array(
+      'title' => t('Ice'),
       'colors' => array(
-        'bg' => '#f6ffff',
-        'link' => '#087095',
-        'top' => '#78b91a',
-        'bottom' => '#5b8b15',
+        'bg' => '#ffffff',
+        'link' => '#0f75b4',
+        'top' => '#d0d0d0',
+        'bottom' => '#c2c4c5',
         'text' => '#585858',
         'sidebar' => '#feffff',
-        'sidebarborders' => '#5899b0',
-        'footer' => '#2f4016',
+        'sidebarborders' => '#cccccc',
+        'footer' => '#24272c',
+        'titleslogan' => '#0b0b0b',
       ),
     ),
   ),

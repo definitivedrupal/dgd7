@@ -40,7 +40,9 @@
 .sidebar {
   width: 240px;
 }
-
+#main-wrapper {
+  min-height: 500px;
+}
 #messages div.section,
 #content .section,
 .sidebar .section {

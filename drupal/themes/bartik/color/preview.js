@@ -30,6 +30,8 @@
       var gradient_end = $('#palette input[name="palette[bottom]"]', form).val();
 
       $('#preview #preview-header', form).attr('style', "background-color: " + gradient_start + "; background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, from(" + gradient_start + "), to(" + gradient_end + ")); background-image: -moz-linear-gradient(-90deg, " + gradient_start + ", " + gradient_end + ");");
+
+      $('#preview #preview-name-and-slogan a', form).css('color', $('#palette input[name="palette[titleslogan]"]', form).val());
     }
   };
 })(jQuery);

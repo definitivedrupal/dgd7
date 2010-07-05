@@ -6,6 +6,7 @@ body {
   background-color: #161617;
   color: #ffffff;
 }
+html,
 #page-wrapper,
 body.overlay {
   background-color: #ffffff;
@@ -14,10 +15,13 @@ body.overlay {
 #navigation ul.links li.active-trail a {
   background: #ffffff;
 }
+.tabs ul.primary li a.active {
+  background-color: #ffffff;
+}
 #header {
-  background-color: #000000;
-  background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, from(#000000), to(#3d3d3d));
-  background-image: -moz-linear-gradient(-90deg, #000000, #3d3d3d);
+  background-color: #4e4e4e;
+  background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, from(#4a4a4a), to(#4e4e4e));
+  background-image: -moz-linear-gradient(-90deg, #4a4a4a, #4e4e4e);
 }
 a {
   color: #0073b6;
@@ -35,4 +39,8 @@ a:active {
 }
 #footer-wrapper {
   background: #161617;
+}
+#header #name-and-slogan,
+#header #name-and-slogan a {
+  color: #fffeff;
 }

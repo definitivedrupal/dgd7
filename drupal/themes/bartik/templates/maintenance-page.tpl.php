@@ -33,12 +33,6 @@
 
   <div id="header"><div class="section clearfix">
 
-    <?php if ($logo): ?>
-      <a href="<?php print $front_page; ?>" title="<?php print t('Home'); ?>" rel="home" id="logo">
-        <img src="<?php print $logo; ?>" alt="<?php print t('Home'); ?>" />
-      </a>
-    <?php endif; ?>
-
     <?php if ($site_name || $site_slogan): ?>
       <div id="name-and-slogan"<?php if ($hide_site_name && $hide_site_slogan) { print ' class="element-invisible"'; } ?>>
 
@@ -69,18 +63,6 @@
 
   </div></div> <!-- /.section, /#header -->
 
-  <?php if ($messages): ?>
-    <div id="messages"><div class="section clearfix">
-      <?php print $messages; ?>
-    </div></div> <!-- /.section, /#messages -->
-  <?php endif; ?>
-
-  <?php if ($featured): ?>
-    <div id="featured" class="region"><div class="section clearfix">
-      <?php print $featured; ?>
-    </div></div> <!-- /.section, /#featured -->
-  <?php endif; ?>
-
   <div id="main-wrapper"><div id="main" class="clearfix">
 
     <div id="content" class="column"><div class="section">
@@ -92,80 +74,17 @@
         </h1>
       <?php endif; ?>
       <?php print $content; ?>
+      
+      <?php if ($messages): ?>
+        <div id="messages"><div class="section clearfix">
+          <?php print $messages; ?>
+        </div></div> <!-- /.section, /#messages -->
+      <?php endif; ?>
 
     </div></div> <!-- /.section, /#content -->
 
-    <?php if ($sidebar_first): ?>
-      <div id="sidebar-first" class="column sidebar"><div class="section">
-        <?php print $sidebar_first; ?>
-      </div></div> <!-- /.section, /#sidebar-first -->
-    <?php endif; ?>
 
   </div></div> <!-- /#main, /#main-wrapper -->
-
-  <?php if ($triptych_first || $triptych_middle || $triptych_last): ?>
-    <div id="triptych-wrapper"><div id="triptych" class="clearfix">
-
-      <?php if ($triptych_first): ?>
-        <div id="triptych-first" class="region triptych"><div class="section">
-          <?php print $triptych_first; ?>
-        </div></div> <!-- /.section, /#triptych-first -->
-      <?php endif; ?>
-
-      <?php if ($triptych_middle): ?>
-        <div id="triptych-middle" class="region triptych"><div class="section">
-          <?php print $triptych_middle; ?>
-        </div></div> <!-- /.section, /#triptych-middle -->
-      <?php endif; ?>
-
-      <?php if ($triptych_last): ?>
-        <div id="triptych-last" class="region triptych"><div class="section">
-          <?php print $triptych_last; ?>
-        </div></div> <!-- /.section, /#triptych-last -->
-      <?php endif; ?>
-
-    </div></div> <!-- /#triptych, /#triptych-wrapper -->
-  <?php endif; ?>
-
-  <div id="footer-wrapper"><div class="section">
-
-    <?php if ($footer_firstcolumn || $footer_secondcolumn || $footer_thirdcolumn || $footer_fourthcolumn): ?>
-      <div id="footer-columns" class="clearfix">
-
-        <?php if ($footer_firstcolumn): ?>
-          <div id="footer-firstcolumn" class="region sitemap"><div class="section">
-            <?php print $footer_firstcolumn; ?>
-          </div></div> <!-- /.section, /#footer-firstcolumn -->
-        <?php endif; ?>
-
-        <?php if ($footer_secondcolumn): ?>
-          <div id="footer-secondcolumn" class="region sitemap"><div class="section">
-            <?php print $footer_secondcolumn; ?>
-          </div></div> <!-- /.section, /#footer-secondcolumn -->
-        <?php endif; ?>
-
-        <?php if ($footer_thirdcolumn): ?>
-          <div id="footer-thirdcolumn" class="region sitemap"><div class="section">
-            <?php print $footer_thirdcolumn; ?>
-          </div></div> <!-- /.section, /#footer-thirdcolumn -->
-        <?php endif; ?>
-
-        <?php if ($footer_fourthcolumn): ?>
-          <div id="footer-fourthcolumn" class="region sitemap"><div class="section">
-            <?php print $footer_fourthcolumn; ?>
-          </div></div> <!-- /.section, /#footer-fourthcolumn -->
-        <?php endif; ?>
-
-      </div><!-- /#footer-columns -->
-    <?php endif; ?>
-
-    <?php if ($footer): ?>
-      <div id="footer" class="clearfix">
-        <?php print $footer; ?>
-      </div><!-- /#footer -->
-    <?php endif; ?>
-
-  </div></div> <!-- /.section, /#footer-wrapper -->
 
 </div></div> <!-- /#page, /#page-wrapper -->
 
