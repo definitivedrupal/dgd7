@@ -1,0 +1,42 @@
+diff --git modules/book/book.admin.inc modules/book/book.admin.inc
+index 819765d..f6f1e06 100644
+--- modules/book/book.admin.inc
++++ modules/book/book.admin.inc
+@@ -176,6 +176,10 @@ function _book_admin_table($node, &$form) {
+  * @see book_admin_edit()
+  */
+ function _book_admin_table_tree($tree, &$form) {
++  // The delta must be big enough to give each node a distinct value.
++  $count = count($tree);
++  $delta = ($count < 30) ? 15 : intval($count / 2) + 1;
++
+   foreach ($tree as $data) {
+     $form['book-admin-' . $data['link']['nid']] = array(
+       '#item' => $data['link'],
+@@ -191,7 +195,7 @@ function _book_admin_table_tree($tree, &$form) {
+       'weight' => array(
+         '#type' => 'weight',
+         '#default_value' => $data['link']['weight'],
+-        '#delta' => 15,
++        '#delta' => $delta,
+       ),
+       'plid' => array(
+         '#type' => 'textfield',
+diff --git modules/book/book.module modules/book/book.module
+index a798e09..d24e44b 100644
+--- modules/book/book.module
++++ modules/book/book.module
+@@ -519,11 +519,12 @@ function _book_add_form_elements(&$form, &$form_state, $node) {
+ 
+   $form['book']['plid'] = _book_parent_select($node->book);
+ 
++  // @see _book_admin_table_tree(). The weight may be larger than 15.
+   $form['book']['weight'] = array(
+     '#type' => 'weight',
+     '#title' => t('Weight'),
+     '#default_value' => $node->book['weight'],
+-    '#delta' => 15,
++    '#delta' => max(15, abs($node->book['weight'])),
+     '#weight' => 5,
+     '#description' => t('Pages at a given level are ordered first by weight and then by title.'),
+   );
