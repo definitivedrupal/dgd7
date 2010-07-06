@@ -1,1 +1,3 @@
+*.swp
+*.swo
 drupal/sites/default/settings.php
