@@ -504,12 +504,15 @@ function _book_add_form_elements(&$form, &$form_state, $node) {
 
   $form['book']['plid'] = _book_parent_select($node->book);
 
-  // @see _book_admin_table_tree(). The weight may be larger than 15.
+  $tree = book_menu_subtree_data(menu_link_load($node->book['plid']));
+  $tree = array_shift($tree);  // Do not include the book item itself.
+  $delta = book_weight_delta_calculate($tree['below']);
+
   $form['book']['weight'] = array(
     '#type' => 'weight',
     '#title' => t('Weight'),
     '#default_value' => $node->book['weight'],
-    '#delta' => max(15, abs($node->book['weight'])),
+    '#delta' => $delta,
     '#weight' => 5,
     '#description' => t('Pages at a given level are ordered first by weight and then by title.'),
   );
@@ -552,6 +555,26 @@ function _book_add_form_elements(&$form, &$form_state, $node) {
       'speed' => 'fast',
     ),
   );
+}
+
+/**
+ * Provides the delta required (minimum 15) for weighting nodes in a book. 
+ *
+ * Takes a modified book subtree, such as $tree['below'] after getting $tree:
+ * $tree = array_shift(book_menu_subtree_data($node->book));
+ */
+function book_weight_delta_calculate($tree) {
+  // The delta must be big enough to give each node a distinct value.
+  $count = intval(count($tree) / 2) + 1;
+  // The delta must be as large as any existing delta.
+  $high = 0;
+  if ($tree) {
+    foreach ($tree as $value) {
+      $weight = abs($value['link']['weight']);
+      if ($weight > $high)  $high = $weight;
+    }
+  }
+  return max(15, $count, $high + 1);
 }
 
 /**

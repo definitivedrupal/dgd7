@@ -1,0 +1,70 @@
+diff --git modules/book/book.admin.inc modules/book/book.admin.inc
+index 819765d..e8464ee 100644
+--- modules/book/book.admin.inc
++++ modules/book/book.admin.inc
+@@ -176,6 +176,8 @@ function _book_admin_table($node, &$form) {
+  * @see book_admin_edit()
+  */
+ function _book_admin_table_tree($tree, &$form) {
++  $delta = book_weight_delta_calculate($tree);
++
+   foreach ($tree as $data) {
+     $form['book-admin-' . $data['link']['nid']] = array(
+       '#item' => $data['link'],
+@@ -191,7 +193,7 @@ function _book_admin_table_tree($tree, &$form) {
+       'weight' => array(
+         '#type' => 'weight',
+         '#default_value' => $data['link']['weight'],
+-        '#delta' => 15,
++        '#delta' => $delta,
+       ),
+       'plid' => array(
+         '#type' => 'textfield',
+diff --git modules/book/book.module modules/book/book.module
+index 3552998..ac5ad03 100644
+--- modules/book/book.module
++++ modules/book/book.module
+@@ -504,11 +504,15 @@ function _book_add_form_elements(&$form, &$form_state, $node) {
+ 
+   $form['book']['plid'] = _book_parent_select($node->book);
+ 
++  $tree = book_menu_subtree_data(menu_link_load($node->book['plid']));
++  $tree = array_shift($tree);  // Do not include the book item itself.
++  $delta = book_weight_delta_calculate($tree['below']);
++
+   $form['book']['weight'] = array(
+     '#type' => 'weight',
+     '#title' => t('Weight'),
+     '#default_value' => $node->book['weight'],
+-    '#delta' => 15,
++    '#delta' => $delta,
+     '#weight' => 5,
+     '#description' => t('Pages at a given level are ordered first by weight and then by title.'),
+   );
+@@ -554,6 +558,26 @@ function _book_add_form_elements(&$form, &$form_state, $node) {
+ }
+ 
+ /**
++ * Provides the delta required (minimum 15) for weighting nodes in a book. 
++ *
++ * Takes a modified book subtree, such as $tree['below'] after getting $tree:
++ * $tree = array_shift(book_menu_subtree_data($node->book));
++ */
++function book_weight_delta_calculate($tree) {
++  // The delta must be big enough to give each node a distinct value.
++  $count = intval(count($tree) / 2) + 1;
++  // The delta must be as large as any existing delta.
++  $high = 0;
++  if ($tree) {
++    foreach ($tree as $value) {
++      $weight = abs($value['link']['weight']);
++      if ($weight > $high)  $high = $weight;
++    }
++  }
++  return max(15, $count, $high + 1);
++}
++
++/**
+  * Common helper function to handles additions and updates to the book outline.
+  *
+  * Performs all additions and updates to the book outline through node addition,
