@@ -1,0 +1,89 @@
+<?php
+// $Id: field_permissions.module,v 1.1.4.4 2009/11/15 16:04:50 markuspetrux Exp $
+
+/**
+ * @file
+ * This is the main script for the Field Permissions module. It merely contains
+ * the implementation of hooks invoked by Drupal core and CCK.
+ * All common functions are externalized into several scripts that are included
+ * on demand to save memory consumption during normal site operation.
+ */
+
+/**
+ * Implementation of hook_menu().
+ */
+function field_permissions_menu() {
+  module_load_include('inc', 'field_permissions', 'includes/admin');
+  return _field_permissions_menu();
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function field_permissions_theme() {
+  return array(
+    'field_permissions_troubleshooting_form' => array('render element' => 'form', 'file' => 'includes/admin.inc'),
+  );
+}
+
+/**
+ * Implementation of hook_permission().
+ */
+function field_permissions_permission() {
+  module_load_include('inc', 'field_permissions', 'includes/admin');
+  return _field_permissions_permission();
+}
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function field_permissions_form_alter(&$form, $form_state, $form_id) {
+  if (in_array($form_id, array('field_ui_field_settings_form', 'field_ui_field_edit_form')) && isset($form['field']['settings'])) {
+    module_load_include('inc', 'field_permissions', 'includes/admin');
+    return _field_permissions_field_settings_form_alter($form, $form_state, $form_id);
+  }
+}
+
+/**
+ * Implementation of hook_field_access().
+ *
+ * @param $op
+ *   The operation to be performed. Possible values:
+ *   - 'edit'
+ *   - 'view'
+ * @param $field
+ *   The field on which the operation is to be performed.
+ * @param $obj_type
+ *   The type of $object; e.g. 'node' or 'user'.
+ * @param $object
+ *   The object on which the operation is to be performed.
+ * @param $account
+ *   The account to check.
+ *
+ * @return
+ *   FALSE if the operation is not allowed.
+ *   Note when field_access() is invoked, access is granted unless one
+ *   implementation of hook_field_access() explicitly returns FALSE.
+ *
+ * @see field_access()
+ */
+function field_permissions_field_access($op, $field, $obj_type, $object, $account) {
+  // Ignore the request if permissions have not been enabled for this field.
+  $field_permissions = (isset($field['settings']['field_permissions']) && is_array($field['settings']['field_permissions']) ? array_filter($field['settings']['field_permissions']) : array());
+  if (empty($field_permissions)) {
+    return;
+  }
+
+  if ($op == 'view') {
+    if (!empty($field_permissions['view']) || !empty($field_permissions['view own'])) {
+      module_load_include('inc', 'field_permissions', 'includes/field_access');
+      return _field_permissions_field_view_access($field['field_name'], $field_permissions, $obj_type, $object, $account);
+    }
+  }
+  elseif ($op == 'edit') {
+    if (!empty($field_permissions['edit']) || !empty($field_permissions['edit own']) || !empty($field_permissions['create'])) {
+      module_load_include('inc', 'field_permissions', 'includes/field_access');
+      return _field_permissions_field_edit_access($field['field_name'], $field_permissions, $obj_type, $object, $account);
+    }
+  }
+}

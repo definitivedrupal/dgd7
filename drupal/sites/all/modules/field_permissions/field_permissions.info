@@ -1,0 +1,16 @@
+; $Id: field_permissions.info,v 1.1.4.4 2009/11/15 16:04:50 markuspetrux Exp $
+name = Field Permissions
+description = Set field-level permissions to edit or view CCK fields in any node, edit field during node creation, and edit or view permissions for nodes owned by the current user.
+dependencies[] = field_ui
+package = CCK
+core = 7.x
+files[] = field_permissions.module
+files[] = includes/admin.inc
+files[] = includes/field_access.inc
+
+; Information added by drupal.org packaging script on 2009-11-16
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "field_permissions"
+datestamp = "1258373331"
+
