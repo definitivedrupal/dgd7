@@ -1,0 +1,29 @@
+diff --git insert.module insert.module
+index 3cd2a26..cff11e5 100644
+--- insert.module
++++ insert.module
+@@ -176,13 +176,13 @@ function insert_element_process($element) {
+ 
+   // Bail out early if the needed properties aren't available. This happens
+   // most frequently when editing a field configuration.
+-  if (!isset($element['#object_type'])) {
++  if (!isset($element['#entity_type'])) {
+     return;
+   }
+ 
+   $item = $element['#value'];
+   $field = field_info_field($element['#field_name']);
+-  $instance = field_info_instance($element['#object_type'], $element['#field_name'], $element['#bundle']);
++  $instance = field_info_instance($element['#entity_type'], $element['#field_name'], $element['#bundle']);
+ 
+   $widget_settings = $instance['widget']['settings'];
+   $widget_type = $instance['widget']['type'];
+@@ -251,7 +251,7 @@ function insert_element_process($element) {
+ function insert_form_field_ui_field_edit_form_alter(&$form, $form_state) {
+   if (array_key_exists($form['instance']['widget']['type']['#value'], insert_widgets())) {
+     $field = $form['#field'];
+-    $instance = field_info_instance($form['instance']['object_type']['#value'], $form['instance']['field_name']['#value'], $form['instance']['bundle']['#value']);
++    $instance = field_info_instance($form['instance']['entity_type']['#value'], $form['instance']['field_name']['#value'], $form['instance']['bundle']['#value']);
+     $form['instance']['settings'] += insert_field_widget_settings_form($field, $instance);
+   }
+ }
