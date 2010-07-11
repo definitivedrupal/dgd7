@@ -1,5 +1,5 @@
 <?php
-// $Id: toolbar.module,v 1.39 2010/05/14 16:52:27 dries Exp $
+// $Id: toolbar.module,v 1.43 2010/07/02 02:22:26 dries Exp $
 
 /**
  * @file
@@ -151,6 +151,16 @@ function toolbar_preprocess_html(&$vars) {
 }
 
 /**
+ * Implements hook_preprocess_toolbar().
+ *
+ * Adding the 'overlay-displace-top' class to the toolbar pushes the overlay
+ * down, so it appears below the toolbar.
+ */
+function toolbar_preprocess_toolbar(&$variables) {
+  $variables['classes_array'][] = "overlay-displace-top";
+}
+
+/**
  * Implements hook_system_info_alter().
  *
  * Indicate that the 'page_top' region (in which the toolbar will be displayed)
@@ -177,9 +187,12 @@ function toolbar_view() {
     '#theme' => 'toolbar',
     '#attached'=> array(
       'js' => array(
-        array('data' => 'misc/displace.js', 'weight' => JS_LIBRARY - 1),
-        array('data' => 'misc/jquery.cookie.js', 'weight' => JS_LIBRARY + 2),
         $module_path . '/toolbar.js',
+        array('data' => 'misc/jquery.cookie.js', 'weight' => JS_LIBRARY + 2),
+        array(
+          'data' => array('tableHeaderOffset' => 'Drupal.toolbar.height'),
+          'type' => 'setting'
+        ),
       ),
       'css' => array(
         $module_path . '/toolbar.css',
@@ -266,14 +279,13 @@ function toolbar_view() {
  */
 function toolbar_get_menu_tree() {
   $tree = array();
-  $admin_link = db_query("SELECT * FROM {menu_links} WHERE menu_name = 'management' AND module = 'system' AND link_path = 'admin'")->fetchAssoc();
+  $admin_link = db_query('SELECT * FROM {menu_links} WHERE menu_name = :menu_name AND module = :module AND link_path = :path', array(':menu_name' => 'management', ':module' => 'system', ':path' => 'admin'))->fetchAssoc();
   if ($admin_link) {
-    // @todo Use a function like book_menu_subtree_data().
-    $tree = menu_tree_all_data('management', $admin_link, $admin_link['depth'] + 1);
-    // The tree will be a sub-tree with the admin link as a single root item.
-    // @todo It is wrong to assume it's the last.
-    $admin_link = array_pop($tree);
-    $tree = $admin_link['below'] ? $admin_link['below'] : array();
+    $tree = menu_build_tree('management', array(
+      'expanded' => array($admin_link['mlid']),
+      'min_depth' => $admin_link['depth'] + 1,
+      'max_depth' => $admin_link['depth'] + 1,
+    ));
   }
 
   return $tree;
@@ -296,7 +308,7 @@ function toolbar_menu_navigation_links($tree) {
       $link = $item['link']['localized_options'];
       $link['href'] = $item['link']['href'];
       // Add icon placeholder.
-      $link['title'] = '<span class="icon"></span>' . $item['link']['title'];
+      $link['title'] = '<span class="icon"></span>' . check_plain($item['link']['title']);
       // Add admin link ID.
       $link['attributes'] = array('id' => 'toolbar-link-' . $id);
       if (!empty($item['link']['description'])) {

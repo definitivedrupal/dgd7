@@ -1,5 +1,5 @@
 <?php
-// $Id: simpletest.test,v 1.41 2010/05/10 06:38:23 dries Exp $
+// $Id: simpletest.test,v 1.43 2010/06/28 19:57:34 dries Exp $
 
 class SimpleTestFunctionalTest extends DrupalWebTestCase {
   /**
@@ -272,10 +272,11 @@ class SimpleTestFunctionalTest extends DrupalWebTestCase {
 
   /**
    * Check if the test is being run from inside a CURL request.
-   *
-   * @return The test is being run from inside a CURL request.
    */
   function inCURL() {
+    // We cannot rely on drupal_static('drupal_test_info') here, because
+    // 'in_child_site' would be FALSE for the parent site when we are
+    // executing the tests. Default to direct detection of the HTTP headers.
     return isset($_SERVER['HTTP_USER_AGENT']) && preg_match("/^simpletest\d+/", $_SERVER['HTTP_USER_AGENT']);
   }
 }
@@ -290,6 +291,11 @@ class SimpleTestBrowserTestCase extends DrupalWebTestCase {
       'description' => 'Test the internal browser of the testing framework.',
       'group' => 'SimpleTest',
     );
+  }
+
+  function setUp() {
+    parent::setUp();
+    variable_set('user_register', USER_REGISTER_VISITORS);
   }
 
   /**

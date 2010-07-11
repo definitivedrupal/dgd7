@@ -1,5 +1,5 @@
 <?php
-// $Id: install.core.inc,v 1.19 2010/05/18 18:11:13 dries Exp $
+// $Id: install.core.inc,v 1.25 2010/07/02 15:32:10 dries Exp $
 
 /**
  * @file
@@ -211,6 +211,17 @@ function install_state_defaults() {
  *   modified with information gleaned from the beginning of the page request.
  */
 function install_begin_request(&$install_state) {
+  // Add any installation parameters passed in via the URL.
+  $install_state['parameters'] += $_GET;
+
+  // Validate certain core settings that are used throughout the installation.
+  if (!empty($install_state['parameters']['profile'])) {
+    $install_state['parameters']['profile'] = preg_replace('/[^a-zA-Z_0-9]/', '', $install_state['parameters']['profile']);
+  }
+  if (!empty($install_state['parameters']['locale'])) {
+    $install_state['parameters']['locale'] = preg_replace('/[^a-zA-Z_0-9\-]/', '', $install_state['parameters']['locale']);
+  }
+
   // Allow command line scripts to override server variables used by Drupal.
   require_once DRUPAL_ROOT . '/includes/bootstrap.inc';
   if (!$install_state['interactive']) {
@@ -299,17 +310,6 @@ function install_begin_request(&$install_state) {
   // Modify the installation state as appropriate.
   $install_state['completed_task'] = $task;
   $install_state['database_tables_exist'] = !empty($task);
-
-  // Add any installation parameters passed in via the URL.
-  $install_state['parameters'] += $_GET;
-
-  // Validate certain core settings that are used throughout the installation.
-  if (!empty($install_state['parameters']['profile'])) {
-    $install_state['parameters']['profile'] = preg_replace('/[^a-zA-Z_0-9]/', '', $install_state['parameters']['profile']);
-  }
-  if (!empty($install_state['parameters']['locale'])) {
-    $install_state['parameters']['locale'] = preg_replace('/[^a-zA-Z_0-9\-]/', '', $install_state['parameters']['locale']);
-  }
 }
 
 /**
@@ -700,7 +700,7 @@ function install_display_output($output, $install_state) {
     $active_task = $install_state['installation_finished'] ? NULL : $install_state['active_task'];
     drupal_add_region_content('sidebar_first', theme('task_list', array('items' => install_tasks_to_display($install_state), 'active' => $active_task)));
   }
-  print theme($install_state['database_tables_exist'] ? 'maintenance_page' : 'install_page', array('content' => $output));
+  print theme('install_page', array('content' => $output));
   exit;
 }
 
@@ -800,7 +800,7 @@ function install_verify_completed_task() {
  * Verifies the existing settings in settings.php.
  */
 function install_verify_settings() {
-  global $db_prefix, $databases;
+  global $databases;
 
   // Verify existing settings (if any).
   if (!empty($databases) && install_verify_pdo()) {
@@ -834,7 +834,7 @@ function install_verify_pdo() {
  *   The form API definition for the database configuration form.
  */
 function install_settings_form($form, &$form_state, &$install_state) {
-  global $databases, $db_prefix;
+  global $databases;
   $profile = $install_state['parameters']['profile'];
   $install_locale = $install_state['parameters']['locale'];
 
@@ -945,6 +945,10 @@ function install_settings_form($form, &$form_state, &$install_state) {
  * Form API validate for install_settings form.
  */
 function install_settings_form_validate($form, &$form_state) {
+  // TODO: remove when PIFR will be updated to use 'db_prefix' instead of
+  // 'prefix' in the database settings form.
+  $form_state['values']['prefix'] = $form_state['values']['db_prefix'];
+
   form_set_value($form['_database'], $form_state['values'], $form_state);
   $errors = install_database_errors($form_state['values'], $form_state['values']['settings_file']);
   foreach ($errors as $name => $message) {
@@ -959,8 +963,8 @@ function install_database_errors($database, $settings_file) {
   global $databases;
   $errors = array();
   // Verify the table prefix.
-  if (!empty($database['db_prefix']) && is_string($database['db_prefix']) && !preg_match('/^[A-Za-z0-9_.]+$/', $database['db_prefix'])) {
-    $errors['db_prefix'] = st('The database table prefix you have entered, %db_prefix, is invalid. The table prefix can only contain alphanumeric characters, periods, or underscores.', array('%db_prefix' => $database['db_prefix']));
+  if (!empty($database['prefix']) && is_string($database['prefix']) && !preg_match('/^[A-Za-z0-9_.]+$/', $database['prefix'])) {
+    $errors['prefix'] = st('The database table prefix you have entered, %prefix, is invalid. The table prefix can only contain alphanumeric characters, periods, or underscores.', array('%prefix' => $database['prefix']));
   }
 
   if (!empty($database['port']) && !is_numeric($database['port'])) {
@@ -1000,14 +1004,10 @@ function install_database_errors($database, $settings_file) {
 function install_settings_form_submit($form, &$form_state) {
   global $install_state;
 
-  $database = array_intersect_key($form_state['values']['_database'], array_flip(array('driver', 'database', 'username', 'password', 'host', 'port')));
+  $database = array_intersect_key($form_state['values']['_database'], array_flip(array('driver', 'database', 'username', 'password', 'host', 'port', 'prefix')));
   // Update global settings array and save.
   $settings['databases'] = array(
     'value'    => array('default' => array('default' => $database)),
-    'required' => TRUE,
-  );
-  $settings['db_prefix'] = array(
-    'value'    => $form_state['values']['db_prefix'],
     'required' => TRUE,
   );
   $settings['drupal_hash_salt'] = array(
@@ -1348,6 +1348,15 @@ function install_profile_modules(&$install_state) {
   $modules = variable_get('install_profile_modules', array());
   $files = system_rebuild_module_data();
   variable_del('install_profile_modules');
+
+  // Install dependencies first.
+  $modules = array_flip($modules);
+  foreach ($modules as $module => $weight) {
+    $modules[$module] = $files[$module]->sort;
+  }
+  arsort($modules);
+  $modules = array_keys($modules);
+
   $operations = array();
   foreach ($modules as $module) {
     $operations[] = array('_install_module_batch', array($module, $files[$module]->info['name']));
@@ -1531,6 +1540,7 @@ function install_check_requirements($install_state) {
     $writable = FALSE;
     $conf_path = './' . conf_path(FALSE, TRUE);
     $settings_file = $conf_path . '/settings.php';
+    $default_settings_file = './sites/default/default.settings.php';
     $file = $conf_path;
     $exists = FALSE;
     // Verify that the directory exists.
@@ -1538,19 +1548,30 @@ function install_check_requirements($install_state) {
       // Check to make sure a settings.php already exists.
       $file = $settings_file;
       if (drupal_verify_install_file($settings_file, FILE_EXIST)) {
-        $exists = TRUE;
         // If it does, make sure it is writable.
         $writable = drupal_verify_install_file($settings_file, FILE_READABLE|FILE_WRITABLE);
         $exists = TRUE;
       }
     }
 
+    // If default.settings.php does not exist, or is not readable, throw an
+    // error.
+    if (!drupal_verify_install_file($default_settings_file, FILE_EXIST|FILE_READABLE)) {
+      $requirements['default settings file exists'] = array(
+        'title'       => st('Default settings file'),
+        'value'       => st('The default settings file does not exist.'),
+        'severity'    => REQUIREMENT_ERROR,
+        'description' => st('The @drupal installer requires that the %default-file file not be modified in any way from the original download.', array('@drupal' => drupal_install_profile_distribution_name(), '%default-file' => $default_settings_file)),
+      );
+    }
+
+    // If settings.php does not exist, throw an error.
     if (!$exists) {
       $requirements['settings file exists'] = array(
         'title'       => st('Settings file'),
         'value'       => st('The settings file does not exist.'),
         'severity'    => REQUIREMENT_ERROR,
-        'description' => st('The @drupal installer requires that you create a settings file as part of the installation process. Copy the %default_file file to %file. More details about installing Drupal are available in <a href="@install_txt">INSTALL.txt</a>.', array('@drupal' => drupal_install_profile_distribution_name(), '%file' => $file, '%default_file' => $conf_path . '/default.settings.php', '@install_txt' => base_path() . 'INSTALL.txt')),
+        'description' => st('The @drupal installer requires that you create a settings file as part of the installation process. Copy the %default_file file to %file. More details about installing Drupal are available in <a href="@install_txt">INSTALL.txt</a>.', array('@drupal' => drupal_install_profile_distribution_name(), '%file' => $file, '%default_file' => $default_settings_file, '@install_txt' => base_path() . 'INSTALL.txt')),
       );
     }
     else {
@@ -1558,6 +1579,7 @@ function install_check_requirements($install_state) {
         'title'       => st('Settings file'),
         'value'       => st('The %file file exists.', array('%file' => $file)),
       );
+      // If settings.php is not writable, throw an error.
       if (!$writable) {
         $requirements['settings file writable'] = array(
           'title'       => st('Settings file'),

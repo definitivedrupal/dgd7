@@ -1,5 +1,5 @@
 <?php
-// $Id: module.inc,v 1.192 2010/05/09 13:49:33 dries Exp $
+// $Id: module.inc,v 1.195 2010/06/26 12:34:44 dries Exp $
 
 /**
  * @file
@@ -173,6 +173,7 @@ function system_list($type) {
  */
 function system_list_reset() {
   drupal_static_reset('system_list');
+  drupal_static_reset('list_themes');
   cache_clear_all('bootstrap_modules', 'cache_bootstrap');
   cache_clear_all('system_list', 'cache_bootstrap');
 }
@@ -285,8 +286,25 @@ function module_load_all_includes($type, $name = NULL) {
 }
 
 /**
- * Enable a given list of modules.
+ * Enables or installs a given list of modules.
  *
+ * Definitions:
+ * - "Enabling" is the process of activating a module for use by Drupal.
+ * - "Disabling" is the process of deactivating a module.
+ * - "Installing" is the process of enabling it for the first time or after it
+ *   has been uninstalled.
+ * - "Uninstalling" is the process of removing all traces of a module.
+ *
+ * Order of events:
+ * - Gather and add module dependencies to $module_list (if applicable).
+ * - For each module that is being enabled:
+ *   - Install module schema and update system registries and caches.
+ *   - If the module is being enabled for the first time or had been
+ *     uninstalled, invoke hook_install() and add it to the list of installed
+ *     modules.
+ *   - Invoke hook_enable().
+ * - Invoke hook_modules_installed().
+ * - Invoke hook_modules_enabled().
  * @param $module_list
  *   An array of module names.
  * @param $enable_dependencies
@@ -296,6 +314,11 @@ function module_load_all_includes($type, $name = NULL) {
  *
  * @return
  *   FALSE if one or more dependencies are missing, TRUE otherwise.
+ *
+ * @see hook_install()
+ * @see hook_enable()
+ * @see hook_modules_installed()
+ * @see hook_modules_enabled()
  */
 function module_enable($module_list, $enable_dependencies = TRUE) {
   if ($enable_dependencies) {
@@ -585,6 +608,9 @@ function module_implements($hook, $sort = FALSE, $reset = FALSE) {
   }
 
   if (!isset($implementations[$hook])) {
+    // The hook is not cached, so ensure that whether or not it has
+    // implementations, that the cache is updated at the end of the request.
+    $implementations['#write_cache'] = TRUE;
     $hook_info = module_hook_info();
     $implementations[$hook] = array();
     $list = module_list(FALSE, FALSE, $sort);
@@ -592,8 +618,6 @@ function module_implements($hook, $sort = FALSE, $reset = FALSE) {
       $include_file = isset($hook_info[$hook]['group']) && module_load_include('inc', $module, $module . '.' . $hook_info[$hook]['group']);
       if (module_hook($module, $hook)) {
         $implementations[$hook][$module] = $include_file ? $hook_info[$hook]['group'] : FALSE;
-        // We added something to the cache, so write it when we are done.
-        $implementations['#write_cache'] = TRUE;
       }
     }
     // Allow modules to change the weight of specific implementations but avoid

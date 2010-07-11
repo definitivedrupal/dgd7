@@ -1,5 +1,5 @@
 <?php
-// $Id: field_ui.admin.inc,v 1.50 2010/05/18 18:30:49 dries Exp $
+// $Id: field_ui.admin.inc,v 1.57 2010/06/27 18:05:54 webchick Exp $
 
 /**
  * @file
@@ -31,7 +31,7 @@ function field_ui_fields_list() {
     $rows[$field_name]['data'][2] = implode(', ', $cell['data'][2]);
   }
   if (empty($rows)) {
-    $output = t('No fields have been defined for any content type yet.');
+    $output = t('No fields have been defined yet.');
   }
   else {
     // Sort rows by field name.
@@ -63,6 +63,105 @@ function field_ui_inactive_message($entity_type, $bundle) {
 }
 
 /**
+ * Helper function: determines the rendering order of a tree array.
+ *
+ * This is intended as a callback for array_reduce().
+ */
+function _field_ui_reduce_order($array, $a) {
+  $array = is_null($array) ? array() : $array;
+  if ($a['name']) {
+    $array[] = $a['name'];
+  }
+  if (!empty($a['children'])) {
+    uasort($a['children'], 'drupal_sort_weight');
+    $array = array_merge($array, array_reduce($a['children'], '_field_ui_reduce_order'));
+  }
+  return $array;
+}
+
+/**
+ * Theme preprocess function for theme_field_ui_table().
+ *
+ * @see theme_field_ui_table()
+ */
+function template_preprocess_field_ui_table(&$variables) {
+  $elements = &$variables['elements'];
+
+  // Build the tree structure from the weight and parenting data contained in
+  // the flat form structure, to determine row order and indentation.
+  $tree = array('' => array('name' => '', 'children' => array()));
+  $parents = array();
+  $list = drupal_map_assoc(element_children($elements));
+  // Iterate on rows until we can build a known tree path for all of them.
+  while ($list) {
+    foreach ($list as $name) {
+      $row = &$elements[$name];
+      $parent = $row['parent_wrapper']['parent']['#value'];
+      // Proceed if parent is known.
+      if (empty($parent) || isset($parents[$parent])) {
+        // Remove from the next iteration.
+        $parents[$name] = $parent ? array_merge($parents[$parent], array($parent)) : array();
+        unset($list[$name]);
+
+        // Add the element in the tree.
+        $target = &$tree[''];
+        foreach ($parents[$name] as $key) {
+          $target = &$target['children'][$key];
+        }
+        $target['children'][$name] = array('name' => $name, 'weight' => $row['weight']['#value']);
+
+        // Add tabledrag indentation to the first row cell.
+        if ($depth = count($parents[$name])) {
+          $cell = current(element_children($row));
+          $row[$cell]['#prefix'] = theme('indentation', array('size' => $depth)) . (isset($row[$cell]['#prefix']) ? $row[$cell]['#prefix'] : '');
+        }
+      }
+    }
+  }
+
+  // Determine rendering order for the tree.
+  $variables['row_order'] = array_reduce($tree, '_field_ui_reduce_order');
+}
+
+/**
+ * Returns HTML for Field UI overview tables.
+ *
+ * @param $variables
+ *   An associative array containing:
+ *   - elements: An associative array containing a Form API structure to be
+ *     rendered as a table.
+ *
+ * @ingroup themeable
+ */
+function theme_field_ui_table($variables) {
+  $elements = $variables['elements'];
+  $table = array();
+
+  foreach (array('header', 'attributes') as $key) {
+    if (isset($elements["#$key"])) {
+      $table[$key] = $elements["#$key"];
+    }
+  }
+
+  foreach ($variables['row_order'] as $key) {
+    $element = $elements[$key];
+    $row = array('data' => array());
+    $row += $element['#attributes'];
+
+    foreach (element_children($element) as $cell_key) {
+      $cell = array('data' => drupal_render($element[$cell_key]));
+      if (isset($element[$cell_key]['#cell_attributes'])) {
+        $cell += $element[$cell_key]['#cell_attributes'];
+      }
+      $row['data'][] = $cell;
+    }
+    $table['rows'][] = $row;
+  }
+
+  return theme('table', $table);
+}
+
+/**
  * Menu callback; listing of fields for a bundle.
  *
  * Allows fields and pseudo-fields to be re-ordered.
@@ -83,28 +182,65 @@ function field_ui_field_overview_form($form, &$form_state, $entity_type, $bundle
   $field_types = field_info_field_types();
   $widget_types = field_info_widget_types();
 
-  $extra = field_extra_fields($entity_type, $bundle);
+  $extra_fields = field_extra_fields($entity_type, $bundle, 'form');
 
   // Store each default weight so that we can add the 'add new' rows after them.
   $weights = array();
 
   $form += array(
-    '#tree' => TRUE,
     '#entity_type' => $entity_type,
     '#bundle' => $bundle,
     '#fields' => array_keys($instances),
-    '#extra' => array_keys($extra),
-    '#field_rows' => array(),
+    '#extra' => array_keys($extra_fields),
   );
+
+  $table = array(
+    '#type' => 'table',
+    '#tree' => TRUE,
+    '#header' => array(
+      t('Label'),
+      t('Weight'),
+      t('Parent'),
+      t('Name'),
+      t('Field'),
+      t('Widget'),
+      array('data' => t('Operations'), 'colspan' => 2),
+    ),
+    '#attributes' => array('id' => 'field-overview'),
+  );
+
+  $parent_options = array('' => t('<none>'));
 
   // Fields.
   foreach ($instances as $name => $instance) {
     $field = field_info_field($instance['field_name']);
     $admin_field_path = $admin_path . '/fields/' . $instance['field_name'];
     $weight = $instance['widget']['weight'];
-    $form[$name] = array(
+    $weights[] = $weight;
+    $table[$name] = array(
+      '#parents' => array($name),
+      '#attributes' => array('class' => array('draggable tabledrag-leaf')),
       'label' => array(
         '#markup' => check_plain($instance['label']),
+      ),
+      'weight' => array(
+        '#type' => 'textfield',
+        '#default_value' => $weight,
+        '#size' => 3,
+        '#attributes' => array('class' => array('field-weight')),
+       ),
+      'parent_wrapper' => array(
+        'parent' => array(
+          '#type' => 'select',
+          '#options' => $parent_options,
+          '#attributes' => array('class' => array('field-parent')),
+          '#parents' => array($name, 'parent'),
+        ),
+        'hidden_name' => array(
+          '#type' => 'hidden',
+          '#default_value' => $name,
+          '#attributes' => array('class' => array('field-name')),
+        ),
       ),
       'field_name' => array(
         '#markup' => $instance['field_name'],
@@ -133,60 +269,60 @@ function field_ui_field_overview_form($form, &$form_state, $entity_type, $bundle
         '#href' => $admin_field_path . '/delete',
         '#options' => array('attributes' => array('title' => t('Delete instance.'))),
       ),
-      'weight' => array(
-        '#type' => 'textfield',
-        '#default_value' => $weight,
-        '#size' => 3,
-       ),
-      'hidden_name' => array(
-        '#type' => 'hidden',
-        '#default_value' => $instance['field_name'],
-       ),
-      '#row_type' => 'field',
     );
 
     if (!empty($instance['locked'])) {
-      $form[$name]['edit'] = array('#value' => t('Locked'));
-      $form[$name]['delete'] = array();
-      $form[$name]['#disabled_row'] = TRUE;
+      $table[$name]['edit'] = array('#value' => t('Locked'));
+      $table[$name]['delete'] = array();
+      $table[$name]['#attributes']['class'][] = 'menu-disabled';
     }
-    $form['#field_rows'][] = $name;
-    $weights[] = $weight;
   }
 
   // Non-field elements.
-  foreach ($extra as $name => $label) {
-    $weight = $extra[$name]['weight'];
-    $form[$name] = array(
+  foreach ($extra_fields as $name => $extra_field) {
+    $weight = $extra_field['weight'];
+    $weights[] = $weight;
+    $table[$name] = array(
+      '#parents' => array($name),
+      '#attributes' => array('class' => array('draggable', 'tabledrag-leaf', 'menu-disabled')),
       'label' => array(
-        '#markup' => t($extra[$name]['label']),
-      ),
-      'name' => array(
-        '#markup' => $name,
-      ),
-      'description' => array(
-        '#markup' => isset($extra[$name]['description']) ? $extra[$name]['description'] : '',
+        '#markup' => check_plain($extra_field['label']),
       ),
       'weight' => array(
         '#type' => 'textfield',
         '#default_value' => $weight,
         '#size' => 3,
+        '#attributes' => array('class' => array('field-weight')),
+        '#title_display' => 'invisible',
+        '#title' => t('Weight for @row', array('@row' => $extra_field['label'])),
+      ),
+      'parent_wrapper' => array(
+        'parent' => array(
+          '#type' => 'select',
+          '#options' => $parent_options,
+          '#attributes' => array('class' => array('field-parent')),
+          '#parents' => array($name, 'parent'),
+        ),
+        'hidden_name' => array(
+          '#type' => 'hidden',
+          '#default_value' => $name,
+          '#attributes' => array('class' => array('field-name')),
+        ),
+      ),
+      'field_name' => array(
+        '#markup' => $name,
+      ),
+      'type' => array(
+        '#markup' => isset($extra_field['description']) ? $extra_field['description'] : '',
+        '#cell_attributes' => array('colspan' => 2),
       ),
       'edit' => array(
-        '#markup' => isset($extra[$name]['edit']) ? $extra[$name]['edit'] : '',
+        '#markup' => isset($extra_field['edit']) ? $extra_field['edit'] : '',
       ),
       'delete' => array(
-        '#markup' => isset($extra[$name]['delete']) ? $extra[$name]['delete'] : '',
+        '#markup' => isset($extra_field['delete']) ? $extra_field['delete'] : '',
       ),
-      'hidden_name' => array(
-        '#type' => 'hidden',
-        '#default_value' => $name,
-      ),
-      '#disabled_row' => TRUE,
-      '#row_type' => 'extra',
     );
-    $form['#field_rows'][] = $name;
-    $weights[] = $weight;
   }
 
   // Additional row: add new field.
@@ -197,11 +333,38 @@ function field_ui_field_overview_form($form, &$form_state, $entity_type, $bundle
     array_unshift($field_type_options, t('- Select a field type -'));
     array_unshift($widget_type_options, t('- Select a widget -'));
     $name = '_add_new_field';
-    $form[$name] = array(
+    $table[$name] = array(
+      '#parents' => array($name),
+      '#attributes' => array('class' => array('draggable', 'tabledrag-leaf', 'add-new')),
       'label' => array(
         '#type' => 'textfield',
         '#size' => 15,
         '#description' => t('Label'),
+        '#prefix' => '<div class="label-input"><div class="add-new-placeholder">' . t('Add new field') .'</div>',
+        '#suffix' => '</div>',
+      ),
+      'weight' => array(
+        '#type' => 'textfield',
+        '#default_value' => $weight,
+        '#size' => 3,
+        '#title_display' => 'invisible',
+        '#title' => t('Weight for new field'),
+        '#attributes' => array('class' => array('field-weight')),
+        '#prefix' => '<div class="add-new-placeholder">&nbsp;</div>',
+      ),
+      'parent_wrapper' => array(
+        'parent' => array(
+          '#type' => 'select',
+          '#options' => $parent_options,
+          '#attributes' => array('class' => array('field-parent')),
+          '#prefix' => '<div class="add-new-placeholder">&nbsp;</div>',
+          '#parents' => array($name, 'parent'),
+        ),
+        'hidden_name' => array(
+          '#type' => 'hidden',
+          '#default_value' => $name,
+          '#attributes' => array('class' => array('field-name')),
+        ),
       ),
       'field_name' => array(
         '#type' => 'textfield',
@@ -211,30 +374,24 @@ function field_ui_field_overview_form($form, &$form_state, $entity_type, $bundle
         '#attributes' => array('dir'=>'ltr'),
         '#size' => 15,
         '#description' => t('Field name (a-z, 0-9, _)'),
+        '#prefix' => '<div class="add-new-placeholder">&nbsp;</div>',
       ),
       'type' => array(
         '#type' => 'select',
         '#options' => $field_type_options,
         '#description' => t('Type of data to store.'),
+        '#attributes' => array('class' => array('field-type-select')),
+        '#prefix' => '<div class="add-new-placeholder">&nbsp;</div>',
       ),
       'widget_type' => array(
         '#type' => 'select',
         '#options' => $widget_type_options,
         '#description' => t('Form element to edit the data.'),
+        '#attributes' => array('class' => array('widget-type-select')),
+        '#cell_attributes' => array('colspan' => 3),
+        '#prefix' => '<div class="add-new-placeholder">&nbsp;</div>',
       ),
-      'weight' => array(
-        '#type' => 'textfield',
-        '#default_value' => $weight,
-        '#size' => 3,
-      ),
-      'hidden_name' => array(
-        '#type' => 'hidden',
-        '#default_value' => $name,
-      ),
-      '#add_new' => TRUE,
-      '#row_type' => 'add_new_field',
     );
-    $form['#field_rows'][] = $name;
   }
 
   // Additional row: add existing field.
@@ -243,106 +400,85 @@ function field_ui_field_overview_form($form, &$form_state, $entity_type, $bundle
     $weight++;
     array_unshift($existing_field_options, t('- Select an existing field -'));
     $name = '_add_existing_field';
-    $form[$name] = array(
+    $table[$name] = array(
+      '#parents' => array($name),
+      '#attributes' => array('class' => array('draggable', 'tabledrag-leaf', 'menu-disabled')),
       'label' => array(
         '#type' => 'textfield',
         '#size' => 15,
         '#description' => t('Label'),
-      ),
-      'field_name' => array(
-        '#type' => 'select',
-        '#options' => $existing_field_options,
-        '#description' => t('Field to share'),
-      ),
-      'widget_type' => array(
-        '#type' => 'select',
-        '#options' => $widget_type_options,
-        '#description' => t('Form element to edit the data.'),
+        '#attributes' => array('class' => array('label-textfield')),
+        '#prefix' => '<div class="label-input"><div class="add-new-placeholder">' . t('Add existing field') .'</div>',
+        '#suffix' => '</div>',
       ),
       'weight' => array(
         '#type' => 'textfield',
         '#default_value' => $weight,
         '#size' => 3,
+        '#title_display' => 'invisible',
+        '#title' => t('Weight for added field'),
+        '#attributes' => array('class' => array('field-weight')),
+        '#prefix' => '<div class="add-new-placeholder">&nbsp;</div>',
       ),
-      'hidden_name' => array(
-        '#type' => 'hidden',
-        '#default_value' => $name,
+      'parent_wrapper' => array(
+        'parent' => array(
+          '#type' => 'select',
+          '#options' => $parent_options,
+          '#attributes' => array('class' => array('field-parent')),
+          '#prefix' => '<div class="add-new-placeholder">&nbsp;</div>',
+          '#parents' => array($name, 'parent'),
+        ),
+        'hidden_name' => array(
+          '#type' => 'hidden',
+          '#default_value' => $name,
+          '#attributes' => array('class' => array('field-name')),
+        ),
       ),
-      '#add_new' => TRUE,
-      '#row_type' => 'add_existing_field',
+      'field_name' => array(
+        '#type' => 'select',
+        '#options' => $existing_field_options,
+        '#description' => t('Field to share'),
+        '#attributes' => array('class' => array('field-select')),
+        '#cell_attributes' => array('colspan' => 2),
+        '#prefix' => '<div class="add-new-placeholder">&nbsp;</div>',
+      ),
+      'widget_type' => array(
+        '#type' => 'select',
+        '#options' => $widget_type_options,
+        '#description' => t('Form element to edit the data.'),
+        '#attributes' => array('class' => array('widget-type-select')),
+        '#cell_attributes' => array('colspan' => 3),
+        '#prefix' => '<div class="add-new-placeholder">&nbsp;</div>',
+      ),
     );
-    $form['#field_rows'][] = $name;
   }
+
+  $form['table'] = $table;
 
   $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array('#type' => 'submit', '#value' => t('Save'));
-  return $form;
-}
 
-/**
- * Theme preprocess function for field_ui-field-overview-form.tpl.php.
- */
-function template_preprocess_field_ui_field_overview_form(&$vars) {
-  $form = &$vars['form'];
-
-  drupal_add_css(drupal_get_path('module', 'field_ui') . '/field_ui.css');
-  drupal_add_tabledrag('field-overview', 'order', 'sibling', 'field-weight');
-  drupal_add_js(drupal_get_path('module', 'field_ui') . '/field_ui.js');
+  $form['#attached']['css'][] = drupal_get_path('module', 'field_ui') . '/field_ui.css';
+  $form['#attached']['js'][] = drupal_get_path('module', 'field_ui') . '/field_ui.js';
   // Add settings for the update selects behavior.
   $js_fields = array();
-  foreach (field_ui_existing_field_options($form['#entity_type'], $form['#bundle']) as $field_name => $fields) {
+  foreach ($existing_field_options as $field_name => $fields) {
     $field = field_info_field($field_name);
     $instance = field_info_instance($form['#entity_type'], $field_name, $form['#bundle']);
     $js_fields[$field_name] = array('label' => $instance['label'], 'type' => $field['type'], 'widget' => $instance['widget']['type']);
   }
-  drupal_add_js(array('fieldWidgetTypes' => field_ui_widget_type_options(), 'fields' => $js_fields), 'setting');
 
-  $order = _field_ui_overview_order($form, $form['#field_rows']);
-  $rows = array();
+  $form['#attached']['js'][] = array(
+    'type' => 'setting',
+    'data' => array('fields' => $js_fields, 'fieldWidgetTypes' => field_ui_widget_type_options(),
+    ),
+  );
 
-  // Identify the 'new item' keys in the form.
-  $keys = array_keys($form);
-  $add_rows = array();
-  foreach ($keys as $key) {
-    if (substr($key, 0, 4) == '_add') {
-      $add_rows[] = $key;
-    }
-  }
-  while ($order) {
-    $key = reset($order);
-    $element = &$form[$key];
-    $row = new stdClass();
+  // Add tabledrag behavior.
+  $form['#attached']['drupal_add_tabledrag'][] = array('field-overview', 'order', 'sibling', 'field-weight');
+  $form['#attached']['drupal_add_tabledrag'][] = array('field-overview', 'match', 'parent', 'field-parent', 'field-parent', 'field-name');
 
-    // Add target classes for the tabledrag behavior.
-    $element['weight']['#attributes']['class'][] = 'field-weight';
-    $element['hidden_name']['#attributes']['class'][] = 'field-name';
-    // Add target classes for the update selects behavior.
-    switch ($element['#row_type']) {
-      case 'add_new_field':
-        $element['type']['#attributes']['class'][] = 'field-type-select';
-        $element['widget_type']['#attributes']['class'][] = 'widget-type-select';
-        break;
-
-      case 'add_existing_field':
-        $element['field_name']['#attributes']['class'][] = 'field-select';
-        $element['widget_type']['#attributes']['class'][] = 'widget-type-select';
-        $element['label']['#attributes']['class'][] = 'label-textfield';
-        break;
-    }
-    foreach (element_children($element) as $child) {
-      $row->{$child} = drupal_render($element[$child]);
-    }
-    $row->label_class = 'label-' . strtr($element['#row_type'], '_', '-');
-    $row->row_type = $element['#row_type'];
-    $row->class = 'draggable';
-    $row->class .= isset($element['#add_new']) ? ' add-new' : '';
-    $row->class .= isset($element['#disabled_row']) ? ' menu-disabled' : '';
-
-    $rows[] = $row;
-    array_shift($order);
-  }
-  $vars['rows'] = $rows;
-  $vars['submit'] = drupal_render_children($form);
+  return $form;
 }
 
 /**
@@ -379,7 +515,7 @@ function _field_ui_field_overview_form_validate_add_new($form, &$form_state) {
       // Add the 'field_' prefix.
       if (substr($field_name, 0, 6) != 'field_') {
         $field_name = 'field_' . $field_name;
-        form_set_value($form['_add_new_field']['field_name'], $field_name, $form_state);
+        form_set_value($form['table']['_add_new_field']['field_name'], $field_name, $form_state);
       }
 
       // Invalid field name.
@@ -424,7 +560,7 @@ function _field_ui_field_overview_form_validate_add_new($form, &$form_state) {
  */
 function _field_ui_field_overview_form_validate_add_existing($form, &$form_state) {
   // The form element might be absent if no existing fields can be added to
-  // this content type
+  // this bundle.
   if (isset($form_state['values']['_add_existing_field'])) {
     $field = $form_state['values']['_add_existing_field'];
 
@@ -464,8 +600,9 @@ function field_ui_field_overview_form_submit($form, &$form_state) {
   $bundle = $form['#bundle'];
   $admin_path = _field_ui_bundle_admin_path($entity_type, $bundle);
 
+  $bundle_settings = field_bundle_settings($entity_type, $bundle);
+
   // Update field weights.
-  $extra = array();
   foreach ($form_values as $key => $values) {
     if (in_array($key, $form['#fields'])) {
       $instance = field_read_instance($entity_type, $key, $bundle);
@@ -476,13 +613,11 @@ function field_ui_field_overview_form_submit($form, &$form_state) {
       field_update_instance($instance);
     }
     elseif (in_array($key, $form['#extra'])) {
-      $extra[$key] = $values['weight'];
+      $bundle_settings['extra_fields']['form'][$key]['weight'] = $values['weight'];
     }
   }
 
-  $extra_weights = variable_get('field_extra_weights', array());
-  $extra_weights[$entity_type][$bundle] = $extra;
-  variable_set('field_extra_weights', $extra_weights);
+  field_bundle_settings($entity_type, $bundle, $bundle_settings);
 
   $destinations = array();
 
@@ -563,12 +698,9 @@ function field_ui_field_overview_form_submit($form, &$form_state) {
 }
 
 /**
- * Menu callback; presents a listing of fields display settings for a bundle.
- *
- * This form includes form widgets to select which fields appear in teaser and
- * full view modes, and how the field labels should be rendered.
+ * Menu callback; presents field display settings for a given view mode.
  */
-function field_ui_display_overview_form($form, &$form_state, $entity_type, $bundle, $view_modes_selector = 'basic') {
+function field_ui_display_overview_form($form, &$form_state, $entity_type, $bundle, $view_mode) {
   $bundle = field_extract_bundle($entity_type, $bundle);
 
   field_ui_inactive_message($entity_type, $bundle);
@@ -577,14 +709,14 @@ function field_ui_display_overview_form($form, &$form_state, $entity_type, $bund
   // Gather type information.
   $instances = field_info_instances($entity_type, $bundle);
   $field_types = field_info_field_types();
-  $view_modes = field_ui_view_modes_tabs($entity_type, $view_modes_selector);
+  $extra_fields = field_extra_fields($entity_type, $bundle, 'display');
 
   $form += array(
-    '#tree' => TRUE,
     '#entity_type' => $entity_type,
     '#bundle' => $bundle,
+    '#view_mode' => $view_mode,
     '#fields' => array_keys($instances),
-    '#contexts' => $view_modes_selector,
+    '#extra' => array_keys($extra_fields),
   );
 
   if (empty($instances)) {
@@ -592,85 +724,165 @@ function field_ui_display_overview_form($form, &$form_state, $entity_type, $bund
     return $form;
   }
 
-  // Fields.
-  $label_options = array(
+  $table = array(
+    '#theme' => 'field_ui_display_overview_table',
+    '#field_rows' => array(),
+    '#tree' => TRUE,
+  );
+
+  $field_label_options = array(
     'above' => t('Above'),
     'inline' => t('Inline'),
     'hidden' => t('<Hidden>'),
   );
-  foreach ($instances as $name => $instance) {
-    $field = field_info_field($instance['field_name']);
-    $weight = $instance['widget']['weight'];
+  $extra_visibility_options = array(
+    'visible' => t('Visible'),
+    'hidden' => t('Hidden'),
+  );
 
-    $form[$name] = array(
-      'human_name' => array('#markup' => check_plain($instance['label'])),
-      'weight' => array('#type' => 'value', '#value' => $weight),
+  foreach ($instances as $name => $instance) {
+    $display = $instance['display'][$view_mode];
+
+    $table[$name]['human_name'] = array(
+      '#markup' => check_plain($instance['label']),
     );
-    $defaults = $instance['display'];
+    $table[$name]['weight'] = array(
+      '#type' => 'textfield',
+      '#default_value' => $display['weight'],
+      '#size' => 3,
+    );
+    $table[$name]['hidden_name'] = array(
+      '#type' => 'hidden',
+      '#default_value' => $name,
+    );
+    $table[$name]['label'] = array(
+      '#type' => 'select',
+      '#options' => $field_label_options,
+      '#default_value' => $display['label'],
+    );
+    $field = field_info_field($instance['field_name']);
 
     $formatter_options = field_ui_formatter_options($field['type']);
     $formatter_options['hidden'] = t('<Hidden>');
-    foreach ($view_modes as $view_mode) {
-      $display = isset($instance['display'][$view_mode]) ? $instance['display'][$view_mode] : $instance['display']['full'];
-      $form[$name][$view_mode]['label'] = array(
-        '#type' => 'select',
-        '#options' => $label_options,
-        '#default_value' => $display['label'],
-      );
-      $form[$name][$view_mode]['type'] = array(
-        '#type' => 'select',
-        '#options' => $formatter_options,
-        '#default_value' => $display['type'],
-      );
+    $table[$name]['type'] = array(
+      '#type' => 'select',
+      '#options' => $formatter_options,
+      '#default_value' => $display['type'],
+    );
+    $table['#field_rows'][] = $name;
+
+    // Collect default formatters for the JS script.
+    $field_type_info = field_info_field_types($field['type']);
+    $default_formatters[$name] = $field_type_info['default_formatter'];
+  }
+
+  // Non-field elements.
+  foreach ($extra_fields as $name => $extra_field) {
+    $display = $extra_field['display'][$view_mode];
+    $table[$name]['human_name'] = array(
+      '#markup' => check_plain($extra_field['label']),
+    );
+    $table[$name]['weight'] = array(
+      '#type' => 'textfield',
+      '#default_value' => $display['weight'],
+      '#size' => 3,
+    );
+    $table[$name]['hidden_name'] = array(
+      '#type' => 'hidden',
+      '#default_value' => $name,
+    );
+    $table[$name]['type'] = array(
+      '#type' => 'select',
+      '#options' => $extra_visibility_options,
+      '#default_value' => $display['visible'] ? 'visible' : 'hidden',
+    );
+    $table['#field_rows'][] = $name;
+  }
+  $form['settings'] = $table;
+
+  // Custom display settings.
+  if ($view_mode == 'default') {
+    $form['modes'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Custom display settings'),
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+    );
+    // Collect options and default values for the 'Custom display settings'
+    // checkboxes.
+    $options = array();
+    $default = array();
+    $entity_info = entity_get_info($entity_type);
+    $view_modes = $entity_info['view modes'];
+    $view_mode_settings = field_view_mode_settings($entity_type, $bundle);
+    foreach ($view_modes as $view_mode_name => $view_mode_info) {
+      $options[$view_mode_name] = $view_mode_info['label'];
+      if (!empty($view_mode_settings[$view_mode_name]['custom_settings'])) {
+        $default[] = $view_mode_name;
+      }
     }
+    $form['modes']['view_modes_custom'] = array(
+      '#type' => 'checkboxes',
+      '#title' => t('Use custom display settings for the following view modes'),
+      '#options' => $options,
+      '#default_value' => $default,
+    );
   }
 
   $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array('#type' => 'submit', '#value' => t('Save'));
+
+  $form['#attached']['js'][] = drupal_get_path('module', 'field_ui') . '/field_ui.js';
+  $form['#attached']['css'][] = drupal_get_path('module', 'field_ui') . '/field_ui.css';
+  drupal_add_js(array('fieldDefaultFormatters' => $default_formatters), 'setting');
+
   return $form;
 }
 
 /**
- * Theme preprocess function for field_ui-display-overview-form.tpl.php.
+ * Theme preprocess function for field_ui-display-overview-table.tpl.php.
  */
-function template_preprocess_field_ui_display_overview_form(&$vars) {
-  $form = &$vars['form'];
+function template_preprocess_field_ui_display_overview_table(&$vars) {
+  $elements = &$vars['elements'];
 
-  $contexts_selector = $form['#contexts'];
-  $view_modes = field_ui_view_modes_tabs($form['#entity_type'], $contexts_selector);
-  $entity_info = entity_get_info($form['#entity_type']);
-  $view_modes_info = $entity_info['view modes'];
-  $vars['contexts'] = array();
-  foreach ($view_modes as $view_mode) {
-    $vars['contexts'][$view_mode] = $view_modes_info[$view_mode]['label'];
-  }
+  $rows = array(
+    'visible' => array(),
+    'hidden' => array(),
+  );
 
-  $order = _field_ui_overview_order($form, $form['#fields']);
-  if (empty($order)) {
-    $vars['rows'] = array();
-    $vars['submit'] = '';
-    return;
-  }
-  $rows = array();
-  foreach ($order as $key) {
-    $element = &$form[$key];
-    $row = new stdClass();
-    foreach (element_children($element) as $child) {
-      if (array_key_exists('label', $element[$child])) {
-        $row->{$child} = new stdClass();
-        $row->{$child}->label = drupal_render($element[$child]['label']);
-        $row->{$child}->type = drupal_render($element[$child]['type']);
+  if (!empty($elements['#field_rows'])) {
+    drupal_add_tabledrag('field-display-overview', 'order', 'sibling', 'field-weight');
+
+    $order = _field_ui_overview_order($elements, $elements['#field_rows']);
+    foreach ($order as $key) {
+      $element = &$elements[$key];
+      $visibility = $element['type']['#value'] == 'hidden' ? 'hidden' : 'visible';
+
+      // Add target classes for the tabledrag behavior.
+      $element['weight']['#attributes']['class'][] = 'field-weight';
+      $element['hidden_name']['#attributes']['class'][] = 'field-name';
+      $element['type']['#attributes']['class'][] = 'field-formatter-type';
+      $element['type']['#attributes']['class'][] = "field-display-$visibility";
+      $element['type']['#attributes']['class'][] = "field-name-$key";
+
+      $row = new stdClass();
+      foreach (element_children($element) as $child) {
+        if (array_key_exists('label', $element[$child])) {
+          $row->{$child} = new stdClass();
+          $row->{$child}->label = drupal_render($element[$child]['label']);
+          $row->{$child}->type = drupal_render($element[$child]['type']);
+        }
+        else {
+          $row->{$child} = drupal_render($element[$child]);
+        }
       }
-      else {
-        $row->{$child} = drupal_render($element[$child]);
-      }
+      $row->class = 'draggable';
+      $row->label_class = 'label-field';
+      $rows[$visibility][] = $row;
     }
-    $row->label_class = 'label-field';
-    $rows[] = $row;
   }
 
   $vars['rows'] = $rows;
-  $vars['submit'] = drupal_render_children($form);
 }
 
 /**
@@ -678,17 +890,46 @@ function template_preprocess_field_ui_display_overview_form(&$vars) {
  */
 function field_ui_display_overview_form_submit($form, &$form_state) {
   $form_values = $form_state['values'];
-  foreach ($form_values as $key => $values) {
-    if (in_array($key, $form['#fields'])) {
-      $instance = field_info_instance($form['#entity_type'], $key, $form['#bundle']);
-      foreach ($instance['display'] as $view_mode => $display) {
-        if (isset($values[$view_mode])) {
-          $instance['display'][$view_mode] = array_merge($instance['display'][$view_mode], $values[$view_mode]);
-        }
+  $entity_type = $form['#entity_type'];
+  $bundle = $form['#bundle'];
+  $view_mode = $form['#view_mode'];
+
+  // Save data for 'regular' fields.
+  foreach ($form['#fields'] as $field_name) {
+    $instance = field_info_instance($entity_type, $field_name, $bundle);
+    $instance['display'][$view_mode] = $form_values['settings'][$field_name];
+    field_update_instance($instance);
+  }
+
+  // Get current bundle settings.
+  $bundle_settings = field_bundle_settings($entity_type, $bundle);
+
+  // Save data for 'extra' fields.
+  foreach ($form['#extra'] as $name) {
+    $bundle_settings['extra_fields']['display'][$name][$view_mode] = array(
+      'weight' => $form_values['settings'][$name]['weight'],
+      'visible' => $form_values['settings'][$name]['type'] == 'visible',
+    );
+  }
+
+  // Save view modes data.
+  if ($view_mode == 'default') {
+    $entity_info = entity_get_info($entity_type);
+    foreach ($form_values['view_modes_custom'] as $view_mode_name => $value) {
+      // Display a message for each view mode newly configured to use custom
+      // settings.
+      if (!empty($value) && empty($bundle_settings['view_modes'][$view_mode_name]['custom_settings'])) {
+        $view_mode_label = $entity_info['view modes'][$view_mode_name]['label'];
+        $path = _field_ui_bundle_admin_path($entity_type, $bundle) . "/display/$view_mode_name";
+        drupal_set_message(t('The %view_mode mode now uses custom display settings. You might want to <a href="@url">configure them</a>.', array('%view_mode' => $view_mode_label, '@url' => url($path))));
       }
-      field_update_instance($instance);
+      $bundle_settings['view_modes'][$view_mode_name]['custom_settings'] = !empty($value);
     }
   }
+
+  // Save updated bundle settings.
+  field_bundle_settings($entity_type, $bundle, $bundle_settings);
+
   drupal_set_message(t('Your settings have been saved.'));
 }
 
@@ -964,7 +1205,7 @@ function field_ui_widget_type_form_submit($form, &$form_state) {
 }
 
 /**
- * Menu callback; present a form for removing a field from a content type.
+ * Menu callback; present a form for removing a field instance from a bundle.
  */
 function field_ui_field_delete_form($form, &$form_state, $instance) {
   $bundle = $instance['bundle'];
@@ -994,7 +1235,9 @@ function field_ui_field_delete_form($form, &$form_state, $instance) {
 }
 
 /**
- * Remove a field from a content type.
+ * Removes a field instance from a bundle.
+ *
+ * If the field has no more instances, it will be marked as deleted too.
  */
 function field_ui_field_delete_form_submit($form, &$form_state) {
   $form_values = $form_state['values'];
@@ -1282,12 +1525,12 @@ function field_ui_field_edit_form_submit($form, &$form_state) {
  * Helper functions to handle multipage redirects.
  */
 function field_ui_get_destinations($destinations) {
-  $query = array();
   $path = array_shift($destinations);
+  $options = drupal_parse_url($path);
   if ($destinations) {
-    $query['destinations'] = $destinations;
+    $options['query']['destinations'] = $destinations;
   }
-  return array($path, array('query' => $query));
+  return array($options['path'], $options);
 }
 
 /**
@@ -1305,6 +1548,7 @@ function field_ui_next_destination($entity_type, $bundle) {
 
 /**
  * Helper function to order fields when theming overview forms.
+ * @todo Remove when 'Manage display' screen is done.
  */
 function _field_ui_overview_order(&$form, $field_rows) {
   // Put weight and parenting values into a $dummy render structure and let

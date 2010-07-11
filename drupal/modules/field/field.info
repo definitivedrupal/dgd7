@@ -1,7 +1,7 @@
-; $Id: field.info,v 1.7 2010/02/12 05:38:09 webchick Exp $
+; $Id: field.info,v 1.8 2010/06/21 02:27:47 webchick Exp $
 name = Field
 description = Field API to add fields to entities like nodes and users.
-package = Core - fields
+package = Core
 version = VERSION
 core = 7.x
 files[] = field.module
@@ -16,8 +16,8 @@ files[] = tests/field.test
 dependencies[] = field_sql_storage
 required = TRUE
 
-; Information added by drupal.org packaging script on 2010-05-23
-version = "7.0-alpha5"
+; Information added by drupal.org packaging script on 2010-07-09
+version = "7.0-alpha6"
 project = "drupal"
-datestamp = "1274628610"
+datestamp = "1278634806"
 

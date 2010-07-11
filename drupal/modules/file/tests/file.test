@@ -1,5 +1,5 @@
 <?php
-// $Id: file.test,v 1.14 2010/04/20 09:48:06 webchick Exp $
+// $Id: file.test,v 1.18 2010/07/02 12:37:57 dries Exp $
 
 /**
  * @file
@@ -14,7 +14,7 @@ class FileFieldTestCase extends DrupalWebTestCase {
 
   function setUp() {
     parent::setUp('file');
-    $this->admin_user = $this->drupalCreateUser(array('access content', 'access administration pages', 'administer site configuration', 'administer content types', 'administer nodes', 'create article content', 'edit any article content', 'delete any article content'));
+    $this->admin_user = $this->drupalCreateUser(array('access content', 'access administration pages', 'administer site configuration', 'administer users', 'administer content types', 'administer nodes', 'bypass node access'));
     $this->drupalLogin($this->admin_user);
   }
 
@@ -55,11 +55,31 @@ class FileFieldTestCase extends DrupalWebTestCase {
     $field['settings'] = array_merge($field['settings'], $field_settings);
     field_create_field($field);
 
+    $this->attachFileField($name, 'node', $type_name, $instance_settings, $widget_settings);
+  }
+
+  /**
+   * Attach a file field to an entity.
+   *
+   * @param $name
+   *   The name of the new field (all lowercase), exclude the "field_" prefix.
+   * @param $entity_type
+   *   The entity type this field will be added to.
+   * @param $bundle
+   *   The bundle this field will be added to.
+   * @param $field_settings
+   *   A list of field settings that will be added to the defaults.
+   * @param $instance_settings
+   *   A list of instance settings that will be added to the instance defaults.
+   * @param $widget_settings
+   *   A list of widget settings that will be added to the widget defaults.
+   */
+  function attachFileField($name, $entity_type, $bundle, $instance_settings = array(), $widget_settings = array()) {
     $instance = array(
-      'field_name' => $field['field_name'],
-      'entity_type' => 'node',
+      'field_name' => $name,
       'label' => $name,
-      'bundle' => $type_name,
+      'entity_type' => $entity_type,
+      'bundle' => $bundle,
       'required' => !empty($instance_settings['required']),
       'settings' => array(),
       'widget' => array(
@@ -182,6 +202,84 @@ class FileFieldTestCase extends DrupalWebTestCase {
   }
 }
 
+
+/**
+ * Test class to test file field upload and remove buttons, with and without AJAX.
+ */
+class FileFieldWidgetTestCase extends FileFieldTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'File field widget test',
+      'description' => 'Test upload and remove buttons, with and without AJAX.',
+      'group' => 'File',
+    );
+  }
+
+  /**
+   * Tests upload and remove buttons, with and without AJAX.
+   *
+   * @todo This function currently only tests the "remove" button of a single-
+   *   valued field. Tests should be added for the "upload" button and for each
+   *   button of a multi-valued field. Tests involving multiple AJAX steps on
+   *   the same page will become easier after http://drupal.org/node/789186
+   *   lands. Testing the "upload" button in AJAX context requires more
+   *   investigation into how jQuery uploads files, so that drupalPostAJAX() can
+   *   emulate that correctly.
+   */
+  function testWidget() {
+    // Use 'page' instead of 'article', so that the 'article' image field does
+    // not conflict with this test. If in the future the 'page' type gets its
+    // own default file or image field, this test can be made more robust by
+    // using a custom node type.
+    $type_name = 'page';
+    $field_name = strtolower($this->randomName());
+    $this->createFileField($field_name, $type_name);
+    $field = field_info_field($field_name);
+    $instance = field_info_instance('node', $field_name, $type_name);
+
+    $test_file = $this->getTestFile('text');
+
+    foreach (array('nojs', 'js') as $type) {
+      // Create a new node with the uploaded file and ensure it got uploaded
+      // successfully.
+      $nid = $this->uploadNodeFile($test_file, $field_name, $type_name);
+      $node = node_load($nid, NULL, TRUE);
+      $node_file = (object) $node->{$field_name}[LANGUAGE_NONE][0];
+      $this->assertFileExists($node_file, t('New file saved to disk on node creation.'));
+
+      // Ensure the edit page has a remove button instead of an upload button.
+      $this->drupalGet("node/$nid/edit");
+      $this->assertNoFieldByXPath('//input[@type="submit"]', t('Upload'), t('Node with file does not display the "Upload" button.'));
+      $this->assertFieldByXpath('//input[@type="submit"]', t('Remove'), t('Node with file displays the "Remove" button.'));
+
+      // "Click" the remove button (emulating either a nojs or js submission).
+      switch ($type) {
+        case 'nojs':
+          $this->drupalPost(NULL, array(), t('Remove'));
+          break;
+        case 'js':
+          // @todo This can be simplified after http://drupal.org/node/789186
+          //   lands.
+          preg_match('/jQuery\.extend\(Drupal\.settings, (.*?)\);/', $this->content, $matches);
+          $settings = drupal_json_decode($matches[1]);
+          $button = $this->xpath('//input[@type="submit" and @value="' . t('Remove') . '"]');
+          $button_id = (string) $button[0]['id'];
+          $this->drupalPostAJAX(NULL, array(), array((string) $button[0]['name'] => (string) $button[0]['value']), $settings['ajax'][$button_id]['url'], array(), array(), NULL, $settings['ajax'][$button_id]);
+          break;
+      }
+
+      // Ensure the page now has an upload button instead of a remove button.
+      $this->assertNoFieldByXPath('//input[@type="submit"]', t('Remove'), t('After clicking the "Remove" button, it is no longer displayed.'));
+      $this->assertFieldByXpath('//input[@type="submit"]', t('Upload'), t('After clicking the "Remove" button, the "Upload" button is displayed.'));
+
+      // Save the node and ensure it does not have the file.
+      $this->drupalPost(NULL, array(), t('Save'));
+      $node = node_load($nid, NULL, TRUE);
+      $this->assertTrue(empty($node->{$field_name}[LANGUAGE_NONE][0]['fid']), t('File was successfully removed from the node.'));
+    }
+  }
+}
+
 /**
  * Test class to test file handling with node revisions.
  */
@@ -211,6 +309,9 @@ class FileFieldRevisionTestCase extends FileFieldTestCase {
     $this->createFileField($field_name, $type_name);
     $field = field_info_field($field_name);
     $instance = field_info_instance('node', $field_name, $type_name);
+
+    // Attach the same fields to users.
+    $this->attachFileField($field_name, 'user', 'user');
 
     $test_file = $this->getTestFile('text');
 
@@ -265,8 +366,21 @@ class FileFieldRevisionTestCase extends FileFieldTestCase {
     $this->assertFileEntryExists($node_file_r3, t('Second file entry is still available after deleting second revision, since it is being used by the third revision.'));
     $this->assertFileIsPermanent($node_file_r3, t('Second file entry is still permanent after deleting second revision, since it is being used by the third revision.'));
 
-    // Delete the third revision and check that the file is deleted also.
+    // Attach the second file to a user.
+    $user = $this->drupalCreateUser();
+    $edit = array();
+    $edit[$field_name][LANGUAGE_NONE][0] = (array) $node_file_r3;
+    user_save($user, $edit);
+    $this->drupalGet('user/' . $user->uid . '/edit');
+
+    // Delete the third revision and check that the file is not deleted yet.
     $this->drupalPost('node/' . $nid . '/revisions/' . $node_vid_r3 . '/delete', array(), t('Delete'));
+    $this->assertFileExists($node_file_r3, t('Second file is still available after deleting third revision, since it is being used by the user.'));
+    $this->assertFileEntryExists($node_file_r3, t('Second file entry is still available after deleting third revision, since it is being used by the user.'));
+    $this->assertFileIsPermanent($node_file_r3, t('Second file entry is still permanent after deleting third revision, since it is being used by the user.'));
+
+    // Delete the user and check that the file is also deleted.
+    user_delete($user->uid);
     // TODO: This seems like a bug in File API. Clearing the stat cache should
     // not be necessary here. The file really is deleted, but stream wrappers
     // doesn't seem to think so unless we clear the PHP file stat() cache.
@@ -455,8 +569,8 @@ class FileFieldValidateTestCase extends FileFieldTestCase {
     $field = field_info_field($field_name);
     $instance = field_info_instance('node', $field_name, $type_name);
 
-    // Get the test file (a GIF image).
     $test_file = $this->getTestFile('image');
+    list(, $test_file_extension) = explode('.', $test_file->filename);
 
     // Disable extension checking.
     $this->updateFileField($field_name, $type_name, array('file_extensions' => ''));
@@ -477,7 +591,7 @@ class FileFieldValidateTestCase extends FileFieldTestCase {
     $this->assertRaw($error_message, t('Node save failed when file uploaded with the wrong extension.'));
 
     // Enable extension checking for text and image files.
-    $this->updateFileField($field_name, $type_name, array('file_extensions' => 'txt gif'));
+    $this->updateFileField($field_name, $type_name, array('file_extensions' => "txt $test_file_extension"));
 
     // Check that the file can be uploaded with extension checking.
     $nid = $this->uploadNodeFile($test_file, $field_name, $type_name);
@@ -611,7 +725,6 @@ class FileTokenReplaceTestCase extends FileFieldTestCase {
     // Generate and test sanitized tokens.
     $tests = array();
     $tests['[file:fid]'] = $file->fid;
-    $tests['[file:uid]'] = $file->uid;
     $tests['[file:name]'] = check_plain($file->filename);
     $tests['[file:description]'] = filter_xss($file->description);
     $tests['[file:path]'] = filter_xss($file->uri);
@@ -621,7 +734,7 @@ class FileTokenReplaceTestCase extends FileFieldTestCase {
     $tests['[file:timestamp]'] = format_date($file->timestamp, 'medium', '', NULL, $language->language);
     $tests['[file:timestamp:short]'] = format_date($file->timestamp, 'short', '', NULL, $language->language);
     $tests['[file:owner]'] = $this->admin_user->name;
-    $tests['[file:owner:uid]'] = $this->admin_user->uid;
+    $tests['[file:owner:uid]'] = $file->uid;
 
     // Test to make sure that we generated something for each token.
     $this->assertFalse(in_array(0, array_map('strlen', $tests)), t('No empty tokens generated.'));

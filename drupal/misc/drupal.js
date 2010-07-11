@@ -1,4 +1,4 @@
-// $Id: drupal.js,v 1.66 2010/05/14 16:44:37 dries Exp $
+// $Id: drupal.js,v 1.68 2010/05/24 07:22:12 dries Exp $
 
 var Drupal = Drupal || { 'settings': {}, 'behaviors': {}, 'locale': {} };
 
@@ -216,7 +216,7 @@ Drupal.formatPlural = function (count, singular, plural, args) {
   else {
     args['@count[' + index + ']'] = args['@count'];
     delete args['@count'];
-    return Drupal.t(plural.replace('@count', '@count[' + index + ']'));
+    return Drupal.t(plural.replace('@count', '@count[' + index + ']'), args);
   }
 };
 
@@ -297,24 +297,6 @@ Drupal.getSelection = function (element) {
     return { 'start': start, 'end': end };
   }
   return { 'start': element.selectionStart, 'end': element.selectionEnd };
-};
-
-/**
- * Checks if position:fixed is supported.
- *
- * @return
- *   Boolean indicating whether or not position:fixed is supported.
- *
- * @see http://yura.thinkweb2.com/cft/#IS_POSITION_FIXED_SUPPORTED
- */
-Drupal.positionFixedSupported = function () {
-  if (this._positionFixedSupported === undefined) {
-    var el = $('<div style="position:fixed; top:10px" />').appendTo(document.body);
-    this._positionFixedSupported = el[0].offsetTop === 10;
-    el.remove();
-  }
-
-  return this._positionFixedSupported;
 };
 
 /**

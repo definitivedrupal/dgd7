@@ -1,5 +1,5 @@
 <?php
-// $Id: theme.inc,v 1.598 2010/05/19 19:22:24 dries Exp $
+// $Id: theme.inc,v 1.601 2010/07/08 03:41:26 webchick Exp $
 
 /**
  * @file
@@ -81,7 +81,7 @@ function drupal_theme_initialize() {
 
   // Only select the user selected theme if it is available in the
   // list of themes that can be accessed.
-  $theme = !empty($user->theme) && drupal_theme_access($user->theme) ? $user->theme : variable_get('theme_default', 'garland');
+  $theme = !empty($user->theme) && drupal_theme_access($user->theme) ? $user->theme : variable_get('theme_default', 'bartik');
 
   // Allow modules to override the theme. Validation has already been performed
   // inside menu_get_custom_theme(), so we do not need to check it again here.
@@ -1260,7 +1260,7 @@ function theme_enable($theme_list) {
  */
 function theme_disable($theme_list) {
   // Don't disable the default theme.
-  if ($pos = array_search(variable_get('theme_default', 'garland'), $theme_list) !== FALSE) {
+  if ($pos = array_search(variable_get('theme_default', 'bartik'), $theme_list) !== FALSE) {
     unset($theme_list[$pos]);
     if (empty($theme_list)) {
       return;
@@ -1854,7 +1854,7 @@ function theme_item_list($variables) {
  *   - url: The url for the link.
  */
 function theme_more_help_link($variables) {
-  return '<div class="more-help-link">' . t('<a href="@link">More help</a>', array('@link' => check_url($variables['url']))) . '</div>';
+  return '<div class="more-help-link">' . l(t('More help'), $variables['url']) . '</div>';
 }
 
 /**
@@ -1868,7 +1868,7 @@ function theme_more_help_link($variables) {
 function theme_feed_icon($variables) {
   $text = t('Subscribe to @feed-title', array('@feed-title' => $variables['title']));
   if ($image = theme('image', array('path' => 'misc/feed.png', 'alt' => $text))) {
-    return '<a href="' . check_url($variables['url']) . '" title="' . $text . '" class="feed-icon">' . $image . '</a>';
+    return l($image, $variables['url'], array('html' => TRUE, 'attributes' => array('class' => array('feed-icon'), 'title' => $text)));
   }
 }
 
@@ -1918,7 +1918,7 @@ function theme_html_tag($variables) {
  *   - title: A descriptive verb for the link, like 'Read more'.
  */
 function theme_more_link($variables) {
-  return '<div class="more-link">' . t('<a href="@link" title="@title">More</a>', array('@link' => check_url($variables['url']), '@title' => $variables['title'])) . '</div>';
+  return '<div class="more-link">' . l(t('More'), $variables['url'], array('attributes' => array('title' => $variables['title']))) . '</div>';
 }
 
 /**
@@ -2172,7 +2172,7 @@ function template_preprocess_html(&$variables) {
   if (theme_get_setting('toggle_favicon')) {
     $favicon = theme_get_setting('favicon');
     $type = theme_get_setting('favicon_mimetype');
-    drupal_add_html_head_link(array('rel' => 'shortcut icon', 'href' => check_url($favicon), 'type' => $type));
+    drupal_add_html_head_link(array('rel' => 'shortcut icon', 'href' => drupal_strip_dangerous_protocols($favicon), 'type' => $type));
   }
 
   // Construct page title.
@@ -2339,8 +2339,7 @@ function theme_get_suggestions($args, $base, $delimiter = '__') {
 /**
  * The variables array generated here is a mirror of template_preprocess_page().
  * This preprocessor will run its course when theme_maintenance_page() is
- * invoked. It is also used in theme_install_page() and theme_update_page() to
- * keep all the variables consistent.
+ * invoked.
  *
  * An alternate template file of "maintenance-page--offline.tpl.php" can be
  * used when the database is offline to hide errors and completely replace the
@@ -2356,7 +2355,7 @@ function template_preprocess_maintenance_page(&$variables) {
   if (theme_get_setting('toggle_favicon')) {
     $favicon = theme_get_setting('favicon');
     $type = theme_get_setting('favicon_mimetype');
-    drupal_add_html_head_link(array('rel' => 'shortcut icon', 'href' => check_url($favicon), 'type' => $type));
+    drupal_add_html_head_link(array('rel' => 'shortcut icon', 'href' => drupal_strip_dangerous_protocols($favicon), 'type' => $type));
   }
 
   global $theme;
@@ -2437,8 +2436,6 @@ function template_preprocess_maintenance_page(&$variables) {
 /**
  * The variables array generated here is a mirror of template_process_html().
  * This processor will run its course when theme_maintenance_page() is invoked.
- * It is also used in theme_install_page() and theme_update_page() to keep all
- * the variables consistent.
  *
  * @see maintenance-page.tpl.php
  */

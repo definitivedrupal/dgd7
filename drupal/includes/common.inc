@@ -1,5 +1,5 @@
 <?php
-// $Id: common.inc,v 1.1170 2010/05/21 15:52:19 dries Exp $
+// $Id: common.inc,v 1.1191 2010/07/07 17:00:42 webchick Exp $
 
 /**
  * @file
@@ -262,7 +262,7 @@ function drupal_get_rdf_namespaces() {
       $xml_rdf_namespaces[] = 'xmlns:' . $prefix . '="' . $uri . '"';
     }
   }
-  return implode("\n  ", $xml_rdf_namespaces);
+  return count($xml_rdf_namespaces) ? "\n  " . implode("\n  ", $xml_rdf_namespaces) : '';
 }
 
 /**
@@ -659,7 +659,8 @@ function drupal_encode_path($path) {
  */
 function drupal_goto($path = '', array $options = array(), $http_response_code = 302) {
   // A destination in $_GET always overrides the function arguments.
-  if (isset($_GET['destination'])) {
+  // We do not allow absolute URLs to be passed via $_GET, as this can be an attack vector.
+  if (isset($_GET['destination']) && !url_is_external($_GET['destination'])) {
     $destination = drupal_parse_url($_GET['destination']);
     $path = $destination['path'];
     $options['query'] = $destination['query'];
@@ -765,8 +766,6 @@ function drupal_access_denied() {
  *       A string containing the response body that was received.
  */
 function drupal_http_request($url, array $options = array()) {
-  global $db_prefix;
-
   $result = new stdClass();
 
   // Parse the URL and make sure we can handle the schema.
@@ -866,8 +865,9 @@ function drupal_http_request($url, array $options = array()) {
   // user-agent is used to ensure that multiple testing sessions running at the
   // same time won't interfere with each other as they would if the database
   // prefix were stored statically in a file or database variable.
-  if (is_string($db_prefix) && preg_match("/simpletest\d+/", $db_prefix, $matches)) {
-    $options['headers']['User-Agent'] = drupal_generate_test_ua($matches[0]);
+  $test_info = &$GLOBALS['drupal_test_info'];
+  if (!empty($test_info['test_run_id'])) {
+    $options['headers']['User-Agent'] = drupal_generate_test_ua($test_info['test_run_id']);
   }
 
   $request = $options['method'] . ' ' . $path . " HTTP/1.0\r\n";
@@ -1202,10 +1202,75 @@ function flood_is_allowed($name, $threshold, $window = 3600, $identifier = NULL)
  */
 
 /**
- * Prepare a URL for use in an HTML attribute. Strips harmful protocols.
+ * Strips dangerous protocols (e.g. 'javascript:') from a URI.
+ *
+ * This function must be called for all URIs within user-entered input prior
+ * to being output to an HTML attribute value. It is often called as part of
+ * check_url() or filter_xss(), but those functions return an HTML-encoded
+ * string, so this function can be called independently when the output needs to
+ * be a plain-text string for passing to t(), l(), drupal_attributes(), or
+ * another function that will call check_plain() separately.
+ *
+ * @param $uri
+ *   A plain-text URI that might contain dangerous protocols.
+ *
+ * @return
+ *   A plain-text URI stripped of dangerous protocols. As with all plain-text
+ *   strings, this return value must not be output to an HTML page without
+ *   check_plain() being called on it. However, it can be passed to functions
+ *   expecting plain-text strings.
+ *
+ * @see check_url()
+ */
+function drupal_strip_dangerous_protocols($uri) {
+  static $allowed_protocols;
+
+  if (!isset($allowed_protocols)) {
+    $allowed_protocols = array_flip(variable_get('filter_allowed_protocols', array('ftp', 'http', 'https', 'irc', 'mailto', 'news', 'nntp', 'rtsp', 'sftp', 'ssh', 'telnet', 'webcal')));
+  }
+
+  // Iteratively remove any invalid protocol found.
+  do {
+    $before = $uri;
+    $colonpos = strpos($uri, ':');
+    if ($colonpos > 0) {
+      // We found a colon, possibly a protocol. Verify.
+      $protocol = substr($uri, 0, $colonpos);
+      // If a colon is preceded by a slash, question mark or hash, it cannot
+      // possibly be part of the URL scheme. This must be a relative URL, which
+      // inherits the (safe) protocol of the base document.
+      if (preg_match('![/?#]!', $protocol)) {
+        break;
+      }
+      // Check if this is a disallowed protocol. Per RFC2616, section 3.2.3
+      // (URI Comparison) scheme comparison must be case-insensitive.
+      if (!isset($allowed_protocols[strtolower($protocol)])) {
+        $uri = substr($uri, $colonpos + 1);
+      }
+    }
+  } while ($before != $uri);
+
+  return $uri;
+}
+
+/**
+ * Strips dangerous protocols (e.g. 'javascript:') from a URI and encodes it for output to an HTML attribute value.
+ *
+ * @param $uri
+ *   A plain-text URI that might contain dangerous protocols.
+ *
+ * @return
+ *   A URI stripped of dangerous protocols and encoded for output to an HTML
+ *   attribute value. Because it is already encoded, it should not be set as a
+ *   value within a $attributes array passed to drupal_attributes(), because
+ *   drupal_attributes() expects those values to be plain-text strings. To pass
+ *   a filtered URI to drupal_attributes(), call
+ *   drupal_strip_dangerous_protocols() instead.
+ *
+ * @see drupal_strip_dangerous_protocols()
  */
 function check_url($uri) {
-  return filter_xss_bad_protocol($uri, FALSE);
+  return check_plain(drupal_strip_dangerous_protocols($uri));
 }
 
 /**
@@ -1223,25 +1288,30 @@ function filter_xss_admin($string) {
 }
 
 /**
- * Filter XSS.
+ * Filters an HTML string to prevent cross-site-scripting (XSS) vulnerabilities.
  *
- * Based on kses by Ulf Harnhammar, see
- * http://sourceforge.net/projects/kses
- *
- * For examples of various XSS attacks, see:
- * http://ha.ckers.org/xss.html
+ * Based on kses by Ulf Harnhammar, see http://sourceforge.net/projects/kses.
+ * For examples of various XSS attacks, see: http://ha.ckers.org/xss.html.
  *
  * This code does four things:
- * - Removes characters and constructs that can trick browsers
- * - Makes sure all HTML entities are well-formed
- * - Makes sure all HTML tags and attributes are well-formed
- * - Makes sure no HTML tags contain URLs with a disallowed protocol (e.g. javascript:)
+ * - Removes characters and constructs that can trick browsers.
+ * - Makes sure all HTML entities are well-formed.
+ * - Makes sure all HTML tags and attributes are well-formed.
+ * - Makes sure no HTML tags contain URLs with a disallowed protocol (e.g.
+ *   javascript:).
  *
  * @param $string
- *   The string with raw HTML in it. It will be stripped of everything that can cause
- *   an XSS attack.
+ *   The string with raw HTML in it. It will be stripped of everything that can
+ *   cause an XSS attack.
  * @param $allowed_tags
  *   An array of allowed tags.
+ *
+ * @return
+ *   An XSS safe version of $string, or an empty string if $string is not
+ *   valid UTF-8.
+ *
+ * @see drupal_validate_utf8()
+ * @ingroup sanitization
  */
 function filter_xss($string, $allowed_tags = array('a', 'em', 'strong', 'cite', 'blockquote', 'code', 'ul', 'ol', 'li', 'dl', 'dt', 'dd')) {
   // Only operate on valid UTF-8 strings. This is necessary to prevent cross
@@ -1436,7 +1506,7 @@ function _filter_xss_attributes($attr) {
   }
 
   // The attribute list ends with a valueless attribute like "selected".
-  if ($mode == 1) {
+  if ($mode == 1 && !$skip) {
     $attrarr[] = $attrname;
   }
   return $attrarr;
@@ -1448,45 +1518,21 @@ function _filter_xss_attributes($attr) {
  * @param $string
  *   The string with the attribute value.
  * @param $decode
- *   Whether to decode entities in the $string. Set to FALSE if the $string
- *   is in plain text, TRUE otherwise. Defaults to TRUE.
+ *   (Deprecated) Whether to decode entities in the $string. Set to FALSE if the
+ *   $string is in plain text, TRUE otherwise. Defaults to TRUE. This parameter
+ *   is deprecated and will be removed in Drupal 8. To process a plain-text URI,
+ *   call drupal_strip_dangerous_protocols() or check_url() instead.
  * @return
  *   Cleaned up and HTML-escaped version of $string.
  */
 function filter_xss_bad_protocol($string, $decode = TRUE) {
-  static $allowed_protocols;
-
-  if (!isset($allowed_protocols)) {
-    $allowed_protocols = array_flip(variable_get('filter_allowed_protocols', array('ftp', 'http', 'https', 'irc', 'mailto', 'news', 'nntp', 'rtsp', 'sftp', 'ssh', 'telnet', 'webcal')));
-  }
-
   // Get the plain text representation of the attribute value (i.e. its meaning).
+  // @todo Remove the $decode parameter in Drupal 8, and always assume an HTML
+  //   string that needs decoding.
   if ($decode) {
     $string = decode_entities($string);
   }
-
-  // Iteratively remove any invalid protocol found.
-  do {
-    $before = $string;
-    $colonpos = strpos($string, ':');
-    if ($colonpos > 0) {
-      // We found a colon, possibly a protocol. Verify.
-      $protocol = substr($string, 0, $colonpos);
-      // If a colon is preceded by a slash, question mark or hash, it cannot
-      // possibly be part of the URL scheme. This must be a relative URL,
-      // which inherits the (safe) protocol of the base document.
-      if (preg_match('![/?#]!', $protocol)) {
-        break;
-      }
-      // Per RFC2616, section 3.2.3 (URI Comparison) scheme comparison must be case-insensitive
-      // Check if this is a disallowed protocol.
-      if (!isset($allowed_protocols[strtolower($protocol)])) {
-        $string = substr($string, $colonpos + 1);
-      }
-    }
-  } while ($before != $string);
-
-  return check_plain($string);
+  return check_plain(drupal_strip_dangerous_protocols($string));
 }
 
 /**
@@ -1961,6 +2007,18 @@ function format_username($account) {
  *     dependent URL requires so.
  *   - 'prefix': Only used internally, to modify the path when a language
  *     dependent URL requires so.
+ *   - 'script': The script filename in Drupal's root directory to use when
+ *     clean URLs are disabled, such as 'index.php'. Defaults to an empty
+ *     string, as most modern web servers automatically find 'index.php'. If
+ *     clean URLs are disabled, the value of $path is appended as query
+ *     parameter 'q' to $options['script'] in the returned URL. When deploying
+ *     Drupal on a web server that cannot be configured to automatically find
+ *     index.php, then hook_url_outbound_alter() can be implemented to force
+ *     this value to 'index.php'.
+ *   - 'entity_type': The entity type of the object that called url(). Only set if
+ *     url() is invoked by entity_uri().
+ *   - 'entity': The entity object (such as a node) for which the URL is being
+ *     generated. Only set if url() is invoked by entity_uri().
  *
  * @return
  *   A string containing a URL to the given path.
@@ -1976,13 +2034,13 @@ function url($path = NULL, array $options = array()) {
   );
 
   if (!isset($options['external'])) {
-    // Return an external link if $path contains an allowed absolute URL.
-    // Only call the slow filter_xss_bad_protocol if $path contains a ':'
-    // before any / ? or #.
-    // Note: we could use url_is_external($path) here, but that would
-    // require another function call, and performance inside url() is critical.
+    // Return an external link if $path contains an allowed absolute URL. Only
+    // call the slow drupal_strip_dangerous_protocols() if $path contains a ':'
+    // before any / ? or #. Note: we could use url_is_external($path) here, but
+    // that would require another function call, and performance inside url() is
+    // critical.
     $colonpos = strpos($path, ':');
-    $options['external'] = ($colonpos !== FALSE && !preg_match('![/?#]!', substr($path, 0, $colonpos)) && filter_xss_bad_protocol($path, FALSE) == check_plain($path));
+    $options['external'] = ($colonpos !== FALSE && !preg_match('![/?#]!', substr($path, 0, $colonpos)) && drupal_strip_dangerous_protocols($path) == $path);
   }
 
   // Preserve the original path before altering or aliasing.
@@ -2076,33 +2134,29 @@ function url($path = NULL, array $options = array()) {
       // parameters.
       $query += $options['query'];
     }
-    if ($query) {
-      // On some web servers, such as IIS, we can't omit "index.php". So, we
-      // generate "index.php?q=foo" instead of "?q=foo" on anything that is not
-      // Apache. strpos() is fast, so there is no performance benefit to
-      // statically caching its result.
-      // @todo This needs to be re-evaluated with modern web servers. Since we
-      //   do not add $script when there aren't query parameters, we're already
-      //   assuming that index.php is setup as a default document on the web
-      //   server. If that's the case, it should be possible to omit "index.php"
-      //   even when there are query parameters: http://drupal.org/node/437228.
-      $script = (strpos($_SERVER['SERVER_SOFTWARE'], 'Apache') === FALSE) ? 'index.php' : '';
-      return $base . $script . '?' . drupal_http_build_query($query) . $options['fragment'];
-    }
-    else {
-      return $base . $options['fragment'];
-    }
+    $query = $query ? ('?' . drupal_http_build_query($query)) : '';
+    $script = isset($options['script']) ? $options['script'] : '';
+    return $base . $script . $query . $options['fragment'];
   }
 }
 
 /**
- * Return TRUE if a path is external (e.g. http://example.com).
+ * Return TRUE if a path is external to Drupal (e.g. http://example.com).
+ *
+ * If a path cannot be assessed by Drupal's menu handler, then we must
+ * treat it as potentially insecure.
+ *
+ * @param $path
+ *   The internal path or external URL being linked to, such as "node/34" or
+ *   "http://example.com/foo".
+ * @return 
+ *   Boolean TRUE or FALSE, where TRUE indicates an external path.
  */
 function url_is_external($path) {
   $colonpos = strpos($path, ':');
-  // Only call the slow filter_xss_bad_protocol if $path contains a ':'
-  // before any / ? or #.
-  return $colonpos !== FALSE && !preg_match('![/?#]!', substr($path, 0, $colonpos)) && filter_xss_bad_protocol($path, FALSE) == check_plain($path);
+  // Only call the slow drupal_strip_dangerous_protocols() if $path contains a
+  // ':' before any / ? or #.
+  return $colonpos !== FALSE && !preg_match('![/?#]!', substr($path, 0, $colonpos)) && drupal_strip_dangerous_protocols($path) == $path;
 }
 
 /**
@@ -2262,10 +2316,9 @@ function l($text, $path, array $options = array()) {
  * sends the content to the browser in the needed format. The default delivery
  * callback is drupal_deliver_html_page() which delivers the content as an HTML
  * page, complete with blocks in addition to the content. This default can be
- * overridden on a per menu item basis by setting 'delivery callback' in
- * hook_menu(), hook_menu_alter(), or hook_menu_active_handler_alter().
- * Additionally, modules may use hook_page_delivery_callback_alter() to specify
- * a different delivery callback to use for the page request.
+ * overridden on a per menu router item basis by setting 'delivery callback' in
+ * hook_menu() or hook_menu_alter(), and can also be overridden on a per request
+ * basis in hook_page_delivery_callback_alter().
  *
  * For example, the same page callback function can be used for an HTML
  * version of the page and an AJAX version of the page. The page callback
@@ -2287,25 +2340,20 @@ function l($text, $path, array $options = array()) {
  *   (Optional) If given, it is the name of a delivery function most likely
  *   to be appropriate for the page request as determined by the calling
  *   function (e.g., menu_execute_active_handler()). If not given, it is
- *   determined from the menu router information of the current page. In either
- *   case, modules have a final chance to alter which function is called.
+ *   determined from the menu router information of the current page.
  *
  * @see menu_execute_active_handler()
  * @see hook_menu()
  * @see hook_menu_alter()
- * @see hook_menu_active_handler_alter()
  * @see hook_page_delivery_callback_alter()
  */
 function drupal_deliver_page($page_callback_result, $default_delivery_callback = NULL) {
   if (!isset($default_delivery_callback) && ($router_item = menu_get_item())) {
-    drupal_alter('menu_active_handler', $router_item);
     $default_delivery_callback = $router_item['delivery_callback'];
   }
   $delivery_callback = !empty($default_delivery_callback) ? $default_delivery_callback : 'drupal_deliver_html_page';
-  // Give modules a final chance to alter the delivery callback used. This is
-  // for modules that need to decide which delivery callback to use based on
-  // information made available during page callback execution and for pages
-  // without router items.
+  // Give modules a chance to alter the delivery callback used, based on
+  // request-time context (e.g., HTTP request headers).
   drupal_alter('page_delivery_callback', $delivery_callback);
   if (function_exists($delivery_callback)) {
     $delivery_callback($page_callback_result);
@@ -2486,7 +2534,9 @@ function drupal_exit($destination = NULL) {
  *   An associative array.
  */
 function drupal_map_assoc($array, $function = NULL) {
-  $array = array_combine($array, $array);
+  // array_combine() fails with empty arrays:
+  // http://bugs.php.net/bug.php?id=34857.
+  $array = !empty($array) ? array_combine($array, $array) : array();
   if (is_callable($function)) {
     $array = array_map($function, $array);
   }
@@ -2746,7 +2796,7 @@ function drupal_get_css($css = NULL) {
     $css = drupal_add_css();
   }
 
-  // Allow modules to alter the CSS items.
+  // Allow modules and themes to alter the CSS items.
   drupal_alter('css', $css);
 
   // Sort CSS items according to their weights.
@@ -3260,14 +3310,21 @@ function drupal_load_stylesheet_content($contents, $optimize = FALSE) {
 
   if ($optimize) {
     // Perform some safe CSS optimizations.
-    $contents = preg_replace('{
-      (?<=\\\\\*/)([^/\*]+/\*)([^\*/]+\*/)  # Add a backslash also at the end ie-mac hack comment, so the next pass will not touch it.
-                                            # The added backslash does not affect the effectiveness of the hack.
-      }x', '\1\\\\\2', $contents);
-    $contents = preg_replace('<
-      \s*([@{}:;,]|\)\s|\s\()\s* |          # Remove whitespace around separators, but keep space around parentheses.
-      /\*[^*\\\\]*\*+([^/*][^*]*\*+)*/ |    # Remove comments that are not CSS hacks.
-      >x', '\1', $contents);
+    // Regexp to match comment blocks.
+    $comment     = '/\*[^*]*\*+(?:[^/*][^*]*\*+)*/';
+    // Regexp to match double quoted strings.
+    $double_quot = '"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"';
+    // Regexp to match single quoted strings.
+    $single_quot = "'[^'\\\\]*(?:\\\\.[^'\\\\]*)*'";
+    $contents = preg_replace(
+      "<($double_quot|$single_quot)|$comment>Sus", // Strip all comment blocks
+      "$1",                                        // but keep double/single
+      $contents);                                  // quoted strings.
+    $contents = preg_replace(
+      '<\s*([@{}:;,]|\)\s|\s\()\s*>S',             // Remove whitespace around separators,
+      '\1', $contents);                            // but keep space around parentheses.
+    // End the file with a new line.
+    $contents .= "\n";
   }
 
   // Replaces @import commands with the actual stylesheet content.
@@ -4271,6 +4328,7 @@ function drupal_add_tabledrag($table_id, $action, $relationship, $group, $subgro
     // Add the table drag JavaScript to the page before the module JavaScript
     // to ensure that table drag behaviors are registered before any module
     // uses it.
+    drupal_add_js('misc/jquery.cookie.js', array('weight' => JS_DEFAULT - 2));
     drupal_add_js('misc/tabledrag.js', array('weight' => JS_DEFAULT - 1));
     $js_added = TRUE;
   }
@@ -4482,13 +4540,15 @@ function _drupal_bootstrap_full() {
   module_load_all();
   // Make sure all stream wrappers are registered.
   file_get_stream_wrappers();
-  if (isset($_SERVER['HTTP_USER_AGENT']) && strpos($_SERVER['HTTP_USER_AGENT'], 'simpletest') !== FALSE) {
-    // Valid SimpleTest user-agent, log fatal errors to test specific file
-    // directory. The user-agent is validated in DRUPAL_BOOTSTRAP_DATABASE
-    // phase so as long as it is a SimpleTest user-agent it is valid.
+
+  $test_info = &$GLOBALS['drupal_test_info'];
+  if (!empty($test_info['in_child_site'])) {
+    // Running inside the simpletest child site, log fatal errors to test
+    // specific file directory.
     ini_set('log_errors', 1);
     ini_set('error_log', file_directory_path() . '/error.log');
   }
+
   // Initialize $_GET['q'] prior to invoking hook_init().
   drupal_path_initialize();
   // Set a custom theme for the current page, if there is one. We need to run
@@ -4575,27 +4635,15 @@ function drupal_cron_run() {
   // Try to allocate enough time to run all the hook_cron implementations.
   drupal_set_time_limit(240);
 
-  // Fetch the cron semaphore
-  $semaphore = variable_get('cron_semaphore', FALSE);
-
   $return = FALSE;
   // Grab the defined cron queues.
   $queues = module_invoke_all('cron_queue_info');
   drupal_alter('cron_queue_info', $queues);
 
-  if ($semaphore) {
-    if (REQUEST_TIME - $semaphore > 3600) {
-      // Either cron has been running for more than an hour or the semaphore
-      // was not reset due to a database error.
-      watchdog('cron', 'Cron has been running for more than an hour and is most likely stuck.', array(), WATCHDOG_ERROR);
-
-      // Release cron semaphore
-      variable_del('cron_semaphore');
-    }
-    else {
-      // Cron is still running normally.
-      watchdog('cron', 'Attempting to re-run cron while it is already running.', array(), WATCHDOG_WARNING);
-    }
+  // Try to acquire cron lock.
+  if (!lock_acquire('cron', 240.0)) {
+    // Cron is still running normally.
+    watchdog('cron', 'Attempting to re-run cron while it is already running.', array(), WATCHDOG_WARNING);
   }
   else {
     // Make sure every queue exists. There is no harm in trying to recreate an
@@ -4606,9 +4654,6 @@ function drupal_cron_run() {
     // Register shutdown callback
     drupal_register_shutdown_function('drupal_cron_cleanup');
 
-    // Lock cron semaphore
-    variable_set('cron_semaphore', REQUEST_TIME);
-
     // Iterate through the modules calling their cron handlers (if any):
     module_invoke_all('cron');
 
@@ -4616,8 +4661,8 @@ function drupal_cron_run() {
     variable_set('cron_last', REQUEST_TIME);
     watchdog('cron', 'Cron run completed.', array(), WATCHDOG_NOTICE);
 
-    // Release cron semaphore
-    variable_del('cron_semaphore');
+    // Release cron lock.
+    lock_release('cron');
 
     // Return TRUE so other functions can check if it did run successfully
     $return = TRUE;
@@ -4654,7 +4699,7 @@ function drupal_cron_cleanup() {
 
 /**
  * Returns information about system object files (modules, themes, etc.).
- * 
+ *
  * This function is used to find all or some system object files (module files,
  * theme files, etc.) that exist on the site. It searches in several locations,
  * depending on what type of object you are looking for. For instance, if you
@@ -6158,6 +6203,8 @@ function watchdog_severity_levels() {
 
 /**
  * Explode a string of given tags into an array.
+ *
+ * @see drupal_implode_tags()
  */
 function drupal_explode_tags($tags) {
   // This regexp allows the following types of user input:
@@ -6182,6 +6229,8 @@ function drupal_explode_tags($tags) {
 
 /**
  * Implode an array of tags into a string.
+ *
+ * @see drupal_explode_tags()
  */
 function drupal_implode_tags($tags) {
   $encoded_tags = array();
@@ -6386,6 +6435,11 @@ function entity_get_info($entity_type = NULL) {
           'revision' => '',
           'bundle' => '',
         );
+        foreach ($entity_info[$name]['view modes'] as $view_mode => $view_mode_info) {
+          $entity_info[$name]['view modes'][$view_mode] += array(
+            'custom settings' => FALSE,
+          );
+        }
         // If no bundle key is provided, assume a single bundle, named after
         // the entity type.
         if (empty($entity_info[$name]['entity keys']['bundle']) && empty($entity_info[$name]['bundles'])) {
@@ -6601,6 +6655,10 @@ function entity_uri($entity_type, $entity) {
       if (!isset($entity->uri['options'])) {
         $entity->uri['options'] = array();
       }
+      // Pass the entity data to url() so that alter functions do not need to
+      // lookup this entity again.
+      $entity->uri['options']['entity_type'] = $entity_type;
+      $entity->uri['options']['entity'] = $entity;
     }
     else {
       $entity->uri = FALSE;
@@ -6610,17 +6668,51 @@ function entity_uri($entity_type, $entity) {
 }
 
 /**
- * Invokes entity insert/update hooks.
- *
- * @param $op
- *   One of 'insert' or 'update'.
- * @param $entity_type
- *   The entity type; e.g. 'node' or 'user'.
- * @param $entity
- *   The entity object being operated on.
+ * Helper function for attaching field API validation to entity forms.
  */
-function entity_invoke($op, $entity_type, $entity) {
-  module_invoke_all('entity_' . $op, $entity, $entity_type);
+function entity_form_field_validate($entity_type, $form, &$form_state) {
+  // All field attach API functions act on an entity object, but during form
+  // validation, we don't have one. $form_state contains the entity as it was
+  // prior to processing the current form submission, and we must not update it
+  // until we have fully validated the submitted input. Therefore, for
+  // validation, act on a pseudo entity created out of the form values.
+  $pseudo_entity = (object) $form_state['values'];
+  field_attach_form_validate($entity_type, $pseudo_entity, $form, $form_state);
+}
+
+/**
+ * Helper function for copying submitted values to entity properties for simple entity forms.
+ *
+ * During the submission handling of an entity form's "Save", "Preview", and
+ * possibly other buttons, the form state's entity needs to be updated with the
+ * submitted form values. Each entity form implements its own
+ * $form['#builder_function'] for doing this, appropriate for the particular
+ * entity and form. Many of these entity builder functions can call this helper
+ * function to re-use its logic of copying $form_state['values'][PROPERTY]
+ * values to $entity->PROPERTY for all entries in $form_state['values'] that are
+ * not field data, and calling field_attach_submit() to copy field data.
+ *
+ * For some entity forms (e.g., forms with complex non-field data and forms that
+ * simultaneously edit multiple entities), this behavior may be inappropriate,
+ * so the #builder_function for such forms needs to implement the required
+ * functionality instead of calling this function. 
+ */
+function entity_form_submit_build_entity($entity_type, $entity, $form, &$form_state) {
+  $info = entity_get_info($entity_type);
+  list(, , $bundle) = entity_extract_ids($entity_type, $entity);
+
+  // Copy top-level form values that are not for fields to entity properties,
+  // without changing existing entity properties that are not being edited by
+  // this form. Copying field values must be done using field_attach_submit().
+  $values_excluding_fields = $info['fieldable'] ? array_diff_key($form_state['values'], field_info_instances($entity_type, $bundle)) : $form_state['values'];
+  foreach ($values_excluding_fields as $key => $value) {
+    $entity->$key = $value;
+  }
+
+  // Copy field values to the entity.
+  if ($info['fieldable']) {
+    field_attach_submit($entity_type, $entity, $form, $form_state);
+  }
 }
 
 /**

@@ -1,5 +1,5 @@
 <?php
-// $Id: schema.inc,v 1.36 2010/04/07 15:07:59 dries Exp $
+// $Id: schema.inc,v 1.38 2010/06/28 19:57:34 dries Exp $
 
 /**
  * @file
@@ -25,7 +25,7 @@ class DatabaseSchema_mysql extends DatabaseSchema {
   const COMMENT_MAX_COLUMN = 255;
 
   /**
-   * Get information about the table and database name from the db_prefix.
+   * Get information about the table and database name from the prefix.
    *
    * @return
    *   A keyed array with information about the database, table name and prefix.
@@ -316,8 +316,8 @@ class DatabaseSchema_mysql extends DatabaseSchema {
     }
     $query = 'ALTER TABLE {' . $table . '} ADD ';
     $query .= $this->createFieldSql($field, $this->processField($spec));
-    if (count($keys_new)) {
-      $query .= ', ADD ' . implode(', ADD ', $this->createKeysSql($keys_new));
+    if ($keys_sql = $this->createKeysSql($keys_new)) {
+      $query .= ', ADD ' . implode(', ADD ', $keys_sql);
     }
     $this->connection->query($query);
     if (isset($spec['initial'])) {
@@ -439,8 +439,8 @@ class DatabaseSchema_mysql extends DatabaseSchema {
     }
 
     $sql = 'ALTER TABLE {' . $table . '} CHANGE `' . $field . '` ' . $this->createFieldSql($field_new, $this->processField($spec));
-    if (count($keys_new)) {
-      $sql .= ', ADD ' . implode(', ADD ', $this->createKeysSql($keys_new));
+    if ($keys_sql = $this->createKeysSql($keys_new)) {
+      $sql .= ', ADD ' . implode(', ADD ', $keys_sql);
     }
     $this->connection->query($sql);
   }

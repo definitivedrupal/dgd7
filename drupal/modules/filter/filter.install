@@ -1,5 +1,5 @@
 <?php
-// $Id: filter.install,v 1.37 2010/05/01 08:12:23 dries Exp $
+// $Id: filter.install,v 1.42 2010/07/01 15:14:27 webchick Exp $
 
 /**
  * @file
@@ -46,7 +46,7 @@ function filter_schema() {
         'description' => 'Filter enabled status. (1 = enabled, 0 = disabled)',
       ),
       'settings' => array(
-        'type' => 'text',
+        'type' => 'blob',
         'not null' => FALSE,
         'size' => 'big',
         'serialize' => TRUE,
@@ -143,15 +143,14 @@ function filter_install() {
  * Implements hook_update_dependencies().
  */
 function filter_update_dependencies() {
-  // Filter update 7005 migrates block data and therefore needs to run after
-  // the {block_custom} table is properly set up.
+  // Filter update 7007 migrates permissions and therefore needs to run after
+  // the {role} table is properly set up.
   $dependencies['filter'][7005] = array(
-    'taxonomy' => 7002,
+    'user' => 7007,
   );
 
   return $dependencies;
 }
-
 /**
  * @defgroup updates-6.x-to-7.x Filter updates from 6.x to 7.x
  * @{
@@ -249,6 +248,7 @@ function filter_update_7003() {
       $query->fields('d6_upgrade_filter', array('format', 'weight'));
       $query->condition('module', $module);
       $query->condition('delta', $old_delta);
+      $query->distinct();
       $result = $query->execute();
       foreach ($result as $record) {
         db_insert('filter')
@@ -320,7 +320,6 @@ function filter_update_7004() {
  * in cases that used to rely on a single site-wide default.
  */
 function filter_update_7005() {
-
   // Move role data from the filter system to the user permission system.
   $all_roles = array_keys(user_roles());
   $default_format = variable_get('filter_default_format', 1);
@@ -379,22 +378,6 @@ function filter_update_7005() {
     ->condition('format', $default_format)
     ->execute();
 
-  // It was previously possible for a value of "0" to be stored in database
-  // tables to indicate that a particular piece of text should be filtered
-  // using the default text format. Therefore, we have to convert all such
-  // instances (in Drupal core) to explicitly use the appropriate format.
-  // Note that the update of the node body field is handled separately, in
-  // node_update_7006(), as is the update of the comment body field, in
-  // comment_update_7013().
-  foreach (array('block_custom') as $table) {
-    if (db_table_exists($table)) {
-      db_update($table)
-        ->fields(array('format' => $default_format))
-        ->condition('format', 0)
-        ->execute();
-    }
-  }
-
   // We do not delete the 'filter_default_format' variable, since other modules
   // may need it in their update functions.
   // @todo This variable can be deleted in Drupal 8.
@@ -419,6 +402,24 @@ function filter_update_7008() {
       user_role_grant_permissions($rid, $permissions);
     }
   }
+}
+
+/**
+ * Converts fields that store serialized variables from text to blob.
+ */
+function filter_update_7009() {
+  $spec = array(
+    'type' => 'blob',
+    'not null' => FALSE,
+    'size' => 'big',
+    'serialize' => TRUE,
+    'description' => 'A serialized array of name value pairs that store the filter settings for the specific format.',
+  );
+  db_change_field('filter', 'settings', 'settings', $spec);
+
+  $schema = system_schema_cache_7054();
+  db_drop_table('cache_filter');
+  db_create_table('cache_filter', $schema);
 }
 
 /**

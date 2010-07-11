@@ -1,5 +1,5 @@
 <?php
-// $Id: user.module,v 1.1170 2010/05/12 08:35:39 dries Exp $
+// $Id: user.module,v 1.1180 2010/07/07 08:05:01 webchick Exp $
 
 /**
  * @file
@@ -15,6 +15,22 @@ define('USERNAME_MAX_LENGTH', 60);
  * Maximum length of user e-mail text field.
  */
 define('EMAIL_MAX_LENGTH', 254);
+
+/**
+ * Only administrators can create user accounts.
+ */
+define('USER_REGISTER_ADMINISTRATORS_ONLY', 0);
+
+/**
+ * Visitors can create their own accounts.
+ */
+define('USER_REGISTER_VISITORS', 1);
+
+/**
+ * Visitors can create accounts, but they don't become active without
+ * administrative approval.
+ */
+define('USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL', 2);
 
 /**
  * Implement hook_help().
@@ -146,6 +162,7 @@ function user_entity_info() {
       'view modes' => array(
         'full' => array(
           'label' => t('User account'),
+          'custom settings' => FALSE,
         ),
       ),
     ),
@@ -167,20 +184,24 @@ function user_uri($user) {
  */
 function user_field_extra_fields() {
   $return['user']['user'] = array(
-    'account' => array(
-      'label' => 'User name and password',
-      'description' => t('User module account form elements'),
-      'weight' => -10,
+    'form' => array(
+      'account' => array(
+        'label' => 'User name and password',
+        'description' => t('User module account form elements'),
+        'weight' => -10,
+      ),
+      'timezone' => array(
+        'label' => 'Timezone',
+        'description' => t('User module timezone form element.'),
+        'weight' => 6,
+      ),
     ),
-    'timezone' => array(
-      'label' => 'Timezone',
-      'description' => t('User module timezone form element.'),
-      'weight' => 6,
-    ),
-    'summary' => array(
-      'label' => 'History',
-      'description' => t('User module history view element.'),
-      'weight' => 5,
+    'display' => array(
+      'summary' => array(
+        'label' => 'History',
+        'description' => t('User module history view element.'),
+        'weight' => 5,
+      ),
     ),
   );
 
@@ -490,7 +511,7 @@ function user_save($account, $edit = array(), $category = 'account') {
       }
 
       user_module_invoke('update', $edit, $user, $category);
-      entity_invoke('update', 'user', $user);
+      module_invoke_all('entity_update', $user, 'user');
     }
     else {
       // Allow 'uid' to be set by the caller. There is no danger of writing an
@@ -523,7 +544,7 @@ function user_save($account, $edit = array(), $category = 'account') {
       field_attach_insert('user', $user);
 
       user_module_invoke('insert', $edit, $user, $category);
-      entity_invoke('insert', 'user', $user);
+      module_invoke_all('entity_insert', $user, 'user');
 
       // Save user roles.
       if (isset($edit['roles']) && is_array($edit['roles'])) {
@@ -543,7 +564,8 @@ function user_save($account, $edit = array(), $category = 'account') {
     return $user;
   }
   catch (Exception $e) {
-    $transaction->rollback('user', $e->getMessage(), array(), WATCHDOG_ERROR);
+    $transaction->rollback();
+    watchdog_exception('user', $e);
     throw $e;
   }
 }
@@ -920,7 +942,7 @@ function user_user_view($account) {
 
 /**
  * Helper function to add default user account fields to user registration and edit form.
- * 
+ *
  * @see user_account_form_validate()
  * @see user_validate_current_pass()
  * @see user_validate_picture()
@@ -1015,7 +1037,7 @@ function user_account_form(&$form, &$form_state) {
     $status = isset($account->status) ? $account->status : 1;
   }
   else {
-    $status = $register ? variable_get('user_register', 1) == 1 : $account->status;
+    $status = $register ? variable_get('user_register', USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL) == USER_REGISTER_VISITORS : $account->status;
   }
   $form['account']['status'] = array(
     '#type' => 'radios',
@@ -1060,11 +1082,13 @@ function user_account_form(&$form, &$form_state) {
     '#weight' => 1,
     '#access' => (!$register && variable_get('user_signatures', 0)),
   );
+
   $form['signature_settings']['signature'] = array(
-    '#type' => 'textarea',
+    '#type' => 'text_format',
     '#title' => t('Signature'),
     '#default_value' => isset($account->signature) ? $account->signature : '',
     '#description' => t('Your signature will be publicly displayed at the end of your comments.'),
+    '#format' => isset($account->signature_format) ? $account->signature_format : NULL,
   );
 
   // Picture/avatar.
@@ -1098,7 +1122,7 @@ function user_account_form(&$form, &$form_state) {
 
 /**
  * Form validation handler for the current password on the user_account_form().
- * 
+ *
  * @see user_account_form()
  */
 function user_validate_current_pass(&$form, &$form_state) {
@@ -1124,7 +1148,7 @@ function user_validate_current_pass(&$form, &$form_state) {
 
 /**
  * Form validation handler for user_account_form().
- * 
+ *
  * @see user_account_form()
  */
 function user_account_form_validate($form, &$form_state) {
@@ -1157,6 +1181,11 @@ function user_account_form_validate($form, &$form_state) {
     // Make sure the signature isn't longer than the size of the database field.
     // Signatures are disabled by default, so make sure it exists first.
     if (isset($form_state['values']['signature'])) {
+      // Move text format for user signature into 'signature_format'.
+      $form_state['values']['signature_format'] = $form_state['values']['signature']['format'];
+      // Move text value for user signature into 'signature'.
+      $form_state['values']['signature'] = $form_state['values']['signature']['value'];
+
       $user_schema = drupal_get_schema('users');
       if (drupal_strlen($form_state['values']['signature']) > $user_schema['fields']['signature']['length']) {
         form_set_error('signature', t('The signature is too long: it must be %max characters or less.', array('%max' => $user_schema['fields']['signature']['length'])));
@@ -1224,7 +1253,7 @@ function user_login_block($form) {
     '#value' => t('Log in'),
   );
   $items = array();
-  if (variable_get('user_register', 1)) {
+  if (variable_get('user_register', USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL)) {
     $items[] = l(t('Create new account'), 'user/register', array('attributes' => array('title' => t('Create a new user account.'))));
   }
   $items[] = l(t('Request new password'), 'user/password', array('attributes' => array('title' => t('Request new password via e-mail.'))));
@@ -1426,7 +1455,7 @@ function user_is_logged_in() {
 }
 
 function user_register_access() {
-  return user_is_anonymous() && variable_get('user_register', 1);
+  return user_is_anonymous() && variable_get('user_register', USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL);
 }
 
 
@@ -1709,6 +1738,48 @@ function user_menu() {
     }
   }
   return $items;
+}
+
+/**
+ * Implements hook_menu_site_status_alter().
+ */
+function user_menu_site_status_alter(&$menu_site_status, $path) {
+  if ($menu_site_status == MENU_SITE_OFFLINE) {
+    // If the site is offline, log out unprivileged users.
+    if (user_is_logged_in() && !user_access('access site in maintenance mode')) {
+      module_load_include('pages.inc', 'user', 'user');
+      user_logout();
+    }
+
+    if (user_is_anonymous()) {
+      switch ($path) {
+        case 'user':
+          // Forward anonymous user to login page.
+          drupal_goto('user/login');
+        case 'user/login':
+        case 'user/password':
+          // Disable offline mode.
+          $menu_site_status = MENU_SITE_ONLINE;
+          break;
+        default:
+          if (strpos($path, 'user/reset/') === 0) {
+            // Disable offline mode.
+            $menu_site_status = MENU_SITE_ONLINE;
+          }
+          break;
+      }
+    }
+  }
+  if (user_is_logged_in()) {
+    if ($path == 'user/login') {
+      // If user is logged in, redirect to 'user' instead of giving 403.
+      drupal_goto('user');
+    }
+    if ($path == 'user/register') {
+      // Authenticated user should be redirected to user edit page.
+      drupal_goto('user/' . $GLOBALS['user']->uid . '/edit');
+    }
+  }
 }
 
 /**
@@ -2085,8 +2156,8 @@ function user_login_submit($form, &$form_state) {
  * populated and login tasks are performed.
  */
 function user_external_login_register($name, $module) {
-  $account = user_load_by_name($name);
-  if (!$account->uid) {
+  $account = user_external_load($name);
+  if (!$account) {
     // Register this new user.
     $userinfo = array(
       'name' => $name,
@@ -2387,141 +2458,141 @@ function _user_mail_text($key, $language = NULL, $variables = array(), $replace 
     // No override, return default string.
     switch ($key) {
       case 'register_no_approval_required_subject':
-        $text = t('Account details for !user-name-token at !site-name-token', array('!user-name-token' => '[user:name]', '!site-name-token' => '[site:name]'), array('langcode' => $langcode));
+        $text = t('Account details for [user:name] at [site:name]', array(), array('langcode' => $langcode));
         break;
       case 'register_no_approval_required_body':
-        $text = t("!user-name-token,
+        $text = t("[user:name],
 
-Thank you for registering at !site-name-token. You may now log in by clicking this link or copying and pasting it to your browser:
+Thank you for registering at [site:name]. You may now log in by clicking this link or copying and pasting it to your browser:
 
-!one-time-login-token
+[user:one-time-login-url]
 
 This link can only be used once to log in and will lead you to a page where you can set your password.
 
-After setting your password, you will be able to log in at !site-login-url-token in the future using:
+After setting your password, you will be able to log in at [site:login-url] in the future using:
 
-username: !user-name-token
+username: [user:name]
 password: Your password
 
---  !site-name-token team", array('!user-name-token' => '[user:name]', '!site-name-token' => '[site:name]',  '!one-time-login-token' => '[user:one-time-login-url]', '!site-login-url-token' => '[site:login-url]'), array('langcode' => $langcode));
+--  [site:name] team", array(), array('langcode' => $langcode));
         break;
 
       case 'register_admin_created_subject':
-        $text = t('An administrator created an account for you at !site-name-token', array('!site-name-token' => '[site:name]'), array('langcode' => $langcode));
+        $text = t('An administrator created an account for you at [site:name]', array(), array('langcode' => $langcode));
         break;
       case 'register_admin_created_body':
-        $text = t("!user-name-token,
+        $text = t("[user:name],
 
-A site administrator at !site-name-token has created an account for you. You may now log in by clicking this link or copying and pasting it to your browser:
+A site administrator at [site:name] has created an account for you. You may now log in by clicking this link or copying and pasting it to your browser:
 
-!one-time-login-token
+[user:one-time-login-url]
 
 This link can only be used once to log in and will lead you to a page where you can set your password.
 
-After setting your password, you will be able to log in at !site-login-url-token in the future using:
+After setting your password, you will be able to log in at [site:login-url] in the future using:
 
-username: !user-name-token
+username: [user:name]
 password: Your password
 
---  !site-name-token team", array('!user-name-token' => '[user:name]', '!site-name-token' => '[site:name]',  '!one-time-login-token' => '[user:one-time-login-url]', '!site-login-url-token' => '[site:login-url]'), array('langcode' => $langcode));
+--  [site:name] team", array(), array('langcode' => $langcode));
         break;
 
       case 'register_pending_approval_subject':
       case 'register_pending_approval_admin_subject':
-        $text = t('Account details for !user-name-token at !site-name-token (pending admin approval)', array('!user-name-token' => '[user:name]', '!site-name-token' => '[site:name]'), array('langcode' => $langcode));
+        $text = t('Account details for [user:name] at [site:name] (pending admin approval)', array(), array('langcode' => $langcode));
         break;
       case 'register_pending_approval_body':
-        $text = t("!user-name-token,
+        $text = t("[user:name],
 
-Thank you for registering at !site-name-token. Your application for an account is currently pending approval. Once it has been approved, you will receive another e-mail containing information about how to log in, set your password, and other details.
+Thank you for registering at [site:name]. Your application for an account is currently pending approval. Once it has been approved, you will receive another e-mail containing information about how to log in, set your password, and other details.
 
 
---  !site-name-token team", array('!user-name-token' => '[user:name]', '!site-name-token' => '[site:name]'), array('langcode' => $langcode));
+--  [site:name] team", array(), array('langcode' => $langcode));
         break;
       case 'register_pending_approval_admin_body':
-        $text = t("!user-name-token has applied for an account.
+        $text = t("[user:name] has applied for an account.
 
-!user-edit-url-token", array('!user-name-token' => '[user:name]', '!user-edit-url-token' => '[user:edit-url]'), array('langcode' => $langcode));
+[user:edit-url]", array(), array('langcode' => $langcode));
         break;
 
       case 'password_reset_subject':
-        $text = t('Replacement login information for !user-name-token at !site-name-token', array('!user-name-token' => '[user:name]', '!site-name-token' => '[site:name]'), array('langcode' => $langcode));
+        $text = t('Replacement login information for [user:name] at [site:name]', array(), array('langcode' => $langcode));
         break;
       case 'password_reset_body':
-        $text = t("!user-name-token,
+        $text = t("[user:name],
 
-A request to reset the password for your account has been made at !site-name-token.
+A request to reset the password for your account has been made at [site:name].
 
 You may now log in by clicking this link or copying and pasting it to your browser:
 
-!one-time-login-token
+[user:one-time-login-url]
 
 This link can only be used once to log in and will lead you to a page where you can set your password. It expires after one day and nothing will happen if it's not used.
 
---  !site-name-token team", array('!user-name-token' => '[user:name]', '!site-name-token' => '[site:name]',  '!one-time-login-token' => '[user:one-time-login-url]'), array('langcode' => $langcode));
+--  [site:name] team", array(), array('langcode' => $langcode));
         break;
 
       case 'status_activated_subject':
-        $text = t('Account details for !user-name-token at !site-name-token (approved)', array('!user-name-token' => '[user:name]', '!site-name-token' => '[site:name]'), array('langcode' => $langcode));
+        $text = t('Account details for [user:name] at [site:name] (approved)', array(), array('langcode' => $langcode));
         break;
       case 'status_activated_body':
-        $text = t("!user-name-token,
+        $text = t("[user:name],
 
-Your account at !site-name-token has been activated.
+Your account at [site:name] has been activated.
 
 You may now log in by clicking this link or copying and pasting it into your browser:
 
-!one-time-login-token
+[site:login-url]
 
 This link can only be used once to log in and will lead you to a page where you can set your password.
 
-After setting your password, you will be able to log in at !site-login-url-token in the future using:
+After setting your password, you will be able to log in at [site:login-url] in the future using:
 
-username: !user-name-token
+username: [user:name]
 password: Your password
 
---  !site-name-token team", array('!user-name-token' => '[user:name]', '!site-name-token' => '[site:name]',  '!site-login-url-token' => '[site:login-url]', '!one-time-login-token' => '[user:one-time-login-url]'), array('langcode' => $langcode));
+--  [site:name] team", array(), array('langcode' => $langcode));
         break;
 
       case 'status_blocked_subject':
-        $text = t('Account details for !user-name-token at !site-name-token (blocked)', array('!user-name-token' => '[user:name]', '!site-name-token' => '[site:name]'), array('langcode' => $langcode));
+        $text = t('Account details for [user:name] at [site:name] (blocked)', array(), array('langcode' => $langcode));
         break;
       case 'status_blocked_body':
-        $text = t("!user-name-token,
+        $text = t("[user:name],
 
-Your account on !site-name-token has been blocked.
+Your account on [site:name] has been blocked.
 
---  !site-name-token team", array('!user-name-token' => '[user:name]', '!site-name-token' => '[site:name]'), array('langcode' => $langcode));
+--  [site:name] team", array(), array('langcode' => $langcode));
         break;
 
       case 'cancel_confirm_subject':
-        $text = t('Account cancellation request for !user-name-token at !site-name-token', array('!user-name-token' => '[user:name]', '!site-name-token' => '[site:name]'), array('langcode' => $langcode));
+        $text = t('Account cancellation request for [user:name] at [site:name]', array(), array('langcode' => $langcode));
         break;
       case 'cancel_confirm_body':
-        $text = t("!user-name-token,
+        $text = t("[user:name],
 
-A request to cancel your account has been made at !site-name-token.
+A request to cancel your account has been made at [site:name].
 
-You may now cancel your account on !site-url-brief-token by clicking this link or copying and pasting it into your browser:
+You may now cancel your account on [site:url-brief] by clicking this link or copying and pasting it into your browser:
 
-!user-cancel-url-token
+[user:cancel-url]
 
 NOTE: The cancellation of your account is not reversible.
 
 This link expires in one day and nothing will happen if it is not used.
 
---  !site-name-token team", array('!user-name-token' => '[user:name]', '!site-name-token' => '[site:name]', '!site-url-brief-token' => '[site:url-brief]', '!user-cancel-url-token' => '[user:cancel-url]'), array('langcode' => $langcode));
+--  [site:name] team", array(), array('langcode' => $langcode));
         break;
 
       case 'status_canceled_subject':
-        $text = t('Account details for !user-name-token at !site-name-token (canceled)', array('!user-name-token' => '[user:name]', '!site-name-token' => '[site:name]'), array('langcode' => $langcode));
+        $text = t('Account details for [user:name] at [site:name] (canceled)', array(), array('langcode' => $langcode));
         break;
       case 'status_canceled_body':
-        $text = t("!user-name-token,
+        $text = t("[user:name],
 
-Your account on !site-name-token has been canceled.
+Your account on [site:name] has been canceled.
 
---  !site-name-token team", array('!user-name-token' => '[user:name]', '!site-name-token' => '[site:name]'), array('langcode' => $langcode));
+--  [site:name] team", array(), array('langcode' => $langcode));
         break;
     }
   }
@@ -3115,8 +3186,6 @@ function user_filters() {
  */
 function user_build_filter_query(SelectQuery $query) {
   $filters = user_filters();
-  $role_count = 0;
-  $permission_count = 0;
   // Extend Query with filter conditions.
   foreach (isset($_SESSION['user_overview_filter']) ? $_SESSION['user_overview_filter'] : array() as $filter) {
     list($key, $value) = $filter;
@@ -3130,19 +3199,13 @@ function user_build_filter_query(SelectQuery $query) {
       if (user_access($value, $account)) {
         continue;
       }
-      $user_role_alias = 'ur' . $role_count;
-      $permission_alias = 'p' . $permission_count;
-      $query->innerJoin('users_roles', $user_role_alias, $user_role_alias . '.uid = u.uid');
-      $query->innerJoin('role_permission', $permission_alias , $user_role_alias . '.rid = ' . $permission_alias . '.rid');
+      $user_role_alias = $query->join('users_roles', 'ur', '%alias.uid = u.uid');
+      $permission_alias = $query->join('role_permission', 'p', $user_role_alias . '.rid = %alias.rid');
       $query->condition($permission_alias . '.permission', $value);
-      $role_count++;
-      $permission_count++;
     }
     else if ($key == 'role') {
-      $user_role_alias = 'ur' . $role_count;
-      $query->innerJoin('users_roles', $user_role_alias, $user_role_alias . '.uid = u.uid');
+      $user_roles_alias = $query->join('users_roles', 'ur', '%alias.uid = u.uid');
       $query->condition($user_role_alias . '.rid' , $value);
-      $role_count++;
     }
     else {
       $query->condition($filters[$key]['field'], $value);
@@ -3164,7 +3227,11 @@ function user_forms() {
  */
 function user_comment_view($comment) {
   if (variable_get('user_signatures', 0) && !empty($comment->signature)) {
-    $comment->signature = check_markup($comment->signature, $comment->format, '', TRUE);
+    // @todo This alters and replaces the original object value, so a
+    //   hypothetical process of loading, viewing, and saving will hijack the
+    //   stored data. Consider renaming to $comment->signature_safe or similar
+    //   here and elsewhere in Drupal 8.
+    $comment->signature = check_markup($comment->signature, $comment->signature_format, '', TRUE);
   }
   else {
     $comment->signature = '';
@@ -3348,7 +3415,7 @@ function user_action_info() {
       'label' => t('Block current user'),
       'type' => 'user',
       'configurable' => FALSE,
-      'triggers' => array(),
+      'triggers' => array('any'),
     ),
   );
 }
@@ -3359,22 +3426,25 @@ function user_action_info() {
  * @ingroup actions
  */
 function user_block_user_action(&$entity, $context = array()) {
+  // First priority: If there is a $entity->uid, block that user.
+  // This is most likely a user object or the author if a node or comment.
   if (isset($entity->uid)) {
     $uid = $entity->uid;
   }
   elseif (isset($context['uid'])) {
     $uid = $context['uid'];
   }
+  // If neither of those are valid, then block the current user.
   else {
-    global $user;
-    $uid = $user->uid;
+    $uid = $GLOBALS['user']->uid;
   }
   db_update('users')
     ->fields(array('status' => 0))
     ->condition('uid', $uid)
     ->execute();
   drupal_session_destroy_uid($uid);
-  watchdog('action', 'Blocked user %name.', array('%name' => $user->name));
+  $account = user_load($uid);
+  watchdog('action', 'Blocked user %name.', array('%name' => $account->name));
 }
 
 /**
@@ -3537,6 +3607,16 @@ function user_modules_uninstalled($modules) {
    db_delete('role_permission')
      ->condition('module', $modules, 'IN')
      ->execute();
+}
+
+/**
+ * Implements hook_filter_format_delete().
+ */
+function user_filter_format_delete($format, $fallback) {
+  db_update('users')
+    ->fields(array('signature_format' => $fallback->format))
+    ->condition('signature_format', $format->format)
+    ->execute();
 }
 
 /**

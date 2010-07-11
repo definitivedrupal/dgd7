@@ -1,5 +1,5 @@
 <?php
-// $Id: field.attach.inc,v 1.87 2010/05/23 07:30:56 dries Exp $
+// $Id: field.attach.inc,v 1.91 2010/06/17 13:44:45 dries Exp $
 
 /**
  * @file
@@ -29,15 +29,6 @@ class FieldValidationException extends FieldException {
     parent::__construct(t('Field validation errors'));
   }
 }
-
-/**
- * Exception thrown by field_attach_query() on unsupported query syntax.
- *
- * Some storage modules might not support the full range of the syntax for
- * conditions, and will raise a FieldQueryException when an usupported
- * condition was specified.
- */
-class FieldQueryException extends FieldException {}
 
 /**
  * @defgroup field_storage Field Storage API
@@ -552,11 +543,9 @@ function field_attach_form($entity_type, $entity, &$form, &$form_state, $langcod
   // Add custom weight handling.
   list($id, $vid, $bundle) = entity_extract_ids($entity_type, $entity);
   $form['#attached']['css'][] = drupal_get_path('module', 'field') . '/theme/field.css';
-  $form['#pre_render'][] = '_field_extra_weights_pre_render';
-  $form['#extra_fields'] = field_extra_fields($entity_type, $bundle);
-
-  // Save the original entity to allow later re-use.
-  $form_state['entity'] = $entity;
+  $form['#pre_render'][] = '_field_extra_fields_pre_render';
+  $form['#entity_type'] = $entity_type;
+  $form['#bundle'] = $bundle;
 
   // Let other modules make changes to the form.
   // Avoid module_invoke_all() to let parameters be taken by reference.
@@ -1045,132 +1034,6 @@ function field_attach_delete_revision($entity_type, $entity) {
 }
 
 /**
- * Retrieve entities matching a given set of conditions.
- *
- * Note that the query 'conditions' only apply to the stored values.
- * In a regular field_attach_load() call, field values additionally go through
- * hook_field_load() and hook_field_attach_load() invocations, which can add
- * to or affect the raw stored values. The results of field_attach_query()
- * might therefore differ from what could be expected by looking at a regular,
- * fully loaded entity.
- *
- * @param $field_id
- *   The id of the field to query.
- * @param $conditions
- *   An array of query conditions. Each condition is a numerically indexed
- *   array, in the form: array(column, value, operator).
- *   Not all storage engines are required to support queries on all column, or
- *   with all operators below. A FieldQueryException will be raised if an
- *   unsupported condition is specified.
- *   Supported columns:
- *     - any of the columns defined in hook_field_schema() for $field_name's
- *       field type: condition on field value,
- *     - 'type': condition on entity type (e.g. 'node', 'user'...),
- *     - 'bundle': condition on entity bundle (e.g. node type),
- *     - 'entity_id': condition on entity id (e.g node nid, user uid...),
- *     - 'deleted': condition on whether the field's data is
- *        marked deleted for the entity (defaults to FALSE if not specified)
- *     The field_attach_query_revisions() function additionally supports:
- *     - 'revision_id': condition on entity revision id (e.g node vid).
- *   Supported operators:
- *     - '=', '!=', '>', '>=', '<', '<=', 'STARTS_WITH', 'ENDS_WITH',
- *       'CONTAINS': these operators expect the value as a literal of the same
- *       type as the column,
- *     - 'IN', 'NOT IN': this operator expects the value as an array of
- *       literals of the same type as the column.
- *     - 'BETWEEN': this operator expects the value as an array of two literals
- *       of the same type as the column.
- *     The operator can be ommitted, and will default to 'IN' if the value is
- *     an array, or to '=' otherwise.
- *   Example values for $conditions:
- *   @code
- *   array(
- *     array('type', 'node'),
- *   );
- *   array(
- *     array('bundle', array('article', 'page')),
- *     array('value', 12, '>'),
- *   );
- *   @endcode
- * @param $options
- *   An associative array of additional options:
- *   - limit: The number of results that is requested. This is only a hint to
- *     the storage engine(s); callers should be prepared to handle fewer or
- *     more results. Specify FIELD_QUERY_NO_LIMIT to retrieve all available
- *     entities. This option has a default value of 0 so callers must make an
- *     explicit choice to potentially retrieve an enormous result set.
- *   - cursor: A reference to an opaque cursor that allows a caller to iterate
- *     through multiple result sets. On the first call, pass 0; the correct
- *     value to pass on the next call will be written into the value on return.
- *     When there is no more query data available, the value will be filled in
- *     with FIELD_QUERY_COMPLETE. If cursor is passed as NULL, the first result
- *     set is returned and no next cursor is returned.
- *   - count: If TRUE, return a single count of all matching entities; limit and
- *     cursor are ignored.
- *   - age: Internal use only. Use field_attach_query_revisions() instead of
- *     passing FIELD_LOAD_REVISION.
- *     - FIELD_LOAD_CURRENT (default): query the most recent revisions for all
- *       entities. The results will be keyed by entity type and entity id.
- *     - FIELD_LOAD_REVISION: query all revisions. The results will be keyed by
- *       entity type and entity revision id.
- * @return
- *   An array keyed by entity type (e.g. 'node', 'user'...), then by entity id
- *   or revision id (depending of the value of the $age parameter). The values
- *   are pseudo-entities with the bundle, id, and revision id fields filled in.
- *   Throws a FieldQueryException if the field's storage doesn't support the
- *   specified conditions.
- */
-function field_attach_query($field_id, $conditions, $options = array()) {
-  // Merge in default options.
-  $default_options = array(
-    'limit' => 0,
-    'cursor' => 0,
-    'count' => FALSE,
-    'age' => FIELD_LOAD_CURRENT,
-  );
-  $options += $default_options;
-
-  // Give a chance to 3rd party modules that bypass the storage engine to
-  // handle the query.
-  $skip_field = FALSE;
-  foreach (module_implements('field_storage_pre_query') as $module) {
-    $function = $module . '_field_storage_pre_query';
-    $results = $function($field_id, $conditions, $options, $skip_field);
-    // Stop as soon as a module claims it handled the query.
-    if ($skip_field) {
-      break;
-    }
-  }
-  // If the request hasn't been handled, let the storage engine handle it.
-  if (!$skip_field) {
-    $field = field_info_field_by_id($field_id);
-    $function = $field['storage']['module'] . '_field_storage_query';
-    $results = $function($field_id, $conditions, $options);
-  }
-
-  return $results;
-}
-
-/**
- * Retrieve entity revisions matching a given set of conditions.
- *
- * See field_attach_query() for more informations.
- *
- * @param $field_id
- *   The id of the field to query.
- * @param $conditions
- *   See field_attach_query().
- * @param $options
- *   An associative array of additional options. See field_attach_query().
- * @return
- *   See field_attach_query().
- */
-function field_attach_query_revisions($field_id, $conditions, $options = array()) {
-  $options['age'] = FIELD_LOAD_REVISION;
-  return field_attach_query($field_id, $conditions, $options);
-}
-
-/**
  * Prepare field data prior to display.
  *
  * This function must be called before field_attach_view(). It lets field
@@ -1185,7 +1048,7 @@ function field_attach_query_revisions($field_id, $conditions, $options = array()
  * @param $view_mode
  *   View mode, e.g. 'full', 'teaser'...
  */
-function field_attach_prepare_view($entity_type, $entities, $view_mode = 'full') {
+function field_attach_prepare_view($entity_type, $entities, $view_mode) {
   // To ensure hooks are only run once per entity, only process items without
   // the _field_view_prepared flag.
   // @todo: resolve this more generally for both entity and field level hooks.
@@ -1250,7 +1113,7 @@ function field_attach_prepare_view($entity_type, $entities, $view_mode = 'full')
  * @return
  *   A renderable array for the field values.
  */
-function field_attach_view($entity_type, $entity, $view_mode = 'full', $langcode = NULL) {
+function field_attach_view($entity_type, $entity, $view_mode, $langcode = NULL) {
   // Determine the actual language to display for each field, given the
   // languages available in the field data.
   $display_language = field_language($entity_type, $entity, NULL, $langcode);
@@ -1262,8 +1125,9 @@ function field_attach_view($entity_type, $entity, $view_mode = 'full', $langcode
 
   // Add custom weight handling.
   list($id, $vid, $bundle) = entity_extract_ids($entity_type, $entity);
-  $output['#pre_render'][] = '_field_extra_weights_pre_render';
-  $output['#extra_fields'] = field_extra_fields($entity_type, $bundle);
+  $output['#pre_render'][] = '_field_extra_fields_pre_render';
+  $output['#entity_type'] = $entity_type;
+  $output['#bundle'] = $bundle;
 
   // Include CSS styles.
   $output['#attached']['css'][] = drupal_get_path('module', 'field') . '/theme/field.css';
@@ -1323,23 +1187,42 @@ function field_attach_preprocess($entity_type, $entity, $element, &$variables) {
 }
 
 /**
- * Implements hook_node_prepare_translation().
+ * Prepares an entity for translation.
  *
- * TODO D7: We do not yet know if this really belongs in Field API.
+ * This function is used to fill-in the form default values for Field API fields
+ * while performing entity translation. By default it copies all the source
+ * values in the given source language to the new entity and assigns them the
+ * target language.
+ *
+ * This is used as part of the 'per entity' translation pattern, which is
+ * implemented only for nodes by translation.module. Other entity types may be
+ * supported through contributed modules.
+ *
+ * @param $entity_type
+ *   The type of $entity; e.g. 'node' or 'user'.
+ * @param $entity
+ *   The entity to be prepared for translation.
+ * @param $langcode
+ *   The language the entity has to be translated in.
+ * @param $source_entity
+ *   The source entity holding the field values to be translated.
+ * @param $source_langcode
+ *   The source language from which translate.
  */
-function field_attach_prepare_translation($node) {
-  // Prevent against invalid 'nodes' built by broken 3rd party code.
-  if (isset($node->type)) {
-    $type = content_types($node->type);
-    // Save cycles if the type has no fields.
-    if (!empty($type['instances'])) {
-      $default_additions = _field_invoke_default('prepare_translation', $node);
-      $additions = _field_invoke('prepare_translation', $node);
-      // Merge module additions after the default ones to enable overriding
-      // of field values.
-      $node = (object) array_merge((array) $node, $default_additions, $additions);
-    }
-  }
+function field_attach_prepare_translation($entity_type, $entity, $langcode, $source_entity, $source_langcode) {
+  $options = array('language' => $langcode);
+  // Copy source field values into the entity to be prepared.
+  _field_invoke_default('prepare_translation', $entity_type, $entity, $source_entity, $source_langcode, $options);
+  // Let field types handle their own advanced translation pattern if needed.
+  _field_invoke('prepare_translation', $entity_type, $entity, $source_entity, $source_langcode, $options);
+  // Let other modules alter the entity translation.
+  $context = array(
+    'entity_type' => $entity_type,
+    'langcode' => $langcode,
+    'source_entity' => $source_entity,
+    'source_langcode' => $source_langcode,
+  );
+  drupal_alter('field_attach_prepare_translation', $entity, $context);
 }
 
 /**
@@ -1381,6 +1264,14 @@ function field_attach_rename_bundle($entity_type, $bundle_old, $bundle_new) {
   // Clear the cache.
   field_cache_clear();
 
+  // Update bundle settings.
+  $settings = variable_get('field_bundle_settings', array());
+  if (isset($settings[$entity_type][$bundle_old])) {
+    $settings[$entity_type][$bundle_new] = $settings[$entity_type][$bundle_old];
+    unset($settings[$entity_type][$bundle_old]);
+    variable_set('field_bundle_settings', $settings);
+  }
+
   // Let other modules act on renaming the bundle.
   module_invoke_all('field_attach_rename_bundle', $entity_type, $bundle_old, $bundle_new);
 }
@@ -1409,6 +1300,13 @@ function field_attach_delete_bundle($entity_type, $bundle) {
 
   // Clear the cache.
   field_cache_clear();
+
+  // Clear bundle display settings.
+  $settings = variable_get('field_bundle_settings', array());
+  if (isset($settings[$entity_type][$bundle])) {
+    unset($settings[$entity_type][$bundle]);
+    variable_set('field_bundle_settings', $settings);
+  }
 
   // Let other modules act on deleting the bundle.
   module_invoke_all('field_attach_delete_bundle', $entity_type, $bundle, $instances);

@@ -1,5 +1,5 @@
 <?php
-// $Id: block.admin.inc,v 1.80 2010/05/13 07:53:02 dries Exp $
+// $Id: block.admin.inc,v 1.83 2010/07/08 03:41:27 webchick Exp $
 
 /**
  * @file
@@ -80,6 +80,8 @@ function block_admin_display_form($form, &$form_state, $blocks, $theme) {
       '#type' => 'weight',
       '#default_value' => $block['weight'],
       '#delta' => $weight_delta,
+      '#title_display' => 'invisible',
+      '#title' => t('Weight for @row', array('@row' => $block['info'])),
     );
     $form[$key]['region'] = array(
       '#type' => 'select',
@@ -226,7 +228,7 @@ function block_admin_configure($form, &$form_state, $module, $delta) {
     '#tree' => TRUE,
   );
 
-  $theme_default = variable_get('theme_default', 'garland');
+  $theme_default = variable_get('theme_default', 'bartik');
   foreach (list_themes() as $key => $theme) {
     // Only display enabled themes
     if ($theme->status) {
@@ -270,10 +272,10 @@ function block_admin_configure($form, &$form_state, $module, $delta) {
   );
 
   $access = user_access('use PHP for settings');
-  if (isset($block->visibility) && $block->visibility == 2 && !$access) {
+  if (isset($block->visibility) && $block->visibility == BLOCK_VISIBILITY_PHP && !$access) {
     $form['visibility']['path']['visibility'] = array(
       '#type' => 'value',
-      '#value' => 2,
+      '#value' => BLOCK_VISIBILITY_PHP,
     );
     $form['visibility']['path']['pages'] = array(
       '#type' => 'value',
@@ -282,13 +284,13 @@ function block_admin_configure($form, &$form_state, $module, $delta) {
   }
   else {
     $options = array(
-      t('All pages except those listed'),
-      t('Only the listed pages'),
+      BLOCK_VISIBILITY_NOTLISTED => t('All pages except those listed'),
+      BLOCK_VISIBILITY_LISTED => t('Only the listed pages'),
     );
     $description = t("Specify pages by using their paths. Enter one path per line. The '*' character is a wildcard. Example paths are %blog for the blog page and %blog-wildcard for every personal blog. %front is the front page.", array('%blog' => 'blog', '%blog-wildcard' => 'blog/*', '%front' => '<front>'));
 
     if (module_exists('php') && $access) {
-      $options[] = t('Pages on which this PHP code returns <code>TRUE</code> (experts only)');
+      $options += array(BLOCK_VISIBILITY_PHP => t('Pages on which this PHP code returns <code>TRUE</code> (experts only)'));
       $title = t('Pages or PHP code');
       $description .= ' ' . t('If the PHP option is chosen, enter PHP code between %php. Note that executing incorrect PHP code can break your Drupal site.', array('%php' => '<?php ?>'));
     }
@@ -299,7 +301,7 @@ function block_admin_configure($form, &$form_state, $module, $delta) {
       '#type' => 'radios',
       '#title' => t('Show block on specific pages'),
       '#options' => $options,
-      '#default_value' => isset($block->visibility) ? $block->visibility : 0,
+      '#default_value' => isset($block->visibility) ? $block->visibility : BLOCK_VISIBILITY_NOTLISTED,
     );
     $form['visibility']['path']['pages'] = array(
       '#type' => 'textarea',
@@ -344,12 +346,12 @@ function block_admin_configure($form, &$form_state, $module, $delta) {
     '#type' => 'radios',
     '#title' => t('Customizable per user'),
     '#options' => array(
-      t('Not customizable'),
-      t('Customizable, visible by default'),
-      t('Customizable, hidden by default'),
+      BLOCK_CUSTOM_FIXED => t('Not customizable'),
+      BLOCK_CUSTOM_ENABLED => t('Customizable, visible by default'),
+      BLOCK_CUSTOM_DISABLED => t('Customizable, hidden by default'),
     ),
     '#description' => t('Allow individual users to customize the visibility of this block in their account settings.'),
-    '#default_value' => isset($block->custom) ? $block->custom : 0,
+    '#default_value' => isset($block->custom) ? $block->custom : BLOCK_CUSTOM_FIXED,
   );
 
   $form['actions'] = array('#type' => 'actions');

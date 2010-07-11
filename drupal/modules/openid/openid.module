@@ -1,5 +1,5 @@
 <?php
-// $Id: openid.module,v 1.89 2010/05/20 08:51:24 dries Exp $
+// $Id: openid.module,v 1.93 2010/07/07 08:05:01 webchick Exp $
 
 /**
  * @file
@@ -36,6 +36,16 @@ function openid_menu() {
     'file' => 'openid.pages.inc',
   );
   return $items;
+}
+
+/**
+ * Implements hook_menu_site_status_alter().
+ */
+function openid_menu_site_status_alter(&$menu_site_status, $path) {
+  // Allow access to openid/authenticate even if site is in offline mode.
+  if ($menu_site_status == MENU_SITE_OFFLINE && user_is_anonymous() && $path == 'openid/authenticate') {
+    $menu_site_status = MENU_SITE_ONLINE;
+  }
 }
 
 /**
@@ -175,7 +185,7 @@ function openid_form_user_register_form_alter(&$form, &$form_state) {
       // Use the nickname returned by Simple Registration if available.
       $form['account']['name']['#default_value'] = $sreg_values['nickname'];
     }
-    elseif ($ax_name_values = openid_extract_ax_values($ax_values, array('name_ao', 'name_son'))) {
+    elseif ($ax_name_values = openid_extract_ax_values($ax_values, array('http://axschema.org/namePerson/friendly', 'http://schema.openid.net/namePerson/friendly'))) {
       // Else, use the first nickname returned by AX if available.
       $form['account']['name']['#default_value'] = current($ax_name_values);
     }
@@ -187,7 +197,7 @@ function openid_form_user_register_form_alter(&$form, &$form_state) {
       // Use the email returned by Simple Registration if available.
       $form['account']['mail']['#default_value'] = $sreg_values['email'];
     }
-    elseif ($ax_mail_values = openid_extract_ax_values($ax_values, array('mail_ao', 'mail_son'))) {
+    elseif ($ax_mail_values = openid_extract_ax_values($ax_values, array('http://axschema.org/contact/email', 'http://schema.openid.net/contact/email'))) {
       // Else, use the first nickname returned by AX if available.
       $form['account']['mail']['#default_value'] = current($ax_mail_values);
     }
@@ -362,7 +372,6 @@ function openid_complete($response = array()) {
  */
 function openid_discovery($claimed_id) {
   module_load_include('inc', 'openid');
-  module_load_include('inc', 'openid', 'xrds');
 
   $methods = module_invoke_all('openid_discovery_method_info');
   drupal_alter('openid_discovery_method_info', $methods);
@@ -590,7 +599,7 @@ function openid_authentication($response) {
       drupal_set_message(t('You must validate your email address for this account before logging in via OpenID.'));
     }
   }
-  elseif (variable_get('user_register', 1)) {
+  elseif (variable_get('user_register', USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL)) {
     // Register new user.
 
     // Save response for use in openid_form_user_register_form_alter().

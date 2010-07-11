@@ -1,5 +1,5 @@
 <?php
-// $Id: errors.inc,v 1.5 2010/04/11 18:33:43 dries Exp $
+// $Id: errors.inc,v 1.8 2010/06/28 20:27:34 dries Exp $
 
 /**
  * @file
@@ -135,7 +135,30 @@ function _drupal_decode_exception($exception) {
  *   An error message.
  */
 function _drupal_render_exception_safe($exception) {
-  return strtr('%type: %message in %function (line %line of %file).', _drupal_decode_exception($exception));
+  return check_plain(strtr('%type: %message in %function (line %line of %file).', _drupal_decode_exception($exception)));
+}
+
+/**
+ * Determines whether an error should be displayed.
+ *
+ * When in maintenance mode or when error_level is ERROR_REPORTING_DISPLAY_ALL,
+ * all errors should be displayed. For ERROR_REPORTING_DISPLAY_SOME, $error
+ * will be examined to determine if it should be displayed.
+ *
+ * @param $error
+ *   Optional error to examine for ERROR_REPORTING_DISPLAY_SOME.
+ *
+ * @return
+ *   TRUE if an error should be displayed.
+ */
+function error_displayable($error = NULL) {
+  $error_level = variable_get('error_level', ERROR_REPORTING_DISPLAY_ALL);
+  $updating = (defined('MAINTENANCE_MODE') && MAINTENANCE_MODE == 'update');
+  $all_errors_displayed = ($error_level == ERROR_REPORTING_DISPLAY_ALL);
+  $error_needs_display = ($error_level == ERROR_REPORTING_DISPLAY_SOME &&
+    isset($error) && $error['%type'] != 'Notice' && $error['%type'] != 'Strict warning');
+
+  return ($updating || $all_errors_displayed || $error_needs_display);
 }
 
 /**
@@ -159,7 +182,8 @@ function _drupal_log_error($error, $fatal = FALSE) {
 
   // When running inside the testing framework, we relay the errors
   // to the tested site by the way of HTTP headers.
-  if (isset($_SERVER['HTTP_USER_AGENT']) && preg_match("/^simpletest\d+;/", $_SERVER['HTTP_USER_AGENT']) && !headers_sent() && (!defined('SIMPLETEST_COLLECT_ERRORS') || SIMPLETEST_COLLECT_ERRORS)) {
+  $test_info = &$GLOBALS['drupal_test_info'];
+  if (!empty($test_info['in_child_site']) && !headers_sent() && (!defined('SIMPLETEST_COLLECT_ERRORS') || SIMPLETEST_COLLECT_ERRORS)) {
     // $number does not use drupal_static as it should not be reset
     // as it uniquely identifies each PHP error.
     static $number = 0;
@@ -200,9 +224,7 @@ function _drupal_log_error($error, $fatal = FALSE) {
   else {
     // Display the message if the current error reporting level allows this type
     // of message to be displayed, and unconditionnaly in update.php.
-    $error_level = variable_get('error_level', ERROR_REPORTING_DISPLAY_ALL);
-    $display_error = $error_level == ERROR_REPORTING_DISPLAY_ALL || ($error_level == ERROR_REPORTING_DISPLAY_SOME && $error['%type'] != 'Notice' && $error['%type'] != 'Strict warning');
-    if ($display_error || (defined('MAINTENANCE_MODE') && MAINTENANCE_MODE == 'update')) {
+    if (error_displayable($error)) {
       $class = 'error';
 
       // If error type is 'User notice' then treat it as debug information

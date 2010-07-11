@@ -1,5 +1,5 @@
 <?php
-// $Id: comment.tokens.inc,v 1.11 2010/04/20 09:48:06 webchick Exp $
+// $Id: comment.tokens.inc,v 1.13 2010/07/07 17:00:42 webchick Exp $
 
 /**
  * @file
@@ -30,18 +30,6 @@ function comment_token_info() {
   $comment['cid'] = array(
     'name' => t("Comment ID"),
     'description' => t("The unique ID of the comment."),
-  );
-  $comment['pid'] = array(
-    'name' => t("Parent ID"),
-    'description' => t("The unique ID of the comment's parent, if comment threading is active."),
-  );
-  $comment['nid'] = array(
-    'name' => t("Node ID"),
-    'description' => t("The unique ID of the node the comment was posted to."),
-  );
-  $comment['uid'] = array(
-    'name' => t("User ID"),
-    'description' => t("The unique ID of the user who posted the comment."),
   );
   $comment['hostname'] = array(
     'name' => t("IP Address"),
@@ -138,18 +126,6 @@ function comment_tokens($type, $tokens, array $data = array(), array $options = 
           $replacements[$original] = $comment->cid;
           break;
 
-        case 'pid':
-          $replacements[$original] = $comment->pid;
-          break;
-
-        case 'nid':
-          $replacements[$original] = $comment->nid;
-          break;
-
-        case 'uid':
-          $replacements[$original] = $comment->uid;
-          break;
-
         // Poster identity information for comments
         case 'hostname':
           $replacements[$original] = $sanitize ? check_plain($comment->hostname) : $comment->hostname;
@@ -172,7 +148,7 @@ function comment_tokens($type, $tokens, array $data = array(), array $options = 
           break;
 
         case 'homepage':
-          $replacements[$original] = $sanitize ? filter_xss_bad_protocol($comment->homepage) : $comment->homepage;
+          $replacements[$original] = $sanitize ? check_url($comment->homepage) : $comment->homepage;
           break;
 
         case 'title':

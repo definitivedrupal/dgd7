@@ -1,5 +1,5 @@
 <?php
-// $Id: locale.test,v 1.70 2010/04/28 05:12:43 webchick Exp $
+// $Id: locale.test,v 1.73 2010/06/26 19:55:47 dries Exp $
 
 /**
  * @file
@@ -758,7 +758,7 @@ class LocaleImportFunctionalTest extends DrupalWebTestCase {
    *   Additional options to pass to the translation import form.
    */
   function importPoFile($contents, array $options = array()) {
-    $name = tempnam(file_directory_path('temporary'), "po_");
+    $name = tempnam(file_directory_path('temporary'), "po_") . '.po';
     file_put_contents($name, $contents);
     $options['files[file]'] = $name;
     $this->drupalPost('admin/config/regional/translate/import', $options, t('Import'));
@@ -905,7 +905,7 @@ class LocaleExportFunctionalTest extends DrupalWebTestCase {
   function testExportTranslation() {
     // First import some known translations.
     // This will also automatically enable the 'fr' language.
-    $name = tempnam(file_directory_path('temporary'), "po_");
+    $name = tempnam(file_directory_path('temporary'), "po_") . '.po';
     file_put_contents($name, $this->getPoFile());
     $this->drupalPost('admin/config/regional/translate/import', array(
       'langcode' => 'fr',
@@ -1321,6 +1321,7 @@ class LocaleUserCreationTest extends DrupalWebTestCase {
 
   function setUp() {
     parent::setUp('locale');
+    variable_set('user_register', USER_REGISTER_VISITORS);
   }
 
   /**
@@ -1917,16 +1918,6 @@ class LocaleMultilingualFieldsFunctionalTest extends DrupalWebTestCase {
     $this->drupalGet("node/$node->nid");
     $body = $this->xpath('//div[@id=:id]//div[@property="content:encoded"]/p', array(':id' => 'node-' . $node->nid));
     $this->assertEqual(current($body), $node->body['en'][0]['value'], 'Node body is correctly showed.');
-
-    $settings['body[full][type]'] = 'hidden';
-    $this->drupalPost('admin/structure/types/manage/page/display', $settings, t('Save'));
-    $select = $this->xpath('//select[@id="edit-body-full-type"]/option[@selected="selected"]');
-    // Check if body display is actually "hidden" for the "full" view mode.
-    $this->assertEqual(current($select), '<Hidden>', 'Body display is actually "hidden" for the "full" view mode');
-    $this->drupalGet("node/$node->nid");
-    // Check if node body is not showed.
-    $body = $this->xpath('//div[@id=:id]//div[@property="content:encoded"]/p', array(':id' => 'node-' . $node->nid));
-    $this->assertFalse(is_array($body), 'Body correctly not showed.');
   }
 }
 

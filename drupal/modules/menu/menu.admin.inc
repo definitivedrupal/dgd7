@@ -1,5 +1,5 @@
 <?php
-// $Id: menu.admin.inc,v 1.79 2010/05/04 20:31:53 dries Exp $
+// $Id: menu.admin.inc,v 1.82 2010/06/26 21:32:20 dries Exp $
 
 /**
  * @file
@@ -86,6 +86,9 @@ function menu_overview_form($form, &$form_state, $menu) {
 
 /**
  * Recursive helper function for menu_overview_form().
+ *
+ * @param $tree
+ *   The menu_tree retrieved by menu_tree_data.
  */
 function _menu_overview_tree_form($tree) {
   $form = &drupal_static(__FUNCTION__, array('#tree' => TRUE));
@@ -105,16 +108,17 @@ function _menu_overview_tree_form($tree) {
       $form[$mlid]['weight'] = array(
         '#type' => 'weight',
         '#delta' => 50,
-        '#default_value' => isset($form_state[$mlid]['weight']) ? $form_state[$mlid]['weight'] : $item['weight'],
+        '#default_value' => $item['weight'],
+        '#title_display' => 'invisible',
+        '#title' => t('Weight for @row', array('@row' => $item['title'])),
       );
       $form[$mlid]['mlid'] = array(
         '#type' => 'hidden',
         '#value' => $item['mlid'],
       );
       $form[$mlid]['plid'] = array(
-        '#type' => 'textfield',
-        '#default_value' => isset($form_state[$mlid]['plid']) ? $form_state[$mlid]['plid'] : $item['plid'],
-        '#size' => 6,
+        '#type' => 'hidden',
+        '#default_value' => $item['plid'],
       );
       // Build a list of operations.
       $operations = array();
@@ -680,7 +684,7 @@ function menu_configure() {
   $form['menu_main_links_source'] = array(
     '#type' => 'select',
     '#title' => t('Source for the Main links'),
-    '#default_value' => 'main-menu',
+    '#default_value' => variable_get('menu_main_links_source', 'main-menu'),
     '#options' => $main_options,
     '#tree' => FALSE,
     '#description' => t('Select what should be displayed as the Main links (typically at the top of the page).'),
@@ -690,11 +694,11 @@ function menu_configure() {
   $form['menu_secondary_links_source'] = array(
     '#type' => 'select',
     '#title' => t('Source for the Secondary links'),
-    '#default_value' => 'user-menu',
+    '#default_value' => variable_get('menu_secondary_links_source', 'user-menu'),
     '#options' => $secondary_options,
     '#tree' => FALSE,
     '#description' => t("Select the source for the Secondary links. An advanced option allows you to use the same source for both Main links (currently %main) and Secondary links: if your source menu has two levels of hierarchy, the top level menu links will appear in the Main links, and the children of the active link will appear in the Secondary links." , array('%main' => $main_options[$main])),
   );
 
-  return system_settings_form($form, TRUE);
+  return system_settings_form($form);
 }

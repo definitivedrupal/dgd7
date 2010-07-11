@@ -1,5 +1,5 @@
 <?php
-// $Id: field.info.inc,v 1.44 2010/03/27 05:52:49 webchick Exp $
+// $Id: field.info.inc,v 1.47 2010/06/29 18:46:12 dries Exp $
 
 /**
  * @file
@@ -186,47 +186,46 @@ function _field_info_collate_fields($reset = FALSE) {
 
   if (!isset($info)) {
     if ($cached = cache_get('field_info_fields', 'cache_field')) {
-      $definitions = $cached->data;
+      $info = $cached->data;
     }
     else {
       $definitions = array(
         'field_ids' => field_read_fields(array(), array('include_deleted' => 1)),
         'instances' => field_read_instances(),
       );
-      cache_set('field_info_fields', $definitions, 'cache_field');
-    }
 
-    // Populate 'field_ids' with all fields.
-    $info['field_ids'] = array();
-    foreach ($definitions['field_ids'] as $key => $field) {
-      $info['field_ids'][$key] = $definitions['field_ids'][$key] = _field_info_prepare_field($field);
-    }
-
-    // Populate 'fields' only with non-deleted fields.
-    $info['fields'] = array();
-    foreach ($info['field_ids'] as $field) {
-      if (!$field['deleted']) {
-        $info['fields'][$field['field_name']] = $field;
+      // Populate 'fields' with all fields, keyed by ID.
+      $info['fields'] = array();
+      foreach ($definitions['field_ids'] as $key => $field) {
+        $info['fields'][$key] = $definitions['field_ids'][$key] = _field_info_prepare_field($field);
       }
-    }
 
-    // Populate 'instances'. Only non-deleted instances are considered.
-    $info['instances'] = array();
-    foreach (field_info_bundles() as $entity_type => $bundles) {
-      foreach ($bundles as $bundle => $bundle_info) {
-        $info['instances'][$entity_type][$bundle] = array();
+      // Build an array of field IDs for non-deleted fields, keyed by name.
+      $info['field_ids'] = array();
+      foreach ($info['fields'] as $key => $field) {
+        if (!$field['deleted']) {
+          $info['field_ids'][$field['field_name']] = $key;
+        }
       }
-    }
-    foreach ($definitions['instances'] as $instance) {
-      $field = $info['fields'][$instance['field_name']];
-      $instance = _field_info_prepare_instance($instance, $field);
-      $info['instances'][$instance['entity_type']][$instance['bundle']][$instance['field_name']] = $instance;
-      // Enrich field definitions with the list of bundles where they have
-      // instances. NOTE: Deleted fields in $info['field_ids'] are not
-      // enriched because all of their instances are deleted, too, and
-      // are thus not in $definitions['instances'].
-      $info['fields'][$instance['field_name']]['bundles'][$instance['entity_type']][] = $instance['bundle'];
-      $info['field_ids'][$instance['field_id']]['bundles'][$instance['entity_type']][] = $instance['bundle'];
+
+      // Populate 'instances'. Only non-deleted instances are considered.
+      $info['instances'] = array();
+      foreach (field_info_bundles() as $entity_type => $bundles) {
+        foreach ($bundles as $bundle => $bundle_info) {
+          $info['instances'][$entity_type][$bundle] = array();
+        }
+      }
+      foreach ($definitions['instances'] as $instance) {
+        $field = $info['fields'][$instance['field_id']];
+        $instance = _field_info_prepare_instance($instance, $field);
+        $info['instances'][$instance['entity_type']][$instance['bundle']][$instance['field_name']] = $instance;
+        // Enrich field definitions with the list of bundles where they have
+        // instances. NOTE: Deleted fields in $info['field_ids'] are not
+        // enriched because all of their instances are deleted, too, and
+        // are thus not in $definitions['instances'].
+        $info['fields'][$instance['field_id']]['bundles'][$instance['entity_type']][] = $instance['bundle'];
+      }
+      cache_set('field_info_fields', $info, 'cache_field');
     }
   }
 
@@ -290,11 +289,16 @@ function _field_info_prepare_instance($instance, $field) {
     $instance['display'][$view_mode] = _field_info_prepare_instance_display($field, $display);
   }
 
-  // Fallback to 'full' display settings for unspecified view modes.
+  // Fallback to 'hidden' for unspecified view modes.
   $entity_info = entity_get_info($instance['entity_type']);
   foreach ($entity_info['view modes'] as $view_mode => $info) {
     if (!isset($instance['display'][$view_mode])) {
-      $instance['display'][$view_mode] = $instance['display']['full'];
+      $instance['display'][$view_mode] = array(
+        'type' => 'hidden',
+        'label' => 'above',
+        'settings' => array(),
+        'weight' => 0,
+      );
     }
   }
 
@@ -516,11 +520,16 @@ function field_info_bundles($entity_type = NULL) {
  * @return
  *   An array of field definitions, keyed by field name. Each field has an
  *   additional property, 'bundles', which is an array of all the bundles to
- *   which this field belongs.
+ *   which this field belongs keyed by entity type.
  */
 function field_info_fields() {
   $info = _field_info_collate_fields();
-  return $info['fields'];
+  foreach ($info['fields'] as $key => $field) {
+    if (!$field['deleted']) {
+      $fields[$field['field_name']] = $field;
+    }
+  }
+  return $fields;
 }
 
 /**
@@ -533,14 +542,14 @@ function field_info_fields() {
  * @return
  *   The field array, as returned by field_read_fields(), with an
  *   additional element 'bundles', whose value is an array of all the bundles
- *   this field belongs to.
+ *   this field belongs to keyed by entity type.
  *
  * @see field_info_field_by_id()
  */
 function field_info_field($field_name) {
   $info = _field_info_collate_fields();
-  if (isset($info['fields'][$field_name])) {
-    return $info['fields'][$field_name];
+  if (isset($info['field_ids'][$field_name])) {
+    return $info['fields'][$info['field_ids'][$field_name]];
   }
 }
 
@@ -560,8 +569,8 @@ function field_info_field($field_name) {
  */
 function field_info_field_by_id($field_id) {
   $info = _field_info_collate_fields();
-  if (isset($info['field_ids'][$field_id])) {
-    return $info['field_ids'][$field_id];
+  if (isset($info['fields'][$field_id])) {
+    return $info['fields'][$field_id];
   }
 }
 

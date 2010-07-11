@@ -1,5 +1,5 @@
 <?php
-// $Id: overlay.module,v 1.18 2010/05/14 07:45:54 dries Exp $
+// $Id: overlay.module,v 1.23 2010/07/08 12:20:23 dries Exp $
 
 /**
  * @file
@@ -46,6 +46,18 @@ function overlay_permission() {
 }
 
 /**
+ * Implements hook_theme().
+ */
+function overlay_theme() {
+  return array(
+    'overlay' => array(
+      'render element' => 'page',
+      'template' => 'overlay',
+    ),
+  );
+}
+
+/**
  * Implements hook_init().
  *
  * Determine whether the current page request is destined to appear in the
@@ -56,9 +68,12 @@ function overlay_permission() {
 function overlay_init() {
   // @todo: custom_theme does not exist anymore.
   global $custom_theme;
-  // Only act if the user has access to administration pages. Other modules can
-  // also enable the overlay directly for other uses of the JavaScript.
-  if (user_access('access overlay')) {
+
+  $mode = overlay_get_mode();
+
+  // Only act if the user has access to the overlay and a mode was not already
+  // set. Other modules can also enable the overlay directly for other uses.
+  if (empty($mode) && user_access('access overlay')) {
     $current_path = current_path();
     // After overlay is enabled on the modules page, redirect to
     // <front>#overlay=admin/modules to actually enable the overlay.
@@ -150,8 +165,7 @@ function overlay_library() {
       $module_path . '/overlay-parent.css' => array(),
     ),
     'dependencies' => array(
-      array('system', 'ui.dialog'),
-      array('system', 'ui.position'),
+      array('system', 'ui'),
       array('system', 'jquery-bbq'),
     ),
   );
@@ -163,8 +177,8 @@ function overlay_library() {
     'js' => array(
       $module_path . '/overlay-child.js' => array(),
     ),
-    'dependencies' => array(
-      array('system', 'ui'),
+    'css' => array(
+      $module_path . '/overlay-child.css' => array(),
     ),
   );
 
@@ -221,6 +235,11 @@ function overlay_page_alter(&$page) {
       $page[$skipped_region]['#access'] = FALSE;
     }
   }
+
+  if (overlay_get_mode() == 'child') {
+    // Add the overlay wrapper before the html wrapper.
+    array_unshift($page['#theme_wrappers'], 'overlay');
+  }
 }
 
 /**
@@ -255,7 +274,7 @@ function overlay_system_info_alter(&$info, $file, $type) {
 }
 
 /**
- * Preprocess template variables for html.tpl.php.
+ * Implements hook_preprocess_html().
  *
  * If the current page request is inside the overlay, add appropriate classes
  * to the <body> element, and simplify the page title.
@@ -266,13 +285,11 @@ function overlay_preprocess_html(&$variables) {
   if (overlay_get_mode() == 'child') {
     // Add overlay class, so themes can react to being displayed in the overlay.
     $variables['classes_array'][] = 'overlay';
-    // Do not include site name or slogan in the overlay title.
-    $variables['head_title'] = drupal_get_title();
   }
 }
 
 /**
- * Preprocess template variables for maintenance-page.tpl.php.
+ * Implements hook_preprocess_maintenance_page().
  *
  * If the current page request is inside the overlay, add appropriate classes
  * to the <body> element, and simplify the page title.
@@ -284,7 +301,30 @@ function overlay_preprocess_maintenance_page(&$variables) {
 }
 
 /**
- * Preprocess template variables for page.tpl.php.
+ * Preprocesses template variables for overlay.tpl.php
+ *
+ * @see overlay.tpl.php
+ */
+function template_preprocess_overlay(&$variables) {
+  $variables['tabs']              = menu_primary_local_tasks();
+  $variables['title']             = drupal_get_title();
+
+  $variables['content_attributes_array']['class'][] = 'clearfix';
+}
+
+/**
+ * Processes variables for overlay.tpl.php
+ *
+ * @see template_preprocess_overlay()
+ * @see overlay.tpl.php
+ */
+function template_process_overlay(&$variables) {
+  // Place the rendered HTML for the page body into a top level variable.
+  $variables['page'] = $variables['page']['#children'];
+}
+
+/**
+ * Implements hook_preprocess_page().
  *
  * Display breadcrumbs correctly inside the overlay.
  *
@@ -296,6 +336,9 @@ function overlay_preprocess_page(&$variables) {
     $overlay_breadcrumb = drupal_get_breadcrumb();
     array_shift($overlay_breadcrumb);
     $variables['breadcrumb'] = theme('breadcrumb', array('breadcrumb' => $overlay_breadcrumb));
+
+    $variables['tabs'] = '';
+    $variables['primary_local_tasks'] = '';
   }
 }
 
@@ -427,16 +470,28 @@ function overlay_get_mode() {
 }
 
 /**
- * Set overlay mode and add proper JavaScript and styles to the page.
+ * Sets the overlay mode and adds proper JavaScript and styles to the page.
+ *
+ * Note that since setting the overlay mode triggers a variety of behaviors
+ * (including hooks being invoked), it can only be done once per page request.
+ * Therefore, the first call to this function which passes along a value of the
+ * $mode parameter controls the overlay mode that will be used.
  *
  * @param $mode
- *   To set the mode, pass in either 'parent' or 'child'. 'parent' is used in
- *   the context of a parent window (a regular browser window), and JavaScript
- *   is added so that administrative links in the parent window will open in
- *   an overlay. 'child' is used in the context of the child overlay window (the
- *   page actually appearing within the overlay iframe) and JavaScript and CSS
- *   are added so that Drupal behaves nicely from within the overlay.
- *
+ *   To set the mode, pass in one of the following values:
+ *   - 'parent': This is used in the context of a parent window (a regular
+ *     browser window). If set, JavaScript is added so that administrative
+ *     links in the parent window will open in an overlay.
+ *   - 'child': This is used in the context of the child overlay window (the
+ *     page actually appearing within the overlay iframe). If set, JavaScript
+ *     and CSS are added so that Drupal behaves nicely from within the overlay.
+ *   - 'none': This is used to avoid adding any overlay-related code to the
+ *     page at all. Modules can set this to explicitly prevent the overlay from
+ *     being used. For example, since the overlay module itself sets the mode
+ *     to 'parent' or 'child' in overlay_init() when certain conditions are
+ *     met, other modules which want to override that behavior can do so by
+ *     setting the mode to 'none' earlier in the page request - e.g., in their
+ *     own hook_init() implementations, if they have a lower weight.
  *   This parameter is optional, and if omitted, the current mode will be
  *   returned with no action taken.
  *
@@ -444,6 +499,7 @@ function overlay_get_mode() {
  *   The current mode, if any has been set, or NULL if no mode has been set.
  *
  * @ingroup overlay_api
+ * @see overlay_init()
  */
 function overlay_set_mode($mode = NULL) {
   global $base_path;
@@ -467,9 +523,6 @@ function overlay_set_mode($mode = NULL) {
 
     case 'child':
       drupal_add_library('overlay', 'child');
-      // Pass child's document height on to parent document as quickly as
-      // possible so it can be updated accordingly.
-      drupal_add_js('if (parent.Drupal && parent.Drupal.overlay) { parent.Drupal.overlay.innerResize(jQuery(document.body).outerHeight()); }', array('type' => 'inline', 'scope' => 'footer'));
 
       // Allow modules to act upon overlay events.
       module_invoke_all('overlay_child_initialize');
@@ -498,18 +551,21 @@ function overlay_overlay_parent_initialize() {
 function overlay_overlay_child_initialize() {
   // Check if the parent window needs to refresh any page regions on this page
   // request.
-  overlay_trigger_regions_to_refresh();
+  overlay_trigger_refresh();
   // If this is a POST request, or a GET request with a token parameter, we
   // have an indication that something in the supplemental regions of the
   // overlay might change during the current page request. We therefore store
   // the initial rendered content of those regions here, so that we can compare
   // it to the same content rendered in overlay_exit(), at the end of the page
   // request. This allows us to check if anything actually did change, and, if
-  // so, trigger an AJAX refresh of the parent window.
+  // so, trigger an immediate AJAX refresh of the parent window.
   if (!empty($_POST) || isset($_GET['token'])) {
     foreach (overlay_supplemental_regions() as $region) {
       overlay_store_rendered_content($region, overlay_render_region($region));
     }
+    // In addition, notify the parent window that when the overlay closes,
+    // the entire parent window should be refreshed.
+    overlay_request_page_refresh();
   }
   // Indicate that when the main page rendering occurs later in the page
   // request, only the regions that appear within the overlay should be
@@ -744,7 +800,7 @@ function overlay_store_rendered_content($id = NULL, $content = NULL) {
  *   The name of the page region to refresh. The parent window will trigger a
  *   refresh of this region on the next page load.
  *
- * @see overlay_trigger_regions_to_refresh()
+ * @see overlay_trigger_refresh()
  * @see Drupal.overlay.refreshRegions()
  */
 function overlay_request_refresh($region) {
@@ -753,16 +809,27 @@ function overlay_request_refresh($region) {
 }
 
 /**
- * Check if the parent window needs to refresh any regions on this page load.
+ * Request that the entire parent window be reloaded when the overlay closes.
  *
- * If the previous page load requested that any page regions be refreshed, pass
- * that request via JavaScript to the child window, so it can in turn pass the
- * request to the parent window.
+ * @see overlay_trigger_refresh()
+ */
+function overlay_request_page_refresh() {
+  $_SESSION['overlay_refresh_parent'] = TRUE;
+}
+
+/**
+ * Check if the parent window needs to be refreshed on this page load.
+ *
+ * If the previous page load requested that any page regions be refreshed, or
+ * if it requested that the entire page be refreshed when the overlay closes,
+ * pass that request via JavaScript to the child window, so it can in turn pass
+ * the request to the parent window.
  *
  * @see overlay_request_refresh()
+ * @see overlay_request_page_refresh()
  * @see Drupal.overlay.refreshRegions()
  */
-function overlay_trigger_regions_to_refresh() {
+function overlay_trigger_refresh() {
   if (!empty($_SESSION['overlay_regions_to_refresh'])) {
     $settings = array(
       'overlayChild' => array(
@@ -771,6 +838,10 @@ function overlay_trigger_regions_to_refresh() {
     );
     drupal_add_js($settings, array('type' => 'setting'));
     unset($_SESSION['overlay_regions_to_refresh']);
+  }
+  if (!empty($_SESSION['overlay_refresh_parent'])) {
+    drupal_add_js(array('overlayChild' => array('refreshPage' => TRUE)), array('type' => 'setting'));
+    unset($_SESSION['overlay_refresh_parent']);
   }
 }
 

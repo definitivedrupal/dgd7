@@ -1,5 +1,5 @@
 <?php
-// $Id: system.admin.inc,v 1.284 2010/05/21 11:37:55 dries Exp $
+// $Id: system.admin.inc,v 1.292 2010/07/08 03:41:27 webchick Exp $
 
 /**
  * @file
@@ -147,7 +147,7 @@ function system_admin_menu_block_page() {
 function system_admin_by_module() {
   $module_info = system_get_info('module');
   foreach ($module_info as $module => $info) {
-    $module_info[$module] = new StdClass();
+    $module_info[$module] = new stdClass();
     $module_info[$module]->info = $info;
   }
   uasort($module_info, 'system_sort_modules_by_info_name');
@@ -200,10 +200,10 @@ function system_settings_overview() {
  */
 function system_themes_page() {
   // Get current list of themes.
-  $themes = list_themes();
+  $themes = system_rebuild_theme_data();
   uasort($themes, 'system_sort_modules_by_info_name');
 
-  $theme_default = variable_get('theme_default', 'garland');
+  $theme_default = variable_get('theme_default', 'bartik');
   $theme_groups  = array();
 
   foreach ($themes as &$theme) {
@@ -389,7 +389,7 @@ function system_theme_disable() {
 
     // Check if the specified theme is one recognized by the system.
     if (!empty($themes[$theme])) {
-      if ($theme == variable_get('theme_default', 'garland')) {
+      if ($theme == variable_get('theme_default', 'bartik')) {
         // Don't disable the default theme.
         drupal_set_message(t('%theme is the default theme and cannot be disabled.', array('%theme' => $themes[$theme]->info['name'])), 'error');
       }
@@ -643,7 +643,7 @@ function system_theme_settings($form, &$form_state, $key = '') {
     }
   }
 
-  $form = system_settings_form($form, FALSE);
+  $form = system_settings_form($form);
   // We don't want to call system_settings_form_submit(), so change #submit.
   array_pop($form['#submit']);
   $form['#submit'][] = 'system_theme_settings_submit';
@@ -828,7 +828,7 @@ function system_modules($form, $form_state = array()) {
   // Remove hidden modules from display list.
   $visible_files = $files;
   foreach ($visible_files as $filename => $file) {
-    if (!empty($file->info['hidden']) || !empty($file->info['required'])) {
+    if (!empty($file->info['hidden'])) {
       unset($visible_files[$filename]);
     }
   }
@@ -849,10 +849,19 @@ function system_modules($form, $form_state = array()) {
   // Used when checking if module implements a help page.
   $help_arg = module_exists('help') ? drupal_help_arg() : FALSE;
 
+  // Used when displaying modules that are required by the install profile.
+  require_once DRUPAL_ROOT . '/includes/install.inc';
+  $distribution_name = check_plain(drupal_install_profile_distribution_name());
+
   // Iterate through each of the modules.
   foreach ($visible_files as $filename => $module) {
     $extra = array();
     $extra['enabled'] = (bool) $module->status;
+    if (!empty($module->info['required'] )) {
+      $extra['disabled'] = TRUE;
+      $extra['required_by'][] = $distribution_name;
+    }
+
     // If this module requires other modules, add them to the array.
     foreach ($module->requires as $requires => $v) {
       if (!isset($files[$requires])) {
@@ -929,6 +938,7 @@ function system_modules($form, $form_state = array()) {
     }
     $form['modules'][$module->info['package']][$filename] = _system_modules_build_row($module->info, $extra);
   }
+
   // Add basic information to the fieldsets.
   foreach (element_children($form['modules']) as $package) {
     $form['modules'][$package] += array(
@@ -1070,7 +1080,7 @@ function system_modules_confirm_form($modules, $storage) {
   $form['validation_modules'] = array('#type' => 'value', '#value' => $modules);
   $form['status']['#tree'] = TRUE;
 
-  foreach ($storage['more_modules'] as $info) {
+  foreach ($storage['more_required'] as $info) {
     $t_argument = array(
       '@module' => $info['name'],
       '@required' => implode(', ', $info['requires']),
@@ -1106,9 +1116,12 @@ function system_modules_confirm_form($modules, $storage) {
  */
 function system_modules_submit($form, &$form_state) {
   include_once DRUPAL_ROOT . '/includes/install.inc';
+
+  // Builds list of modules.
   $modules = array();
   // If we're not coming from the confirmation form, build the list of modules.
   if (empty($form_state['storage'])) {
+    // If we're not coming from the confirmation form, build the module list.
     foreach ($form_state['values']['modules'] as $group_name => $group) {
       foreach ($group as $module => $enabled) {
         $modules[$module] = array('group' => $group_name, 'enabled' => $enabled['enable']);
@@ -1121,114 +1134,108 @@ function system_modules_submit($form, &$form_state) {
     $modules = $form_state['storage']['modules'];
   }
 
-  // Get a list of all modules, it will be used to find which module requires
-  // which.
+  // Collect data for all modules to be able to determine dependencies.
   $files = system_rebuild_module_data();
 
-  // The modules to be enabled.
-  $modules_to_be_enabled = array();
-  // The modules to be disabled.
-  $disable_modules = array();
-  // The modules to be installed.
-  $new_modules = array();
-  // Modules that need to be switched on because other modules require them.
-  $more_modules = array();
+  // Sorts modules by weight.
+  $sort = array();
+  foreach (array_keys($modules) as $module) {
+    $sort[$module] = $files[$module]->sort;
+  }
+  array_multisort($sort, $modules);
+
+  // Makes sure all required modules are set to be enabled.
+  $more_required = array();
   $missing_modules = array();
-
-  // Go through each module, finding out if we should enable, install, or
-  // disable it. Also, we find out if there are modules it requires that are
-  // not enabled.
   foreach ($modules as $name => $module) {
-    // If it's enabled, find out whether to just
-    // enable it, or install it.
     if ($module['enabled']) {
-      if (drupal_get_installed_schema_version($name) == SCHEMA_UNINSTALLED) {
-        $new_modules[$name] = $name;
-      }
-      elseif (!module_exists($name)) {
-        $modules_to_be_enabled[$name] = $name;
-      }
-
-      // If we're not coming from a confirmation form, search for modules the
-      // new ones require and see whether there are any that additionally
-      // need to be switched on.
-      if (empty($form_state['storage'])) {
-        foreach ($form['modules'][$module['group']][$name]['#requires'] as $requires => $v) {
-          if (!isset($files[$requires])) {
-            // The required module is missing, mark this module as disabled.
-            $missing_modules[$requires]['depends'][] = $name;
-            $modules[$name]['enabled'] = FALSE;
+      // Checks that all dependencies are set to be enabled.  Stores the ones
+      // that are not in $dependencies variable so that the user can be alerted
+      // in the confirmation form that more modules need to be enabled.
+      $dependencies = array();
+      foreach (array_keys($files[$name]->requires) as $required) {
+        if (empty($modules[$required]['enabled'])) {
+          if (isset($files[$required])) {
+            $dependencies[] = $files[$required]->info['name'];
+            $modules[$required]['enabled'] = TRUE;
           }
           else {
-            if (!$modules[$requires]['enabled']) {
-              if (!isset($more_modules[$name])) {
-                $more_modules[$name]['name'] = $files[$name]->info['name'];
-              }
-              $more_modules[$name]['requires'][$requires] = $files[$requires]->info['name'];
-            }
-            $modules[$requires] = array('group' => $files[$requires]->info['package'], 'enabled' => TRUE);
+            $missing_modules[$required]['depends'][] = $name;
+            $modules[$name]['enabled'] = FALSE;
           }
         }
       }
-    }
-  }
-  // A second loop is necessary, otherwise the modules set to be enabled in the
-  // previous loop would not be found.
-  foreach ($modules as $name => $module) {
-    if (module_exists($name) && !$module['enabled']) {
-      $disable_modules[$name] = $name;
+
+      // Stores additional modules that need to be enabled in $more_required.
+      if (!empty($dependencies)) {
+        $more_required[$name] = array(
+          'name' => $files[$name]->info['name'],
+          'requires' => $dependencies,
+        );
+      }
     }
   }
 
-  if ($more_modules || $missing_modules) {
-    // If we need to switch on more modules because other modules require
-    // them and they haven't confirmed, don't process the submission yet. Store
-    // the form submission data needed later.
+  // Redirects to confirmation form if more modules need to be enabled.
+  if ((!empty($more_required) || !empty($missing_modules)) && !isset($form_state['values']['confirm'])) {
     $form_state['storage'] = array(
-      'more_modules' => $more_modules,
+      'more_required' => $more_required,
+      'modules' => $modules,
       'missing_modules' => $missing_modules,
-      'modules' => $modules
     );
     $form_state['rebuild'] = TRUE;
     return;
   }
 
-  $old_module_list = module_list();
-
-  // Enable the modules needing enabling.
-  if (!empty($modules_to_be_enabled)) {
-    $sort = array();
-    foreach ($modules_to_be_enabled as $module) {
-      $sort[$module] = $files[$module]->sort;
-    }
-    array_multisort($sort, SORT_DESC, $modules_to_be_enabled);
-    module_enable($modules_to_be_enabled, FALSE);
-  }
-  // Disable the modules that need disabling.
-  if (!empty($disable_modules)) {
-    $sort = array();
-    foreach ($disable_modules as $module) {
-      $sort[$module] = $files[$module]->sort;
-    }
-    array_multisort($sort, SORT_ASC, $disable_modules);
-    module_disable($disable_modules, FALSE);
-  }
-
-  // Install new modules.
-  if (!empty($new_modules)) {
-    $sort = array();
-    foreach ($new_modules as $key => $module) {
-      if (!drupal_check_module($module)) {
-        unset($new_modules[$key]);
+  // Invokes hook_requirements('install').  If failures are detected, makes sure
+  // the dependent modules aren't installed either.
+  foreach ($modules as $name => $module) {
+    // Only invoke hook_requirements() on modules that are going to be installed.
+    if ($module['enabled'] && drupal_get_installed_schema_version($name) == SCHEMA_UNINSTALLED) {
+      if (!drupal_check_module($name)) {
+        $modules[$name]['enabled'] = FALSE;
+        foreach (array_keys($files[$name]->required_by) as $required_by) {
+          $modules[$required_by]['enabled'] = FALSE;
+        }
       }
-      $sort[$module] = $files[$module]->sort;
     }
-    array_multisort($sort, SORT_DESC, $new_modules);
-    module_enable($new_modules, FALSE);
   }
 
-  $current_module_list = module_list(TRUE);
-  if ($old_module_list != $current_module_list) {
+  // Initializes array of actions.
+  $actions = array(
+    'enable' => array(),
+    'disable' => array(),
+    'install' => array(),
+  );
+
+  // Builds arrays of modules that need to be enabled, disabled, and installed.
+  foreach ($modules as $name => $module) {
+    if ($module['enabled']) {
+      if (drupal_get_installed_schema_version($name) == SCHEMA_UNINSTALLED) {
+        $actions['install'][] = $name;
+      }
+      elseif (!module_exists($name)) {
+        $actions['enable'][] = $name;
+      }
+    }
+    elseif (module_exists($name)) {
+      $actions['disable'][] = $name;
+    }
+  }
+
+  // Gets list of modules prior to install process, unsets $form_state['storage']
+  // so we don't get redirected back to the confirmation form.
+  $pre_install_list = module_list();
+  unset($form_state['storage']);
+
+  // Installs, enables, and disables modules.
+  module_enable($actions['enable']);
+  module_disable($actions['disable']);
+  module_enable($actions['install']);
+
+  // Gets module list after install process, displays message if there are changes.
+  $post_install_list = module_list(TRUE);
+  if ($pre_install_list != $post_install_list) {
     drupal_set_message(t('The configuration options have been saved.'));
   }
 
@@ -1248,7 +1255,7 @@ function system_modules_submit($form, &$form_state) {
   // Notify locale module about module changes, so translations can be
   // imported. This might start a batch, and only return to the redirect
   // path after that.
-  module_invoke('locale', 'system_update', $new_modules);
+  module_invoke('locale', 'system_update', $actions['install']);
 
   // Synchronize to catch any actions that were added or removed.
   actions_synchronize();
@@ -1398,7 +1405,7 @@ function system_modules_uninstall_submit($form, &$form_state) {
 function system_ip_blocking($default_ip = '') {
   $output = '';
   $rows = array();
-  $header = array(t('IP address'), t('Operations'));
+  $header = array(t('Blocked IP addresses'), t('Operations'));
   $result = db_query('SELECT * FROM {blocked_ips}');
   foreach ($result as $ip) {
     $rows[] = array(
@@ -1429,15 +1436,15 @@ function system_ip_blocking_form($form, $form_state, $default_ip) {
   $form['ip'] = array(
     '#title' => t('IP address'),
     '#type' => 'textfield',
-    '#size' => 64,
-    '#maxlength' => 32,
+    '#size' => 48,
+    '#maxlength' => 40,
     '#default_value' => $default_ip,
     '#description' => t('Enter a valid IP address.'),
   );
   $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array(
     '#type' => 'submit',
-    '#value' => t('Save'),
+    '#value' => t('Add'),
   );
   $form['#submit'][] = 'system_ip_blocking_form_submit';
   $form['#validate'][] = 'system_ip_blocking_form_validate';
@@ -1560,7 +1567,7 @@ function system_site_information_settings() {
 
   $form['#validate'][] = 'system_site_information_settings_validate';
 
-  return system_settings_form($form, FALSE);
+  return system_settings_form($form);
 }
 
 /**
@@ -1589,7 +1596,7 @@ function system_logging_settings() {
   $form['error_level'] = array(
     '#type' => 'radios',
     '#title' => t('Error messages to display'),
-    '#default_value' => ERROR_REPORTING_DISPLAY_ALL,
+    '#default_value' => variable_get('error_level', ERROR_REPORTING_DISPLAY_ALL),
     '#options' => array(
       ERROR_REPORTING_HIDE => t('None'),
       ERROR_REPORTING_DISPLAY_SOME => t('Errors and warnings'),
@@ -1688,7 +1695,7 @@ function system_performance_settings() {
   $form['#submit'][] = 'drupal_clear_css_cache';
   $form['#submit'][] = 'drupal_clear_js_cache';
 
-  return system_settings_form($form, FALSE);
+  return system_settings_form($form);
 }
 
 /**
@@ -1708,11 +1715,10 @@ function system_clear_cache_submit($form, &$form_state) {
  * @see system_settings_form()
  */
 function system_file_system_settings() {
-
   $form['file_public_path'] = array(
     '#type' => 'textfield',
     '#title' => t('Public file system path'),
-    '#default_value' => file_directory_path(),
+    '#default_value' => variable_get('file_public_path', file_directory_path()),
     '#maxlength' => 255,
     '#description' => t('A local file system path where public files will be stored. This directory must exist and be writable by Drupal. This directory must be relative to the Drupal installation directory and be accessible over the web.'),
     '#after_build' => array('system_check_directory'),
@@ -1721,7 +1727,7 @@ function system_file_system_settings() {
   $form['file_private_path'] = array(
     '#type' => 'textfield',
     '#title' => t('Private file system path'),
-    '#default_value' => file_directory_path('private'),
+    '#default_value' => variable_get('file_private_path', file_directory_path('private')),
     '#maxlength' => 255,
     '#description' => t('A local file system path where private files will be stored. This directory must exist and be writable by Drupal. This directory should not be accessible over the web.'),
     '#after_build' => array('system_check_directory'),
@@ -1730,7 +1736,7 @@ function system_file_system_settings() {
   $form['file_temporary_path'] = array(
     '#type' => 'textfield',
     '#title' => t('Temporary directory'),
-    '#default_value' => file_directory_path('temporary'),
+    '#default_value' => variable_get('file_temporary_path', file_directory_path('temporary')),
     '#maxlength' => 255,
     '#description' => t('A local file system path where temporary files will be stored. This directory should not be accessible over the web.'),
     '#after_build' => array('system_check_directory'),
@@ -1745,13 +1751,13 @@ function system_file_system_settings() {
     $form['file_default_scheme'] = array(
       '#type' => 'radios',
       '#title' => t('Default download method'),
-      '#default_value' => isset($options['public']) ? 'public' : key($options),
+      '#default_value' => variable_get('file_default_scheme', isset($options['public']) ? 'public' : key($options)),
       '#options' => $options,
       '#description' => t('This setting is used as the preferred download method. The use of public files is more efficient, but does not provide any access control.'),
     );
   }
 
-  return system_settings_form($form, TRUE);
+  return system_settings_form($form);
 }
 
 /**
@@ -1776,7 +1782,7 @@ function system_image_toolkit_settings() {
     $form['image_toolkit'] = array(
       '#type' => 'radios',
       '#title' => t('Select an image processing toolkit'),
-      '#default_value' => $current_toolkit,
+      '#default_value' => variable_get('image_toolkit', $current_toolkit),
       '#options' => $toolkits_available
     );
   }
@@ -1790,7 +1796,7 @@ function system_image_toolkit_settings() {
     $form['image_toolkit_settings'] = $function();
   }
 
-  return system_settings_form($form, TRUE);
+  return system_settings_form($form);
 }
 
 /**
@@ -1800,29 +1806,28 @@ function system_image_toolkit_settings() {
  * @see system_settings_form()
  */
 function system_rss_feeds_settings() {
-
   $form['feed_description'] = array(
     '#type' => 'textarea',
     '#title' => t('Feed description'),
-    '#default_value' => '',
+    '#default_value' => variable_get('feed_description', ''),
     '#description' => t('Description of your site, included in each feed.')
   );
   $form['feed_default_items'] = array(
     '#type' => 'select',
     '#title' => t('Number of items in each feed'),
-    '#default_value' => 10,
+    '#default_value' => variable_get('feed_default_items', 10),
     '#options' => drupal_map_assoc(array(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30)),
     '#description' => t('Default number of items to include in each feed.')
   );
   $form['feed_item_length'] = array(
     '#type' => 'select',
     '#title' => t('Feed content'),
-    '#default_value' => 'fulltext',
+    '#default_value' => variable_get('feed_item_length', 'fulltext'),
     '#options' => array('title' => t('Titles only'), 'teaser' => t('Titles plus teaser'), 'fulltext' => t('Full text')),
     '#description' => t('Global setting for the default display of content items in each feed.')
   );
 
-  return system_settings_form($form, TRUE);
+  return system_settings_form($form);
 }
 
 /**
@@ -1909,7 +1914,7 @@ function system_regional_settings() {
     '#description' => t('Only applied if users may set their own time zone.')
   );
 
-  return system_settings_form($form, FALSE);
+  return system_settings_form($form);
 }
 
 /**
@@ -1984,7 +1989,7 @@ function system_date_time_settings() {
   // Display a message if no date types configured.
   $form['#empty_text'] = t('No date types available. <a href="@link">Add date type</a>.', array('@link' => url('admin/config/regional/date-time/types/add')));
 
-  return system_settings_form($form, FALSE);
+  return system_settings_form($form);
 }
 
 /**
@@ -2145,17 +2150,17 @@ function system_site_maintenance_mode() {
   $form['maintenance_mode'] = array(
     '#type' => 'checkbox',
     '#title' => t('Put site into maintenance mode'),
-    '#default_value' => 0,
+    '#default_value' => variable_get('maintenance_mode', 0),
     '#description' => t('When enabled, only users with the "Access site in maintenance mode" <a href="@permissions-url">permission</a> are able to access your site to perform maintenance; all other visitors see the maintenance mode message configured below. Authorized users can log in directly via the <a href="@user-login">user login</a> page.', array('@permissions-url' => url('admin/people/permissions'), '@user-login' => url('user'))),
   );
   $form['maintenance_mode_message'] = array(
     '#type' => 'textarea',
     '#title' => t('Maintenance mode message'),
-    '#default_value' => t('@site is currently under maintenance. We should be back shortly. Thank you for your patience.', array('@site' => variable_get('site_name', 'Drupal'))),
+    '#default_value' => variable_get('maintenance_mode_message', t('@site is currently under maintenance. We should be back shortly. Thank you for your patience.', array('@site' => variable_get('site_name', 'Drupal')))),
     '#description' => t('Message to show visitors when the site is in maintenance mode.')
   );
 
-  return system_settings_form($form, TRUE);
+  return system_settings_form($form);
 }
 
 /**
@@ -2186,7 +2191,7 @@ function system_clean_url_settings($form, &$form_state) {
     $form['clean_url'] = array(
       '#type' => 'checkbox',
       '#title' => t('Enable clean URLs'),
-      '#default_value' => 0,
+      '#default_value' => variable_get('clean_url', 0),
       '#description' => t('Use URLs like <code>example.com/user</code> instead of <code>example.com/?q=user</code>.'),
     );
     $form = system_settings_form($form);
@@ -2784,6 +2789,7 @@ function system_configure_date_formats_form($form, &$form_state, $dfid = 0) {
     '#attached' => array(
       'js' => array(drupal_get_path('module', 'system') . '/system.js', $js_settings),
     ),
+    '#required' => TRUE,
   );
 
   $form['actions'] = array('#type' => 'actions');

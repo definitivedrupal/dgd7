@@ -1,5 +1,5 @@
 <?php
-// $Id: session.inc,v 1.83 2010/05/01 08:12:22 dries Exp $
+// $Id: session.inc,v 1.87 2010/07/07 13:52:00 dries Exp $
 
 /**
  * @file
@@ -140,57 +140,75 @@ function _drupal_session_read($sid) {
 function _drupal_session_write($sid, $value) {
   global $user, $is_https;
 
-  if (!drupal_save_session()) {
-    // We don't have anything to do if we are not allowed to save the session.
-    return;
-  }
-
-  $fields = array(
-    'uid' => $user->uid,
-    'cache' => isset($user->cache) ? $user->cache : 0,
-    'hostname' => ip_address(),
-    'session' => $value,
-    'timestamp' => REQUEST_TIME,
-  );
-  $key = array('sid' => $sid);
-  if ($is_https) {
-    $key['ssid'] = $sid;
-    $insecure_session_name = substr(session_name(), 1);
-    // The "secure pages" setting allows a site to simultaneously use both
-    // secure and insecure session cookies. If enabled, use the insecure session
-    // identifier as the sid.
-    if (variable_get('https', FALSE) && isset($_COOKIE[$insecure_session_name])) {
-      $key['sid'] = $_COOKIE[$insecure_session_name];
+  // The exception handler is not active at this point, so we need to do it manually.
+  try {
+    if (!drupal_save_session()) {
+      // We don't have anything to do if we are not allowed to save the session.
+      return;
     }
-  }
-  db_merge('sessions')
-    ->key($key)
-    ->fields($fields)
-    ->execute();
 
-  // Last access time is updated no more frequently than once every 180 seconds.
-  // This reduces contention in the users table.
-  if ($user->uid && REQUEST_TIME - $user->access > variable_get('session_write_interval', 180)) {
-    db_update('users')
-      ->fields(array(
-        'access' => REQUEST_TIME
-      ))
-      ->condition('uid', $user->uid)
+    // Either ssid or sid or both will be added from $key below.
+    $fields = array(
+      'uid' => $user->uid,
+      'cache' => isset($user->cache) ? $user->cache : 0,
+      'hostname' => ip_address(),
+      'session' => $value,
+      'timestamp' => REQUEST_TIME,
+    );
+
+    // The "secure pages" setting allows a site to simultaneously use both secure
+    // and insecure session cookies. If enabled and both cookies are presented
+    // then use both keys. If not enabled but on HTTPS then use the PHP session
+    // id as 'ssid'. If on HTTP then use the PHP session id as 'sid'.
+    if ($is_https) {
+      $key['ssid'] = $sid;
+      $insecure_session_name = substr(session_name(), 1);
+      if (variable_get('https', FALSE) && isset($_COOKIE[$insecure_session_name])) {
+        $key['sid'] = $_COOKIE[$insecure_session_name];
+      }
+    }
+    else {
+      $key['sid'] = $sid;
+    }
+
+    db_merge('sessions')
+      ->key($key)
+      ->fields($fields)
       ->execute();
-  }
 
-  return TRUE;
+    // Last access time is updated no more frequently than once every 180 seconds.
+    // This reduces contention in the users table.
+    if ($user->uid && REQUEST_TIME - $user->access > variable_get('session_write_interval', 180)) {
+      db_update('users')
+        ->fields(array(
+          'access' => REQUEST_TIME
+        ))
+        ->condition('uid', $user->uid)
+        ->execute();
+    }
+
+    return TRUE;
+  }
+  catch (Exception $exception) {
+    require_once DRUPAL_ROOT . '/includes/errors.inc';
+    // If we are displaying errors, then do so with no possibility of a further uncaught exception being thrown.
+    if (error_displayable()) {
+      print '<h1>Uncaught exception thrown in session handler.</h1>';
+      print '<p>' . _drupal_render_exception_safe($exception) . '</p><hr />';
+    }
+    return FALSE;
+  }
 }
 
 /**
  * Initialize the session handler, starting a session if needed.
  */
 function drupal_session_initialize() {
-  global $user;
+  global $user, $is_https;
 
   session_set_save_handler('_drupal_session_open', '_drupal_session_close', '_drupal_session_read', '_drupal_session_write', '_drupal_session_destroy', '_drupal_session_garbage_collection');
 
-  if (isset($_COOKIE[session_name()])) {
+  if (isset($_COOKIE[session_name()]) || ($is_https && variable_get('https', FALSE) && isset($_COOKIE[substr(session_name(), 1)]))) {
     // If a session cookie exists, initialize the session. Otherwise the
     // session is only started on demand in drupal_session_commit(), making
     // anonymous users not use a session cookie unless something is stored in
@@ -286,15 +304,49 @@ function drupal_session_regenerate() {
   global $user, $is_https;
   if ($is_https && variable_get('https', FALSE)) {
     $insecure_session_name = substr(session_name(), 1);
+    if (isset($_COOKIE[$insecure_session_name])) {
+      $old_insecure_session_id = $_COOKIE[$insecure_session_name];
+    }
     $params = session_get_cookie_params();
     $session_id = drupal_hash_base64(uniqid(mt_rand(), TRUE) . drupal_random_bytes(55));
-    setcookie($insecure_session_name, $session_id, REQUEST_TIME + $params['lifetime'], $params['path'], $params['domain'], FALSE, $params['httponly']);
+    // If the session cookie lifetime is set, the session will expire $params['lifetime'] seconds from the current request.
+    // If it is not set, it will expire when the browser is closed.
+    $expire = $params['lifetime'] ? REQUEST_TIME + $params['lifetime'] : 0;
+    setcookie($insecure_session_name, $session_id, $expire, $params['path'], $params['domain'], FALSE, $params['httponly']);
     $_COOKIE[$insecure_session_name] = $session_id;
   }
 
   if (drupal_session_started()) {
     $old_session_id = session_id();
-    session_regenerate_id();
+  }
+  session_id(drupal_hash_base64(uniqid(mt_rand(), TRUE) . drupal_random_bytes(55)));
+
+  if (isset($old_session_id)) {
+    $params = session_get_cookie_params();
+    $expire = $params['lifetime'] ? REQUEST_TIME + $params['lifetime'] : 0;
+    setcookie(session_name(), session_id(), $expire, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
+    $fields = array('sid' => session_id());
+    if ($is_https) {
+      $fields['ssid'] = session_id();
+      // If the "secure pages" setting is enabled, use the newly-created
+      // insecure session identifier as the regenerated sid.
+      if (variable_get('https', FALSE)) {
+        $fields['sid'] = $session_id;
+      }
+    }
+    db_update('sessions')
+      ->fields($fields)
+      ->condition($is_https ? 'ssid' : 'sid', $old_session_id)
+      ->execute();
+  }
+  elseif (isset($old_insecure_session_id)) {
+    // If logging in to the secure site, and there was no active session on the
+    // secure site but a session was active on the insecure site, update the
+    // insecure session with the new session identifiers.
+    db_update('sessions')
+      ->fields(array('sid' => $session_id, 'ssid' => session_id()))
+      ->condition('sid', $old_insecure_session_id)
+      ->execute();
   }
   else {
     // Start the session when it doesn't exist yet.
@@ -303,15 +355,6 @@ function drupal_session_regenerate() {
     $account = $user;
     drupal_session_start();
     $user = $account;
-  }
-
-  if (isset($old_session_id)) {
-    db_update('sessions')
-      ->fields(array(
-        $is_https ? 'ssid' : 'sid' => session_id()
-      ))
-      ->condition('sid', $old_session_id)
-      ->execute();
   }
   date_default_timezone_set(drupal_get_user_timezone());
 }

@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $Id: style.css,v 1.1 2010/07/06 05:25:51 webchick Exp $ */
 
 /* ---------- Overall Specifications ---------- */
 
@@ -223,6 +223,7 @@ ul.tips {
 #preview #preview-header #preview-name-and-slogan {
   padding-top: 38px;
   margin-bottom: 30px;
+  margin-left: 15px;
 }
 #header #site-name,
 #preview #preview-header #preview-site-name {
@@ -244,9 +245,7 @@ ul.tips {
   font-style: italic;
 }
 /* Menus when in the header region. */
-#header div.block-menu,
-#header div#block-system-main-menu,
-#header div#block-system-secondary-menu {
+#header .block-menu {
   height: 1.1em;
   margin: 10px 0;
   font-size: 120%;
@@ -259,22 +258,16 @@ ul.tips {
   margin: 0;
   padding: 0;
 }
-#header .block-menu li a,
-#header #block-system-main-menu li a,
-#header #block-system-secondary-menu li a {
+#header .block-menu li a {
   float: left; /* LTR */
   padding: 0 12px;
   display: block;
   border-right: 1px solid #555; /* LTR */
 }
-#header .block-menu li.first a,
-#header #block-system-main-menu li.first a,
-#header #block-system-secondary-menu li.first a {
+#header .block-menu li.first a {
   padding-left: 0; /* LTR */
 }
-#header .block-menu li.last a,
-#header #block-system-main-menu li.last a,
-#header #block-system-secondary-menu li.last a {
+#header .block-menu li.last a {
   padding-right: 0; /* LTR */
   border-right: none; /* LTR */
 }
@@ -502,7 +495,7 @@ h1#page-title,
   text-decoration: underline;
 }
 #block-system-main .link-wrapper {
-  text-align: center;
+  text-align: right;
 }
 #block-system-main ul.links {
   color: #68696b;
@@ -659,26 +652,24 @@ h1#page-title,
   color: rgba(255,255,255,0.95);  
   text-decoration: underline;
 }
-#footer-wrapper div.block {
+#footer-wrapper .block {
   margin: 20px 0;
   border: 1px solid #444;
   border-color: rgba(255,255,255,0.1);  
   padding: 10px;
 }
-#footer-wrapper #block-system-main-menu,
-#footer-wrapper #block-system-secondary-menu,
-#footer-wrapper .section div.block-menu,
-#footer-wrapper #footer .block {
+#footer-columns .block-menu,
+#footer .block {
   margin: 0;
   padding: 0;
   border: none;
 }
-#footer-wrapper #footer .block,
-#footer-wrapper #footer .block .content {
+#footer .block,
+#footer .block .content {
   overflow: hidden;
   margin: .5em 0;
 }
-#footer-wrapper #footer .block h2 {
+#footer .block h2 {
   margin: 0;
 }
 #footer-wrapper ul#secondary-menu {
@@ -937,9 +928,10 @@ fieldset {
   background: #ffffff;
   border: 1px solid #cccccc;
   margin-top: 10px;
-  margin-bottom: 20px;
+  margin-bottom: 32px;
   padding: 0 0 10px;
   position: relative;
+  top: 12px; /* Offsets the negative margin of legends */
   -khtml-border-radius: 4px;
   -moz-border-radius: 4px;
   -webkit-border-radius: 4px;
@@ -1090,6 +1082,7 @@ html.js input.throbbing {
   border-top-right-radius: 4px;
 }
 #comment-form fieldset.filter-wrapper {
+  top: 0;
   padding-bottom: 10px;
 }
 #comment-form fieldset.filter-wrapper .fieldset-wrapper,

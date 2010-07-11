@@ -1,6 +1,6 @@
-; $Id: field_ui.info,v 1.2 2009/11/02 03:41:58 webchick Exp $
+; $Id: field_ui.info,v 1.3 2010/06/25 18:51:05 dries Exp $
 name = Field UI
-description = User Interface for the Field API.
+description = User interface for the Field API.
 package = Core
 version = VERSION
 core = 7.x
@@ -8,8 +8,8 @@ files[] = field_ui.module
 files[] = field_ui.admin.inc
 files[] = field_ui.test
 
-; Information added by drupal.org packaging script on 2010-05-23
-version = "7.0-alpha5"
+; Information added by drupal.org packaging script on 2010-07-09
+version = "7.0-alpha6"
 project = "drupal"
-datestamp = "1274628610"
+datestamp = "1278634806"
 

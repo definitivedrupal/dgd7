@@ -1,5 +1,5 @@
 <?php
-// $Id: system.api.php,v 1.167 2010/05/07 12:59:07 dries Exp $
+// $Id: system.api.php,v 1.178 2010/07/07 08:05:01 webchick Exp $
 
 /**
  * @file
@@ -66,9 +66,6 @@ function hook_hook_info_alter(&$hooks) {
  * Inform the system about one or more entity types (i.e., object types that
  * can be loaded via entity_load() and, optionally, to which fields can be
  * attached).
- *
- * @see entity_load()
- * @see hook_entity_info_alter()
  *
  * @return
  *   An array whose keys are entity type names and whose values identify
@@ -140,9 +137,24 @@ function hook_hook_info_alter(&$hooks) {
  *     ('full' mode), on the home page or taxonomy listings ('teaser' mode), or
  *     in an RSS feed ('rss' mode). Modules taking part in the display of the
  *     entity (notably the Field API) can adjust their behavior depending on
- *     the requested view mode. Keys of the array are view mode names. Each
- *     view mode is described by an array with the following key/value pairs:
+ *     the requested view mode. An additional 'default' view mode is available
+ *     for all entity types. This view mode is not intended for actual entity
+ *     display, but holds default display settings. For each available view
+ *     mode, administrators can configure whether it should use its own set of
+ *     field display settings, or just replicate the settings of the 'default'
+ *     view mode, thus reducing the amount of display configurations to keep
+ *     track of. Keys of the array are view mode names. Each view mode is
+ *     described by an array with the following key/value pairs:
  *     - label: The human-readable name of the view mode
+ *     - custom settings: A boolean specifying whether the view mode should by
+ *     default use its own custom field display settings. If FALSE, entities
+ *     displayed in this view mode will reuse the 'default' display settings by
+ *     default (e.g. right after the module exposing the view mode is enabled),
+ *     but administrators can later use the Field UI to apply custom display
+ *     settings specific to the view mode.
+ *
+ * @see entity_load()
+ * @see hook_entity_info_alter()
  */
 function hook_entity_info() {
   $return = array(
@@ -151,7 +163,7 @@ function hook_entity_info() {
       'controller class' => 'NodeController',
       'base table' => 'node',
       'revision table' => 'node_revision',
-      'path callback' => 'node_path',
+      'uri callback' => 'node_uri',
       'fieldable' => TRUE,
       'entity keys' => array(
         'id' => 'nid',
@@ -164,13 +176,16 @@ function hook_entity_info() {
       'bundles' => array(),
       'view modes' => array(
         'full' => array(
-          'label' => t('Full node'),
+          'label' => t('Full content'),
+          'custom settings' => FALSE,
         ),
         'teaser' => array(
           'label' => t('Teaser'),
+          'custom settings' => TRUE,
         ),
         'rss' => array(
           'label' => t('RSS'),
+          'custom settings' => FALSE,
         ),
       ),
     ),
@@ -182,9 +197,11 @@ function hook_entity_info() {
     $return['node']['view modes'] += array(
       'search_index' => array(
         'label' => t('Search index'),
+        'custom settings' => FALSE,
       ),
       'search_result' => array(
         'label' => t('Search result'),
+        'custom settings' => FALSE,
       ),
     );
   }
@@ -213,10 +230,10 @@ function hook_entity_info() {
  * entity. All properties that are available in hook_entity_info() can be
  * altered here.
  *
- * @see hook_entity_info()
- *
  * @param $entity_info
  *   The entity info array, keyed by entity name.
+ *
+ * @see hook_entity_info()
  */
 function hook_entity_info_alter(&$entity_info) {
   // Set the controller class for nodes to an alternate implementation of the
@@ -244,8 +261,6 @@ function hook_entity_load($entities, $type) {
 /**
  * Act on entities when inserted.
  *
- * Generic insert hook called for all entity types via entity_invoke().
- *
  * @param $entity
  *   The entity object.
  * @param $type
@@ -257,14 +272,31 @@ function hook_entity_insert($entity, $type) {
 /**
  * Act on entities when updated.
  *
- * Generic update hook called for all entity types via entity_invoke().
- *
  * @param $entity
  *   The entity object.
  * @param $type
  *   The type of entity being updated (i.e. node, user, comment).
  */
 function hook_entity_update($entity, $type) {
+}
+
+/**
+ * Alter or execute an EntityFieldQuery.
+ *
+ * @param EntityFieldQuery $query
+ *   An EntityFieldQuery. One of the most important properties to be changed is
+ *   EntityFieldQuery::executeCallback. If this is set to an existing function,
+ *   this function will get the query as its single argument and its result
+ *   will be the returned as the result of EntityFieldQuery::execute(). This can
+ *   be used to change the behavior of EntityFieldQuery entirely. For example,
+ *   the default implementation can only deal with one field storage engine, but
+ *   it is possible to write a module that can query across field storage
+ *   engines. Also, the default implementation presumes entities are stored in
+ *   SQL, but the execute callback could instead query any other entity storage,
+ *   local or remote.
+ */
+function hook_entity_query_alter($query) {
+  $query->executeCallback = 'my_module_query_callback';
 }
 
 /**
@@ -1733,6 +1765,7 @@ function hook_theme($existing, $type, $theme, $path) {
  *
  * @param $theme_registry
  *   The entire cache of theme registry information, post-processing.
+ *
  * @see hook_theme()
  * @see _theme_process_registry()
  */
@@ -1830,11 +1863,11 @@ function hook_xmlrpc() {
  * definition, so module must be prepared to handle either format for
  * each callback being altered.
  *
- * @see hook_xmlrpc()
- *
  * @param $methods
  *   Associative array of method callback definitions returned from
  *   hook_xmlrpc.
+ *
+ * @see hook_xmlrpc()
  */
 function hook_xmlrpc_alter(&$methods) {
 
@@ -2006,10 +2039,10 @@ function hook_mail($key, &$message, $params) {
  * tables that will be cleared by the Clear button on the Performance page or
  * whenever drupal_flush_all_caches is invoked.
  *
- * @see drupal_flush_all_caches()
- *
  * @return
  *   An array of cache table names.
+ *
+ * @see drupal_flush_all_caches()
  */
 function hook_flush_caches() {
   return array('cache_example');
@@ -2018,15 +2051,18 @@ function hook_flush_caches() {
 /**
  * Perform necessary actions after modules are installed.
  *
- * This function differs from hook_install() as it gives all other
- * modules a chance to perform actions when a module is installed,
- * whereas hook_install() will only be called on the module actually
- * being installed.
- *
- * @see hook_install()
+ * This function differs from hook_install() in that it gives all other modules
+ * a chance to perform actions when a module is installed, whereas
+ * hook_install() is only called on the module actually being installed. See
+ * module_enable() for a detailed description of the order in which install and
+ * enable hooks are invoked.
  *
  * @param $modules
  *   An array of the installed modules.
+ *
+ * @see module_enable()
+ * @see hook_modules_enabled()
+ * @see hook_install()
  */
 function hook_modules_installed($modules) {
   if (in_array('lousy_module', $modules)) {
@@ -2037,15 +2073,18 @@ function hook_modules_installed($modules) {
 /**
  * Perform necessary actions after modules are enabled.
  *
- * This function differs from hook_enable() as it gives all other
- * modules a chance to perform actions when modules are enabled,
- * whereas hook_enable() will only be called on the module actually
- * being enabled.
- *
- * @see hook_enable()
+ * This function differs from hook_enable() in that it gives all other modules a
+ * chance to perform actions when modules are enabled, whereas hook_enable() is
+ * only called on the module actually being enabled. See module_enable() for a
+ * detailed description of the order in which install and enable hooks are
+ * invoked.
  *
  * @param $modules
  *   An array of the enabled modules.
+ *
+ * @see hook_enable()
+ * @see hook_modules_installed()
+ * @see module_enable()
  */
 function hook_modules_enabled($modules) {
   if (in_array('lousy_module', $modules)) {
@@ -2057,15 +2096,15 @@ function hook_modules_enabled($modules) {
 /**
  * Perform necessary actions after modules are disabled.
  *
- * This function differs from hook_disable() as it gives all other
- * modules a chance to perform actions when modules are disabled,
- * whereas hook_disable() will only be called on the module actually
- * being disabled.
- *
- * @see hook_disable()
+ * This function differs from hook_disable() in that it gives all other modules
+ * a chance to perform actions when modules are disabled, whereas hook_disable()
+ * is only called on the module actually being disabled.
  *
  * @param $modules
  *   An array of the disabled modules.
+ *
+ * @see hook_disable()
+ * @see hook_modules_uninstalled()
  */
 function hook_modules_disabled($modules) {
   if (in_array('lousy_module', $modules)) {
@@ -2076,18 +2115,18 @@ function hook_modules_disabled($modules) {
 /**
  * Perform necessary actions after modules are uninstalled.
  *
- * This function differs from hook_uninstall() as it gives all other
- * modules a chance to perform actions when a module is uninstalled,
- * whereas hook_uninstall() will only be called on the module actually
- * being uninstalled.
+ * This function differs from hook_uninstall() in that it gives all other
+ * modules a chance to perform actions when a module is uninstalled, whereas
+ * hook_uninstall() is only called on the module actually being uninstalled.
  *
  * It is recommended that you implement this module if your module
  * stores data that may have been set by other modules.
  *
- * @see hook_uninstall()
- *
  * @param $modules
  *   An array of the uninstalled modules.
+ *
+ * @see hook_uninstall()
+ * @see hook_modules_disabled()
  */
 function hook_modules_uninstalled($modules) {
   foreach ($modules as $module) {
@@ -2588,12 +2627,13 @@ function hook_schema_alter(&$schema) {
  * Structured (aka dynamic) queries that have tags associated may be altered by any module
  * before the query is executed.
  *
+ * @param $query
+ *   A Query object describing the composite parts of a SQL query.
+ *
  * @see hook_query_TAG_alter()
  * @see node_query_node_access_alter()
  * @see QueryAlterableInterface
  * @see SelectQueryInterface
- * @param $query
- *   A Query object describing the composite parts of a SQL query.
  */
 function hook_query_alter(QueryAlterableInterface $query) {
   if ($query->hasTag('micro_limit')) {
@@ -2604,13 +2644,13 @@ function hook_query_alter(QueryAlterableInterface $query) {
 /**
  * Perform alterations to a structured query for a given tag.
  *
+ * @param $query
+ *   An Query object describing the composite parts of a SQL query.
+ *
  * @see hook_query_alter()
  * @see node_query_node_access_alter()
  * @see QueryAlterableInterface
  * @see SelectQueryInterface
- *
- * @param $query
- *   An Query object describing the composite parts of a SQL query.
  */
 function hook_query_TAG_alter(QueryAlterableInterface $query) {
   // Skip the extra expensive alterations if site has no node access control modules.
@@ -2624,14 +2664,14 @@ function hook_query_TAG_alter(QueryAlterableInterface $query) {
     // Skip the extra joins and conditions for node admins.
     if (!user_access('bypass node access')) {
       // The node_access table has the access grants for any given node.
-      $access_alias = $query->join('node_access', 'na', 'na.nid = n.nid');
+      $access_alias = $query->join('node_access', 'na', '%alias.nid = n.nid');
       $or = db_or();
       // If any grant exists for the specified user, then user has access to the node for the specified operation.
       foreach (node_access_grants($op, $query->getMetaData('account')) as $realm => $gids) {
         foreach ($gids as $gid) {
           $or->condition(db_and()
-            ->condition("{$access_alias}.gid", $gid)
-            ->condition("{$access_alias}.realm", $realm)
+            ->condition($access_alias . '.gid', $gid)
+            ->condition($access_alias . '.realm', $realm)
           );
         }
       }
@@ -2640,7 +2680,7 @@ function hook_query_TAG_alter(QueryAlterableInterface $query) {
         $query->condition($or);
       }
 
-      $query->condition("{$access_alias}.grant_$op", 1, '>=');
+      $query->condition($access_alias . 'grant_' . $op, 1, '>=');
     }
   }
 }
@@ -2651,11 +2691,11 @@ function hook_query_TAG_alter(QueryAlterableInterface $query) {
  * If the module implements hook_schema(), the database tables will
  * be created before this hook is fired.
  *
- * The hook will be called the first time a module is installed, and the
- * module's schema version will be set to the module's greatest numbered update
- * hook. Because of this, anytime a hook_update_N() is added to the module, this
- * function needs to be updated to reflect the current version of the database
- * schema.
+ * This hook will only be called the first time a module is enabled or after it
+ * is re-enabled after being uninstalled. The module's schema version will be
+ * set to the module's greatest numbered update hook. Because of this, anytime a
+ * hook_update_N() is added to the module, this function needs to be updated to
+ * reflect the current version of the database schema.
  *
  * See the Schema API documentation at
  * @link http://drupal.org/node/146843 http://drupal.org/node/146843 @endlink
@@ -2669,8 +2709,12 @@ function hook_query_TAG_alter(QueryAlterableInterface $query) {
  * Please be sure that anything added or modified in this function that can
  * be removed during uninstall should be removed with hook_uninstall().
  *
- * @see hook_uninstall()
  * @see hook_schema()
+ * @see module_enable()
+ * @see hook_enable()
+ * @see hook_disable()
+ * @see hook_uninstall()
+ * @see hook_modules_installed()
  */
 function hook_install() {
   // Populate the default {node_access} record.
@@ -2768,12 +2812,14 @@ function hook_update_N(&$sandbox) {
     // We'll -1 to disregard the uid 0...
     $sandbox['max'] = db_query('SELECT COUNT(DISTINCT uid) FROM {users}')->fetchField() - 1;
   }
-  db_select('users', 'u')
+
+  $users = db_select('users', 'u')
     ->fields('u', array('uid', 'name'))
     ->condition('uid', $sandbox['current_uid'], '>')
     ->range(0, 3)
     ->orderBy('uid', 'ASC')
     ->execute();
+
   foreach ($users as $user) {
     $user->name .= '!';
     db_update('users')
@@ -2869,8 +2915,8 @@ function hook_update_last_removed() {
  * - variables that the module has set using variable_set() or system_settings_form()
  * - modifications to existing tables
  *
- * The module should not remove its entry from the {system} table. Database tables
- * defined by hook_schema() will be removed automatically.
+ * The module should not remove its entry from the {system} table. Database
+ * tables defined by hook_schema() will be removed automatically.
  *
  * The uninstall hook will fire when the module gets uninstalled but before the
  * module's database tables are removed, allowing your module to query its own
@@ -2878,6 +2924,8 @@ function hook_update_last_removed() {
  *
  * @see hook_install()
  * @see hook_schema()
+ * @see hook_disable()
+ * @see hook_modules_uninstalled()
  */
 function hook_uninstall() {
   variable_del('upload_file_types');
@@ -2886,7 +2934,11 @@ function hook_uninstall() {
 /**
  * Perform necessary actions after module is enabled.
  *
- * The hook is called everytime module is enabled.
+ * The hook is called every time the module is enabled.
+ *
+ * @see module_enable()
+ * @see hook_install()
+ * @see hook_modules_enabled()
  */
 function hook_enable() {
   mymodule_cache_rebuild();
@@ -2895,7 +2947,10 @@ function hook_enable() {
 /**
  * Perform necessary actions before module is disabled.
  *
- * The hook is called everytime module is disabled.
+ * The hook is called every time the module is disabled.
+ *
+ * @see hook_uninstall()
+ * @see hook_modules_disabled()
  */
 function hook_disable() {
   mymodule_cache_rebuild();
@@ -3184,6 +3239,7 @@ function hook_install_tasks_alter(&$tasks, $install_state) {
  *   An array of mimetypes correlated to the extensions that relate to them.
  *   The array has 'mimetypes' and 'extensions' elements, each of which is an
  *   array.
+ *
  * @see file_default_mimetype_mapping()
  */
 function hook_file_mimetype_mapping_alter(&$mapping) {
@@ -3344,11 +3400,11 @@ function hook_archiver_info_alter(&$info) {
  * recommended that each date type starts with the module name. A date type
  * can consist of letters, numbers and underscores.
  *
- * @see hook_date_formats()
- * @see format_date()
- *
  * @return
  *   A list of date types in 'key' => 'label' format.
+ *
+ * @see hook_date_formats()
+ * @see format_date()
  */
 function hook_date_format_types() {
   return array(
@@ -3407,8 +3463,6 @@ function hook_date_format_types_alter(&$types) {
  * that aren't specific to any one locale, for example, "Y m". For these cases
  * the locales field should be omitted.
  *
- * @see hook_date_format_types()
- *
  * @return
  *   A list of date formats. Each date format is a keyed array
  *   consisting of three elements:
@@ -3427,6 +3481,8 @@ function hook_date_format_types_alter(&$types) {
  *     first one will be used unless overridden via
  *     admin/config/regional/date-time/locale. If your date format is not
  *     language specific, leave this field empty.
+ *
+ * @see hook_date_format_types()
  */
 function hook_date_formats() {
   return array(
@@ -3461,34 +3517,6 @@ function hook_date_formats_alter(&$formats) {
 }
 
 /**
- * Alters the router item for the active menu handler.
- *
- * Called by menu_execute_active_handler() to allow modules to alter the
- * information that will be used to handle the page request. Only use this
- * hook if an alteration specific to the page request is needed. Otherwise
- * use hook_menu_alter().
- *
- * @param $router_item
- *   An array with the following keys:
- *   - access: Boolean. Whether the user is allowed to see this page.
- *   - file: A path to a file to include prior to invoking the page callback.
- *   - page_callback: The function to call to build the page content.
- *   - page_arguments: Arguments to pass to the page callback.
- *   - delivery_callback: The function to call to deliver the result of the
- *     page callback to the browser.
- * @param $path
- *   The drupal path that was used for retrieving the router item.
- *
- * @see menu_execute_active_handler()
- * @see hook_menu()
- * @see hook_menu_alter()
- */
-function hook_menu_active_handler_alter(&$router_item, $path = NULL) {
-  // Turn off access for all pages for all users.
-  $router_item['access'] = FALSE;
-}
-
-/**
  * Alters the delivery callback used to send the result of the page callback to the browser.
  *
  * Called by drupal_deliver_page() to allow modules to alter how the
@@ -3498,8 +3526,7 @@ function hook_menu_active_handler_alter(&$router_item, $path = NULL) {
  * information unrelated to the path of the page accessed. For example,
  * it can be used to set the delivery callback based on a HTTP request
  * header (as shown in the code sample). To specify a delivery callback
- * based on path information, use hook_menu(), hook_menu_alter() or
- * hook_menu_active_handler_alter().
+ * based on path information, use hook_menu() or hook_menu_alter().
  *
  * This hook can also be used as an API function that can be used to explicitly
  * set the delivery callback from some other function. For example, for a module
@@ -3796,17 +3823,17 @@ function hook_batch_alter(&$batch) {
  */
 function hook_token_info_alter(&$data) {
   // Modify description of node tokens for our site.
-  $node['nid'] = array(
+  $data['tokens']['node']['nid'] = array(
     'name' => t("Node ID"),
     'description' => t("The unique ID of the article."),
   );
-  $node['title'] = array(
+  $data['tokens']['node']['title'] = array(
     'name' => t("Title"),
     'description' => t("The title of the article."),
   );
 
   // Chained tokens for nodes.
-  $node['created'] = array(
+  $data['tokens']['node']['created'] = array(
     'name' => t("Date created"),
     'description' => t("The date the article was posted."),
     'type' => 'date',
@@ -3931,6 +3958,31 @@ function hook_filetransfer_backends() {
     );
   }
   return $backends;
+}
+
+/**
+ * Control site status before menu dispatching.
+ *
+ * The hook is called after checking whether the site is offline but before 
+ * the current router item is retrieved and executed by
+ * menu_execute_active_handler(). If the site is in offline mode,
+ * $menu_site_status is set to MENU_SITE_OFFLINE.
+ *
+ * @param $menu_site_status
+ *   Supported values are MENU_SITE_OFFLINE, MENU_ACCESS_DENIED,
+ *   MENU_NOT_FOUND and MENU_SITE_ONLINE. Any other value than
+ *   MENU_SITE_ONLINE will skip the default menu handling system and be passed
+ *   for delivery to drupal_deliver_page() with a NULL
+ *   $default_delivery_callback.
+ * @param $path
+ *   Contains the system path that is going to be loaded. This is read only,
+ *   use hook_url_inbound_alter() to change the path.
+ */
+function hook_menu_site_status_alter(&$menu_site_status, $path) {
+  // Allow access to my_module/authentication even if site is in offline mode.
+  if ($menu_site_status == MENU_SITE_OFFLINE && user_is_anonymous() && $path == 'my_module/authentication') {
+    $menu_site_status = MENU_SITE_ONLINE;
+  }
 }
 
 /**

@@ -1,5 +1,5 @@
 <?php
-// $Id: database.inc,v 1.30 2010/04/06 16:54:15 dries Exp $
+// $Id: database.inc,v 1.33 2010/07/04 02:26:10 webchick Exp $
 
 /**
  * @file
@@ -159,7 +159,7 @@ class DatabaseConnection_sqlite extends DatabaseConnection {
   }
 
   public function queryRange($query, $from, $count, array $args = array(), array $options = array()) {
-    return $this->query($query . ' LIMIT ' . $from . ', ' . $count, $args, $options);
+    return $this->query($query . ' LIMIT ' . (int) $from . ', ' . (int) $count, $args, $options);
   }
 
   public function queryTemporary($query, array $args = array(), array $options = array()) {
@@ -210,9 +210,9 @@ class DatabaseConnection_sqlite extends DatabaseConnection {
     return (int) $this->query('SELECT value FROM {sequences}')->fetchField();
   }
 
-  public function rollback($savepoint_name = 'drupal_transaction', $type = NULL, $message = NULL, $variables = array(), $severity = NULL, $link = NULL) {
+  public function rollback($savepoint_name = 'drupal_transaction') {
     if ($this->savepointSupport) {
-      return parent::rollBack($savepoint_name, $type, $message, $variables, $severity, $link);
+      return parent::rollBack($savepoint_name);
     }
 
     if (!$this->inTransaction()) {
@@ -222,29 +222,6 @@ class DatabaseConnection_sqlite extends DatabaseConnection {
     // in question has already been rolled back.
     if (!in_array($savepoint_name, $this->transactionLayers)) {
       return;
-    }
-
-    // Set the severity to the configured default if not specified.
-    if (!isset($severity)) {
-      $logging = Database::getLoggingCallback();
-      if (is_array($logging)) {
-        $severity = $logging['default_severity'];
-      }
-    }
-
-    // Record in an array to send to the log after transaction rollback.
-    // Messages written directly to a log (with a database back-end) will roll
-    // back during the following transaction rollback. This is an array because
-    // rollback could be requested multiple times during a transaction, and all
-    // such errors ought to be logged.
-    if (isset($message)) {
-      $this->rollbackLogs[] = array(
-        'type' => $type,
-        'message' => $message,
-        'variables' => $variables,
-        'severity' => $severity,
-        'link' => $link,
-      );
     }
 
     // We need to find the point we're rolling back to, all other savepoints
@@ -265,15 +242,6 @@ class DatabaseConnection_sqlite extends DatabaseConnection {
     if ($this->supportsTransactions()) {
       PDO::rollBack();
     }
-    else {
-      // Log unsupported rollback.
-      $this->rollbackLogs[] = array(
-        'type' => 'database',
-        'message' => t('Explicit rollback failed: not supported on active connection.'),
-        'variables' => array(),
-      );
-    }
-    $this->logRollback();
   }
 
   public function pushTransaction($name) {
@@ -313,7 +281,6 @@ class DatabaseConnection_sqlite extends DatabaseConnection {
         if ($this->willRollback) {
           $this->willRollback = FALSE;
           PDO::rollBack();
-          $this->logRollback();
         }
         elseif (!PDO::commit()) {
           throw new DatabaseTransactionCommitFailedException();

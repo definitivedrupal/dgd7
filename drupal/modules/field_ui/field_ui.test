@@ -1,5 +1,5 @@
 <?php
-// $Id: field_ui.test,v 1.16 2010/05/18 18:30:49 dries Exp $
+// $Id: field_ui.test,v 1.18 2010/06/27 18:05:54 webchick Exp $
 
 /**
  * @file
@@ -34,7 +34,8 @@ class FieldUITestCase extends DrupalWebTestCase {
 
     // Create random field name.
     $this->field_label = $this->randomName(8);
-    $this->field_name = 'field_' . strtolower($this->randomName(8));
+    $this->field_name_input =  strtolower($this->randomName(8));
+    $this->field_name = 'field_'. $this->field_name_input;
   }
 
   /**
@@ -85,7 +86,7 @@ class FieldUITestCase extends DrupalWebTestCase {
     // Create a test field.
     $edit = array(
       '_add_new_field[label]' => $this->field_label,
-      '_add_new_field[field_name]' => $this->field_name,
+      '_add_new_field[field_name]' => $this->field_name_input,
     );
     $this->fieldUIAddNewField('admin/structure/types/manage/' . $this->hyphen_type, $edit);
 
@@ -289,7 +290,7 @@ class FieldUITestCase extends DrupalWebTestCase {
     // Check that the newly added instance appears on the 'Manage Fields'
     // screen.
     $this->drupalGet($bundle_path);
-    $this->assertFieldByXPath('//table[@id="field-overview"]//span[@class="label-field"]', $instance['label'], t('Field was created and appears in the overview page.'));
+    $this->assertFieldByXPath('//table[@id="field-overview"]//td[1]', $instance['label'], t('Field was created and appears in the overview page.'));
 
     // Check that the instance does not appear in the 'add existing field' row
     // on other bundles.
@@ -338,7 +339,7 @@ class FieldUITestCase extends DrupalWebTestCase {
     $this->assertRaw(t('Saved %label configuration.', array('%label' => $label)), t('Redirected to "Manage fields" page.'));
 
     // Check that the field appears in the overview form.
-    $this->assertFieldByXPath('//table[@id="field-overview"]//span[@class="label-field"]', $label, t('Field was created and appears in the overview page.'));
+    $this->assertFieldByXPath('//table[@id="field-overview"]//td[1]', $label, t('Field was created and appears in the overview page.'));
   }
 
   /**
@@ -369,7 +370,7 @@ class FieldUITestCase extends DrupalWebTestCase {
     $this->assertRaw(t('Saved %label configuration.', array('%label' => $label)), t('Redirected to "Manage fields" page.'));
 
     // Check that the field appears in the overview form.
-    $this->assertFieldByXPath('//table[@id="field-overview"]//span[@class="label-field"]', $label, t('Field was created and appears in the overview page.'));
+    $this->assertFieldByXPath('//table[@id="field-overview"]//td[1]', $label, t('Field was created and appears in the overview page.'));
   }
 
   /**

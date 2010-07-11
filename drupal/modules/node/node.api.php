@@ -1,5 +1,5 @@
 <?php
-// $Id: node.api.php,v 1.67 2010/05/05 06:55:25 webchick Exp $
+// $Id: node.api.php,v 1.70 2010/06/17 13:44:45 dries Exp $
 
 /**
  * @file
@@ -96,8 +96,7 @@
  *   an existing node, it will already be loaded; see the Loading section
  *   above):
  *   - hook_prepare() (node-type-specific)
- *   - hook_node_prepare() (all); if translation.module is enabled, this will
- *     also invoke hook_node_prepare_translation() on all modules.
+ *   - hook_node_prepare() (all)
  *   - hook_form() (node-type-specific)
  *   - field_attach_form()
  * - Validating a node during editing form submit (calling
@@ -555,21 +554,6 @@ function hook_node_prepare($node) {
 }
 
 /**
- * Act on a node object being cloned for translation.
- *
- * This hook is invoked from translation_node_prepare() after the node is
- * loaded. $node->language is set to the language being requested, and
- * $node->translation_source is set to the node object being cloned.
- *
- * @param $node
- *   The node object being prepared for translation.
- *
- * @ingroup node_api_hooks
- */
-function hook_node_prepare_translation($node) {
-}
-
-/**
  * Act on a node being displayed as a search result.
  *
  * This hook is invoked from node_search_execute(), after node_load()
@@ -677,6 +661,34 @@ function hook_node_validate($node, $form) {
     if ($node->start > $node->end) {
       form_set_error('time', t('An event may not end before it starts.'));
     }
+  }
+}
+
+/**
+ * Act on a node after validated form values have been copied to it.
+ *
+ * This hook is invoked when a node form is submitted with either the "Save" or
+ * "Preview" button, after form values have been copied to the form state's node
+ * object, but before the node is saved or previewed. It is a chance for modules
+ * to adjust the node's properties from what they are simply after a copy from
+ * $form_state['values']. This hook is intended for adjusting non-field-related
+ * properties. See hook_field_attach_submit() for customizing field-related
+ * properties.
+ *
+ * @param $node
+ *   The node being updated in response to a form submission.
+ * @param $form
+ *   The form being used to edit the node.
+ * @param $form_state
+ *   The form state array.
+ *
+ * @ingroup node_api_hooks
+ */
+function hook_node_submit($node, $form, &$form_state) {
+  // Decompose the selected menu parent option into 'menu_name' and 'plid', if
+  // the form used the default parent selection widget.
+  if (!empty($form_state['values']['menu']['parent'])) {
+    list($node->menu['menu_name'], $node->menu['plid']) = explode(':', $form_state['values']['menu']['parent']);
   }
 }
 
@@ -1142,7 +1154,7 @@ function hook_validate($node, &$form) {
  *
  * @ingroup node_api_hooks
  */
-function hook_view($node, $view_mode = 'full') {
+function hook_view($node, $view_mode) {
   if (node_is_page($node)) {
     $breadcrumb = array();
     $breadcrumb[] = l(t('Home'), NULL);

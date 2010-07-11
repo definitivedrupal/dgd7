@@ -11,8 +11,8 @@ files[] = field_test.install
 version = VERSION
 hidden = TRUE
 
-; Information added by drupal.org packaging script on 2010-05-23
-version = "7.0-alpha5"
+; Information added by drupal.org packaging script on 2010-07-09
+version = "7.0-alpha6"
 project = "drupal"
-datestamp = "1274628610"
+datestamp = "1278634806"
 

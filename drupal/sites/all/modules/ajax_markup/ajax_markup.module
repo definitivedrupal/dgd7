@@ -1,0 +1,75 @@
+<?php
+// $Id: ajax_markup.module,v 1.2 2010/06/13 10:51:26 ufku Exp $
+
+/**
+ * Implements hook_menu().
+ */
+function ajax_markup_menu() {
+  $items = array();
+  $items['ajax-markup'] = array(
+    'page callback' => 'ajax_markup',
+    'access callback' => 'ajax_markup_access',
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function ajax_markup_permission() {
+  return array(
+    'access ajax markup' => array(
+      'title' => t('Access ajax markup'),
+    ),
+  );
+}
+
+/**
+ * Checks ajax markup access.
+ */
+function ajax_markup_access() {
+  return user_access('access ajax markup') && isset($_POST['token']) && drupal_valid_token($_POST['token'], 'ajax-markup');
+}
+
+/**
+ * Creates markup by processing posted input with posted format.
+ */
+function ajax_markup() {
+  $output = '';
+  if (isset($_POST['input']) && is_string($_POST['input'])) {
+    if (!empty($_POST['format'])) {
+      if ($format = filter_format_load($_POST['format'])) {
+        if (filter_access($format, $GLOBALS['user'])) {
+          $format_id = $format->format;
+        }
+      }
+    }
+    if (!isset($format_id)) {
+      $format_id = filter_fallback_format();//do not use filter_default_format($user)
+    }
+    $output = check_markup($_POST['input'], $format_id);
+  }
+  drupal_json_output(array('output' => $output));//sets application/json header
+  exit();
+}
+
+/**
+ * Loads API files and settings.
+ */
+function ajax_markup_on() {
+  static $state;
+  if (isset($state)) {
+    return $state;
+  }
+  if (!user_access('access ajax markup')) {
+    return $state = FALSE;
+  }
+  drupal_add_js(drupal_get_path('module', 'ajax_markup') . '/ajax_markup.js');
+  $settings['ajaxMarkup'] = array(
+    'url' => url('ajax-markup'),
+    'token' => drupal_get_token('ajax-markup'),
+  );
+  drupal_add_js($settings, 'setting');
+  return $state = TRUE;
+}

@@ -1,5 +1,5 @@
 <?php
-// $Id: system.module,v 1.933 2010/05/20 08:47:00 dries Exp $
+// $Id: system.module,v 1.946 2010/07/07 17:56:42 webchick Exp $
 
 /**
  * @file
@@ -135,7 +135,7 @@ function system_help($path, $arg) {
     case 'admin/config/system/actions/configure':
       return t('An advanced action offers additional configuration options which may be filled out below. Changing the <em>Description</em> field is recommended, in order to better identify the precise action taking place. This description will be displayed in modules such as the Trigger module when assigning actions to system events, so it is best if it is as descriptive as possible (for example, "Send e-mail to Moderation Team" rather than simply "Send e-mail").');
     case 'admin/config/people/ip-blocking':
-      return '<p>' . t('IP addresses listed here are blocked from your site before any modules are loaded. You may add IP addresses to the list, or delete existing entries.') . '</p>';
+      return '<p>' . t('IP addresses listed here are blocked from your site. Blocked addresses are completely forbidden from accessing the site and instead see a brief message explaining the situation.') . '</p>';
     case 'admin/reports/status':
       return '<p>' . t("Here you can find a short overview of your site's parameters as well as any problems detected with your installation. It may be useful to copy and paste this information into support requests filed on drupal.org's support forums and project issue queues.") . '</p>';
   }
@@ -1216,6 +1216,11 @@ function system_library() {
     ),
     'dependencies' => array(
       array('system', 'ui.widget'),
+      array('system', 'ui.button'),
+      array('system', 'ui.draggable'),
+      array('system', 'ui.mouse'),
+      array('system', 'ui.position'),
+      array('system', 'ui.resizable'),
     ),
   );
   $libraries['ui.draggable'] = array(
@@ -2225,7 +2230,7 @@ function _system_rebuild_module_data() {
 
   // Include the install profile in modules that are loaded.
   $profile = drupal_get_profile();
-  $modules[$profile] = new stdClass;
+  $modules[$profile] = new stdClass();
   $modules[$profile]->name = $profile;
   $modules[$profile]->uri = 'profiles/' . $profile . '/' . $profile . '.profile';
   $modules[$profile]->filename = $profile . '.profile';
@@ -2263,14 +2268,22 @@ function _system_rebuild_module_data() {
     // Merge in defaults and save.
     $modules[$key]->info = $module->info + $defaults;
 
+    // Install profiles are hidden by default, unless explicitly specified
+    // otherwise in the .info file.
+    if ($key == $profile && !isset($modules[$key]->info['hidden'])) {
+      $modules[$key]->info['hidden'] = TRUE;
+    }
+
     // Invoke hook_system_info_alter() to give installed modules a chance to
     // modify the data in the .info files if necessary.
     $type = 'module';
     drupal_alter('system_info', $modules[$key]->info, $modules[$key], $type);
   }
 
-  // The install profile is required.
-  $modules[$profile]->info['required'] = TRUE;
+  // The install profile is required, if it's a valid module.
+  if (isset($modules[$profile])) {
+    $modules[$profile]->info['required'] = TRUE;
+  }
 
   return $modules;
 }
@@ -2560,32 +2573,11 @@ function system_default_region($theme) {
   return isset($regions[0]) ? $regions[0] : '';
 }
 
-function _system_settings_form_automatic_defaults($form) {
-  // Get an array of all non-property keys
-  $keys = element_children($form);
-
-  foreach ($keys as $key) {
-    // If the property (key) '#default_value' exists, replace it.
-    if (array_key_exists('#default_value', $form[$key])) {
-      $form[$key]['#default_value'] = variable_get($key, $form[$key]['#default_value']);
-    }
-    else {
-      // Recurse through child elements
-      $form[$key] = _system_settings_form_automatic_defaults($form[$key]);
-    }
-  }
-
-  return $form;
-}
-
 /**
  * Add default buttons to a form and set its prefix.
  *
  * @param $form
  *   An associative array containing the structure of the form.
- * @param $automatic_defaults
- *   Automatically load the saved values for each field from the system variables
- *   (defaults to TRUE).
  *
  * @return
  *   The form structure.
@@ -2593,13 +2585,9 @@ function _system_settings_form_automatic_defaults($form) {
  * @see system_settings_form_submit()
  * @ingroup forms
  */
-function system_settings_form($form, $automatic_defaults = TRUE) {
+function system_settings_form($form) {
   $form['actions']['#type'] = 'actions';
   $form['actions']['submit'] = array('#type' => 'submit', '#value' => t('Save configuration'));
-
-  if ($automatic_defaults) {
-    $form = _system_settings_form_automatic_defaults($form);
-  }
 
   if (!empty($_POST) && form_get_errors()) {
     drupal_set_message(t('The settings have not been saved because of the errors.'), 'error');
@@ -2848,6 +2836,8 @@ function system_cron() {
 function system_flush_caches() {
   // Rebuild list of date formats.
   system_date_formats_rebuild();
+  // Reset the menu static caches.
+  menu_reset_static_cache();
 }
 
 /**
@@ -2871,7 +2861,7 @@ function system_action_info() {
       'type' => 'user',
       'label' => t('Ban IP address of current user'),
       'configurable' => FALSE,
-      'triggers' => array(),
+      'triggers' => array('any'),
     ),
     'system_goto_action' => array(
       'type' => 'system',
@@ -3140,7 +3130,7 @@ function system_time_zones($blank = NULL) {
  */
 function system_check_http_request() {
   // Try to get the content of the front page via drupal_http_request().
-  $result = drupal_http_request(url('', array('absolute' => TRUE)));
+  $result = drupal_http_request(url('', array('absolute' => TRUE)), array('max_redirects' => 0));
   // We only care that we get a http response - this means that Drupal
   // can make a http request.
   $works = isset($result->code) && ($result->code >= 100) && ($result->code < 600);
@@ -3273,7 +3263,10 @@ function system_page_alter(&$page) {
  * Run the automated cron if enabled.
  */
 function system_run_automated_cron() {
-  if (($threshold = variable_get('cron_safe_threshold', DRUPAL_CRON_DEFAULT_THRESHOLD)) > 0) {
+  // If the site is not fully installed, suppress the automated cron run.
+  // Otherwise it could be triggered prematurely by AJAX requests during
+  // installation.
+  if (($threshold = variable_get('cron_safe_threshold', DRUPAL_CRON_DEFAULT_THRESHOLD)) > 0 && variable_get('install_task') == 'done') {
     $cron_last = variable_get('cron_last', NULL);
     if (!isset($cron_last) || (REQUEST_TIME - $cron_last > $threshold)) {
       drupal_cron_run();

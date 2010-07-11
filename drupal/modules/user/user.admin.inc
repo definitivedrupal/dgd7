@@ -1,5 +1,5 @@
 <?php
-// $Id: user.admin.inc,v 1.109 2010/05/06 05:59:31 webchick Exp $
+// $Id: user.admin.inc,v 1.114 2010/07/07 17:56:42 webchick Exp $
 
 /**
  * @file
@@ -297,11 +297,11 @@ function user_admin_settings() {
   $form['registration_cancellation']['user_register'] = array(
     '#type' => 'radios',
     '#title' => t('Who can register accounts?'),
-    '#default_value' => variable_get('user_register', 1),
+    '#default_value' => variable_get('user_register', USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL),
     '#options' => array(
-      t('Administrators only'),
-      t('Visitors'),
-      t('Visitors, but administrator approval is required'),
+      USER_REGISTER_ADMINISTRATORS_ONLY => t('Administrators only'),
+      USER_REGISTER_VISITORS => t('Visitors'),
+      USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL => t('Visitors, but administrator approval is required'),
     )
   );
   $form['registration_cancellation']['user_email_verification'] = array(
@@ -422,13 +422,13 @@ function user_admin_settings() {
   );
   // These email tokens are shared for all settings, so just define
   // the list once to help ensure they stay in sync.
-  $email_token_help = t('You can use the following tokens in your e-mail message text: !site-name-token, !site-url-token, !user-name-token, !user-mail-token, !site-login-url-token, !user-edit-url-token, !user-one-time-login-url-token, !user-cancel-url-token', array('!site-name-token' => '[site:name]', '!site-url-token' => '[site:url]', '!user-name-token' => '[user:name]', '!user-mail-token' => '[user:mail]', '!site-login-url-token' => '[site:login-url]', '!user-edit-url-token' => '[user:edit-url]', '!user-one-time-login-url-token' => '[user:one-time-login-url]', '!user-cancel-url-token' => '[user:cancel-url]'));
+  $email_token_help = t('Available variables are: [site:name], [site:url], [user:name], [user:mail], [site:login-url], [site:url-brief], [user:edit-url], [user:one-time-login-url], [user:cancel-url].');
 
   $form['email_admin_created'] = array(
     '#type' => 'fieldset',
     '#title' => t('Welcome (new user created by administrator)'),
     '#collapsible' => TRUE,
-    '#collapsed' => (variable_get('user_register', 1) != 0),
+    '#collapsed' => (variable_get('user_register', USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL) != USER_REGISTER_ADMINISTRATORS_ONLY),
     '#description' => t('Edit the welcome e-mail messages sent to new member accounts created by an administrator.') . ' ' . $email_token_help,
     '#group' => 'email',
   );
@@ -449,7 +449,7 @@ function user_admin_settings() {
     '#type' => 'fieldset',
     '#title' => t('Welcome (awaiting approval)'),
     '#collapsible' => TRUE,
-    '#collapsed' => (variable_get('user_register', 1) != 2),
+    '#collapsed' => (variable_get('user_register', USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL) != USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL),
     '#description' => t('Edit the welcome e-mail messages sent to new members upon registering, when administrative approval is required.') . ' ' . $email_token_help,
     '#group' => 'email',
   );
@@ -470,7 +470,7 @@ function user_admin_settings() {
     '#type' => 'fieldset',
     '#title' => t('Welcome (no approval required)'),
     '#collapsible' => TRUE,
-    '#collapsed' => (variable_get('user_register', 1) != 1),
+    '#collapsed' => (variable_get('user_register', USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL) != USER_REGISTER_VISITORS),
     '#description' => t('Edit the welcome e-mail messages sent to new members upon registering, when no administrator approval is required.') . ' ' . $email_token_help,
     '#group' => 'email',
   );
@@ -635,7 +635,7 @@ function user_admin_settings() {
     '#rows' => 3,
   );
 
-  return system_settings_form($form, FALSE);
+  return system_settings_form($form);
 }
 
 /**

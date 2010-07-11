@@ -1,5 +1,5 @@
 <?php
-// $Id: form_test.module,v 1.39 2010/04/28 16:11:22 dries Exp $
+// $Id: form_test.module,v 1.42 2010/07/02 12:37:57 dries Exp $
 
 /**
  * @file
@@ -97,6 +97,14 @@ function form_test_menu() {
     'title' => t('Form test'),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('_form_test_disabled_elements'),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['form-test/input-forgery'] = array(
+    'title' => t('Form test'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('_form_test_input_forgery'),
     'access callback' => TRUE,
     'type' => MENU_CALLBACK,
   );
@@ -861,6 +869,35 @@ function _form_test_disabled_elements_submit($form, &$form_state) {
 }
 
 /**
+ * Build a form to test input forgery of enabled elements.
+ */
+function _form_test_input_forgery($form, &$form_state) {
+  // For testing that a user can't submit a value not matching one of the
+  // allowed options.
+  $form['checkboxes'] = array(
+    '#type' => 'checkboxes',
+    '#options' => array(
+      'one' => 'One',
+      'two' => 'Two',
+    ),
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+  return $form;
+}
+
+/**
+ * Return the form values via JSON.
+ */
+function _form_test_input_forgery_submit($form, &$form_state) {
+  drupal_json_output($form_state['values']);
+  exit();
+}
+
+/**
  * Form builder for testing preservation of values during a rebuild.
  */
 function form_test_form_rebuild_preserve_values_form($form, &$form_state) {
@@ -1077,8 +1114,8 @@ function form_test_clicked_button($form, &$form_state) {
  * Form validation handler for the form_test_clicked_button() form.
  */
 function form_test_clicked_button_validate($form, &$form_state) {
-  if (isset($form_state['clicked_button'])) {
-    drupal_set_message(t('The clicked button is %name.', array('%name' => $form_state['clicked_button']['#name'])));
+  if (isset($form_state['triggering_element'])) {
+    drupal_set_message(t('The clicked button is %name.', array('%name' => $form_state['triggering_element']['#name'])));
   }
   else {
     drupal_set_message('There is no clicked button.');
@@ -1091,7 +1128,6 @@ function form_test_clicked_button_validate($form, &$form_state) {
 function form_test_clicked_button_submit($form, &$form_state) {
   drupal_set_message('Submit handler for form_test_clicked_button executed.');
 }
-
 
 /**
  * Implements hook_form_FORM_ID_alter() for the registration form.
@@ -1106,8 +1142,6 @@ function form_test_form_user_register_form_alter(&$form, &$form_state) {
   if (!empty($_REQUEST['field'])) {
     $node = (object)array('type' => 'page');
     field_attach_form('node', $node, $form, $form_state);
-    // The form API requires the builder function to set rebuilding, so do so.
-    $form['#builder_function'] = 'form_test_user_register_form_rebuild';
   }
 }
 

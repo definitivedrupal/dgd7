@@ -1,5 +1,5 @@
 <?php
-// $Id: field.default.inc,v 1.35 2010/05/23 07:30:56 dries Exp $
+// $Id: field.default.inc,v 1.38 2010/06/17 13:44:45 dries Exp $
 
 /**
  * @file
@@ -65,25 +65,12 @@ function field_default_validate($entity_type, $entity, $field, $instance, $langc
 }
 
 function field_default_submit($entity_type, $entity, $field, $instance, $langcode, &$items, $form, &$form_state) {
-  $field_name = $field['field_name'];
-
-  if (isset($form_state['values'][$field_name][$langcode])) {
-    // Reorder items to account for drag-n-drop reordering.
-    if (field_behaviors_widget('multiple values', $instance) == FIELD_BEHAVIOR_DEFAULT) {
-      $items = _field_sort_items($field, $items);
-    }
-    // Filter out empty values.
-    $items = _field_filter_items($field, $items);
+  // Reorder items to account for drag-n-drop reordering.
+  if (field_behaviors_widget('multiple values', $instance) == FIELD_BEHAVIOR_DEFAULT) {
+    $items = _field_sort_items($field, $items);
   }
-  elseif (!empty($entity->revision) && isset($form_state['entity']->{$field_name}[$langcode])) {
-    // To ensure new revisions are created with all field values in all
-    // languages, populate values not included in the form with the ones from
-    // the original object. This covers:
-    // - partial forms including only a subset of the fields,
-    // - fields for which the user has no edit access,
-    // - languages not involved in the form.
-    $items = $form_state['entity']->{$field_name}[$langcode];
-  }
+  // Filter out empty values.
+  $items = _field_filter_items($field, $items);
 }
 
 /**
@@ -132,7 +119,10 @@ function field_default_prepare_view($entity_type, $entities, $field, $instances,
   // Group entities, instances and items by formatter module.
   $modules = array();
   foreach ($instances as $id => $instance) {
-    $display = is_string($display) ? $instance['display'][$display] : $display;
+    if (is_string($display)) {
+      $view_mode = $display;
+      $display = field_get_display($instance, $view_mode);
+    }
     if ($display['type'] !== 'hidden') {
       $module = $display['module'];
       $modules[$module] = $module;
@@ -183,18 +173,13 @@ function field_default_view($entity_type, $entity, $field, $instance, $langcode,
   // Prepare incoming display specifications.
   if (is_string($display)) {
     $view_mode = $display;
-    $display = $instance['display'][$view_mode];
+    $display = field_get_display($instance, $view_mode);
   }
   else {
     $view_mode = '_custom_display';
   }
 
   if ($display['type'] !== 'hidden') {
-    // We never want to index fields labels.
-    if ($view_mode == 'search_index') {
-      $display['label'] = 'hidden';
-    }
-
     // Calling the formatter function through module_invoke() can have a
     // performance impact on pages with many fields and values.
     $function = $display['module'] . '_field_formatter_view';
@@ -228,10 +213,33 @@ function field_default_view($entity_type, $entity, $field, $instance, $langcode,
   return $addition;
 }
 
-function field_default_prepare_translation($entity_type, $entity, $field, $instance, $langcode, &$items) {
-  $addition = array();
-  if (isset($entity->translation_source->$field['field_name'])) {
-    $addition[$field['field_name']] = $entity->translation_source->$field['field_name'];
+/**
+ * Copies source field values into the entity to be prepared.
+ *
+ * @param $entity_type
+ *   The type of $entity; e.g. 'node' or 'user'.
+ * @param $entity
+ *   The entity to be prepared for translation.
+ * @param $field
+ *   The field structure for the operation.
+ * @param $instance
+ *   The instance structure for $field on $entity's bundle.
+ * @param $langcode
+ *   The language the entity has to be translated in.
+ * @param $items
+ *   $entity->{$field['field_name']}[$langcode], or an empty array if unset.
+ * @param $source_entity
+ *   The source entity holding the field values to be translated.
+ * @param $source_langcode
+ *   The source language from which translate.
+ */
+function field_default_prepare_translation($entity_type, $entity, $field, $instance, $langcode, &$items, $source_entity, $source_langcode) {
+  $field_name = $field['field_name'];
+  // If the field is untranslatable keep using LANGUAGE_NONE.
+  if ($langcode == LANGUAGE_NONE) {
+    $source_langcode = LANGUAGE_NONE;
   }
-  return $addition;
+  if (isset($source_entity->{$field_name}[$source_langcode])) {
+    $items = $source_entity->{$field_name}[$source_langcode];
+  }
 }

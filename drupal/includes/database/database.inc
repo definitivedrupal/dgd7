@@ -1,9 +1,13 @@
 <?php
-// $Id: database.inc,v 1.122 2010/05/05 16:51:30 dries Exp $
+// $Id: database.inc,v 1.126 2010/06/28 19:57:34 dries Exp $
 
 /**
  * @file
- * Base classes for the database layer.
+ * Core systems for the database layer.
+ *
+ * Classes required for basic functioning of the database system should be
+ * placed in this file.  All utility functions should also be placed in this
+ * file only, as they cannot auto-load the way classes can.
  */
 
 /**
@@ -36,7 +40,7 @@
  * one would instead call the Drupal functions:
  * @code
  * $result = db_query_range('SELECT n.nid, n.title, n.created
- *   FROM {node} n WHERE n.uid = :uid', array(':uid' => $uid), 0, 10);
+ *   FROM {node} n WHERE n.uid = :uid', 0, 10, array(':uid' => $uid));
  * foreach($result as $record) {
  *   // Perform operations on $node->title, etc. here.
  * }
@@ -141,14 +145,14 @@
  *     return $id;
  *   }
  *   catch (Exception $e) {
- *     // Something went wrong somewhere, so flag the entire transaction to
- *     // roll back instead of getting committed.  It doesn't actually roll back
- *     // yet, just gets flagged to do so.
+ *     // Something went wrong somewhere, so roll back now.
  *     $txn->rollback();
+ *     // Log the exception to watchdog.
+ *     watchdog_exception('type', $e);
  *   }
  *
- *   // $txn goes out of scope here.  If there was a problem, it rolls back
- *   // automatically.  If not, it commits automatically.
+ *   // $txn goes out of scope here.  Unless the transaction was rolled back, it
+ *   // gets automatically commited here.
  * }
  *
  * function my_other_function($id) {
@@ -205,13 +209,6 @@ abstract class DatabaseConnection extends PDO {
   protected $transactionLayers = array();
 
   /**
-   * Array of argument arrays for logging post-rollback.
-   *
-   * @var array
-   */
-  protected $rollbackLogs = array();
-
-  /**
    * Index of what driver-specific class to use for various operations.
    *
    * @var array
@@ -262,7 +259,26 @@ abstract class DatabaseConnection extends PDO {
    */
   protected $schema = NULL;
 
+  /**
+   * The default prefix used by this database connection.
+   *
+   * Separated from the other prefixes for performance reasons.
+   *
+   * @var string
+   */
+  protected $defaultPrefix = '';
+
+  /**
+   * The non-default prefixes used by this database connection.
+   *
+   * @var array
+   */
+  protected $prefixes = array();
+
   function __construct($dsn, $username, $password, $driver_options = array()) {
+    // Initialize and prepare the connection prefix.
+    $this->setPrefix(isset($this->connectionOptions['prefix']) ? $this->connectionOptions['prefix'] : '');
+
     // Because the other methods don't seem to work right.
     $driver_options[PDO::ATTR_ERRMODE] = PDO::ERRMODE_EXCEPTION;
 
@@ -346,6 +362,25 @@ abstract class DatabaseConnection extends PDO {
   }
 
   /**
+   * Preprocess the prefixes used by this database connection.
+   *
+   * @param $prefix
+   *   The prefixes, in any of the multiple forms documented in
+   *   default.settings.php.
+   */
+  protected function setPrefix($prefix) {
+    if (is_array($prefix)) {
+      $this->defaultPrefix = isset($prefix['default']) ? $prefix['default'] : '';
+      unset($prefix['default']);
+      $this->prefixes = $prefix;
+    }
+    else {
+      $this->defaultPrefix = $prefix;
+      $this->prefixes = array();
+    }
+  }
+
+  /**
    * Appends a database prefix to all tables in a query.
    *
    * Queries sent to Drupal should wrap all table names in curly brackets. This
@@ -360,27 +395,12 @@ abstract class DatabaseConnection extends PDO {
    *   The properly-prefixed string.
    */
   public function prefixTables($sql) {
-    global $db_prefix;
-
-    if (is_array($db_prefix)) {
-      if (array_key_exists('default', $db_prefix)) {
-        $tmp = $db_prefix;
-        unset($tmp['default']);
-        foreach ($tmp as $key => $val) {
-          $sql = strtr($sql, array('{' . $key . '}' => $val . $key));
-        }
-        return strtr($sql, array('{' => $db_prefix['default'] , '}' => ''));
-      }
-      else {
-        foreach ($db_prefix as $key => $val) {
-          $sql = strtr($sql, array('{' . $key . '}' => $val . $key));
-        }
-        return strtr($sql, array('{' => '' , '}' => ''));
-      }
+    // Replace specific table prefixes first.
+    foreach ($this->prefixes as $key => $val) {
+      $sql = strtr($sql, array('{' . $key . '}' => $val . $key));
     }
-    else {
-      return strtr($sql, array('{' => $db_prefix , '}' => ''));
-    }
+    // Then replace remaining tables with the default prefix.
+    return strtr($sql, array('{' => $this->defaultPrefix , '}' => ''));
   }
 
   /**
@@ -390,17 +410,12 @@ abstract class DatabaseConnection extends PDO {
    * is not used in prefixTables due to performance reasons.
    */
   public function tablePrefix($table = 'default') {
-    global $db_prefix;
-    if (is_array($db_prefix)) {
-      if (isset($db_prefix[$table])) {
-        return $db_prefix[$table];
-      }
-      elseif (isset($db_prefix['default'])) {
-        return $db_prefix['default'];
-      }
-      return '';
+    if (isset($this->prefixes[$table])) {
+      return $this->prefixes[$table];
     }
-    return $db_prefix;
+    else {
+      return $this->defaultPrefix;
+    }
   }
 
   /**
@@ -859,26 +874,10 @@ abstract class DatabaseConnection extends PDO {
    * @param $savepoint_name
    *   The name of the savepoint. The default, 'drupal_transaction', will roll
    *   the entire transaction back.
-   * @param $type
-   *   The category to which the rollback message belongs.
-   * @param $message
-   *   The message to store in the log. Keep $message translatable
-   *   by not concatenating dynamic values into it! Variables in the
-   *   message should be added by using placeholder strings alongside
-   *   the variables argument to declare the value of the placeholders.
-   * @param $variables
-   *   Array of variables to replace in the message on display or
-   *   NULL if message is already translated or not possible to
-   *   translate.
-   * @param $severity
-   *   The severity of the message, as per RFC 3164.
-   * @param $link
-   *   A link to associate with the message.
    *
    * @see DatabaseTransaction::rollback()
-   * @see watchdog()
    */
-  public function rollback($savepoint_name = 'drupal_transaction', $type = NULL, $message = NULL, $variables = array(), $severity = NULL, $link = NULL) {
+  public function rollback($savepoint_name = 'drupal_transaction') {
     if (!$this->inTransaction()) {
       throw new DatabaseTransactionNoActiveException();
     }
@@ -886,29 +885,6 @@ abstract class DatabaseConnection extends PDO {
     // in question has already been rolled back.
     if (!in_array($savepoint_name, $this->transactionLayers)) {
       return;
-    }
-
-    // Set the severity to the configured default if not specified.
-    if (!isset($severity)) {
-      $logging = Database::getLoggingCallback();
-      if (is_array($logging)) {
-        $severity = $logging['default_severity'];
-      }
-    }
-
-    // Record in an array to send to the log after transaction rollback.
-    // Messages written directly to a log (with a database back-end) will roll
-    // back during the following transaction rollback. This is an array because
-    // rollback could be requested multiple times during a transaction, and all
-    // such errors ought to be logged.
-    if (isset($message)) {
-      $this->rollbackLogs[] = array(
-        'type' => $type,
-        'message' => $message,
-        'variables' => $variables,
-        'severity' => $severity,
-        'link' => $link,
-      );
     }
 
     // We need to find the point we're rolling back to, all other savepoints
@@ -928,37 +904,6 @@ abstract class DatabaseConnection extends PDO {
     if ($this->supportsTransactions()) {
       parent::rollBack();
     }
-    else {
-      // Log unsupported rollback.
-      $this->rollbackLogs[] = array(
-        'type' => 'database',
-        'message' => t('Explicit rollback failed: not supported on active connection.'),
-        'variables' => array(),
-      );
-    }
-    $this->logRollback();
-  }
-
-  /**
-   * Logs messages from rollback().
-   */
-  protected function logRollback() {
-    $logging = Database::getLoggingCallback();
-    // If there is no callback defined. We can't do anything.
-    if (!is_array($logging)) {
-      return;
-    }
-
-    $logging_callback = $logging['callback'];
-
-    // Play back the logged errors to the specified logging callback post-
-    // rollback.
-    foreach ($this->rollbackLogs as $log_item) {
-      call_user_func($logging_callback, $log_item['type'], $log_item['message'], $log_item['variables'], $log_item['severity'], $log_item['link']);
-    }
-
-    // Reset the error logs.
-    $this->rollbackLogs = array();
   }
 
   /**
@@ -1250,17 +1195,6 @@ abstract class Database {
   static protected $logs = array();
 
   /**
-   * A logging function callback array.
-   *
-   * The function must accept the same function signature as Drupal's
-   * watchdog(). The array contains key/value pairs for callback (string),
-   * default_severity (int), and error_severity (int).
-   *
-   * @var string
-   */
-  static protected $logging_callback = NULL;
-
-  /**
    * Starts logging a given logging key on the specified connection.
    *
    * @param $logging_key
@@ -1290,38 +1224,6 @@ abstract class Database {
 
     self::$logs[$key]->start($logging_key);
     return self::$logs[$key];
-  }
-
-  /**
-   * Sets a logging callback for notices and errors.
-   *
-   * @param $logging_callback
-   *   The function to use as the logging callback.
-   * @param $logging_default_severity
-   *   The default severity level to use for logged messages.
-   * @param $logging_error_severity
-   *   The severity level to use for logging error messages.
-   *
-   * @see watchdog()
-   */
-  final public static function setLoggingCallback($callback, $default_severity, $error_severity) {
-    self::$logging_callback = array(
-      'callback' => $callback,
-      'default_severity' => $default_severity,
-      'error_severity' => $error_severity,
-    );
-  }
-
-  /**
-   * Gets the logging callback for notices and errors.
-   *
-   * @return
-   *   An array with the logging callback and severity levels.
-   *
-   * @see watchdog()
-   */
-  final public static function getLoggingCallback() {
-    return self::$logging_callback;
   }
 
   /**
@@ -1430,6 +1332,20 @@ abstract class Database {
         if (empty($value['driver'])) {
           $database_info[$index][$target] = $database_info[$index][$target][mt_rand(0, count($database_info[$index][$target]) - 1)];
         }
+
+        // Parse the prefix information.
+        if (!isset($database_info[$index][$target]['prefix'])) {
+          // Default to an empty prefix.
+          $database_info[$index][$target]['prefix'] = array(
+            'default' => '',
+          );
+        }
+        else if (!is_array($database_info[$index][$target]['prefix'])) {
+          // Transform the flat form into an array form.
+          $database_info[$index][$target]['prefix'] = array(
+            'default' => $database_info[$index][$target]['prefix'],
+          );
+        }
       }
     }
 
@@ -1489,7 +1405,58 @@ abstract class Database {
     if (!empty(self::$databaseInfo[$key])) {
       return self::$databaseInfo[$key];
     }
+  }
 
+  /**
+   * Rename a connection and its corresponding connection information.
+   *
+   * @param $old_key
+   *   The old connection key.
+   * @param $new_key
+   *   The new connection key.
+   * @return
+   *   TRUE in case of success, FALSE otherwise.
+   */
+  final public static function renameConnection($old_key, $new_key) {
+    if (empty(self::$databaseInfo)) {
+      self::parseConnectionInfo();
+    }
+
+    if (!empty(self::$databaseInfo[$old_key]) && empty(self::$databaseInfo[$new_key])) {
+      // Migrate the database connection information.
+      self::$databaseInfo[$new_key] = self::$databaseInfo[$old_key];
+      unset(self::$databaseInfo[$old_key]);
+
+      // Migrate over the DatabaseConnection object if it exists.
+      if (isset(self::$connections[$old_key])) {
+        self::$connections[$new_key] = self::$connections[$old_key];
+        unset(self::$connections[$old_key]);
+      }
+
+      return TRUE;
+    }
+    else {
+      return FALSE;
+    }
+  }
+
+  /**
+   * Remove a connection and its corresponding connection information.
+   *
+   * @param $key
+   *   The connection key.
+   * @return
+   *   TRUE in case of success, FALSE otherwise.
+   */
+  final public static function removeConnection($key) {
+    if (isset(self::$databaseInfo[$key])) {
+      unset(self::$databaseInfo[$key]);
+      unset(self::$connections[$key]);
+      return TRUE;
+    }
+    else {
+      return FALSE;
+    }
   }
 
   /**
@@ -1502,8 +1469,6 @@ abstract class Database {
    *   The database target to open.
    */
   final protected static function openConnection($key, $target) {
-    global $db_prefix;
-
     if (empty(self::$databaseInfo)) {
       self::parseConnectionInfo();
     }
@@ -1531,13 +1496,6 @@ abstract class Database {
       $new_connection->setLogger(self::$logs[$key]);
     }
 
-    // We need to pass around the simpletest database prefix in the request
-    // and we put that in the user_agent header. The header HMAC was already
-    // validated in bootstrap.inc.
-    if (isset($_SERVER['HTTP_USER_AGENT']) && preg_match("/^(simpletest\d+);/", $_SERVER['HTTP_USER_AGENT'], $matches)) {
-      $db_prefix_string = is_array($db_prefix) ? $db_prefix['default'] : $db_prefix;
-      $db_prefix = $db_prefix_string . $matches[1];
-    }
     return $new_connection;
   }
 
@@ -1716,35 +1674,17 @@ class DatabaseTransaction {
    * Rolls back the current transaction.
    *
    * This is just a wrapper method to rollback whatever transaction stack we are
-   * currently in, which is managed by the connection object itself.
-   *
-   * @param $type
-   *   The category to which the rollback message belongs.
-   * @param $message
-   *   The message to store in the log. Keep $message translatable by not
-   *   concatenating dynamic values into it! Variables in the message should be
-   *   added by using placeholder strings alongside the variable's argument to
-   *   declare the value of the placeholders.
-   * @param $variables
-   *   Array of variables to replace in the message on display or NULL if the
-   *   message is already translated or not possible to translate.
-   * @param $severity
-   *   The severity of the message, as per RFC 3164.
-   * @param $link
-   *   A link to associate with the message.
+   * currently in, which is managed by the connection object itself. Note that
+   * logging (preferable with watchdog_exception()) needs to happen after a
+   * transaction has been rolled back or the log messages will be rolled back
+   * too.
    *
    * @see DatabaseConnection::rollback()
-   * @see watchdog()
+   * @see watchdog_exception()
    */
-  public function rollback($type = NULL, $message = NULL, $variables = array(), $severity = NULL, $link = NULL) {
+  public function rollback() {
     $this->rolledBack = TRUE;
-    if (!isset($severity)) {
-      $logging = Database::getLoggingCallback();
-      if (is_array($logging)) {
-        $severity = $logging['default_severity'];
-      }
-    }
-    $this->connection->rollback($this->name, $type, $message, $variables, $severity, $link);
+    $this->connection->rollback($this->name);
   }
 }
 

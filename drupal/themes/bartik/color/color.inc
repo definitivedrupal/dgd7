@@ -1,5 +1,5 @@
 <?php
-// $Id$
+// $Id: color.inc,v 1.1 2010/07/06 05:25:51 webchick Exp $
 
 // Put the logo path into JavaScript for the live preview.
 drupal_add_js(array('color' => array('logo' => theme_get_setting('logo', 'bartik'))), 'setting');
@@ -20,21 +20,7 @@ $info = array(
   // Pre-defined color schemes.
   'schemes' => array(
     'default' => array(
-      'title' => t('Bartik (Default)'),
-      'colors' => array(
-        'bg' => '#ffffff',
-        'link' => '#0073b6',
-        'top' => '#4a4a4a',
-        'bottom' => '#4e4e4e',
-        'text' => '#3b3b3b',
-        'sidebar' => '#feffff',
-        'sidebarborders' => '#d0d0d0',
-        'footer' => '#161617',
-        'titleslogan' => '#fffeff',
-      ),
-    ),
-    'Blue Lagoon' => array(
-      'title' => t('Blue Lagoon'),
+      'title' => t('Blue Lagoon (default)'),
       'colors' => array(
         'bg' => '#ffffff',
         'link' => '#288CC9',
@@ -44,6 +30,20 @@ $info = array(
         'sidebar' => '#f6f6f2',
         'sidebarborders' => '#f9f9f9',
         'footer' => '#2d1e0f',
+        'titleslogan' => '#fffeff',
+      ),
+    ),
+    'Slate' => array(
+      'title' => t('Slate'),
+      'colors' => array(
+        'bg' => '#ffffff',
+        'link' => '#0073b6',
+        'top' => '#4a4a4a',
+        'bottom' => '#4e4e4e',
+        'text' => '#3b3b3b',
+        'sidebar' => '#feffff',
+        'sidebarborders' => '#d0d0d0',
+        'footer' => '#161617',
         'titleslogan' => '#fffeff',
       ),
     ),
@@ -79,10 +79,10 @@ $info = array(
       'title' => t('Ice'),
       'colors' => array(
         'bg' => '#ffffff',
-        'link' => '#0f75b4',
+        'link' => '#019DBF',
         'top' => '#d0d0d0',
         'bottom' => '#c2c4c5',
-        'text' => '#585858',
+        'text' => '#4A4A4A',
         'sidebar' => '#feffff',
         'sidebarborders' => '#cccccc',
         'footer' => '#24272c',

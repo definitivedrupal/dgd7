@@ -1,5 +1,5 @@
 <?php
-// $Id: openid.test,v 1.23 2010/05/13 17:37:24 dries Exp $
+// $Id: openid.test,v 1.28 2010/07/07 08:05:01 webchick Exp $
 
 /**
  * Base class for OpenID tests.
@@ -67,7 +67,10 @@ class OpenIDFunctionalTestCase extends OpenIDWebTestCase {
     // The URL scheme is stripped in order to test that the supplied identifier
     // is normalized in openid_begin().
     $identity = url('openid-test/yadis/xrds', array('absolute' => TRUE));
-    $this->addIdentity(preg_replace('@^https?://@', '', $identity), 2, $identity);
+    $this->addIdentity(preg_replace('@^https?://@', '', $identity), 2, 'http://example.com/xrds', $identity);
+
+    $identity = url('openid-test/yadis/xrds/delegate', array('absolute' => TRUE));
+    $this->addIdentity(preg_replace('@^https?://@', '', $identity), 2, 'http://example.com/xrds-delegate', $identity);
 
     // Identifier is the URL of an XRDS document containing an OP Identifier
     // Element. The Relying Party sends the special value
@@ -78,7 +81,7 @@ class OpenIDFunctionalTestCase extends OpenIDWebTestCase {
     // is stripped in order to test that the returned identifier is normalized in
     // openid_complete().
     variable_set('openid_test_response', array('openid.claimed_id' => preg_replace('@^https?://@', '', $identity)));
-    $this->addIdentity(url('openid-test/yadis/xrds/server', array('absolute' => TRUE)), 2, $identity);
+    $this->addIdentity(url('openid-test/yadis/xrds/server', array('absolute' => TRUE)), 2, 'http://specs.openid.net/auth/2.0/identifier_select', $identity);
     variable_set('openid_test_response', array());
 
     // Identifier is the URL of an HTML page that is sent with an HTTP header
@@ -91,11 +94,11 @@ class OpenIDFunctionalTestCase extends OpenIDWebTestCase {
 
     // Identifier is an XRI. Resolve using our own dummy proxy resolver.
     variable_set('xri_proxy_resolver', url('openid-test/yadis/xrds/xri', array('absolute' => TRUE)) . '/');
-    $this->addIdentity('@example*résumé;%25', 2, 'http://example.com/user');
+    $this->addIdentity('@example*résumé;%25', 2, 'http://example.com/xrds', 'http://example.com/user');
 
     // Make sure that unverified CanonicalID are not trusted.
     variable_set('openid_test_canonical_id_status', 'bad value');
-    $this->addIdentity('@example*résumé;%25', 2, FALSE);
+    $this->addIdentity('@example*résumé;%25', 2, FALSE, FALSE);
 
     // HTML-based discovery:
     // If the User-supplied Identifier is a URL of an HTML page, the page may
@@ -103,10 +106,10 @@ class OpenIDFunctionalTestCase extends OpenIDWebTestCase {
     // Provider Endpoint. OpenID 1 and 2 describe slightly different formats.
 
     // OpenID Authentication 1.1, section 3.1:
-    $this->addIdentity(url('openid-test/html/openid1', array('absolute' => TRUE)), 1);
+    $this->addIdentity(url('openid-test/html/openid1', array('absolute' => TRUE)), 1, 'http://example.com/html-openid1');
 
     // OpenID Authentication 2.0, section 7.3.3:
-    $this->addIdentity(url('openid-test/html/openid2', array('absolute' => TRUE)), 2);
+    $this->addIdentity(url('openid-test/html/openid2', array('absolute' => TRUE)), 2, 'http://example.com/html-openid2');
   }
 
   /**
@@ -140,6 +143,38 @@ class OpenIDFunctionalTestCase extends OpenIDWebTestCase {
     $this->assertLink($this->web_user->name, 0, t('User was logged in.'));
 
     // Verify user was redirected away from user/login to an accessible page.
+    $this->assertResponse(200);
+  }
+
+  /**
+   * Test login using OpenID during maintenance mode.
+   */
+  function testLoginMaintenanceMode() {
+    $this->web_user = $this->drupalCreateUser(array('access site in maintenance mode'));
+    $this->drupalLogin($this->web_user);
+
+    // Use a User-supplied Identity that is the URL of an XRDS document.
+    $identity = url('openid-test/yadis/xrds', array('absolute' => TRUE));
+    $this->addIdentity($identity);
+    $this->drupalLogout();
+
+    // Enable maintenance mode.
+    variable_set('maintenance_mode', 1);
+
+    // Test logging in via the user/login page while the site is offline.
+    $edit = array('openid_identifier' => $identity);
+    $this->drupalPost('user/login', $edit, t('Log in'));
+
+    // Check we are on the OpenID redirect form.
+    $this->assertTitle(t('OpenID redirect'), t('OpenID redirect page was displayed.'));
+
+    // Submit form to the OpenID Provider Endpoint.
+    $this->drupalPost(NULL, array(), t('Send'));
+
+    $this->assertLink($this->web_user->name, 0, t('User was logged in.'));
+
+    // Verify user was redirected away from user/login to an accessible page.
+    $this->assertText(t('Operating in maintenance mode.'));
     $this->assertResponse(200);
   }
 
@@ -197,11 +232,16 @@ class OpenIDFunctionalTestCase extends OpenIDWebTestCase {
    *   The User-supplied Identifier.
    * @param $version
    *   The protocol version used by the service.
+   * @param $local_id
+   *   The expected OP-Local Identifier found during discovery.
    * @param $claimed_id
    *   The expected Claimed Identifier returned by the OpenID Provider, or FALSE
    *   if the discovery is expected to fail.
    */
-  function addIdentity($identity, $version = 2, $claimed_id = NULL) {
+  function addIdentity($identity, $version = 2, $local_id = 'http://example.com/xrds', $claimed_id = NULL) {
+    // Tell openid_test.module to only accept this OP-Local Identifier.
+    variable_set('openid_test_identity', $local_id);
+
     $edit = array('openid_identifier' => $identity);
     $this->drupalPost('user/' . $this->web_user->uid . '/openid', $edit, t('Add an OpenID'));
 
@@ -240,6 +280,7 @@ class OpenIDRegistrationTestCase extends OpenIDWebTestCase {
 
   function setUp() {
     parent::setUp('openid', 'openid_test');
+    variable_set('user_register', USER_REGISTER_VISITORS);
   }
 
   /**
@@ -383,9 +424,11 @@ class OpenIDRegistrationTestCase extends OpenIDWebTestCase {
     // Tell openid_test.module to respond with these AX fields.
     variable_set('openid_test_response', array(
       'openid.ns.ext123' => 'http://openid.net/srv/ax/1.0',
-      'openid.ext123.value.mail_ao' => 'john@example.com',
-      'openid.ext123.count.name_son' => '1',
-      'openid.ext123.value.name_son.1' => 'john',
+      'openid.ext123.type.mail456' => 'http://axschema.org/contact/email',
+      'openid.ext123.value.mail456' => 'john@example.com',
+      'openid.ext123.type.name789' => 'http://schema.openid.net/namePerson/friendly',
+      'openid.ext123.count.name789' => '1',
+      'openid.ext123.value.name789.1' => 'john',
     ));
 
     // Use a User-supplied Identity that is the URL of an XRDS document.
@@ -456,7 +499,7 @@ class OpenIDUnitTest extends DrupalWebTestCase {
       'openid.baz' => 'abc3',
       'foobar.foo' => 'abc4',
     );
-    $association = new stdClass;
+    $association = new stdClass();
     $association->mac_key = "1234567890abcdefghij\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\xF0\xF1\xF2\xF3\xF4\xF5\xF6\xF7\xF8\xF9";
     $this->assertEqual(_openid_signature($association, $response, array('foo', 'bar')), 'QnKZQzSFstT+GNiJDFOptdcZjrc=', t('Expected signature calculated.'));
   }

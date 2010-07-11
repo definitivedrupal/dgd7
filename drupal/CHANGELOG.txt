@@ -1,13 +1,13 @@
-// $Id: CHANGELOG.txt,v 1.365 2010/05/23 15:26:38 webchick Exp $
+// $Id: CHANGELOG.txt,v 1.369 2010/07/09 00:14:02 webchick Exp $
 
-Drupal 7.0, alpha 5, 2010-05-23 
+Drupal 7.0 alpha 6, 2010-07-08
 ----------------------
 - Database:
     * Fully rewritten database layer utilizing PHP 5's PDO abstraction layer.
     * Drupal now requires MySQL >= 5.0.15 or PostgreSQL >= 8.3.
     * Added query builders for INSERT, UPDATE, DELETE, MERGE, and SELECT queries.
     * Support for master/slave replication, transactions, multi-insert queries,
-      delayed inserts, and other features.
+      and other features.
     * Added support for the SQLite database engine.
     * Default to InnoDB engine, rather than MyISAM, on MySQL when available.
       This offers increased scalability and data integrity.
@@ -32,14 +32,14 @@ Drupal 7.0, alpha 5, 2010-05-23
     * Provided descriptions and human-readable names for user permissions.
     * Removed comment controls for users.
     * Removed display order settings for comment module. Comment display
-      order can now be customised using the Views module.
+      order can now be customized using the Views module.
     * Removed the 'related terms' feature from taxonomy module since this can
       now be achieved with Field API.
     * Added additional features to the default install profile, and implemented
       a "slimmed down" install profile designed for developers.
     * Added a built-in, automated cron run feature, which is triggered by site
       visitors.
-    * Added an administrator role which is assigned all permisions for
+    * Added an administrator role which is assigned all permissions for
       installed modules automatically.
     * Image toolkits are now provided by modules (rather than requiring a
       manual file copy to the includes directory).
@@ -59,7 +59,7 @@ Drupal 7.0, alpha 5, 2010-05-23
     * Improved performance for logged-in users by reducing queries for path
       alias lookups.
     * Improved support for HTTP proxies (including reverse proxies), allowing
-      anonymous pageviews to be served entirely from the proxy.
+      anonymous page views to be served entirely from the proxy.
 - Documentation:
     * Hook API documentation now included in Drupal core.
 - News aggregator:

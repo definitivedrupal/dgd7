@@ -1,5 +1,5 @@
 <?php
-// $Id: field.api.php,v 1.81 2010/05/18 18:30:49 dries Exp $
+// $Id: field.api.php,v 1.85 2010/06/17 13:16:57 dries Exp $
 
 /**
  * @ingroup field_fieldable_type
@@ -7,55 +7,59 @@
  */
 
 /**
- * Expose "pseudo-field" components on fieldable entities.
+ * Exposes "pseudo-field" components on fieldable entities.
  *
- * Field UI's 'Manage fields' page lets users re-order fields, but also
- * non-field components. For nodes, these include the title, menu settings, and
- * other elements exposed by contributed modules through hook_form() and
+ * Field UI's "Manage fields" and "Manage display" pages let users re-order
+ * fields, but also non-field components. For nodes, these include the title,
+ * poll choices, and other elements exposed by modules through hook_form() or
  * hook_form_alter().
  *
- * Fieldable entities or contributed modules that want to have their components
- * supported should expose them using this hook, and use
- * field_attach_extra_weight() to retrieve the user-defined weight when
- * inserting the component.
+ * Fieldable entities or modules that want to have their components supported
+ * should expose them using this hook. The user-defined settings (weight,
+ * visibility) are automatically applied on rendered forms and displayed
+ * entities in a #pre_render callback added by field_attach_form() and
+ * field_attach_view().
+ *
+ * @see _field_extra_fields_pre_render()
+ * @see hook_field_extra_fields_alter()
  *
  * @return
- *   A nested array of 'pseudo-field' components. Each list is nested within the
- *   field bundle to which those components apply. The keys are the name of the
- *   element as it appears in the form structure. The values are arrays with the
- *   following key/value pairs:
+ *   A nested array of 'pseudo-field' components. Each list is nested within
+ *   the following keys: entity type, bundle name, context (either 'form' or
+ *   'display'). The keys are the name of the elements as appearing in the
+ *   renderable array (either the entity form or the displayed entity). The
+ *   value is an associative array:
  *   - label: The human readable name of the component.
  *   - description: A short description of the component contents.
  *   - weight: The default weight of the element.
- *   - view: (optional) The name of the element as it appears in the rendered
- *     structure, if different from the name in the form.
- *
- * @see hook_field_extra_fields_alter()
  */
 function hook_field_extra_fields() {
-  $extra = array();
-
-  foreach (node_type_get_types() as $bundle) {
-    if ($type->has_title) {
-      $extra['node'][$bundle]['title'] = array(
-        'label' => $type->title_label,
-        'description' => t('Node module element.'),
-        'weight' => -5,
-      );
-    }
-  }
-  if (module_exists('poll')) {
-    $extra['node']['poll']['choice_wrapper'] = array(
-      'label' => t('Poll choices'),
-      'description' => t('Poll module choices.'),
-      'weight' => -4,
-    );
-    $extra['node']['poll']['settings'] = array(
-      'label' => t('Poll settings'),
-      'description' => t('Poll module settings.'),
-      'weight' => -3,
-    );
-  }
+  $extra['node']['poll'] = array(
+    'form' => array(
+      'choice_wrapper' => array(
+        'label' => t('Poll choices'),
+        'description' => t('Poll choices'),
+        'weight' => -4,
+      ),
+      'settings' => array(
+        'label' => t('Poll settings'),
+        'description' => t('Poll module settings'),
+        'weight' => -3,
+      ),
+    ),
+    'display' => array(
+      'poll_view_voting' => array(
+        'label' => t('Poll vote'),
+        'description' => t('Poll vote'),
+        'weight' => 0,
+      ),
+      'poll_view_results' => array(
+        'label' => t('Poll results'),
+        'description' => t('Poll results'),
+        'weight' => 0,
+      ),
+    )
+  );
 
   return $extra;
 }
@@ -560,8 +564,6 @@ function hook_field_delete_revision($entity_type, $entity, $field, $instance, $l
 /**
  * Define custom prepare_translation behavior for this module's field types.
  *
- * TODO: This hook may or may not survive in Field API.
- *
  * @param $entity_type
  *   The type of $entity.
  * @param $entity
@@ -574,8 +576,20 @@ function hook_field_delete_revision($entity_type, $entity, $field, $instance, $l
  *   The language associated to $items.
  * @param $items
  *   $entity->{$field['field_name']}[$langcode], or an empty array if unset.
+ * @param $source_entity
+ *   The source entity from which field values are being copied.
+ * @param $source_langcode
+ *   The source language from which field values are being copied.
  */
-function hook_field_prepare_translation($entity_type, $entity, $field, $instance, $langcode, &$items) {
+function hook_field_prepare_translation($entity_type, $entity, $field, $instance, $langcode, &$items, $source_entity, $source_langcode) {
+  // If the translating user is not permitted to use the assigned text format,
+  // we must not expose the source values.
+  $field_name = $field['field_name'];
+  $formats = filter_formats();
+  $format_id = $source_entity->{$field_name}[$source_langcode][0]['format'];
+  if (!filter_access($formats[$format_id])) {
+    $items = array();
+  }
 }
 
 /**
@@ -1176,6 +1190,26 @@ function hook_field_attach_view_alter(&$output, $context) {
 }
 
 /**
+ * Perform alterations on field_attach_prepare_translation().
+ *
+ * This hook is invoked after the field module has performed the operation.
+ *
+ * @param &$entity
+ *   The entity being prepared for translation.
+ * @param $context
+ *   An associative array containing:
+ *   - entity_type: The type of $entity; e.g. 'node' or 'user'.
+ *   - langcode: The language the entity has to be translated in.
+ *   - source_entity: The entity holding the field values to be translated.
+ *   - source_langcode: The source language from which translate.
+ */
+function hook_field_attach_prepare_translation_alter(&$entity, $context) {
+  if ($context['entity_type'] == 'custom_entity_type') {
+    $entity->custom_field = $context['source_entity']->custom_field;
+  }
+}
+
+/**
  * Perform alterations on field_language() values.
  *
  * This hook is invoked to alter the array of display languages for the given
@@ -1436,24 +1470,20 @@ function hook_field_storage_delete_revision($entity_type, $entity, $fields) {
 }
 
 /**
- * Handle a field query.
+ * Execute an EntityFieldQuery.
  *
- * This hook is invoked from field_attach_query() to ask the field storage
- * module to handle a field query.
+ * This hook is called to find the entities having certain entity and field
+ * conditions and sort them in the given field order. If the field storage
+ * engine also handles property sorts and orders, it should unset those
+ * properties in the called object to signal that those have been handled.
  *
- * @param $field_name
- *   The name of the field to query.
- * @param $conditions
- *   See field_attach_query(). A storage module that doesn't support querying a
- *   given column should raise a FieldQueryException. Incompatibilities should
- *   be mentioned on the module project page.
- * @param $options
- *   See field_attach_query(). All option keys are guaranteed to be specified.
+ * @param EntityFieldQuery $query
+ *   An EntityFieldQuery.
  *
  * @return
- *   See field_attach_query().
+ *   See EntityFieldQuery::execute() for the return values.
  */
-function hook_field_storage_query($field_name, $conditions, $options) {
+function hook_field_storage_query($query) {
   // @todo Needs function body
 }
 
@@ -1624,33 +1654,90 @@ function hook_field_storage_pre_update($entity_type, $entity, &$skip_fields) {
 }
 
 /**
- * Act before the storage backend runs the query.
+ * Alters the display settings of a field before it gets displayed.
  *
- * This hook should be implemented by modules that use
- * hook_field_storage_pre_load(), hook_field_storage_pre_insert() and
- * hook_field_storage_pre_update() to bypass the regular storage engine, to
- * handle field queries.
+ * Note that instead of hook_field_display_alter(), which is called for all
+ * fields on all entity types, hook_field_display_ENTITY_TYPE_alter() may be
+ * used to alter display settings for fields on a specific entity type only.
  *
- * @param $field_name
- *   The name of the field to query.
- * @param $conditions
- *   See field_attach_query().
- *   A storage module that doesn't support querying a given column should raise
- *   a FieldQueryException. Incompatibilities should be mentioned on the module
- *   project page.
- * @param $options
- *   See field_attach_query(). All option keys are guaranteed to be specified.
- * @param $skip_field
- *   Boolean, always coming as FALSE.
- * @return
- *   See field_attach_query().
- *   The $skip_field parameter should be set to TRUE if the query has been
- *   handled.
+ * This hook is called once per field per displayed entity. If the result of the
+ * hook involves reading from the database, it is highly recommended to
+ * statically cache the information.
+ *
+ * @param $display
+ *   The display settings that will be used to display the field values, as
+ *   found in the 'display' key of $instance definitions.
+ * @param $context
+ *   An associative array containing:
+ *   - entity_type: The entity type; e.g. 'node' or 'user'.
+ *   - field: The field being rendered.
+ *   - instance: The instance being rendered.
+ *   - view_mode: The view mode, e.g. 'full', 'teaser'...
+ *
+ * @see hook_field_display_ENTITY_TYPE_alter()
  */
-function hook_field_storage_pre_query($field_name, $conditions, $options, &$skip_field) {
-  // @todo Needs function body.
+function hook_field_display_alter(&$display, $context) {
+  // Leave field labels out of the search index.
+  // Note: The check against $context['entity_type'] == 'node' could be avoided
+  // by using hook_field_display_node_alter() instead of
+  // hook_field_display_alter(), resulting in less function calls when
+  // rendering non-node entities.
+  if ($context['entity_type'] == 'node' && $context['view_mode'] == 'search_index') {
+    $display['label'] = 'hidden';
+  }
 }
 
+/**
+ * Alters the display settings of a field on a given entity type before it gets displayed.
+ *
+ * Modules can implement hook_field_display_ENTITY_TYPE_alter() to alter display
+ * settings for fields on a specific entity type, rather than implementing
+ * hook_field_display_alter().
+ *
+ * This hook is called once per field per displayed entity. If the result of the
+ * hook involves reading from the database, it is highly recommended to
+ * statically cache the information.
+ *
+ * @param $display
+ *   The display settings that will be used to display the field values, as
+ *   found in the 'display' key of $instance definitions.
+ * @param $context
+ *   An associative array containing:
+ *   - entity_type: The entity type; e.g. 'node' or 'user'.
+ *   - field: The field being rendered.
+ *   - instance: The instance being rendered.
+ *   - view_mode: The view mode, e.g. 'full', 'teaser'...
+ *
+ * @see hook_field_display_alter()
+ */
+function hook_field_display_ENTITY_TYPE_alter(&$display, $context) {
+  // Leave field labels out of the search index.
+  if ($context['view_mode'] == 'search_index') {
+    $display['label'] = 'hidden';
+  }
+}
+
+/**
+ * Alters the display settings of pseudo-fields before an entity is displayed.
+ *
+ * This hook is called once per displayed entity. If the result of the hook
+ * involves reading from the database, it is highly recommended to statically
+ * cache the information.
+ *
+ * @param $displays
+ *   An array of display settings for the pseudo-fields in the entity, keyed
+ *   by pseudo-field names.
+ * @param $context
+ *   An associative array containing:
+ *   - entity_type: The entity type; e.g. 'node' or 'user'.
+ *   - bundle: The bundle name.
+ *   - view_mode: The view mode, e.g. 'full', 'teaser'...
+ */
+function hook_field_extra_fields_display_alter(&$displays, $context) {
+  if ($context['entity_type'] == 'taxonomy_term' && $context['view_mode'] == 'full') {
+    $displays['description']['visibility'] = FALSE;
+  }
+}
 /**
  * @} End of "ingroup field_storage"
  */
@@ -1718,8 +1805,12 @@ function hook_field_update_forbid($field, $prior_field, $has_data) {
     // Identify the keys that will be lost.
     $lost_keys = array_diff(array_keys($field['settings']['allowed_values']), array_keys($prior_field['settings']['allowed_values']));
     // If any data exist for those keys, forbid the update.
-    $count = field_attach_query($prior_field['id'], array('value', $lost_keys, 'IN'), 1);
-    if ($count > 0) {
+    $query = new EntityFieldQuery();
+    $found = $query
+      ->fieldCondition($prior_field['field_name'], 'value', $lost_keys)
+      ->range(0, 1)
+      ->execute();
+    if ($found) {
       throw new FieldUpdateForbiddenException("Cannot update a list field not to include keys with existing data");
     }
   }

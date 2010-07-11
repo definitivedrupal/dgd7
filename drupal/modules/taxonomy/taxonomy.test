@@ -1,5 +1,5 @@
 <?php
-// $Id: taxonomy.test,v 1.78 2010/04/30 12:52:10 dries Exp $
+// $Id: taxonomy.test,v 1.81 2010/07/01 00:42:34 dries Exp $
 
 /**
  * @file
@@ -218,6 +218,40 @@ class TaxonomyVocabularyUnitTest extends TaxonomyWebTestCase {
   }
 
   /**
+   * Test deleting a taxonomy that contains terms.
+   */
+  function testTaxonomyVocabularyDeleteWithTerms() {
+    // Delete any existing vocabularies.
+    foreach (taxonomy_get_vocabularies() as $vocabulary) {
+      taxonomy_vocabulary_delete($vocabulary->vid);
+    }
+
+    // Assert that there are no terms left.
+    $this->assertEqual(0, db_query('SELECT COUNT(*) FROM {taxonomy_term_data}')->fetchField());
+
+    // Create a new vocabulary and add a few terms to it.
+    $vocabulary = $this->createVocabulary();
+    $terms = array();
+    for ($i = 0; $i < 5; $i++) {
+      $terms[$i] = $this->createTerm($vocabulary);
+    }
+
+    // Set up hierarchy. term 2 is a child of 1 and 4 a child of 1 and 2.
+    $terms[2]->parent = array($terms[1]->tid);
+    taxonomy_term_save($terms[2]);
+    $terms[4]->parent = array($terms[1]->tid, $terms[2]->tid);
+    taxonomy_term_save($terms[4]);
+
+    // Assert that there are now 5 terms.
+    $this->assertEqual(5, db_query('SELECT COUNT(*) FROM {taxonomy_term_data}')->fetchField());
+
+    taxonomy_vocabulary_delete($vocabulary->vid);
+
+    // Assert that there are no terms left.
+    $this->assertEqual(0, db_query('SELECT COUNT(*) FROM {taxonomy_term_data}')->fetchField());
+  }
+
+  /**
    * Ensure that the vocabulary static reset works correctly.
    */
   function testTaxonomyVocabularyLoadStaticReset() {
@@ -347,7 +381,7 @@ class TaxonomyTermTestCase extends TaxonomyWebTestCase {
         'type' => 'options_select',
       ),
       'display' => array(
-        'full' => array(
+        'default' => array(
           'type' => 'taxonomy_term_reference_link',
         ),
       ),
@@ -848,7 +882,12 @@ class TaxonomyTermFieldTestCase extends TaxonomyWebTestCase {
       'label' => $this->randomName() . '_label',
       'widget' => array(
         'type' => 'options_select',
-      )
+      ),
+      'display' => array(
+        'full' => array(
+          'type' => 'taxonomy_term_reference_link',
+        ),
+      ),
     );
     field_create_instance($this->instance);
 
@@ -873,7 +912,7 @@ class TaxonomyTermFieldTestCase extends TaxonomyWebTestCase {
     $entity = field_test_entity_test_load($id);
     $entities = array($id => $entity);
     field_attach_prepare_view($entity_type, $entities, 'full');
-    $entity->content = field_attach_view($entity_type, $entity);
+    $entity->content = field_attach_view($entity_type, $entity, 'full');
     $this->content = drupal_render($entity->content);
     $this->assertText($term->name, t('Term name is displayed'));
   }
@@ -921,7 +960,7 @@ class TaxonomyTokenReplaceTestCase extends TaxonomyWebTestCase {
         'type' => 'options_select',
       ),
       'display' => array(
-        'full' => array(
+        'default' => array(
           'type' => 'taxonomy_term_reference_link',
         ),
       ),
@@ -954,7 +993,6 @@ class TaxonomyTokenReplaceTestCase extends TaxonomyWebTestCase {
     // Generate and test sanitized tokens.
     $tests = array();
     $tests['[term:tid]'] = $term2->tid;
-    $tests['[term:vid]'] = $term2->vid;
     $tests['[term:name]'] = check_plain($term2->name);
     $tests['[term:description]'] = check_markup($term2->description, $term2->format);
     $tests['[term:url]'] = url('taxonomy/term/' . $term2->tid, array('absolute' => TRUE));

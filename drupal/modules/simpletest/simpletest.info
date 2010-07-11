@@ -1,4 +1,4 @@
-; $Id: simpletest.info,v 1.16 2010/02/03 18:16:23 webchick Exp $
+; $Id: simpletest.info,v 1.18 2010/06/28 02:05:47 webchick Exp $
 name = Testing
 description = Provides a framework for unit and functional testing.
 package = Core
@@ -19,6 +19,7 @@ files[] = tests/bootstrap.test
 files[] = tests/cache.test
 files[] = tests/common.test
 files[] = tests/database_test.test
+files[] = tests/entity_query.test
 files[] = tests/error.test
 files[] = tests/file.test
 files[] = tests/filetransfer.test
@@ -37,9 +38,10 @@ files[] = tests/theme.test
 files[] = tests/unicode.test
 files[] = tests/update.test
 files[] = tests/xmlrpc.test
+files[] = tests/upgrade/upgrade.test
 
-; Information added by drupal.org packaging script on 2010-05-23
-version = "7.0-alpha5"
+; Information added by drupal.org packaging script on 2010-07-09
+version = "7.0-alpha6"
 project = "drupal"
-datestamp = "1274628610"
+datestamp = "1278634806"
 
