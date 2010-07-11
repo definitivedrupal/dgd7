@@ -1,0 +1,5 @@
+; $Id$
+name = Alpha to Alpha
+description = "A very rough attempt to aid Drupal 7 alpha upgrades, starting with alpha5."
+core = 7.x
+files[] = alpha2alpha.install
