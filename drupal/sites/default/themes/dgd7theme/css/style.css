@@ -581,8 +581,8 @@ h1#page-title,
 /* ----------------- Triptych ----------------- */
 
 #triptych-wrapper {
-  background-color: #fafafa;
-  background: rgba(40,40,0,0.08);
+  background-color: #9a993d;
+  border-top: 20px solid #ffcc00;
 }
 #triptych h2 {
   color: #000;
