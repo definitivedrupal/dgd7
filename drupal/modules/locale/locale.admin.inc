@@ -1,5 +1,5 @@
 <?php
-// $Id: locale.admin.inc,v 1.16 2010/06/26 21:32:20 dries Exp $
+// $Id: locale.admin.inc,v 1.13 2010/05/11 10:49:37 dries Exp $
 
 /**
  * @file
@@ -519,7 +519,7 @@ function _locale_languages_configure_form_language_table(&$form, $type) {
   );
 
   $language_providers = $form['#language_providers'];
-  $enabled_providers = variable_get("language_negotiation_$type", array());
+  $enabled_providers = variable_get("locale_language_providers_enabled_$type", array());
   $providers_weight = variable_get("locale_language_providers_weight_$type", array());
 
   // Add missing data to the providers lists.
@@ -527,13 +527,16 @@ function _locale_languages_configure_form_language_table(&$form, $type) {
     if (!isset($providers_weight[$id])) {
       $providers_weight[$id] = language_provider_weight($provider);
     }
+    if (!isset($enabled_providers[$id])) {
+      $enabled_providers[$id] = FALSE;
+    }
   }
 
   // Order providers list by weight.
   asort($providers_weight);
 
   foreach ($providers_weight as $id => $weight) {
-    $enabled = isset($enabled_providers[$id]);
+    $enabled = $enabled_providers[$id];
     $provider = $language_providers[$id];
 
     // List the provider only if the current type is defined in its 'types' key.
@@ -662,6 +665,7 @@ function locale_languages_configure_form_submit($form, &$form_state) {
     }
 
     language_negotiation_set($type, $negotiation);
+    variable_set("locale_language_providers_enabled_$type", $enabled_providers);
     variable_set("locale_language_providers_weight_$type", $providers_weight);
   }
 
@@ -693,6 +697,8 @@ function locale_languages_configure_form_submit($form, &$form_state) {
  * The URL language provider configuration form.
  */
 function locale_language_providers_url_form($form, &$form_state) {
+  $form = array();
+
   $form['locale_language_negotiation_url_part'] = array(
     '#title' => t('Part of the URL that determines language'),
     '#type' => 'radios',
@@ -713,6 +719,8 @@ function locale_language_providers_url_form($form, &$form_state) {
  * The URL language provider configuration form.
  */
 function locale_language_providers_session_form($form, &$form_state) {
+  $form = array();
+
   $form['locale_language_negotiation_session_param'] = array(
     '#title' => t('Request/session parameter'),
     '#type' => 'textfield',
@@ -980,9 +988,8 @@ function locale_translate_import_form($form) {
  * Process the locale import form submission.
  */
 function locale_translate_import_form_submit($form, &$form_state) {
-  $validators = array('file_validate_extensions' => array('po'));
   // Ensure we have the file uploaded
-  if ($file = file_save_upload('file', $validators)) {
+  if ($file = file_save_upload('file')) {
 
     // Add language, if not yet supported
     drupal_static_reset('language_list');

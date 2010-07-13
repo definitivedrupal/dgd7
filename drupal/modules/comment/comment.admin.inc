@@ -1,5 +1,5 @@
 <?php
-// $Id: comment.admin.inc,v 1.47 2010/06/25 21:24:35 dries Exp $
+// $Id: comment.admin.inc,v 1.46 2010/03/31 11:49:50 dries Exp $
 
 /**
  * @file
@@ -16,17 +16,19 @@ function comment_admin($type = 'new') {
     return drupal_get_form('comment_multiple_delete_confirm');
   }
   else {
-    return drupal_get_form('comment_admin_overview', $type);
+    return drupal_get_form('comment_admin_overview', $type, arg(4));
   }
 }
 
 /**
- * Form builder for the comment overview administration form.
+ * Form builder; Builds the comment overview form for the admin.
  *
+ * @param $type
+ *   Not used.
  * @param $arg
- *   Current path's fourth component: the type of overview form ('approval' or
- *   'new').
- *
+ *   Current path's fourth component deciding the form type (Published comments/Approval queue).
+ * @return
+ *   The form structure.
  * @ingroup forms
  * @see comment_admin_overview_validate()
  * @see comment_admin_overview_submit()

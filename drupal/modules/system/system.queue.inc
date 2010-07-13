@@ -1,5 +1,5 @@
 <?php
-// $Id: system.queue.inc,v 1.13 2010/06/14 13:10:31 dries Exp $
+// $Id: system.queue.inc,v 1.12 2010/04/26 13:02:40 dries Exp $
 
 /**
  * @file
@@ -24,8 +24,7 @@
  * DrupalQueueInterface::deleteItem(). If the consumer dies, the item will be
  * made available again by the DrupalQueueInterface implementation once the
  * lease expires. Another consumer will then be able to receive it when calling
- * DrupalQueueInterface::claimItem(). Due to this, the processing code should
- * be aware that an item might be handed over for processing more than once.
+ * DrupalQueueInterface::claimItem().
  *
  * The $item object used by the DrupalQueueInterface can contain arbitrary
  * metadata depending on the implementation. Systems using the interface should
@@ -34,23 +33,18 @@
  * DrupalQueueInterface::claimItem() needs to be passed to
  * DrupalQueueInterface::deleteItem() once processing is completed.
  *
- * There are two kinds of queue backends available: reliable, which preserves
- * the order of messages and guarantees that every item will be executed at
- * least once. The non-reliable kind only does a best effort to preserve order
- * in messages and to execute them at least once but there is a small chance
- * that some items get lost. For example, some distributed back-ends like
+ * While the queue system makes a best effort to preserve order in messages,
+ * due to the pluggable nature of the queue, there is no guarantee that items
+ * will be delivered on claim in the order they were sent. For example, some
+ * implementations like beanstalkd or others with distributed back-ends like
  * Amazon SQS will be managing jobs for a large set of producers and consumers
- * where a strict FIFO ordering will likely not be preserved. Another example
- * would be an in-memory queue backend which might lose items if it crashes.
- * However, such a backend would be able to deal with significantly more writes
- * than a reliable queue and for many tasks this is more important. See
- * aggregator_cron() for an example of how can this not be a problem. Another
- * example is doing Twitter statistics -- the small possibility of losing a few
- * items is insignificant next to power of the queue being able to keep up with
- * writes. As described in the processing section, regardless of the queue
- * being reliable or not, the processing code should be aware that an item
- * might be handed over for processing more than once (because the processing
- * code might time out before it finishes).
+ * where a strict FIFO ordering will likely not be preserved.
+ *
+ * The system also makes no guarantees about a task only being executed once:
+ * callers that have non-idempotent tasks either need to live with the
+ * possiblity of the task being invoked multiple times in cases where a claim
+ * lease expires, or need to implement their own transactions to make their
+ * tasks idempotent.
  */
 
 /**
@@ -58,38 +52,21 @@
  */
 class DrupalQueue {
   /**
-   * Returns the queue object for a given name.
-   *
-   * The following variables can be set by variable_set or $conf overrides:
-   * - queue_class_$name: the class to be used for the queue $name.
-   * - queue_default_class: the class to use when queue_class_$name is not
-   *   defined. Defaults to SystemQueue, a reliable backend using SQL.
-   * - queue_default_reliable_class: the class to use when queue_class_$name is
-   *   not defined and the queue_default_class is not reliable. Defaults to
-   *   SystemQueue.
+   * Get a queue object for a given name.
    *
    * @param $name
    *   Arbitrary string. The name of the queue to work with.
-   * @param $reliable
-   *   TRUE if the ordering of items and guaranteeing every item executes at
-   *   least once is important, FALSE if scalability is the main concern.
-   *
    * @return
    *   The queue object for a given name.
    */
-  public static function get($name, $reliable = FALSE) {
+  public static function get($name) {
     static $queues;
     if (!isset($queues[$name])) {
       $class = variable_get('queue_class_' . $name, NULL);
       if (!$class) {
         $class = variable_get('queue_default_class', 'SystemQueue');
       }
-      $object = new $class($name);
-      if ($reliable && !$object instanceof DrupalReliableQueueInterface) {
-        $class = variable_get('queue_default_reliable_class', 'SystemQueue');
-        $object = new $class($name);
-      }
-      $queues[$name] = $object;
+      $queues[$name] = new $class($name);
     }
     return $queues[$name];
   }
@@ -112,8 +89,8 @@ interface DrupalQueueInterface {
    * @return
    *   TRUE if the item was successfully created and was (best effort) added
    *   to the queue, otherwise FALSE. We don't guarantee the item was
-   *   committed to disk etc, but as far as we know, the item is now in the
-   *   queue.
+   *   committed to disk, that your disk wasn't hit by a meteor, etc, but as
+   *   far as we know, the item is now in the queue.
    */
   public function createItem($data);
 
@@ -190,18 +167,9 @@ interface DrupalQueueInterface {
 }
 
 /**
- * Reliable queue interface.
- *
- * Classes implementing this interface preserve the order of messages and
- * guarantee that every item will be executed at least once.
- */
-interface DrupalReliableQueueInterface extends DrupalQueueInterface {
-}
-
-/**
  * Default queue implementation.
  */
-class SystemQueue implements DrupalReliableQueueInterface {
+class SystemQueue implements DrupalQueueInterface {
   /**
    * The name of the queue this instance is working with.
    *

@@ -1,5 +1,5 @@
 <?php
-// $Id: openid.inc,v 1.35 2010/07/01 19:06:56 dries Exp $
+// $Id: openid.inc,v 1.33 2010/05/13 17:37:24 dries Exp $
 
 /**
  * @file
@@ -49,11 +49,6 @@ define('OPENID_NS_1_1', 'http://openid.net/signon/1.1');
  * OpenID Authentication 1.0 namespace URL; used for backwards-compatibility.
  */
 define('OPENID_NS_1_0', 'http://openid.net/signon/1.0');
-
-/**
- * OpenID namespace used in Yadis documents.
- */
-define('OPENID_NS_OPENID', 'http://openid.net/xmlns/1.0');
 
 /**
  * OpenID Simple Registration extension.
@@ -153,11 +148,11 @@ function _openid_xrds_parse($raw_xml) {
         foreach ($service_element->Type as $type) {
           $service['types'][] = (string)$type;
         }
+        if ($service_element->children(OPENID_NS_XRD)->Delegate) {
+          $service['identity'] = (string)$service_element->children(OPENID_NS_XRD)->Delegate;
+        }
         if ($service_element->children(OPENID_NS_XRD)->LocalID) {
           $service['identity'] = (string)$service_element->children(OPENID_NS_XRD)->LocalID;
-        }
-        elseif ($service_element->children(OPENID_NS_OPENID)->Delegate) {
-          $service['identity'] = (string)$service_element->children(OPENID_NS_OPENID)->Delegate;
         }
         else {
           $service['identity'] = FALSE;
@@ -658,26 +653,22 @@ function openid_extract_namespace($response, $extension_namespace, $fallback_pre
  *
  * @param $values
  *   An array as returned by openid_extract_namespace(..., OPENID_NS_AX).
- * @param $uris
- *   An array of identifier URIs.
+ * @param $aliases
+ *   An array of aliases used in the fetch request.
  * @return
  *   An array of values.
  * @see http://openid.net/specs/openid-attribute-exchange-1_0.html#fetch_response
  */
-function openid_extract_ax_values($values, $uris) {
+function openid_extract_ax_values($values, $aliases) {
   $output = array();
-  foreach ($values as $key => $value) {
-    if (in_array($value, $uris) && preg_match('/^type\.([^.]+)$/', $key, $matches)) {
-      $alias = $matches[1];
-      if (isset($values['count.' . $alias])) {
-        for ($i = 1; $i <= $values['count.' . $alias]; $i++) {
-          $output[] = $values['value.' . $alias . '.' . $i];
-        }
+  foreach ($aliases as $alias) {
+    if (isset($values['count.' . $alias])) {
+      for ($i = 1; $i <= $values['count.' . $alias]; $i++) {
+        $output[] = $values['value.' . $alias . '.' . $i];
       }
-      elseif (isset($values['value.' . $alias])) {
-        $output[] = $values['value.' . $alias];
-      }
-      break;
+    }
+    elseif (isset($values['value.' . $alias])) {
+      $output[] = $values['value.' . $alias];
     }
   }
   return $output;

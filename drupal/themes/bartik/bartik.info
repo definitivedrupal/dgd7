@@ -1,4 +1,4 @@
-; $Id: bartik.info,v 1.1 2010/07/06 05:25:51 webchick Exp $
+; $Id$
 
 name = Bartik
 description = A flexible, recolorable theme with many regions.
@@ -36,11 +36,11 @@ regions[footer_thirdcolumn] = Footer third column
 regions[footer_fourthcolumn] = Footer fourth column
 regions[footer] = Footer
 
-settings[shortcut_module_link] = 0
+settings[shortcut_module_link] = 1
 
-
-; Information added by drupal.org packaging script on 2010-07-09
-version = "7.0-alpha6"
-project = "drupal"
-datestamp = "1278634806"
+; Information added by drupal.org packaging script on 2010-07-05
+version = "7.x-1.0-rc2"
+core = "7.x"
+project = "bartik"
+datestamp = "1278349206"
 

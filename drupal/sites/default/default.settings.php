@@ -1,5 +1,5 @@
 <?php
-// $Id: default.settings.php,v 1.48 2010/06/28 19:57:34 dries Exp $
+// $Id: default.settings.php,v 1.44 2010/04/07 15:07:59 dries Exp $
 
 /**
  * @file
@@ -61,7 +61,6 @@
  *   'password' => 'password',
  *   'host' => 'localhost',
  *   'port' => 3306,
- *   'prefix' => 'myprefix_',
  * );
  *
  * The "driver" property indicates what Drupal database driver the
@@ -107,45 +106,44 @@
  *   'username' => 'username',
  *   'password' => 'password',
  *   'host' => 'localhost',
- *   'prefix' => 'main_',
  * );
  *
  * You can optionally set prefixes for some or all database table names
- * by using the 'prefix' setting. If a prefix is specified, the table
+ * by using the $db_prefix setting. If a prefix is specified, the table
  * name will be prepended with its value. Be sure to use valid database
  * characters only, usually alphanumeric and underscore. If no prefixes
  * are desired, leave it as an empty string ''.
  *
- * To have all database names prefixed, set 'prefix' as a string:
+ * To have all database names prefixed, set $db_prefix as a string:
  *
- *   'prefix' => 'main_',
+ *   $db_prefix = 'main_';
  *
- * To provide prefixes for specific tables, set 'prefix' as an array.
+ * To provide prefixes for specific tables, set $db_prefix as an array.
  * The array's keys are the table names and the values are the prefixes.
- * The 'default' element is mandatory and holds the prefix for any tables
- * not specified elsewhere in the array. Example:
+ * The 'default' element holds the prefix for any tables not specified
+ * elsewhere in the array. Example:
  *
- *   'prefix' => array(
+ *   $db_prefix = array(
  *     'default'   => 'main_',
- *     'users'     => 'shared_',
+ *     'users'      => 'shared_',
  *     'sessions'  => 'shared_',
  *     'role'      => 'shared_',
  *     'authmap'   => 'shared_',
- *   ),
+ *   );
  *
- * You can also use a reference to a schema/database as a prefix. This maybe
+ * You can also use db_prefix as a reference to a schema/database. This maybe
  * useful if your Drupal installation exists in a schema that is not the default
- * or you want to access several databases from the same code base at the same
+ * or you want to access several databases from the same code base at the same 
  * time.
  * Example:
  *
- *   'prefix' => array(
- *     'default'   => 'main.',
- *     'users'     => 'shared.',
+ *  $db_prefix = array(
+ *    'default' => 'main.',
+ *     'users'      => 'shared.',
  *     'sessions'  => 'shared.',
  *     'role'      => 'shared.',
  *     'authmap'   => 'shared.',
- *   );
+ *  );
  *
  * NOTE: MySQL and SQLite's definition of a schema is a database.
  *
@@ -156,7 +154,6 @@
  *     'username' => 'username',
  *     'password' => 'password',
  *     'host' => 'localhost',
- *     'prefix' => '',
  *   );
  *   $databases['default']['default'] = array(
  *     'driver' => 'pgsql',
@@ -164,7 +161,6 @@
  *     'username' => 'username',
  *     'password' => 'password',
  *     'host' => 'localhost',
- *     'prefix' => '',
  *   );
  *   $databases['default']['default'] = array(
  *     'driver' => 'sqlite',
@@ -172,6 +168,7 @@
  *   );
  */
 $databases = array();
+$db_prefix = '';
 
 /**
  * Access control for update.php script.
@@ -208,10 +205,9 @@ $drupal_hash_salt = '';
 /**
  * Base URL (optional).
  *
- * If Drupal is generating incorrect URLs on your site, which could
- * be in HTML headers (links to CSS and JS files) or visible links on pages
- * (such as in menus), uncomment the Base URL statement below (remove the
- * leading hash sign) and fill in the absolute URL to your Drupal installation.
+ * If you are experiencing issues with different site domains,
+ * uncomment the Base URL statement below (remove the leading hash sign)
+ * and fill in the absolute URL to your Drupal installation.
  *
  * You might also want to force users to use a given domain.
  * See the .htaccess file for more information.
@@ -261,17 +257,6 @@ ini_set('session.gc_maxlifetime', 200000);
  * the cookie. The value 0 means "until the browser is closed".
  */
 ini_set('session.cookie_lifetime', 2000000);
-
-/**
- * If you encounter a situation where users post a large amount of text, and
- * the result is stripped out upon viewing but can still be edited, Drupal's
- * output filter may not have sufficient memory to process it.  If you
- * experience this issue, you may wish to uncomment the following two lines
- * and increase the limits of these variables.  For more information, see
- * http://php.net/manual/en/pcre.configuration.php.
- */
-# ini_set('pcre.backtrack_limit', 200000);
-# ini_set('pcre.recursion_limit', 200000);
 
 /**
  * Drupal automatically generates a unique session cookie name for each site

@@ -1,9 +1,9 @@
-/* $Id: colors.css,v 1.1 2010/07/06 05:25:51 webchick Exp $ */
+/* $Id$ */
 
 /* ---------- Color Module Styles ----------- */
 
 body {
-  background-color: #2d1e0f;
+  background-color: #161617;
   color: #ffffff;
 }
 html,
@@ -19,12 +19,12 @@ body.overlay {
   background-color: #ffffff;
 }
 #header {
-  background-color: #48a9e4;
-  background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, from(#0779bf), to(#48a9e4));
-  background-image: -moz-linear-gradient(-90deg, #0779bf, #48a9e4);
+  background-color: #4e4e4e;
+  background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, from(#4a4a4a), to(#4e4e4e));
+  background-image: -moz-linear-gradient(-90deg, #4a4a4a, #4e4e4e);
 }
 a {
-  color: #288CC9;
+  color: #0073b6;
 }
 a:hover,
 a:focus {
@@ -34,11 +34,11 @@ a:active {
   color: #23aeff;
 }
 .sidebar .block {
-  background-color: #f6f6f2;
-  border-color: #f9f9f9;
+  background-color: #feffff;
+  border-color: #d0d0d0;
 }
 #footer-wrapper {
-  background: #2d1e0f;
+  background: #161617;
 }
 #header #name-and-slogan,
 #header #name-and-slogan a {

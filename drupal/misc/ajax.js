@@ -1,4 +1,4 @@
-// $Id: ajax.js,v 1.18 2010/06/25 20:34:07 dries Exp $
+// $Id: ajax.js,v 1.17 2010/05/16 19:08:08 dries Exp $
 (function ($) {
 
 /**
@@ -189,14 +189,8 @@ Drupal.ajax = function (base, element, element_settings) {
  */
 Drupal.ajax.prototype.beforeSerialize = function (element, options) {
   // Allow detaching behaviors to update field values before collecting them.
-  // This is only needed when field values are added to the POST data, so only
-  // when there is a form such that this.form.ajaxSubmit() is used instead of
-  // $.ajax(). When there is no form and $.ajax() is used, beforeSerialize()
-  // isn't called, but don't rely on that: explicitly check this.form.
-  if (this.form) {
-    var settings = this.settings || Drupal.settings;
-    Drupal.detachBehaviors(this.form, settings, 'serialize');
-  }
+  var settings = this.settings || Drupal.settings;
+  Drupal.detachBehaviors(this.form, settings, 'serialize');
 };
 
 /**
@@ -255,14 +249,12 @@ Drupal.ajax.prototype.success = function (response, status) {
     }
   }
 
-  // Reattach behaviors, if they were detached in beforeSerialize(). The
+  // Reattach behaviors that were detached in beforeSerialize(). The
   // attachBehaviors() called on the new content from processing the response
   // commands is not sufficient, because behaviors from the entire form need
   // to be reattached.
-  if (this.form) {
-    var settings = this.settings || Drupal.settings;
-    Drupal.attachBehaviors(this.form, settings);
-  }
+  var settings = this.settings || Drupal.settings;
+  Drupal.attachBehaviors(this.form, settings);
 
   Drupal.unfreezeHeight();
 
@@ -314,11 +306,9 @@ Drupal.ajax.prototype.error = function (response, uri) {
   $(this.wrapper).show();
   // Re-enable the element.
   $(this.element).removeClass('progress-disabled').attr('disabled', false);
-  // Reattach behaviors, if they were detached in beforeSerialize().
-  if (this.form) {
-    var settings = response.settings || this.settings || Drupal.settings;
-    Drupal.attachBehaviors(this.form, settings);
-  }
+  // Reattach behaviors that were detached in beforeSerialize().
+  var settings = response.settings || this.settings || Drupal.settings;
+  Drupal.attachBehaviors(this.form, settings);
 };
 
 /**
