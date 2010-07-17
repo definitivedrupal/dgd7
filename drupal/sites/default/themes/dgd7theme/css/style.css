@@ -35,7 +35,7 @@ h6,
 h1,
 #preview h1 {
   font-size: 140%;
-  color: #000;
+  color: #FFE373;
 }
 h2,
 #preview h1 {
@@ -358,7 +358,7 @@ ul.tips {
 }
 #navigation ul.links li a {
   color: #333;
-  background: #cccc14;
+  background: #FFE373;
   text-shadow: 0 1px #eee;
   -khtml-border-radius-topleft: 8px;
   -moz-border-radius-topleft: 8px;
@@ -371,10 +371,10 @@ ul.tips {
 }
 #navigation ul.links li a:hover,
 #navigation ul.links li a:focus {
-  background: #ffcc00;
+  background: #FFCD00;
 }
 #navigation ul.links li a:active {
-  background: #b3b3b3;
+  background: #FFCD00;
 }
 #navigation ul.links li.active-trail a {
   border-bottom: none;
@@ -419,9 +419,12 @@ ul.tips {
 
 /* ----------------- Content ------------------ */
 
-.content {
-  margin-top: 1em;
+.node .content {
+  background: #FFF;
+  -moz-border-radius:8px 8px 8px 8px;
+  padding: 15px;
 }
+  
 #block-system-main,
 #preview #preview-block-system-main {
   font-size: 115%;
@@ -557,8 +560,12 @@ h1#page-title,
 
 /* ------------------ Sidebar ----------------- */
 
+.sidebar .content {
+  background: #FFF;
+  -moz-border-radius:8px 8px 8px 8px;
+  padding: 15px;
+}
 .sidebar .block {
-  border: 1px solid;
   padding: 15px 20px;
   margin: 20px 0;
 }
@@ -567,7 +574,8 @@ h1#page-title,
   margin: 0 0 0.5em;
   border-bottom: 1px solid #d6d6d6;
   padding-bottom: 5px;
-  text-shadow: 0 1px 0 #fff;
+  /*text-shadow: 0 1px 0 #fff;*/
+  color: #FFCD00;
 }
 .sidebar tbody {
   border: none;
@@ -581,14 +589,14 @@ h1#page-title,
 /* ----------------- Triptych ----------------- */
 
 #triptych-wrapper {
-  background-color: #9a993d;
-  border-top: 20px solid #ffcc00;
+  background-color: #BFBB30;
+  border-top: 20px solid #FFCD00;
 }
 #triptych h2 {
-  color: #000;
+  color: #190773;
   font-size: 194%;
   margin-bottom: .8em;
-  text-shadow: 0px 1px 0 #fff;
+  /*text-shadow: 0px 1px 0 #fff;*/
   text-align: center;
   line-height: 1.2em;
 }
@@ -651,8 +659,7 @@ h1#page-title,
 }
 #footer-wrapper .block {
   margin: 20px 0;
-  border: 1px solid #444;
-  border-color: rgba(255,255,255,0.1);  
+  border: none;  
   padding: 10px;
 }
 #footer-columns .block-menu,
@@ -755,7 +762,7 @@ h1#page-title,
 
 .tabs {
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  margin-bottom: 20px;
+  padding-left: 20px;
 }
 .tabs ul.primary {
   padding: 0 3px;
@@ -771,7 +778,7 @@ h1#page-title,
   margin: 0 5px 0 0; /* LTR */
 }
 .tabs ul.primary li a.active {
-  border-bottom: 1px solid #fff;
+  border-bottom: 1px solid #FFF;
 }
 .tabs ul.primary li a {
   color: #000;
@@ -782,7 +789,7 @@ h1#page-title,
   float: left; /* not LTR */
   padding: 0 10px 3px;
   margin: 0;
-  text-shadow: 0 1px 0 #fff;
+  text-shadow: 0 1px 0 #eee;
   -khtml-border-radius-topleft: 6px;
   -moz-border-radius-topleft: 6px;
   -webkit-border-top-left-radius: 6px;
@@ -791,6 +798,7 @@ h1#page-title,
   -moz-border-radius-topright: 6px;
   -webkit-border-top-right-radius: 6px;
   border-top-right-radius: 6px;
+  border: none;
 }
 .tabs ul.secondary {
   border-bottom: none;
@@ -1321,3 +1329,5 @@ div.admin-panel .description {
 .overlay #preview #footer-wrapper {
   display: block;
 }
+
+
