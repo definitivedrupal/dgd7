@@ -1,0 +1,361 @@
+<?php
+// $Id: token.module,v 1.40 2010/07/21 07:12:27 davereid Exp $
+
+/**
+ * Impelements hook_help().
+ */
+function token_help($path, $arg) {
+  if ($path == 'admin/help#token') {
+    $output = '<dl>';
+    $output .= '<dt>' . t('List of the currently available tokens on this site') . '</dt>';
+    $output .= '<dd>' . theme('token_tree', array('token_types' => 'all', 'click_insert' => FALSE, 'show_restricted' => TRUE)) . '</dd>';
+    $output .= '</dl>';
+    return $output;
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function token_menu() {
+  $items['token/autocomplete'] = array(
+    'page callback' => 'token_autocomplete',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+    'file' => 'token.pages.inc',
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function token_theme() {
+  return array(
+    'tree_table' => array(
+      'variables' => array('header' => array(), 'rows' => array(), 'attributes' => array(), 'empty' => '', 'caption' => ''),
+      'file' => 'token.pages.inc',
+    ),
+    'token_tree' => array(
+      'variables' => array('token_types' => array(), 'global_types' => TRUE, 'click_insert' => TRUE, 'show_restricted' => FALSE, 'recursion_limit' => 4),
+      'file' => 'token.pages.inc',
+    ),
+  );
+}
+
+/**
+ * Implements hook_library().
+ */
+function token_library() {
+  // jQuery treeTable plugin.
+  $libraries['treeTable'] = array(
+    'title' => 'jQuery treeTable',
+    'website' => 'http://plugins.jquery.com/project/treetable',
+    'version' => '2.3.0',
+    'js' => array(
+      drupal_get_path('module', 'token') . '/jquery.treeTable.js' => array(),
+    ),
+    'css' => array(
+      drupal_get_path('module', 'token') . '/jquery.treeTable.css' => array(),
+    ),
+  );
+
+  return $libraries;
+}
+
+/**
+ * Return an array of entity type to token type mappings.
+ */
+function _token_entity_mappings() {
+  return array(
+    'comment' => 'comment',
+    'node' => 'node',
+    'file' => 'file',
+    'taxonomy_term' => 'term',
+    'taxonomy_vocabulary' => 'vocabulary',
+    'user' => 'user',
+  );
+}
+
+/**
+ * Given a token type, return its corresponding entity type if available.
+ *
+ * @param $token_type
+ *   A token type.
+ * @return
+ *   An entity type, or NULL if not available.
+ */
+function _token_get_entity_from_token_type($token_type) {
+  $token_entity_types = _token_entity_mappings();
+  $token_entity_types = array_flip($token_entity_types);
+  if (isset($token_entity_types[$token_type])) {
+    return $token_entity_types[$token_type];
+  }
+}
+
+/**
+ * Implements hook_entity_info_alter().
+ *
+ * Since some token types to do not match their entity type names, we have to
+ * map them to the proper type. This is purely for other modules' benefit.
+ */
+function token_entity_info_alter(&$info) {
+  $entity_token_types = _token_entity_mappings();
+  foreach ($entity_token_types as $entity_type => $token_type) {
+    if (isset($info[$entity_type])) {
+      $info[$entity_type]['token type'] = $token_type;
+    }
+  }
+}
+
+/**
+ * Implements hook_module_implements_alter().
+ *
+ * Adds missing token support for core modules.
+ */
+function token_module_implements_alter(&$implementations, $hook) {
+  if ($hook == 'tokens' || $hook == 'token_info') {
+    $modules = array('book', 'menu');
+    foreach ($modules as $module) {
+      if (module_exists($module)) {
+        $implementations[$module] = TRUE;
+      }
+    }
+    // Move token.module to get included first since it is responsible for
+    // other modules.
+    unset($implementations['token']);
+    $implementations = array_merge(array('token' => 'token'), $implementations);
+  }
+}
+
+/**
+ * Retrieve, sort, store token info from the cache.
+ */
+function token_get_info($token_type = NULL) {
+  global $language;
+
+  // Use the advanced drupal_static() pattern, since this is called very often.
+  static $drupal_static_fast;
+  if (!isset($drupal_static_fast)) {
+    $drupal_static_fast['token_info'] = &drupal_static(__FUNCTION__);
+  }
+  $token_info = &$drupal_static_fast['token_info'];
+
+  if (empty($token_info)) {
+    $langcode = $language->language;
+    if ($cache = cache_get("token_info:$langcode")) {
+      $token_info = $cache->data;
+    }
+    else {
+      $token_info = token_info();
+      
+      // Pre-sort tokens.
+      uasort($token_info['types'], 'token_asort_tokens');
+      foreach (array_keys($token_info['tokens']) as $type) {
+        uasort($token_info['tokens'][$type], 'token_asort_tokens');
+      }
+      
+      // Store info in cache for future use.
+      cache_set("token_info:$langcode", $token_info);
+    }
+  }
+
+  if (empty($token_type)) {
+    return $token_info;
+  }
+  elseif (isset($token_info[$token_type])) {
+    return $token_info[$token_type];
+  }
+}
+
+/**
+ * uasort() callback to sort tokens by the 'name' property.
+ */
+function token_asort_tokens($token_a, $token_b) {
+  return strnatcmp($token_a['name'], $token_b['name']);
+}
+
+/**
+ * Get a list of token types that can be used without any context (global).
+ *
+ * @return
+ *   An array of global token types.
+ */
+function token_get_global_token_types() {
+  $global_types = &drupal_static(__FUNCTION__, array());
+
+  if (empty($global_types)) {
+    $token_info = token_get_info();
+    foreach ($token_info['types'] as $type => $type_info) {
+      // If the token types has not specified that 'needs-data' => TRUE, then
+      // it is a global token type that will always be replaced in any context.
+      if (empty($type_info['needs-data'])) {
+        $global_types[] = $type;
+      }
+    }
+  }
+
+  return $global_types;
+}
+
+/**
+ * Validate an tokens in raw text based on possible contexts.
+ *
+ * @param $text
+ *   A string with the raw text containing the raw tokens.
+ * @param $tokens
+ *   An array of token types that will be used when token replacement is
+ *   performed.
+ * @return
+ *   An array with the invalid tokens in their original raw forms.
+ */
+function token_get_invalid_tokens_by_context($text, $valid_types = array()) {
+  // Add the token types that are always valid in global context.
+  $valid_types = array_merge($valid_types, token_get_global_token_types());
+
+  $invalid_tokens = array();
+  foreach (token_scan($text) as $type => $tokens) {
+    if (!in_array($type, $valid_types)) {
+      // If the token type is not a valid context, its tokens are invalid.
+      $invalid_tokens = array_merge($invalid_tokens, array_values($tokens));
+    }
+    else {
+      // Check each individual token for validity.
+      $invalid_tokens = array_merge($invalid_tokens, token_get_invalid_tokens($type, $tokens));
+    }
+  }
+
+  array_unique($invalid_tokens);
+  return $invalid_tokens;
+}
+
+/**
+ * Validate an array of tokens based on their token type.
+ *
+ * @param $type
+ *   The type of tokens to validate (e.g. 'node', etc.)
+ * @param $tokens
+ *   A keyed array of tokens, and their original raw form in the source text.
+ * @return
+ *   An array with the invalid tokens in their original raw forms.
+ */
+function token_get_invalid_tokens($type, $tokens) {
+  $token_info = token_get_info();
+  $invalid_tokens = array();
+
+  foreach ($tokens as $token => $full_token) {
+    // Split token up if it has chains.
+    $parts = explode(':', $token, 2);
+
+    if (!isset($token_info['tokens'][$type][$parts[0]])) {
+      // This is an invalid token (not defined).
+      $invalid_tokens[] = $full_token;
+    }
+    elseif (count($parts) == 2) {
+      $sub_token_info = $token_info['tokens'][$type][$parts[0]];
+      if (!empty($sub_token_info['dynamic'])) {
+        // If this token has been flagged as a dynamic token, skip it.
+        continue;
+      }
+      elseif (empty($sub_token_info['type'])) {
+        // If the token has chains, but does not support it, it is invalid.
+        $invalid_tokens[] = $full_token;
+      }
+      else {
+        // Resursively check the chained tokens.
+        $sub_tokens = token_find_with_prefix(array($token => $full_token), $parts[0]);
+        $invalid_tokens = array_merge($invalid_tokens, token_get_invalid_tokens($sub_token_info['type'], $sub_tokens));
+      }
+    }
+  }
+
+  return $invalid_tokens;
+}
+
+/**
+ * Validate a form element that should have tokens in it.
+ *
+ * Form elements that want to add this validation should have the #token_types
+ * parameter defined.
+ *
+ * For example:
+ * @code
+ * $form['my_node_text_element'] = array(
+ *   '#type' => 'textfield',
+ *   '#title' => t('Some text to token-ize that has a node context.'),
+ *   '#default_value' => 'The title of this node is [node:title].',
+ *   '#element_validate' => array('token_element_validate_token_context'),
+ *   '#token_types' => array('node'),
+ * );
+ * @endcode
+ */
+function token_element_validate_token_context(&$element, &$form_state) {
+  $value = isset($element['#value']) ? $element['#value'] : $element['#default_value'];
+  $invalid_tokens = token_get_invalid_tokens_by_context($value, $element['#token_types']);
+  if ($invalid_tokens) {
+    form_error($element, t('The %element-title is using the following invalid tokens: @invalid-tokens.', array('%element-title' => $element['#title'], '@invalid-tokens' => implode(', ', $invalid_tokens))));
+  }
+  return $element;
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Alters the user e-mail fields to add token context validation and
+ * adds the token tree for a better token UI and selection.
+ */
+function token_form_user_admin_settings_alter(&$form, &$form_state) {
+  $email_token_help = t('Available variables are: [site:name], [site:url], [user:name], [user:mail], [site:login-url], [site:url-brief], [user:edit-url], [user:one-time-login-url], [user:cancel-url].');
+
+  foreach (element_children($form) as $key) {
+    $element = &$form[$key];
+
+    // Remove the crummy default token help text.
+    if (!empty($element['#description'])) {
+      $element['#description'] = trim(str_replace($email_token_help, '', $element['#description']));
+    }
+
+    switch ($key) {
+      case 'email_admin_created':
+      case 'email_pending_approval':
+      case 'email_no_approval_required':
+      case 'email_password_reset':
+      case 'email_cancel_confirm':
+        // Do nothing, but allow execution to continue.
+        break;
+      case 'email_activated':
+      case 'email_blocked':
+      case 'email_canceled':
+        // These fieldsets have their e-mail elements inside a 'settings'
+        // sub-element, so switch to that element instead.
+        $element = &$form[$key]['settings'];
+        break;
+      default:
+        continue 2;
+    }
+
+    foreach (element_children($element) as $sub_key) {
+      if (!isset($element[$sub_key]['#type'])) {
+        continue;
+      }
+      elseif ($element[$sub_key]['#type'] == 'textfield' && substr($sub_key, -8) === '_subject') {
+        // Add validation to subject textfields.
+        $element[$sub_key]['#element_validate'][] = 'token_element_validate_token_context';
+        $element[$sub_key] += array('#token_types' => array('user'));
+      }
+      elseif ($element[$sub_key]['#type'] == 'textarea' && substr($sub_key, -5) === '_body') {
+        // Add validation to body textareas.
+        $element[$sub_key]['#element_validate'][] = 'token_element_validate_token_context';
+        $element[$sub_key] += array('#token_types' => array('user'));
+      }
+    }
+
+    // Add the token tree UI.
+    $element['token_tree'] = array(
+      '#theme' => 'token_tree',
+      '#token_types' => array('user'),
+      '#show_restricted' => TRUE,
+      '#weight' => 100,
+    );
+  }
+}

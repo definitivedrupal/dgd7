@@ -1,0 +1,10 @@
+/* $Id: token.css,v 1.2 2010/03/25 22:58:01 davereid Exp $ */
+
+table.token-tree {
+  font-size: 0.85em;
+}
+
+table.token-tree td, table.token-tree th {
+  padding-top: 0;
+  padding-bottom: 0;
+}

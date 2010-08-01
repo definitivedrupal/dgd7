@@ -1,0 +1,14 @@
+; $Id: token.info,v 1.11 2010/04/18 05:03:01 davereid Exp $
+name = Token
+description = Provides a user interface for the Token API and some missing core tokens.
+core = 7.x
+files[] = token.module
+files[] = token.install
+files[] = token.test
+
+; Information added by drupal.org packaging script on 2010-07-21
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "token"
+datestamp = "1279714992"
+
