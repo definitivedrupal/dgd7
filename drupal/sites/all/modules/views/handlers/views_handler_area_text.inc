@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_area_text.inc,v 1.1.4.3 2010/03/20 23:43:48 dereine Exp $
+// $Id: views_handler_area_text.inc,v 1.1.4.4 2010/07/02 18:51:41 dereine Exp $
 
 class views_handler_area_text extends views_handler_area {
 
@@ -23,6 +23,8 @@ class views_handler_area_text extends views_handler_area {
   }
 
   function options_submit(&$form, &$form_state) {
+    $form_state['values']['options']['format'] = $form_state['values']['options']['content']['format'];
+    $form_state['values']['options']['content'] = $form_state['values']['options']['content']['value'];
     parent::options_submit($form, $form_state);
   }
 

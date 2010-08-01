@@ -1,5 +1,5 @@
 <?php
-// $Id: views_plugin_display.inc,v 1.27.4.28 2010/04/08 22:18:02 merlinofchaos Exp $
+// $Id: views_plugin_display.inc,v 1.27.4.29 2010/07/15 07:19:27 dereine Exp $
 /**
  * @file
  * Contains the base display plugin.
@@ -1886,7 +1886,7 @@ class views_plugin_display extends views_plugin {
       );
       $help = '';
       if (module_exists('advanced_help')) {
-        $help = theme('advanced_help_topic', array('topic' => 'views', 'type' => 'overrides'));
+        $help = theme('advanced_help_topic', array('module' => 'views', 'topic' => 'overrides'));
       }
       $form['override']['markup'] = array(
         '#markup' => '<div class="description">' . $help . t('Status: using default values.') . '</div>',
@@ -1902,7 +1902,7 @@ class views_plugin_display extends views_plugin {
       );
       $help = '';
       if (module_exists('advanced_help')) {
-        $help = theme('advanced_help_topic', array('topic' => 'views', 'type' => 'overrides'));
+        $help = theme('advanced_help_topic', array('module' => 'views', 'topic' => 'overrides'));
       }
       $form['override']['markup'] = array(
         '#markup' => '<div class="description">' . $help . t('Status: using overridden values.') . '</div>',

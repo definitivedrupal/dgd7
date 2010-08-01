@@ -5,9 +5,9 @@ package = Views
 core = 7.x
 dependencies[] = views
 files[] = views_ui.module
-; Information added by drupal.org packaging script on 2010-06-09
+; Information added by drupal.org packaging script on 2010-07-15
 version = "7.x-3.x-dev"
 core = "7.x"
 project = "views"
-datestamp = "1276086054"
+datestamp = "1279196333"
 

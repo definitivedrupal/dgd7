@@ -1,5 +1,5 @@
 <?php
-// $Id: views_plugin_row_node_view.inc,v 1.3.6.1 2010/05/19 20:22:41 dereine Exp $
+// $Id: views_plugin_row_node_view.inc,v 1.3.6.2 2010/07/04 11:04:36 dereine Exp $
 /**
  * @file
  * Contains the node view row style plugin.
@@ -75,6 +75,7 @@ class views_plugin_row_node_view extends views_plugin_row {
   }
 
   function pre_render($values) {
+    $nids = array();
     foreach ($values as $row) {
       $nids[] = $row->{$this->field_alias};
     }

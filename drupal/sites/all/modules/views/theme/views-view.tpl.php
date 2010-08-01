@@ -1,5 +1,5 @@
 <?php
-// $Id: views-view.tpl.php,v 1.13.4.3 2010/03/25 20:25:16 merlinofchaos Exp $
+// $Id: views-view.tpl.php,v 1.13.4.4 2010/07/04 10:04:51 dereine Exp $
 /**
  * @file views-view.tpl.php
  * Main view template
@@ -31,9 +31,7 @@
 ?>
 <div class="<?php print $classes; ?>">
   <?php if ($admin_links): ?>
-    <div class="views-admin-links views-hide">
-      <?php print $admin_links; ?>
-    </div>
+    <?php print $admin_links; ?>
   <?php endif; ?>
   <?php if ($header): ?>
     <div class="view-header">
