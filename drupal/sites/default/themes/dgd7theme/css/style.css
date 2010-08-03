@@ -421,7 +421,8 @@ ul.tips {
 
 .node .content {
   background: #FFF;
-  -moz-border-radius:8px 8px 8px 8px;
+  -moz-border-radius: 8px;
+  -webkit-border-radius: 8px;
   padding: 15px;
   color: #000;
 }
@@ -1331,4 +1332,8 @@ div.admin-panel .description {
   display: block;
 }
 
-
+/* Make the highlight region text a bit larger than body default. */
+#highlight {
+  font-size: 1.2em;
+  letter-spacing: 0em;
+}
