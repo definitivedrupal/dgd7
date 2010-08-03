@@ -10,7 +10,7 @@ html,
 #page-wrapper,
 body.overlay {
   background-color: #000000;
-  color: #3b3b3b;
+  color: #dedede;
 }
 #navigation ul.links li.active-trail a {
   background: #ffCD00;
