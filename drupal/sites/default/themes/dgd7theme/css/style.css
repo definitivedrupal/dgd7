@@ -1336,5 +1336,16 @@ div.admin-panel .description {
 /* Make the highlight region text a bit larger than body default. */
 #highlight {
   font-size: 1.2em;
-  letter-spacing: 0em;
+  line-height: 1.3em;
+  letter-spacing: .01em;
+}
+
+/* Suggestion node add form styling: condense type radio buttons. */
+#suggestion-node-form .form-type-radio {
+  display: inline;
+  margin-right: 10px;
+}
+
+#suggestion-node-form .form-radio {
+  margin-right: 2px;
 }
