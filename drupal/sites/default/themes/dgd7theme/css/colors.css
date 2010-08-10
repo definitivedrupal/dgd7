@@ -6,12 +6,16 @@ body {
   background-color: #000000;
   color: #FFFFFF;
 }
-html,
+body.not-front {
+  background-color: #FFFEE4;
+  color: #000000;
+}
+/*html,
 #page-wrapper,
 body.overlay {
   background-color: #000000;
   color: #FFFFFF;
-}
+}*/
 #navigation ul.links li.active-trail a {
   background: #ffCD00;
 }

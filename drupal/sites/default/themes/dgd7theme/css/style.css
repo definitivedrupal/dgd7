@@ -418,14 +418,6 @@ ul.tips {
 
 /* ----------------- Content ------------------ */
 
-.node .content {
-  background: #FFF;
-  -moz-border-radius: 8px;
-  -webkit-border-radius: 8px;
-  padding: 15px;
-  color: #000;
-}
-  
 #block-system-main,
 #preview #preview-block-system-main {
   font-size: 115%;
@@ -1330,9 +1322,10 @@ div.admin-panel .description {
 
 /* Make the highlight region text a bit larger than body default. */
 #highlight {
-  font-size: 1.2em;
+  font-size: 28px;
   line-height: 1.3em;
   letter-spacing: .01em;
+  margin: 25px 0px;
 }
 
 /* Suggestion node add form styling: condense type radio buttons. */
