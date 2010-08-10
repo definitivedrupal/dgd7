@@ -35,7 +35,6 @@ h6,
 h1,
 #preview h1 {
   font-size: 140%;
-  color: #FFE373;
 }
 h2,
 #preview h1 {
@@ -563,10 +562,7 @@ h1#page-title,
 /* ------------------ Sidebar ----------------- */
 
 .sidebar .content {
-  background: #FFF;
-  -moz-border-radius: 8px;
-  -webkit-border-radius: 8px;
-  padding: 15px;
+  padding: 5px;
 }
 .sidebar .block {
   padding: 15px 20px;
@@ -578,7 +574,6 @@ h1#page-title,
   border-bottom: 1px solid #d6d6d6;
   padding-bottom: 5px;
   /*text-shadow: 0 1px 0 #fff;*/
-  color: #FFCD00;
 }
 .sidebar tbody {
   border: none;
@@ -592,11 +587,10 @@ h1#page-title,
 /* ----------------- Triptych ----------------- */
 
 #triptych-wrapper {
-  background-color: #BFBB30;
+  background-color: #B2B2B2;
   border-top: 20px solid #FFCD00;
 }
 #triptych h2 {
-  color: #190773;
   font-size: 194%;
   margin-bottom: .8em;
   /*text-shadow: 0px 1px 0 #fff;*/

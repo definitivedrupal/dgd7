@@ -3,14 +3,14 @@
 /* ---------- Color Module Styles ----------- */
 
 body {
-  background-color: #000000;
-  color: #ffffff;
+  background-color: #dedede;
+  color: #000000;
 }
 html,
 #page-wrapper,
 body.overlay {
-  background-color: #000000;
-  color: #dedede;
+  background-color: #dedede;
+  color: #000000;
 }
 #navigation ul.links li.active-trail a {
   background: #ffCD00;
