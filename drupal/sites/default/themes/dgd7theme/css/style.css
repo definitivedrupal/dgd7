@@ -587,10 +587,11 @@ h1#page-title,
 /* ----------------- Triptych ----------------- */
 
 #triptych-wrapper {
-  background-color: #B2B2B2;
+  background-color: #000000;
   border-top: 20px solid #FFCD00;
 }
 #triptych h2 {
+  color: #dedede;
   font-size: 194%;
   margin-bottom: .8em;
   /*text-shadow: 0px 1px 0 #fff;*/
