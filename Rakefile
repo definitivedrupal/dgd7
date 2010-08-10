@@ -34,7 +34,7 @@ end
 
 task :prod do
   set :environment, "production"
-  set :domain, "definitivedrupal@sojourner.mayfirst.org"
+  set :domain, "sojourner.mayfirst.org"
   set :repository, "vlad@git.agaric.com:/srv/git/#{application}.git"
   set :web_command, "/etc/init.d/apache2"
   set :web_user, "www-data"

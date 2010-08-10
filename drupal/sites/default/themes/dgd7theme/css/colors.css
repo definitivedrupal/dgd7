@@ -3,14 +3,14 @@
 /* ---------- Color Module Styles ----------- */
 
 body {
-  background-color: #dedede;
-  color: #000000;
+  background-color: #000000;
+  color: #FFFFFF;
 }
 html,
 #page-wrapper,
 body.overlay {
-  background-color: #dedede;
-  color: #000000;
+  background-color: #000000;
+  color: #FFFFFF;
 }
 #navigation ul.links li.active-trail a {
   background: #ffCD00;
@@ -20,7 +20,7 @@ body.overlay {
 }
 #header {
   background-color: #000000;
-  border-bottom:2px solid #FFCC00;
+  border-bottom:4px solid #FFCC00;
 }
 a {
   color: #104BA9;
@@ -33,7 +33,7 @@ a:active {
   color: #6A93D4;
 }
 .breadcrumb a {
-  color: #FFCD00;
+
 }
 .sidebar .block {
   /*background-color: #f6f6f2;
