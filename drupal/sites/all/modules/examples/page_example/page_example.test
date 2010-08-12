@@ -1,0 +1,120 @@
+<?php
+// $Id: page_example.test,v 1.1 2009/11/16 19:44:59 rfay Exp $
+
+/**
+ * @file
+ * Test case for Testing the page example module.
+ *
+ * This file contains the test cases to check if module is performing as
+ * expected.
+ *
+ */
+class PageExampleTestCase extends DrupalWebTestCase {
+  protected $web_user;
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Page example functionality',
+      'description' => 'Creates page and render the content based on the arguments passed in the URL.',
+      'group' => 'Examples',
+    );
+  }
+
+  /**
+   * Enable modules and create user with specific permissions.
+   */
+  function setUp() {
+    parent::setUp('page_example');
+  }
+
+  /**
+   * Generates a random string of ASCII numeric characters (values 48 to 57).
+   *
+   * @param $length
+   *   Length of random string to generate .
+   * @return
+   *   Randomly generated string.
+   */
+  private static function randomNumber($length = 8) {
+    $str = '';
+    for ($i = 0; $i < $length; $i++) {
+      $str .= chr(mt_rand(48, 57));
+    }
+    return $str;
+  }
+
+  /**
+   * Verify that current user has no access to page.
+   *
+   * @param $url
+   *   URL to verify.
+   */
+  function pageExampleVerifyNoAccess($url) {
+    // Test that page returns 403 Access Denied
+    $this->drupalGet($url);
+    $this->assertResponse(403);
+  }
+
+  /**
+   * Login user, create an example node, and test blog functionality through the admin and user interfaces.
+   */
+  function testPageExampleBasic() {
+
+    // Verify that anonymous user can't access the pages created by
+    // page_example module
+    $this->pageExampleVerifyNoAccess('example/foo');
+    $this->pageExampleVerifyNoAccess('example/baz/1/2');
+
+    // Create a regular user and login.
+    $this->web_user = $this->drupalCreateUser();
+    $this->drupalLogin($this->web_user);
+
+    // Verify that regular user can't access the pages created by
+    // page_example module
+    $this->pageExampleVerifyNoAccess('example/foo');
+    $this->pageExampleVerifyNoAccess('example/baz/1/2');
+
+    // Create a user with permissions to access 'foo' page and login.
+    $this->web_user = $this->drupalCreateUser(array('access foo content'));
+    $this->drupalLogin($this->web_user);
+
+    // Verify that user can access foo content
+    $this->drupalGet('example/foo');
+    $this->assertResponse(200, t('foo content successfully accessed.'));
+    $this->assertRaw(t('The quick brown fox jumps over the lazy dog.'), t('foo content successfully verified.'));
+
+    // Check if user can't access baz page
+    $this->pageExampleVerifyNoAccess('example/baz/1/2');
+
+
+
+    // Create a user with permissions to access 'foo' page and login.
+    $this->web_user = $this->drupalCreateUser(array('access baz content'));
+    $this->drupalLogin($this->web_user);
+
+    // Verify that user can access foo content
+    $alice = $this->randomNumber(3);
+    $bob = $this->randomNumber(3);
+    $this->drupalGet('example/baz/' . $alice . '/' . $bob);
+    $this->assertResponse(200, t('baz content successfully accessed.'));
+    // Verify argument usage
+    $this->assertRaw(t("Alice's number was @number.", array('@number' => $alice)), t('baz alice argument successfully verified.'));
+    $this->assertRaw(t("Bob's number was @number.", array('@number' => $bob)), t('baz bob argument successfully verified.'));
+    $this->assertRaw(t('The total was @number.', array('@number' => $alice + $bob)), t('baz content successfully verified.'));
+
+    // Verify incomplete argument call to baz content
+    $this->drupalGet('example/baz/' . $alice . '/');
+    $this->assertResponse(404, t('Invalid argument for baz content successfully verified'));
+
+    // Verify invalid argument call to baz content
+    $this->drupalGet('example/baz/' . $alice . '/' . $this->randomString());
+    $this->assertResponse(403, t('Invalid argument for baz content successfully verified'));
+
+    // Verify invalid argument call to baz content
+    $this->drupalGet('example/baz/' . $this->randomString() . '/' . $bob);
+    $this->assertResponse(403, t('Invalid argument for baz content successfully verified'));
+
+    // Check if user can't access foo page
+    $this->pageExampleVerifyNoAccess('example/foo');
+  }
+}

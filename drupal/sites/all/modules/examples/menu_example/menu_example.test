@@ -1,0 +1,87 @@
+<?php
+// $Id: menu_example.test,v 1.2 2010/05/29 00:35:49 rfay Exp $
+
+/**
+ * @file
+ * Tests for menu example module.
+ */
+class MenuExampleTestCase extends DrupalWebTestCase {
+  protected $web_user;
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Menu example functionality',
+      'description' => 'Checks behavior of Menu Example.',
+      'group' => 'Examples',
+    );
+  }
+
+  /**
+   * Enable modules and create user with specific permissions.
+   */
+  public function setUp() {
+    parent::setUp('menu_example');
+  }
+
+  /**
+   * Test the various menus.
+   */
+  function testMenuExample() {
+    $this->drupalGet('');
+    $this->clickLink(t('Menu Example'));
+    $this->assertText(t('This is the base page of the Menu Example'));
+
+    $this->clickLink(t('Permissioned Example'));
+    $this->assertText(t('Permissioned Example'));
+
+    $this->clickLink('menu_example/permissioned/controlled');
+    $this->assertResponse(403);
+
+    $this->drupalGet('menu_example');
+
+    $this->clickLink(t('MENU_CALLBACK example'));
+
+    $this->drupalGet('menu_example/path_only/callback');
+    $this->assertText(t('The menu entry for this page is of type MENU_CALLBACK'));
+
+    $this->clickLink(t('Tabs'));
+    $this->assertText(t('This is the "tabs" menu entry'));
+
+    $this->drupalGet('menu_example/tabs/second');
+    $this->assertText(t('This is the tab "second" in the "basic tabs" example'));
+
+    $this->clickLink(t('third'));
+    $this->assertText(t('This is the tab "third" in the "basic tabs" example'));
+
+    $this->clickLink(t('Extra Arguments'));
+
+    $this->drupalGet('menu_example/use_url_arguments/one/two');
+    $this->assertText(t('Argument 1=one'));
+
+    $this->clickLink(t('Placeholder Arguments'));
+
+    $this->clickLink(t('menu_example/placeholder_argument/3343/display'));
+    $this->assertRaw('<div>3343</div>');
+
+    $this->clickLink(t('Processed Placeholder Arguments'));
+    $this->assertText(t('Loaded value was jackpot! default'));
+
+
+    // Create a user with permissions to access protected menu entry.
+    $web_user = $this->drupalCreateUser(array('access protected menu example'));
+    $this->drupalLogin($web_user);
+    // Check that our title callback changing /user dynamically is working.
+    $this->assertRaw(t("@name&#039;s account", array('@name' => $web_user->name)));
+    $this->drupalGet('menu_example');
+
+    $this->clickLink(t('Permissioned Example'));
+    $this->clickLink('menu_example/permissioned/controlled');
+    $this->assertResponse(200);
+    $this->assertText('This menu entry will not show');
+
+    // Verify that the 'logout' link has been changed to 'salir'.
+    $this->drupalGet('user/salir');
+    $this->drupalGet('user');
+    $this->clickLink(t('Create new account'));
+  }
+}

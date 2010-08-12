@@ -1,0 +1,17 @@
+; $Id: form_example.info,v 1.3 2010/04/10 23:07:51 rfay Exp $
+name = Form example
+description = Examples of using the Drupal Form API.
+package = Example modules
+core = 7.x
+files[] = form_example.module
+files[] = form_example.install
+files[] = form_example_tutorial.inc
+files[] = form_example_states.inc
+files[] = form_example.test
+
+; Information added by drupal.org packaging script on 2010-07-11
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "examples"
+datestamp = "1278865960"
+

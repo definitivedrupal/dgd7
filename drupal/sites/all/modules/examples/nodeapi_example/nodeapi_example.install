@@ -1,0 +1,40 @@
+<?php
+
+// $Id: nodeapi_example.install,v 1.3 2010/03/31 04:50:43 rfay Exp $
+
+/**
+ * @file
+ * Install, update and uninstall functions for the nodeapi example module.
+ *
+ * This file contains the functions required to perform install, update and
+ * uninstall operations.
+ *
+ */
+
+/**
+ * Implements hook_install().
+ */
+function nodeapi_example_install() {
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function nodeapi_example_uninstall() {
+}
+
+/**
+ * Implements hook_schema().
+ */
+function nodeapi_example_schema() {
+  $schema['nodeapi_example'] = array(
+    'description' => 'Stores information of extended content.',
+    'fields' => array(
+      'nid'    => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+      'rating' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+  ),
+    'primary key' => array('nid'),
+  );
+
+  return $schema;
+}

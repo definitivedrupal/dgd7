@@ -1,0 +1,16 @@
+; $Id: node_access_example.info,v 1.6 2010/06/08 01:33:56 rfay Exp $
+name = Node access example
+description = Demonstrates how a module can use Drupal's node access system
+package = Example modules
+version = VERSION
+core = 7.x
+files[] = node_access_example.module
+files[] = node_access_example.install
+files[] = node_access_example.test
+
+; Information added by drupal.org packaging script on 2010-07-11
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "examples"
+datestamp = "1278865960"
+

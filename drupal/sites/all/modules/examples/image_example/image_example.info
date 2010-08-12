@@ -1,0 +1,19 @@
+; $Id: image_example.info,v 1.1 2010/04/10 22:46:13 rfay Exp $
+name = Image Example
+description = Example implementation of image.module hooks.
+package = Example modules
+core = 7.x
+version = VERSION
+core = 7.x
+dependencies[] = image
+files[] = image_example.module
+files[] = image_example.pages.inc
+files[] = image_example.install
+files[] = image_example.test
+
+; Information added by drupal.org packaging script on 2010-07-11
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "examples"
+datestamp = "1278865960"
+

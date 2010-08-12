@@ -1,0 +1,150 @@
+<?php
+// $Id: form_example.module,v 1.7 2010/06/20 19:21:48 rfay Exp $
+
+/**
+ * @file
+ * Examples demonstrating the Drupal Form API.
+ *
+ */
+
+/**
+ * The Form Example module is a part of the Examples for Developers Project
+ * and provides various Drupal Form API Examples. You can download and
+ * experiment with this code at the
+ * @link http://drupal.org/project/examples Examples for Developers project page. @endlink
+ *
+ * @defgroup form_example Examples: Form Examples
+ */
+
+/**
+ * Implements hook_menu() to set up the URLs (menu entries) for the
+ * form examples.
+ */
+function form_example_menu() {
+  $items = array();
+  $items['examples/form_example'] = array(
+    'title' => 'Form Example',
+    'page callback' => 'form_example_intro',
+    'access callback' => TRUE,
+    'expanded' => TRUE,
+  );
+  $items['examples/form_example/tutorial'] = array(
+    'title' => 'Form Tutorial',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('form_example_tutorial_1'),
+    'access callback' => TRUE,
+    'description' => 'A set of ten tutorials',
+    'file' => 'form_example_tutorial.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+  $items['examples/form_example/tutorial/1'] = array(
+    'title' => '#1',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('form_example_tutorial_1'),
+    'access callback' => TRUE,
+    'description' => 'Tutorial 1: Simplest form',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'file' => 'form_example_tutorial.inc',
+  );
+  $items['examples/form_example/tutorial/2'] = array(
+    'title' => '#2',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('form_example_tutorial_2'),
+    'access callback' => TRUE,
+    'description' => 'Tutorial 2: Form with a submit button',
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'form_example_tutorial.inc',
+  );
+  $items['examples/form_example/tutorial/3'] = array(
+    'title' => '#3',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('form_example_tutorial_3'),
+    'access callback' => TRUE,
+    'description' => 'Tutorial 3: Fieldsets',
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'form_example_tutorial.inc',
+  );
+  $items['examples/form_example/tutorial/4'] = array(
+    'title' => '#4',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('form_example_tutorial_4'),
+    'access callback' => TRUE,
+    'description' => 'Tutorial 4: Required fields',
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'form_example_tutorial.inc',
+  );
+  $items['examples/form_example/tutorial/5'] = array(
+    'title' => '#5',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('form_example_tutorial_5'),
+    'access callback' => TRUE,
+    'description' => 'Tutorial 5: More element attributes',
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'form_example_tutorial.inc',
+  );
+  $items['examples/form_example/tutorial/6'] = array(
+    'title' => '#6',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('form_example_tutorial_6'),
+    'access callback' => TRUE,
+    'description' => 'Tutorial 6: Form with a validate handler',
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'form_example_tutorial.inc',
+  );
+  $items['examples/form_example/tutorial/7'] = array(
+    'title' => '#7',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('form_example_tutorial_7'),
+    'access callback' => TRUE,
+    'description' => 'Tutorial 7: Form with a submit handler',
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'form_example_tutorial.inc',
+  );
+  $items['examples/form_example/tutorial/8'] = array(
+    'title' => '#8',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('form_example_tutorial_8'),
+    'access callback' => TRUE,
+    'description' => 'Tutorial 8: Basic multistep form',
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'form_example_tutorial.inc',
+  );
+  $items['examples/form_example/tutorial/9'] = array(
+    'title' => '#9',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('form_example_tutorial_9'),
+    'access callback' => TRUE,
+    'description' => 'Tutorial 9: Form with dynamically added new fields',
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'form_example_tutorial.inc',
+    'weight' => 9,
+  );
+  $items['examples/form_example/states'] = array(
+    'title' => '#states example',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('form_example_states_form'),
+    'access callback' => TRUE,
+    'description' => 'How to use the #states attribute in FAPI',
+    'file' => 'form_example_states.inc',
+  );
+  return $items;
+}
+
+function form_example_intro() {
+  $markup = t('The form example module provides a tutorial and a #states example');
+  return $markup;
+}
+
+/**
+ * Implements hook_help() to provide a bit of help.
+ */
+function form_example_help($path, $arg) {
+  switch($path) {
+    case 'examples/form_example/tutorial':
+      // TODO: Update the URL.
+      $help = t('This form example tutorial for Drupal 7 is the code from the <a href="http://drupal.org/node/262422">Handbook 10-step tutorial</a>');
+  }
+  if (!empty($help)) {
+    return '<p>' . $help . '</p>';
+  }
+}

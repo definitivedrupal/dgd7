@@ -1,0 +1,181 @@
+<?php
+// $Id: xmlrpc_example.module,v 1.3 2010/02/10 23:57:51 rfay Exp $
+
+/**
+ * @file
+ * This is an example of how to implement XML-RPC callbacks by registering
+ * an XMLRPC server function and then calling it with the xmlrpc() function.
+ *
+ * For experimentation you may be interested in the
+ * @link http://drupal.org/project/xmlrpctester XMLRPC Tester module @endlink.
+ *
+ * Note that the @link http://drupal.org/project/services Services module @endlink
+ * is probably the more common way to do XMLRPC at this time.
+ *
+ * @see hook_xmlrpc()
+ * @see xmlrpc()
+ * @see xmlrpc_errno()
+ * @see xmlrpc_error_msg()
+ */
+
+// This is the server part of the module, implementing a silly
+// little xmlrpc server.
+/**
+ * Implements hook_xmlrpc().
+ *
+ * Provides Drupal with an array to map XML-RPC callbacks to the
+ * functions implemented by this module.
+ * @see hook_xmlrpc()
+ */
+function xmlrpc_example_xmlrpc() {
+   $methods[] =  array(
+      'xmlrpc_example.add',
+      '_xmlrpc_example_add',
+      array(
+        'int', // the type of the return value
+        'int', // the type of the first argument
+        'int',  // the type of the second argument
+      ),
+      t('Returns the sum of the two arguments.')
+  );
+  $methods[] =  array(
+      'xmlrpc_example.subtract',
+      '_xmlrpc_example_subtract',
+      array('int', 'int', 'int'),
+      t('Return difference of the two arguments.')
+  );
+
+  return $methods;
+}
+/**
+ * Sum the two arguments.
+ * @param $num1
+ * @param $num2
+ * @return
+ *   The sum of the arguments.
+ *
+ * @see xmlrpc_error()
+ */
+function _xmlrpc_example_add($num1, $num2) {
+  $sum = $num1 + $num2;
+  if ($sum <= 10) {
+    return $sum;
+  }
+  else {
+    return xmlrpc_error(10001, t("Sorry, I only have ten fingers and can't count past that."));
+  }
+}
+
+/**
+ * Return the difference of the two arguments.
+ * @param numeric $num1
+ * @param numeric $num2
+ * @return
+ *   The difference of the two arguments.
+ *
+ * @see xmlrpc_error()
+ */
+function _xmlrpc_example_subtract($num1, $num2) {
+  $difference = $num1 - $num2;
+  if ($difference >= 0) {
+    return $difference;
+  }
+  else {
+    return xmlrpc_error(10002, t("I have not learned to do negative numbers yet."));
+  }
+}
+
+
+// Now begins the client/UI portion of the module.
+/**
+ * Implements hook_menu for a simple explanation page.
+ */
+function xmlrpc_example_menu() {
+  $items['examples/xmlrpc_example'] = array(
+    'title' => 'XMLRPC example',
+    'description' => 'Demonstrates client and server side XMLRPC with Drupal',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('xmlrpc_example_demo_form'),
+    'access callback' => TRUE,
+  );
+  return $items;
+}
+
+/**
+ * Present a form that uses xmlrpc to add or subtract.
+ */
+function xmlrpc_example_demo_form() {
+  $form = array();
+  $form['explanation'] = array(
+    '#markup' => "<div>" . t("The XMLRPC example demonstrates the use of the XMLRPC client and server in Drupal. <br/>It uses the xmlrpc() function to act as a client, calling itself as a server to demonstrate both sides of the operation.") . "</div>",
+  );
+  $form['num1'] = array(
+    '#type' => 'textfield',
+    '#title' => t("Enter an integer"),
+    '#default_value' => 2,
+    '#size' => 5,
+    '#required' => TRUE,
+  );
+  $form['num2'] = array(
+    '#type' => 'textfield',
+    '#title' => t("Enter a second integer"),
+    '#description' => t("An xmlrpc error will result if they sum to more than 10 or the difference is less than 0."),
+    '#default_value' => 2,
+    '#size' => 5,
+    '#required' => TRUE,
+  );
+  $form['add'] = array(
+    '#type' => 'submit',
+    '#value' => t("Add the integers"),
+    '#submit' => array('xmlrpc_example_add_submit'),
+  );
+  $form['subtract'] = array(
+    '#type' => 'submit',
+    '#value' => t("Subtract the integers"),
+    '#submit' => array('xmlrpc_example_subtract_submit'),
+  );
+  return $form;
+}
+
+/**
+ * Submit: Call the xmlrpc method to add and report the result.
+ * @param $form
+ * @param $form_state
+ *
+ * @see xmlrpc()
+ * @see xmlrpc_errno()
+ * @see xmlrpc_error_msg()
+ */
+function xmlrpc_example_add_submit($form, &$form_state) {
+  $server = url($GLOBALS['base_url'] . "/xmlrpc.php");
+  $result = xmlrpc($server, 'xmlrpc_example.add', (int)$form_state['values']['num1'], (int)$form_state['values']['num2']);
+
+  if ($result === FALSE) {
+    drupal_set_message(t("Error return from xmlrpc(): Error: @errno, Message: @message", array('@errno' => xmlrpc_errno(), '@message' => xmlrpc_error_msg())));
+  }
+  else {
+    drupal_set_message(t("The XMLRPC server returned this response: @response", array('@response' => print_r($result, TRUE))));
+  }
+}
+
+/**
+ * Submit for subtraction: Call the xmlrpc method and report the result.
+ * @param $form
+ * @param $form_state
+ *
+ * @see xmlrpc()
+ * @see xmlrpc_errno()
+ * @see xmlrpc_error_msg()
+ */
+function xmlrpc_example_subtract_submit($form, &$form_state) {
+  $server = url($GLOBALS['base_url'] . "/xmlrpc.php");
+  $result = xmlrpc($server, 'xmlrpc_example.subtract', (int)$form_state['values']['num1'], (int)$form_state['values']['num2']);
+
+  if ($result === FALSE) {
+    drupal_set_message(t("Error return from xmlrpc(): Error: @errno, Message: @message", array('@errno' => xmlrpc_errno(), '@message' => xmlrpc_error_msg())));
+  }
+  else {
+    drupal_set_message(t("The XMLRPC server returned this response: @response", array('@response' => print_r($result, TRUE))));
+  }
+}
+

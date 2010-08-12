@@ -1,0 +1,14 @@
+; $Id: field_example.info,v 1.3 2010/06/06 01:10:36 rfay Exp $
+name = Field Example
+description = A trivial implementation of a field to show the Field API
+package = Example modules
+core = 7.x
+files[] = field_example.module
+files[] = field_example.test
+
+; Information added by drupal.org packaging script on 2010-07-11
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "examples"
+datestamp = "1278865960"
+

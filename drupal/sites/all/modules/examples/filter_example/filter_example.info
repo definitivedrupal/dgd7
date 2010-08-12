@@ -1,0 +1,14 @@
+; $Id: filter_example.info,v 1.4 2009/11/10 00:48:26 rfay Exp $
+name = Filter example
+description = An example module showing how to define a custom filter.
+package = Example modules
+core = 7.x
+files[] = filter_example.module
+files[] = filter_example.test
+
+; Information added by drupal.org packaging script on 2010-07-11
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "examples"
+datestamp = "1278865960"
+

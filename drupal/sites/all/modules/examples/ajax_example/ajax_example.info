@@ -1,0 +1,16 @@
+; $Id: ajax_example.info,v 1.2 2010/03/23 03:06:57 rfay Exp $
+name = AJAX Example
+description = An example module showing how to use Drupal AJAX forms
+core = 7.x
+package = Example modules
+files[] = ajax_example.module
+files[] = ajax_example_graceful_degradation.inc
+files[] = ajax_example_advanced.inc
+files[] = ajax_example_misc.inc
+
+; Information added by drupal.org packaging script on 2010-07-11
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "examples"
+datestamp = "1278865960"
+

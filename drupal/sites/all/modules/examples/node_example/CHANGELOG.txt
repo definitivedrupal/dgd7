@@ -1,0 +1,4 @@
+$Id: CHANGELOG.txt,v 1.1 2010/02/10 17:04:47 rfay Exp $
+
+#508342 by cyberswat, ilo, torelad, rfay | jhodgdon, c960657, Crell: 
+    node example D7 version.

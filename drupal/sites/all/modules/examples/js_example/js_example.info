@@ -1,0 +1,13 @@
+; $Id $
+name = JS Example
+description = An example module showing how to use some of the new JavaScript features in Drupal 7
+core = 7.x
+package = Example modules
+files[] = js_example.module
+
+; Information added by drupal.org packaging script on 2010-07-11
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "examples"
+datestamp = "1278865960"
+

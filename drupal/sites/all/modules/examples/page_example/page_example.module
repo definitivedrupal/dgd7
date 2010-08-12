@@ -1,0 +1,142 @@
+<?php
+// $Id: page_example.module,v 1.5 2010/07/10 13:36:43 rfay Exp $
+
+/**
+ * @file
+ * This is an example outlining how a module can be used to display a
+ * custom page at a given URL.
+ */
+
+/**
+ * Implements hook_help().
+ *
+ * Throughout Drupal, hook_help() is used to display help text at the top of
+ * pages. Some other parts of Drupal pages get explanatory text from these hooks
+ * as well. We use it here to illustrate how to add help text to the pages your
+ * module defines.
+ */
+function page_example_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#foo':
+      // Here is some help text for a custom page.
+      return t('This sentence contains all the letters in the English alphabet.');
+  }
+}
+
+/**
+ * Implements hook_permission().
+ *
+ * Since the access to our new custom pages will be granted based on
+ * special permissions, we need to define what those permissions are here.
+ * This ensures that they are available to enable on the user role
+ * administration pages.
+ */
+function page_example_permission() {
+  return array(
+  	'access foo content' => array(
+  	  'title' => t('Access foo content'),
+  	  'description' => t('Allow users to access foo content'),
+    ),
+    'access baz content' => array(
+      'title' => t('Access baz content'),
+      'description' => t('Allow users to access baz content'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ *
+ * hook_menu() must be implemented to emit items to place in the main menu.
+ * This is a required step for modules wishing to display their own pages,
+ * because the process of creating the links also tells Drupal what
+ * callback function to use for a given URL. The menu items returned
+ * here provide this information to the menu system.
+ *
+ * With the below menu definitions, URLs will be interpreted as follows:
+ *
+ * If the user accesses http://example.com/?q=foo, then the menu system
+ * will first look for a menu item with that path. In this case it will
+ * find a match, and execute page_example_foo().
+ *
+ * If the user accesses http://example.com/?q=bar, no match will be found,
+ * and a 404 page will be displayed.
+ *
+ * If the user accesses http://example.com/?q=bar/baz, the menu system
+ * will find a match and execute page_example_baz().
+ *
+ * If the user accesses http://example.com/?q=example/baz/1/2, the menu system
+ * will first look for example/baz/1/2. Not finding a match, it will look for
+ * example/baz/1/%. Again not finding a match, it will look for example/baz/%/2. Yet
+ * again not finding a match, it will look for example/baz/%/%. This time it finds
+ * a match, and so will execute page_example_baz(1, 2). Note the parameters
+ * being passed; this is a very useful technique.
+ *
+ * The @link menu_example.module Menu Example @endlink provides extensive
+ * examples for hook_menu().
+ */
+function page_example_menu() {
+  // This is the minimum information you can provide for a menu item. This menu
+  // item will be created in the default menu: Navigation.
+  $items['example/foo'] = array(
+    'title' => 'Page example: (foo)',
+    'page callback' => 'page_example_foo',
+    'access arguments' => array('access foo content'),
+  );
+
+  // By using the MENU_CALLBACK type, we can register the callback for this
+  // path but do not have the item show up in the menu; the admin is not allowed
+  // to enable the item in the menu, either.
+  //
+  // Notice that the 'page arguments' is an array of numbers. These will be
+  // replaced with the corresponding parts of the menu path. In this case a 0
+  // would be replaced by 'example', a 1 by 'baz', and like wise 2 and 3 will
+  // be replaced by what ever the user provides. These will be passed as
+  // arguments to the page_example_baz() function.
+  $items['example/baz/%/%'] = array(
+    'title' => 'Baz',
+    'page callback' => 'page_example_baz',
+    'page arguments' => array(2, 3),
+    'access arguments' => array('access baz content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * A simple page callback.
+ *
+ * Page callbacks are required to return the entire page. The content
+ * is then usually output via a call to theme('page'), where the theme system
+ * will then surround the content in the appropriate blocks, navigation, and
+ * styling.
+ *
+ * If you do not want to use the theme system (for example for outputting an
+ * image or XML), you should print the content yourself and not return anything.
+ */
+function page_example_foo() {
+  return '<p>' . t('The quick brown fox jumps over the lazy dog.') . ' </p>';
+}
+
+/**
+ * A more complex page callback that takes arguments.
+ *
+ * The arguments are passed in from the page URL. The in our hook_menu
+ * implementation we instructed the menu system to extract the last two
+ * parameters of the path and pass them to this function as arguments.
+ */
+function page_example_baz($alice, $bob) {
+  // Make sure you don't trust the URL to be safe! Always check for exploits.
+  if (!is_numeric($alice) || !is_numeric($bob)) {
+    // We will just show a standard "access denied" page in this case.
+    return drupal_access_denied();
+  }
+
+  $list[] = t("Alice's number was @number.", array('@number' => $alice));
+  $list[] = t("Bob's number was @number.", array('@number' => $bob));
+  $list[] = t('The total was @number.', array('@number' => $alice + $bob));
+
+  return theme('item_list', array('items' => $list, 'title' => t('baz content')));
+}
+

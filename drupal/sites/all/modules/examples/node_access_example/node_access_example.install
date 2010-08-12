@@ -1,0 +1,30 @@
+<?php
+// $Id: node_access_example.install,v 1.4 2010/05/07 01:53:21 rfay Exp $
+
+/**
+ * Implements hook_install().
+ */
+function node_access_example_install() {
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function node_access_example_uninstall() {
+}
+
+/**
+ * Implements hook_schema().
+ */
+function node_access_example_schema() {
+  $schema['node_access_example'] = array(
+    'description' => 'Example table for node_access_example module',
+    'fields' => array(
+      'nid'     => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+      'private' => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+    ),
+    'primary key' => array('nid'),
+  );
+
+  return $schema;
+}

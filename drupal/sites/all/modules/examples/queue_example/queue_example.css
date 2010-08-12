@@ -1,0 +1,5 @@
+/* $Id: queue_example.css,v 1.1 2010/05/23 05:59:59 rfay Exp $ */
+
+.form-item-string-to-add, div.form-item-claim-time { 
+  display: inline;
+}

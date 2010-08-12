@@ -1,0 +1,10 @@
+/* $Id: field_example.css,v 1.1 2010/06/22 01:15:30 rfay Exp $ */
+
+/**
+ * @file
+ * CSS for Field Example.
+ */
+div.form-item table .form-type-textfield, 
+div.form-item table .form-type-textfield * {
+  display: inline-block;
+}
