@@ -69,12 +69,6 @@
 
   <div id="main-wrapper" class="clearfix"><div id="main" class="clearfix">
 
-    <?php if ($page['sidebar_first']): ?>
-      <div id="sidebar-first" class="column sidebar"><div class="section">
-        <?php print render($page['sidebar_first']); ?>
-      </div></div> <!-- /.section, /#sidebar-first -->
-    <?php endif; ?>
-
     <div id="content" class="column"><div class="section">
       <a id="main-content"></a>
       <?php print render($title_prefix); ?>

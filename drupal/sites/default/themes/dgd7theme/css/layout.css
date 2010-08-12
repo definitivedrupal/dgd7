@@ -30,6 +30,10 @@
 .one-sidebar #content {
   width: 720px;
 }
+.front.one-sidebar #content {
+  width: 960px;
+  float: none;
+}
 .two-sidebars #content {
   width: 480px;
 }
