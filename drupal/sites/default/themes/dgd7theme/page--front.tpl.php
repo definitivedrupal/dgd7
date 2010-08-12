@@ -90,7 +90,6 @@
         </ul>
       <?php endif; ?>
       <div id="highlight"><?php print render($page['highlight']); ?></div>
-      <?php print $feed_icons; ?>
 
     </div></div> <!-- /.section, /#content -->
 
