@@ -1322,8 +1322,8 @@ div.admin-panel .description {
 
 /* Make the highlight region text a bit larger than body default. */
 #highlight {
-  font-size: 28px;
-  line-height: 1.3em;
+  font-size: 26px;
+  line-height: 32px;
   letter-spacing: .01em;
   margin: 25px 0px;
   background: url('../images/sm-bookcover-logo.png') no-repeat left;
