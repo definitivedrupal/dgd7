@@ -168,6 +168,7 @@
 
 
     <div id="content" class="column"><div class="section">
+      <?php if ($page['highlight']): ?><div id="highlight"><?php print render($page['highlight']); ?></div><?php endif; ?>
       <a id="main-content"></a>
       <?php print render($title_prefix); ?>
       <?php if ($title): ?>
