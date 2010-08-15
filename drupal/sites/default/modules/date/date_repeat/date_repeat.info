@@ -9,9 +9,3 @@ files[] = date_repeat_calc.inc
 files[] = date_repeat_form.inc
 files[] = date_repeat.install
 files[] = date_repeat.module
-; Information added by drupal.org packaging script on 2010-08-14
-version = "7.x-1.x-dev"
-core = "7.x"
-project = "date"
-datestamp = "1281787558"
-
