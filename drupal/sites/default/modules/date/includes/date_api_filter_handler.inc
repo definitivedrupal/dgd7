@@ -1,5 +1,5 @@
 <?php
-// $Id: date_api_filter_handler.inc,v 1.9 2010/03/05 12:02:59 karens Exp $
+// $Id: date_api_filter_handler.inc,v 1.17 2010/08/12 22:32:34 karens Exp $
 
 /**
  * @file
@@ -35,6 +35,8 @@ class date_api_filter_handler extends views_handler_filter_numeric {
     $handler->granularity = isset($options['granularity']) ? $options['granularity'] : 'day';
     $handler->adjustment_field = isset($options['adjustment_field']) ? $options['adjustment_field'] : 0;
     
+    if (empty($this->view->date_info)) $this->view->date_info = new stdClass();
+    
     // Set the view range, do this only if not already set in case there are multiple date arguments.
     if (empty($this->view->date_info->min_allowed_year)) {
       $range = date_range_years($this->options['year_range']);
@@ -59,18 +61,13 @@ class date_api_filter_handler extends views_handler_filter_numeric {
   // Set default values for the date filter.
   function option_definition() {
     $options = parent::option_definition();
-    $options['date_fields'] = array('default' => '');
+    $options['date_fields'] = array('default' => array());
     $options['date_method'] = array('default' => 'OR');
     $options['granularity'] = array('default' => 'day');
     $options['form_type'] = array('default' => 'date_select');
     $options['default_date'] = array('default' => '');
     $options['default_to_date'] = array('default' => '');
     $options['year_range'] = array('default' => '-3:+3');
-    return $options;
-  }
-  
-  function option_definition() {
-    $options = parent::option_definition();
     return $options;
   }
 
@@ -107,6 +104,7 @@ class date_api_filter_handler extends views_handler_filter_numeric {
   }
    
   function extra_options_form(&$form, &$form_state) {
+    parent::extra_options_form($form, $form_state);
     $form['form_type'] = array(
       '#type' => 'radios',
       '#title' => t('Date form type'),
@@ -128,7 +126,7 @@ class date_api_filter_handler extends views_handler_filter_numeric {
     $fields = date_api_fields($this->definition['base']);
     $options = array();
     foreach ($fields['name'] as $name => $field) {
-      $options[$name] = $instance['label'];
+      $options[$name] = $field['label'];
     }
     $form['date_fields'] = array(
       '#title' => t('Date field(s)'),
@@ -137,6 +135,7 @@ class date_api_filter_handler extends views_handler_filter_numeric {
       '#default_value' => $this->options['date_fields'],
       '#multiple' => FALSE,
       '#description' => t('Select date field(s) to filter with this argument.'),
+      '#required' => TRUE,
     );
     $form['date_method'] = array(
       '#title' => t('Method'),
@@ -146,7 +145,7 @@ class date_api_filter_handler extends views_handler_filter_numeric {
       '#description' => t('Method of handling multiple date fields in the same query. Return items that have any matching date field (date = field_1 OR field_2), or only those with matches in all selected date fields (date = field_1 AND field_2).'),
       );
   }
-
+  
   function extra_options_validate($form, &$form_state) {
     $check_fields = array_filter($form_state['values']['options']['date_fields']);
     if (empty($check_fields)) {
@@ -164,8 +163,14 @@ class date_api_filter_handler extends views_handler_filter_numeric {
     
   /**
    * Add the selectors to the value form using the date handler.
+   *
+   * @TODO Come back and swap date_select, date_popup, or date_text in for '#type' => 'textfield'.
+   * Those types need to be debugged first, they are not totally working right.
+   * In the meantime the form will load without errors, but won't actually work, since
+   * the dates are not the expected values.
    */
   function value_form(&$form, &$form_state) {
+
     // We use different values than the parent form, so we must
     // construct our own form element.
     $form['value'] = array();
@@ -182,27 +187,29 @@ class date_api_filter_handler extends views_handler_filter_numeric {
     }
 
     if (!empty($form_state['exposed'])) {
+      $identifier = $this->options['expose']['identifier'];
+
       if (empty($this->options['expose']['use_operator']) || empty($this->options['expose']['operator'])) {
         // exposed and locked.
         $which = in_array($this->operator, $this->operator_values(2)) ? 'minmax' : 'value';
       }
       else {
-        $source = 'edit-' . form_clean_id($this->options['expose']['operator']);
+        $source = 'edit-' . drupal_html_id($this->options['expose']['operator']);
       }
     }
-
+    
     $handler = $this->date_handler;
        
     if ($which == 'all' || $which == 'value') {
-      $form['value'] += $this->date_parts_form($form_state, 'value', $source, $which, $this->operator_values(1));
+      $form['value'] += $this->date_parts_form($form_state, 'value', $source, $which, $this->operator_values(1), $identifier);
       if ($this->force_value) {
         $form['value']['value']['#force_value'] = TRUE;
       }
     }
 
     if ($which == 'all' || $which == 'minmax') {
-      $form['value'] += $this->date_parts_form($form_state, 'min', $source, $which, $this->operator_values(2));
-      $form['value'] += $this->date_parts_form($form_state, 'max', $source, $which, $this->operator_values(2));
+      $form['value'] += $this->date_parts_form($form_state, 'min', $source, $which, $this->operator_values(2), $identifier);
+      $form['value'] += $this->date_parts_form($form_state, 'max', $source, $which, $this->operator_values(2), $identifier);
       if ($this->force_value) {
         $form['value']['min']['#force_value'] = TRUE;
         $form['value']['max']['#force_value'] = TRUE;
@@ -216,7 +223,7 @@ class date_api_filter_handler extends views_handler_filter_numeric {
       '#type' => 'textfield',
       '#title' => t('Date default'),
       '#default_value' => $this->options['default_date'],
-      '#prefix' => '<div class="form-item"><label>' . t('Relative value') . '</label><p>' . t("Relative values will be used if no date is set above. Use 'now' to default to the current date at runtime or add modifiers like 'now +1 day' . The To date default value is used when the operator is set to 'between' or 'not between'.") . $extra . '</p><p>' . t('If the filter is exposed, these values will be used to set the inital value of the exposed filter. Leave both date and default values blank to start with no value in the exposed filter.') . '</p></div>',
+      '#prefix' => '<div class="form-item"><label>' . t('Relative value') . '</label><p>' . t("Relative values will be used if no date is set above. Use 'now' to default to the current date at runtime or add modifiers like 'now +1 day' . The To date default value is used when the operator is set to 'between' or 'not between'.") . ' ' . $extra . '</p><p>' . t('If the filter is exposed, these values will be used to set the inital value of the exposed filter. Leave both date and default values blank to start with no value in the exposed filter.') . '</p></div>',
       );
     $form['value']['default_to_date'] = array(
       '#type' => 'textfield',
@@ -236,7 +243,8 @@ class date_api_filter_handler extends views_handler_filter_numeric {
       unset($form['value']['value']['#prefix']);
     }
     
-    $form['value']['#theme'] = 'date_views_filter_form';  
+    //$form['value']['#theme'] = 'date_views_filter_form';  
+    
   }
 
   /**
@@ -256,7 +264,7 @@ class date_api_filter_handler extends views_handler_filter_numeric {
    * @return
    *   The form date part element for this instance.
    */
-  function date_parts_form($form_state, $prefix, $source, $which, $operator_values) {
+  function date_parts_form($form_state, $prefix, $source, $which, $operator_values, $identifier) {
     module_load_include('inc', 'date_api', 'date_api_elements');
     switch($prefix) {
       case 'min':
@@ -274,6 +282,7 @@ class date_api_filter_handler extends views_handler_filter_numeric {
     if ($type == 'date_popup' && !module_exists('date_popup')) {
       $type = 'date_text';
     }
+    
     $format = $this->date_handler->views_formats($this->options['granularity'], 'sql');
     $granularity = array_keys($this->date_handler->date_parts($this->options['granularity']));
     
@@ -293,11 +302,16 @@ class date_api_filter_handler extends views_handler_filter_numeric {
     );
     if ($which == 'all') {
       $dependency = array(
-        '#process' => array($type . '_process', 'views_process_dependency'),
+        '#process' => array($type . '_element_process', 'views_process_dependency'),
         '#dependency' => array($source => $operator_values),
       );
       $form[$prefix] += $dependency;
     }
+    
+    if (!empty($form_state['exposed']) && !isset($form_state['input'][$identifier][$prefix])) {
+      $form_state['input'][$identifier][$prefix] = $this->value[$prefix];
+    }
+            
     return $form;
   }
 
@@ -400,14 +414,30 @@ class date_api_filter_handler extends views_handler_filter_numeric {
       $form_state['values'][$this->options['expose']['identifier']] = $default;
     }
   }
-   
+
+  /**
+   * Called just prior to query(), this lets us set up table aliases for
+   * relationships. This can't be done in pre_query(), because the relationship
+   * isn't defined yet.
+   */
+  function set_relationship() {
+    parent::set_relationship();
+    $this->get_query_fields();
+    if (!empty($this->query_fields)) {
+      foreach ($this->query_fields as $query_field) {
+        $field = $query_field['field'];
+        $this->related_table_alias = $this->query->queue_table($field['table_name'], $this->relationship);
+      }
+    }
+  }
+  
   /**
    * Custom implementation of query() so we can get the
    * AND and OR methods in the right places.
    */
   function query() {
-    $this->ensure_my_table();
-    $this->get_query_fields();
+    //$this->ensure_my_table();
+    //$this->get_query_fields();
     if (!empty($this->query_fields)) {
       foreach ((array) $this->query_fields as $query_field) {
         $field = $query_field['field'];
@@ -432,7 +462,7 @@ class date_api_filter_handler extends views_handler_filter_numeric {
           // Use set_where_group() with the selected date_method 
           // of 'AND' or 'OR' to combine the field WHERE clauses.
           $this->query->set_where_group($this->options['date_method'], 'date');
-          $this->query->add_where('date', $sql);
+          $this->query->add_where('date', $sql, array(), 'formula');
         }
       }
     }

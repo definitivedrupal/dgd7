@@ -28,27 +28,6 @@ You should end up with a structure like:
    /drupal/sites/all/modules/date/date_copy/date_copy.module
    ...
 
-   /drupal/sites/all/modules/date/date_php4/date_php4.inc
-   /drupal/sites/all/modules/date/date_php4/date_php4_lib.inc
-   ...
-
-==================================================================================
-Older PHP versions
-==================================================================================
-If you are using PHP 4 or PHP 5.0 or 5.1, native date handling won't work right.
-Install the Date_PHP4 module to enable wrapper functions so this code will work
-in old PHP versions. 
-
-==================================================================================
-Enable Date Timezone
-==================================================================================
-In most cases, you should enable the Date Timezone module any time you use the
-Date API to be able to set the site and user timezone names. It is not enabled by 
-default in case another module is setting timezone names in the database.
-
-Once you have enabled it, go to admin/settings/date-time and set the default 
-site timezone name. If you are using user timezones, go to your account settings
-and set up your own timezone name.
 
 ==================================================================================
 Install CCK Date Fields:

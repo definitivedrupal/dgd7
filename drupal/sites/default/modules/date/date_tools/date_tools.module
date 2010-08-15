@@ -1,5 +1,5 @@
 <?php
-// $Id: date_tools.module,v 1.13 2010/04/13 19:35:33 karens Exp $
+// $Id: date_tools.module,v 1.16 2010/07/29 11:15:28 karens Exp $
 
 /**
  * Implementation of hook_help().
@@ -13,10 +13,7 @@ function date_tools_help($section, $arg) {
       return '<p>'. t('Change a date field from one type to another. Very experimental, use at your own risk!') .'</p>';
                  
     case 'admin/structure/date/date_wizard':
-      $disabled_modules = date_tools_wizard_disabled_modules(array('popup', 'repeat', 'linked'));
-      if (!empty($disabled_modules)) {
-        drupal_set_message(t('The following modules are required for the wizard to work:') . '<ul><li>' . implode('</li><li>', $disabled_modules) . '</li></ul>', 'error');
-      }
+
       $output =        
       t('Fill out the following form to auto-create a date content type, with a datetime field and matching pre-configured calendar. A calendar and upcoming events block will be created, an ical feed will be added to the calendar, and the mini calendar, calendar legend, and upcoming events blocks will be added to the sidebar of the default theme. Nodes created from this new content type will include a link to the calendar, and the calendar will have a link to the \'add new date\' form. You can also add new date fields to an existing content type by entering the existing content type name instead of creating a new one.') .
       '</p><p>' .
@@ -30,7 +27,11 @@ function date_tools_help($section, $arg) {
  * Implements hook_permission().
  */
 function date_tools_permission() {
-  return array('administer date tools');
+  return array(
+    'administer date tools' =>  array(
+      'title' => t('Administer date tools'),
+    ),
+  );
 }
 
 /**
@@ -227,12 +228,12 @@ function date_tools_default_values($field_type, $widget_type, $tz_handling, $ove
   $instance = array('field_name' => '', 'entity_type' => 'node', 'bundle' => '');
 
   // Update it with default values for this date field and widget type.
-  _date_tools_overrides(&$field, $field_values[$field_type]);
-  _date_tools_overrides(&$instance, $instance_values[$widget_type]);
+  _date_tools_overrides($field, $field_values[$field_type]);
+  _date_tools_overrides($instance, $instance_values[$widget_type]);
   
   // Allow overrides of specific default values. 
-  _date_tools_overrides(&$field, $overrides['field']);
-  _date_tools_overrides(&$instance, $overrides['instance']);
+  _date_tools_overrides($field, $overrides['field']);
+  _date_tools_overrides($instance, $overrides['instance']);
 
   // Make sure multiple gets set correctly for repeating dates.
   if ($field['settings']['repeat']) $field['cardinality'] = FIELD_CARDINALITY_UNLIMITED;

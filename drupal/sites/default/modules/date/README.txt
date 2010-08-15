@@ -1,23 +1,9 @@
 INFORMATION FOR DEVELOPERS
 
 Once the Date API is installed, all functions in the API are available to be used 
-anywhere by any module. If the Date Timezone module is installed, the system site 
-timezone selector and the user timezone selectors are overwritten to allow the 
-selection of timezone names instead of offsets. Proper timezone conversion 
-requires knowledge of those timezone names, something that is not currently 
-available in Drupal core, and the change in selectors makes it possible to track it.
+anywhere by any module. 
 
-In most cases, you should enable the Date Timezone module any time you use the
-Date API to be able to set the site and user timezone names. It is not enabled by 
-default in case another module is setting timezone names in the database.
-
-The API uses the PHP 5.2 date functions to create and manipulate dates, and 
-contains an option module that will emulate those functions in earlier versions
-of PHP.
-
-If you are using PHP 4 or PHP 5.0 or 5.1, native date handling won't work right.
-Install the Date_PHP4 module to enable wrapper functions so this code will work
-in old PHP versions. 
+The API uses the PHP 5.2 date functions to create and manipulate dates.
 
 Example, the following will create a date for the local value in one 
 timezone, adjust it to a different timezone, then return the offset in seconds 
@@ -48,35 +34,6 @@ Simpletest tests for these functions are included in the package.
 
 Available functions include the following (more documentation is provided in 
 the files):
-
-============================================================================
-Date PHP4 Module
-============================================================================
-PHP 4 substitutions for the PHP 5 date functions are supplied. Use the PHP 5 
-functions in your code as they would normally be used and the PHP 4 
-alternatives will be automatically be substituted in when needed. 
-
-You cannot do everything with these functions that can be done in PHP 5, but 
-you can create dates, find timezone offsets, and format the results. 
-Timezone handling uses native PHP 5 functions when available and degrades 
-automatically for PHP 4 to use substitutions like those 
-provided in previous versions of the Date and Event modules.
-
-Read the doxygen documentation in this module for more information 
-about using the functions in ways that will work in PHP 4.
-
-Simpletest tests for the PHP 4 equivalent functions are included in the package.
-
-The following functions are emulated in PHP4:
-date_create()
-date_date_set()
-date_format()
-date_offset_get()
-date_timezone_set()
-timezone_abbreviations_list()
-timezone_identifiers_list()
-timezone_offset_get()
-timezone_open()
 
 ============================================================================
 Preconfigured arrays

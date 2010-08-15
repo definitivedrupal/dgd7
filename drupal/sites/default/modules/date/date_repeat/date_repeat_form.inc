@@ -1,5 +1,5 @@
 <?php
-// $Id: date_repeat_form.inc,v 1.27 2010/03/26 19:19:41 karens Exp $
+// $Id: date_repeat_form.inc,v 1.28 2010/08/12 22:32:34 karens Exp $
 /**
  * @file
  * Code to add a date repeat selection form to a date field and create
@@ -205,13 +205,13 @@ function date_repeat_merge($form_values, $element) {
   if (array_key_exists('BYMONTH', $form_values)) unset($form_values['BYMONTH']['']);
   if (array_key_exists('BYMONTHDAY', $form_values)) unset($form_values['BYMONTHDAY']['']);
       
-  if (is_array($form_values['UNTIL']['datetime'])) {
+  if (array_key_exists('UNTIL', $form_values) && is_array($form_values['UNTIL']['datetime'])) {
     $function = $element['#date_repeat_widget'] . '_input_value';
     $until_element = $element;
     $until_element['#value'] = $form_values['UNTIL']['datetime'];
     $form_values['UNTIL']['datetime'] = $function($until_element);
   }
-  if (isset($form_values['EXDATE']) && is_array($form_values['EXDATE'])) {
+  if (array_key_exists('EXDATE', $form_values) && is_array($form_values['EXDATE'])) {
     $function = $element['#date_repeat_widget'] . '_input_value';
     $exdate_element = $element;
     foreach ($form_values['EXDATE'] as $delta => $value) {

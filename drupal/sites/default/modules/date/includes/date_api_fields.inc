@@ -1,5 +1,5 @@
 <?php
-// $Id: date_api_fields.inc,v 1.8 2010/03/29 00:42:11 karens Exp $
+// $Id: date_api_fields.inc,v 1.9 2010/08/11 23:42:05 karens Exp $
 
 /**
  * @file
@@ -27,14 +27,15 @@ function _date_api_fields($base = 'node') {
   $all_fields = date_api_views_fetch_fields($base, 'field');
   $content_fields = field_views_data();
   
+  // Iterate over all the fields that Views knows about.
   $fields = array();
   foreach ((array) $all_fields as $name => $val) {
     $fromto = array();
     $tmp = explode('.', $name);
     $field_name = $tmp[1];
     $table_name = $tmp[0];
-    $alias = str_replace('.', '_', $name);
-      
+        
+    // If we don't have a field handler, we don't care about it.
     if (!$handler = views_get_handler($table_name, $field_name, 'field')) {
       continue; 
     }
@@ -48,6 +49,11 @@ function _date_api_fields($base = 'node') {
       
       $field_name = $content_fields[$table_name]['entity_id']['field']['field_name'];
       $field = field_info_field($field_name);
+      
+      // @TODO This is cheating, we should use the API to figure this out.
+      // Plus we still need to figure out how to add in value2.
+      // Just trying to get things working for now.
+      $name = $table_name . "." . $field_name . "_value";
     
       if ($field['type'] == 'date') {
         $type = 'cck_string';
@@ -77,6 +83,7 @@ function _date_api_fields($base = 'node') {
     if (!empty($type)) {
 
       // Handling for simple timestamp fields
+      $alias = str_replace('.', '_', $name);
       $fromto = array($alias, $alias);
       $tz_handling = 'site';
       $related_fields = array();

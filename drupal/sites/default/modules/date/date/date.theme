@@ -1,5 +1,5 @@
 <?php
-// $Id: date.theme,v 1.23 2010/03/27 12:19:17 karens Exp $
+// $Id: date.theme,v 1.25 2010/08/13 12:44:45 karens Exp $
 /**
  * @file
  * Theme functions.
@@ -213,13 +213,20 @@ function theme_date_all_day($vars) {
   if (empty($date2)) {
     $date2 = $date1;
   }
-  $granularity = array_pop(date_format_order($format));
+  
+  $tmp = date_format_order($format);
+  $granularity = array_intersect(array_keys(date_granularity_names()), date_format_order($format));
+  $granularity = array_pop($granularity);
+  
   if (empty($field['settings']['granularity'])) {
-    $field['settings']['granularity'] = date_format_order($format);
+    $field['settings']['granularity'] = $tmp;
   }
-  $increment = $instance['widget']['increment'];
-  $max_seconds = array_pop(date_seconds('s', TRUE, $increment));
-  $max_minutes = array_pop(date_minutes('i', TRUE, $increment));
+    
+  $increment = isset($instance['widget']['increment']) ? $instance['widget']['increment'] : 1;
+  $tmp = date_seconds('s', TRUE, $increment);
+  $max_seconds = array_pop($tmp);
+  $tmp = date_minutes('i', TRUE, $increment);
+  $max_minutes = array_pop($tmp);
   
   switch ($granularity) {
     case 'second':

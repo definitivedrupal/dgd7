@@ -1,5 +1,5 @@
 <?php
-// $Id: date_popup.module,v 1.57 2010/04/13 20:10:07 karens Exp $
+// $Id: date_popup.module,v 1.63 2010/08/13 14:14:23 karens Exp $
 /**
  * @file
  * A module to enable jquery calendar and time entry popups.
@@ -43,7 +43,7 @@ function date_popup_library() {
     'website' => 'http://plugins.jquery.com/project/timeEntry',
     'version' => '1.4.7',
     'js' => array(
-      $path . '/jquery.timeentry.min.js' => array(),
+      $path . '/jquery.timeentry.pack.js' => array(),
     ),
     'css' => array(
       $path . '/themes/timeentry.css' => array('preprocess' => FALSE),
@@ -233,9 +233,11 @@ function date_popup_process_date(&$element, $edit = NULL, $date = NULL) {
     'prevText' => '&lt;' . date_t('Prev', 'date_nav'),
     'nextText' => date_t('Next', 'date_nav') .'&gt;',
     'currentText' => date_t('Today', 'date_nav'),
+    'changeMonth' => TRUE,
+    'changeYear' => TRUE,    
     'clearText' => t('Clear'),
     'closeText' => t('Close'),
-    'firstDay' => intval(variable_get('date_first_day', 0)),
+    'firstDay' => intval(variable_get('date_first_day', 1)),
     'dayNames' => date_week_days(TRUE),
     'dayNamesShort' => date_week_days_abbr(TRUE, TRUE, 3),
     'dayNamesMin' => date_week_days_abbr(TRUE, TRUE, 2),
@@ -268,7 +270,7 @@ function date_popup_process_date(&$element, $edit = NULL, $date = NULL) {
     $sub_element['#value'] = $sub_element['#default_value'];
   }
   // TODO, figure out exactly when we want this description. In many places it is not desired.
-  $sub_element['#description'] = ' ' . t('Format: @date', array('@date' => date_format_date(date($date_format, REQUEST_TIME)), 'custom', $date_format));
+  $sub_element['#description'] = ' '. t('Format: @date', array('@date' => date_format_date(date_now(), 'custom', $date_format)));
   return $sub_element;
 }
 
@@ -475,6 +477,8 @@ function timepicker_format_replacements() {
     'G' => 'H',
     'g' => 'h',
     'a' => 'A',
+    ' a' => 'A',
+    ' A' => 'A',   
     );
 }
 
@@ -504,7 +508,7 @@ function datepicker_format_replacements() {
 function theme_date_popup($vars) {
   $element = $vars['element'];
   $output = '';
-  $class = 'container-inline-date';
+  $class = 'container-inline-date form-item';
   // Add #date_float to allow date parts to float together on the same line. 
   if (empty($element['#date_float'])) {
     $class .= ' date-clear-block';

@@ -93,9 +93,10 @@ span.date-display-separator {
   width:12em;
   min-width:12em;
 }
-
+/* Give the navigation bar a little extra padding below so it will clear the new contextual links overlay of the teasers below it. */
 .date-nav {
   width:100%;
+  padding-bottom:1.5em;
 }
 .date-nav div.date-prev {
   text-align: left; /* LTR */

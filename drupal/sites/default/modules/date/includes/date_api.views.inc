@@ -1,5 +1,5 @@
 <?php
-// $Id: date_api.views.inc,v 1.12 2010/03/29 00:42:11 karens Exp $
+// $Id: date_api.views.inc,v 1.16 2010/08/12 17:27:29 karens Exp $
 
 /**
  * @file
@@ -29,26 +29,6 @@
  *   links by date, requires the date argument and uses the current
  *   date argument default to set a starting point for the view.
  */
-/**
- * Implementation of hook_views_handlers() to register all of the basic handlers
- * views uses.
- */
-function date_api_views_handlers() {
-  return array(
-    'info' => array(
-      'path' => drupal_get_path('module', 'date_api') . '/includes',
-      ),
-    'handlers' => array(
-      'date_api_argument_handler' => array(
-        'parent' => 'views_handler_argument_date',
-      ),
-      'date_api_filter_handler' => array(
-        'parent' => 'views_handler_filter_numeric',
-      ),
-    ),
-  );
-}
-
 /**
  * Implementation of hook_views_plugins
  */
@@ -133,8 +113,9 @@ function date_api_views_data() {
       'help' => t('Filter any Views !base_table date field by a date argument, using any common ISO date/period format (i.e. YYYY, YYYY-MM, YYYY-MM-DD, YYYY-W99, YYYY-MM-DD--P3M, P90D, etc). ', array('!base_table' => $base_table)),
       'argument' => array(
         'handler' => 'date_api_argument_handler',
-        'empty name field' => t('Undated'),
+        'empty field name' => t('Undated'),
         'base' => $base_table,
+        'many to one' => TRUE,
       ),
     );  
     // The flexible date filter.
@@ -144,11 +125,13 @@ function date_api_views_data() {
       'help' => t('Filter any Views !base_table date field.', array('!base_table' => $base_table)),
       'filter' => array(
         'handler' => 'date_api_filter_handler',
-        'empty name field' => t('Undated'),
+        'empty field name' => t('Undated'),
         'base' => $base_table,
+        'many to one' => TRUE,
       ),
     ); 
   }
+  
   return $data;
 }
 
@@ -185,8 +168,7 @@ function date_api_fields($base = 'node', $reset = FALSE) {
  * value to compare to the local value.
  */
 function date_views_set_timezone(&$date_handler, &$view, $field) {
-  $tz_handling  = $field['settings']['tz_handling'];
-  switch ($tz_handling) {
+  switch ($field['tz_handling']) {
     case 'date' :
       $date_handler->db_timezone = 'UTC';
       $date_handler->local_timezone_field = $field['timezone_field'];
@@ -221,7 +203,7 @@ function date_views_querystring($view, $extra_params = array()) {
   if (empty($extra_params['view'])) {
     $exclude[] = 'view';
   }
-  $query = drupal_query_string_encode($query_params, $exclude);
+  $query = drupal_http_build_query(drupal_get_query_parameters($query_params, $exclude));
   // To prevent an empty query string from adding a "?" on to the end of a URL,
   // we return NULL.
   return !empty($query) ? $query : NULL;

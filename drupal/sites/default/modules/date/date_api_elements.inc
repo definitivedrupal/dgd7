@@ -1,5 +1,5 @@
 <?php
-// $Id: date_api_elements.inc,v 1.66 2010/04/13 20:10:07 karens Exp $
+// $Id: date_api_elements.inc,v 1.71 2010/08/14 11:48:45 arlinsandbulte Exp $
 /**
  * @file
  * Date API elements themes and validation.
@@ -152,9 +152,8 @@ function date_text_element_process($element, $form_state, $form) {
   $element['date']['#weight'] = !empty($element['date']['#weight']) ? $element['date']['#weight'] : $element['#weight'];
   $element['date']['#default_value'] = is_object($date) ? date_format_date($date , 'custom', $element['#date_format']) : '';
   $element['date']['#attributes'] = array('class' => isset($element['#attributes']['class']) ? $element['#attributes']['class'] += array('date-date') : array('date-date'));
+  $element['date']['#description'] = ' ' . t('Format: @date', array('@date' => date_format_date(date_now(), 'custom', $element['#date_format'])));
 
-  $formatted_date = date_format_date(date_make_date(date($element['#date_format'], REQUEST_TIME)), 'custom', $element['#date_format']);
-  $element['date']['#description'] = ' ' . t('Format: @date', array('@date' => $formatted_date));
   
   // Keep the system from creating an error message for the sub-element.
   // We'll set our own message on the parent element.
@@ -213,7 +212,7 @@ function date_select_element_process($element, $form_state, $form) {
   foreach (date_nongranularity($granularity) as $field) {
     if ($field != 'timezone') {
       $element[$field] = array(
-        '#type' => 'hidden',
+        '#type' => 'value',
         '#value' => 0,
         );
     }
@@ -342,9 +341,12 @@ function date_parts_element($element, $date, $format) {
   }
  
   // Views exposed filters are treated as submitted even if not,
-  // so force the #default value in that case.  
-  if (!empty($element[$field]['#force_value'])) {
-    $sub_element[$field]['#value'] = $sub_element[$field]['#default_value'];
+  // so force the #default value in that case. Make sure we set
+  // a default that is in the option list.
+  if (!empty($element['#force_value'])) {
+    $options = $sub_element[$field]['#options'];
+    $default = !empty($sub_element[$field]['#default_value']) ? $sub_element[$field]['#default_value'] : array_shift($options);
+    $sub_element[$field]['#value'] = $default;
   }
   
   if (($hours_format == 'g' || $hours_format == 'h') && date_has_time($granularity)) {
@@ -605,7 +607,7 @@ function date_convert_from_custom($date, $format) {
   $regex2 = preg_replace($patterns, $repl2, $format_regexp, 1);
   $regex2 = str_replace('A', '(AM|PM)', $regex2);
   $regex2 = str_replace('a', '(am|pm)', $regex2);
-  preg_match('`^' . $regex2 . '$`', $date, $values);
+  preg_match('`^'. $regex2 .'$`', $date, $values);
   array_shift($values);
   
   // if we did not find all the values for the patterns in the format, abort

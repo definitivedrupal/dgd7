@@ -1,5 +1,5 @@
 <?php
-// $Id: date_tools.wizard.inc,v 1.7 2010/04/13 19:35:33 karens Exp $
+// $Id: date_tools.wizard.inc,v 1.9 2010/08/04 11:30:47 karens Exp $
 
 function date_tools_wizard_form() {
   
@@ -55,6 +55,7 @@ function date_tools_wizard_form() {
     '#default_value' => 0,
     '#options' => array(0 => t('No'), 1 => t('Yes')),
     '#title' => t('Show repeating date options'),
+    '#access' => module_exists('date_repeat'),
     );  
   $form['field']['advanced'] = array(
     '#type' => 'fieldset',
@@ -88,12 +89,14 @@ function date_tools_wizard_form() {
     '#default_value' => 1,
     '#options' => array(0 => t('No'), 1 => t('Yes')),
     '#title' => t('Create a calendar for this date field'),
+    '#access' => module_exists('calendar'),
     ); 
   $form['blocks'] = array(
     '#type' => 'select',
     '#options' => array(0 => t('No'), 1 => t('Yes')),
     '#default_value' => 0,
     '#title' => t('Add calendar blocks to the current theme'),
+    '#access' => module_exists('calendar'),
     );  
      
   $form['submit'] = array(
@@ -177,6 +180,7 @@ function date_tools_wizard_build($form_values) {
        ),
     ),
     'instance' => array(
+      'entity_type' => 'node',
       'field_name' => $field_name,
       'label' => $label,
       'bundle' => $bundle,
@@ -190,10 +194,11 @@ function date_tools_wizard_build($form_values) {
           // The number of years to go back and forward in drop-down year selectors.
           'year_range' => '-0:+1',
         ),
+        'weight' => -4,
       ),
       'settings' => array(
-        // Set a display format that will show complete date information, 
-        // to help test that values are correct.
+        'default_value' => 'now', 
+        'default_value2' => 'blank', 
         'default_format' => 'long',
       ),
     )
@@ -217,79 +222,6 @@ function date_tools_wizard_include() {
   module_load_include('inc', 'node', 'node.pages');
   module_load_include('inc', 'field', 'field.crud');
   module_load_include('inc', 'date', 'date_admin');
-}
-
-function date_tools_wizard_options($options = array()) {
-  $default_options = array(
-    'popups', // Use popup features like Date Popup and Calendar Popup?
-    'repeat', // Use repeating dates?
-    'linked',  // Create links between calendars and dates?
-    );
-  // Allow override of default options.
-  if (!empty($options)) {
-    return $options;
-  }
-  else {
-    return $default_options;
-  }
-}
-
-/**
- * Return an array of the modules needed by this wizard.
- */
-function date_tools_wizard_required_modules($options = array()) {
-  $options = date_tools_wizard_options($options);
-  $modules = array(
-    'date_timezone', 'date_api', 'content', 'date', 
-    'calendar', 'views', 'views_ui',
-  );
-  if (in_array('popups', $options)) {
-    $modules = array_merge($modules, array('date_popup', 'jcalendar'));
-  }
-  if (in_array('repeat', $options)) {
-    $modules = array_merge($modules, array('date_repeat'));
-  }
-  return $modules;
-}
-
-function date_tools_wizard_modules() {
-  return array(
-    'date' => t('Date'),
-    'date_api' => t('Date API'),
-    'date_timezone' => t('Date Timezone'),
-    'field' => t('Field'),
-    'calendar' => t('Calendar'),
-    'calendar_ical' => t('Calendar iCal'),
-    'date_repeat' => t('Date Repeat'),
-    'date_popup' => t('Date Popup'),
-    'jcalendar' => t('Calendar Popup'),
-    'views' => t('Views'),
-    'views_ui' => t('Views UI'),
-    );
-}
-
-function date_tools_wizard_enabled_modules($options = array()) {
-  $modules = date_tools_wizard_required_modules($options);
-  $enabled = array();
-  $names = date_tools_wizard_modules();
-  foreach ($modules as $option) {
-    if (module_exists($option)) {
-      $enabled[$option] = $names[$option] . ' (<span class="admin-enabled">' . t('enabled') . '</span>)';
-    }
-  }
-  return $enabled;
-}
-
-function date_tools_wizard_disabled_modules($options = array()) {
-  $modules = date_tools_wizard_required_modules($options);
-  $enabled = array();
-  $names = date_tools_wizard_modules();
-  foreach ($modules as $option) {
-    if (!module_exists($option)) {
-      $enabled[$option] = $names[$option] . ' (<span class="admin-disabled">' . t('disabled') . '</span>)';
-    }
-  }
-  return $enabled;
 }
 
 function date_tools_wizard_field_types() {
@@ -441,7 +373,7 @@ function date_tools_wizard_create_blocks($bundle) {
  * Add a block.
  */
 function date_tools_wizard_add_block($block) {
-  $bid = db_result(db_query("SELECT bid FROM {blocks} WHERE module='%s' AND delta='%s' AND theme='%s'", $block->module, $block->delta, $block->theme));
+  $bid = db_query("SELECT bid FROM {blocks} WHERE module='%s' AND delta='%s' AND theme='%s'", $block->module, $block->delta, $block->theme)->fetchField();
   if (empty($bid)) {
     $block->bid = NULL;
     drupal_write_record('blocks', $block);

@@ -1,5 +1,5 @@
 <?php
-// $Id: date_elements.inc,v 1.77 2010/03/27 13:19:33 karens Exp $
+// $Id: date_elements.inc,v 1.79 2010/08/12 20:07:27 karens Exp $
 /**
  * @file
  * Date forms and form themes and validation.
@@ -18,24 +18,26 @@ function _date_field_validate($entity_type, $entity, $field, $instance, $langcod
   // since the element won't have been munged back into a date.
   if (!form_get_errors()) {
     foreach ($items as $delta => $item) {
-      $process = date_process_values($field, $instance);
-      foreach ($process as $processed) {
-        if ($processed == 'value' && $field['settings']['todate']
-          && !date_is_valid($item['value'], $field['type'], $field['settings']['granularity'])
-          && (date_is_valid($item['value2'], $field['type'], $field['settings']['granularity']))) {
-          $errors[$field['field_name']][$langcode][$delta][] = array(
+      if (is_array($item)) {
+        $process = date_process_values($field, $instance);
+        foreach ($process as $processed) {
+          if ($processed == 'value' && $field['settings']['todate']
+            && !date_is_valid($item['value'], $field['type'], $field['settings']['granularity'])
+            && (date_is_valid($item['value2'], $field['type'], $field['settings']['granularity']))) {
+            $errors[$field['field_name']][$langcode][$delta][] = array(
               'error' => 'valid_nid',
               'message' => t("A 'From date' date is required for field %field %delta.", array('%delta' => $field['cardinality'] ? intval($delta + 1) : '', '%field' => t($instance['widget']['label']))),
             );
-        }
-        if ($processed == 'value2'
-          && $field['settings']['todate'] == 'required' && ($field['required']
-          && date_is_valid($item['value'], $field['type'], $field['settings']['granularity'])
-          && !date_is_valid($item['value2'], $field['type'], $field['settings']['granularity']))) {
-          $errors[$field['field_name']][$langcode][$delta][] = array(
-            'error' => 'valid_nid',
-            'message' => t("A 'To date' is required for field %field %delta.", array('%delta' => $field['cardinality'] ? intval($delta + 1) : '', '%field' => t($instance['label']))),
-            );          
+          }
+          if ($processed == 'value2'
+            && $field['settings']['todate'] == 'required' && ($field['required']
+            && date_is_valid($item['value'], $field['type'], $field['settings']['granularity'])
+            && !date_is_valid($item['value2'], $field['type'], $field['settings']['granularity']))) {
+            $errors[$field['field_name']][$langcode][$delta][] = array(
+              'error' => 'valid_nid',
+              'message' => t("A 'To date' is required for field %field %delta.", array('%delta' => $field['cardinality'] ? intval($delta + 1) : '', '%field' => t($instance['label']))),
+            );
+          }            
         }
       }
     }
@@ -55,21 +57,24 @@ function _date_field_update($entity_type, $entity, $field, $instance, $langcode,
   $values = $items;
   foreach ($values as $delta => $item) {
     $timezone = isset($item['timezone']) ? $item['timezone'] : '';
-    $items[$delta]['timezone'] = date_get_timezone($field['settings']['tz_handling'], $timezone);
-    $items[$delta]['timezone_db'] = date_get_timezone_db($field['settings']['tz_handling']);
-    $items[$delta]['date_type'] = $field['type'];
+    if (is_array($item)) {
+      $items[$delta]['timezone'] = date_get_timezone($field['settings']['tz_handling'], $timezone);
+      $items[$delta]['timezone_db'] = date_get_timezone_db($field['settings']['tz_handling']);
+      $items[$delta]['date_type'] = $field['type'];
+    }  
   }  
   $entity->$field['field_name'][$langcode] = $items;
 
   foreach ($values as $delta => $item) {
-
-    // Special case for ISO dates which may have been given artificial values for
-    // some date parts to make them into valid dates.
-    if (!empty($item['value']) && $field['type'] == DATE_ISO) {
-      $items[$delta]['value'] = date_limit_value($items[$delta]['value'], date_granularity($field), $field['type']);
-      if ($field['settings']['todate']) {
-        $items[$delta]['value2'] = date_limit_value($items[$delta]['value2'], date_granularity($field), $field['type']);
-      }
+    if (is_array($item)) {
+      // Special case for ISO dates which may have been given artificial values for
+      // some date parts to make them into valid dates.
+      if (!empty($item['value']) && $field['type'] == DATE_ISO) {
+        $items[$delta]['value'] = date_limit_value($items[$delta]['value'], date_granularity($field), $field['type']);
+        if ($field['settings']['todate']) {
+          $items[$delta]['value2'] = date_limit_value($items[$delta]['value2'], date_granularity($field), $field['type']);
+        }
+      }  
     }
   }
   $entity->$field['field_name'][$langcode] = $items;
@@ -289,7 +294,7 @@ function date_combo_element_process($element, &$form_state, $form) {
 
   $element[$from_field] = array(
     '#field'         => $field,
-    '#title'         => (!$field['cardinality'] || $field['settings']['repeat']) ? t($instance['label']) : '',
+    '#title'         => t($instance['label']),
     '#weight'        => $instance['widget']['weight'],
     '#required'      => ($instance['required'] && $delta == 0) ? 1 : 0,
     '#default_value' => isset($element['#value'][$from_field]) ? $element['#value'][$from_field] : '',

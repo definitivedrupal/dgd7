@@ -1,11 +1,11 @@
 <?php
-// $Id: date_api_sql.inc,v 1.21 2010/03/29 00:42:11 karens Exp $
+// $Id: date_api_sql.inc,v 1.25 2010/08/12 18:36:31 karens Exp $
 
 /**
  * @file
  * SQL helper for Date API.
  */
-
+  
 /**
  *  A helper function to do cross-database concatation of date parts
  *
@@ -13,8 +13,7 @@
  *  @return - correct sql string for database type
  */
 function date_sql_concat($array) {
-  global $db_type;
-  switch ($db_type) {
+  switch (date_db_type()) {
     case ('mysql'):
     case ('mysqli'):
       return "CONCAT(" . implode(",", $array) . ")";
@@ -30,8 +29,7 @@ function date_sql_concat($array) {
  * @return SQL statement to return the first non-NULL value in the list.
  */
 function date_sql_coalesce($array) {
-  global $db_type;
-  switch ($db_type) {
+  switch (date_db_type()) {
     case ('mysql'):
     case ('mysqli'):
     case ('pgsql'):
@@ -82,7 +80,6 @@ class date_sql_handler {
   }
 
   function get_db_type() {
-    global $db_type;
     return $GLOBALS['databases']['default']['default']['driver'];
   }
   
@@ -97,13 +94,13 @@ class date_sql_handler {
       switch ($this->db_type) {
         case 'mysql':
         case 'mysqli':
-          $test = db_result(db_query("SELECT CONVERT_TZ('2008-02-15 12:00:00', 'UTC', 'US/Central')"));
+          $test = db_query("SELECT CONVERT_TZ('2008-02-15 12:00:00', 'UTC', 'US/Central')")->fetchField();
           if ($test == '2008-02-15 06:00:00') {
             $has_support = TRUE;
           }
           break;
         case 'pgsql':
-          $test = db_result(db_query("'2008-02-15 12:00:00 UTC' AT TIME ZONE 'US/Central'"));
+          $test = db_query("SELECT '2008-02-15 12:00:00 UTC' AT TIME ZONE 'US/Central'")->fetchField();
           if ($test == '2008-02-15 06:00:00') {
             $has_support = TRUE;
           }
@@ -184,7 +181,7 @@ class date_sql_handler {
             $field = "FROM_UNIXTIME($field)";
             break;
           case DATE_ISO:
-            $field = "STR_TO_DATE($field, '%Y-%m-%%dT%T')";
+            $field = "STR_TO_DATE($field, '%Y-%m-%dT%T')";
             break;
           case DATE_DATETIME:
             break;
@@ -306,7 +303,7 @@ class date_sql_handler {
         case 'pgsql':
           // WITH TIME ZONE assumes the date is using the system
           // timezone, which should have been set to UTC.
-          return "TIMESTAMP WITH TIME ZONE $field AT TIME ZONE $localzone";
+          return "$field::timestamp with time zone AT TIME ZONE $localzone";
       }
     }
   }
@@ -328,10 +325,10 @@ class date_sql_handler {
         $replace = array(
           'Y' => '%Y', 'y' => '%y',
           'm' => '%m', 'n' => '%c',
-          'd' => '%%d', 'j' => '%e',
+          'd' => '%d', 'j' => '%e',
           'H' => '%H',
           'i' => '%i',
-          's' => '%%s',
+          's' => '%s',
           '\WW' => 'W%U',
           );
         $format = strtr($format, $replace);

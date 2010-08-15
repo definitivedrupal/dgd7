@@ -1,5 +1,5 @@
 <?php
-// $Id: date_api_ical.inc,v 1.45 2010/04/13 19:55:42 karens Exp $ */
+// $Id: date_api_ical.inc,v 1.48 2010/08/13 15:26:48 karens Exp $ */
 /**
  * @file
  * Parse iCal data.
@@ -421,7 +421,7 @@ function date_ical_parse_date($field, $data) {
  *   PROPERTIES include FREQ, INTERVAL, COUNT, BYDAY, BYMONTH, BYYEAR, UNTIL
  */
 function date_ical_parse_rrule($field, $data) {
-  $data = str_replace('RRULE:', '', $data);
+  $data = preg_replace("/RRULE.*:/", '', $data);
   $items = array('DATA' => $data);
   $rrule = explode(';', $data);
   foreach ($rrule as $key => $value) {
@@ -586,16 +586,17 @@ function date_ical_date($ical_date, $to_tz = FALSE) {
  *
  */
 function date_ical_escape_text($text) {
-  //$text = strip_tags($text);
+  $text = drupal_html_to_text($text);
+  $text = trim($text);
   // TODO Per #38130 the iCal specs don't want : and " escaped
   // but there was some reason for adding this in. Need to watch
   // this and see if anything breaks.
   //$text = str_replace('"', '\"', $text);
   //$text = str_replace(":", "\:", $text);
-  $text = str_replace("\\", "\\\\", $text);
+  $text = preg_replace("/\\\b/","\\\\", $text);
   $text = str_replace(",", "\,", $text);
   $text = str_replace(";", "\;", $text);
-  $text = str_replace("\n", "\n ", $text);
+  $text = str_replace("\n", "\\n ", $text);
   return trim($text);
 }
 

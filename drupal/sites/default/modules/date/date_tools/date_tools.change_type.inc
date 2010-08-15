@@ -1,5 +1,5 @@
 <?php
-// $Id: date_tools.change_type.inc,v 1.2 2010/04/13 19:35:33 karens Exp $
+// $Id: date_tools.change_type.inc,v 1.3 2010/08/04 11:30:47 karens Exp $
 
 /**
  * A form to change the type of date used in date fields.
@@ -75,7 +75,7 @@ function date_tools_change_type_form_submit($form, &$form_state) {
   
   // Is there any data in this field? If not, we can
   // skip some steps.
-  $has_data = db_result(db_query("SELECT COUNT(*) FROM {". $table ."}"));
+  $has_data = db_query("SELECT COUNT(*) FROM {". $table ."}")->fetchField();
   
   // Create a backup copy of the original values.
   // The values are going to get corrupted when we
