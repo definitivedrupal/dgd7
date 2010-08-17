@@ -44,7 +44,9 @@ a:active {
   border-color: #f9f9f9;*/
 }
 #footer-wrapper {
-  background: #000000;
+  background: #FFCC00;
+  -moz-border-radius-topright:175px;
+  color:#000000;
 }
 #header #name-and-slogan,
 #header #name-and-slogan a {
