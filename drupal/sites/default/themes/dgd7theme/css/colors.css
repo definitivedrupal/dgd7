@@ -46,8 +46,7 @@ a:active {
 #footer-wrapper {
   background: #000000;
   color:#000000;
-  padding-top: 0px;
-  padding-bottom: 0px;
+  padding: 0px;
 }
 #footer-wrapper .section
 {
