@@ -1,2 +1,6 @@
 cck user_reference module:
 http://drupal.org/node/843608
+
+book module:
+book-589440.patch
+book-589440-38.patch
