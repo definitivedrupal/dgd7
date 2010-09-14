@@ -1,0 +1,38 @@
+<?php
+// $Id$
+
+/**
+ * Implements hook_filter_info().
+ */
+function dgd7_tip_filter_info() {
+  $filters['dgd7_tip'] = array(
+    'title' => t('Tip formatter'),
+    'description' => t('Allows simple notation to indicate paragraphs of text to be emphasized as tips, notes, hints, or other specially featured interjections..'),
+    'prepare callback' => '_dgd7_tip_prepare',
+    'process callback' => '_dgd7_tip_process',
+    'tips callback' => '_dgd7_tip_tips',
+  );
+  return $filters;
+}
+
+/**
+ * Implements filter prepare callback.
+ */
+function _dgd7_tip_prepare() {
+
+}
+
+/**
+ * Implements filter process callback.
+ */
+function _dgd7_tip_process() {
+
+}
+
+/**
+ * Implements filter tips callback.
+ */
+function _dgd7_tip_tips() {
+
+}
+
