@@ -1,0 +1,12 @@
+; $Id: codefilter.info,v 1.4 2009/09/07 16:15:14 johnalbin Exp $
+name = Code Filter
+description = Provides tags for automatically escaping and formatting large pieces of code.
+core = 7.x
+files[] = codefilter.module
+
+; Information added by drupal.org packaging script on 2010-07-11
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "codefilter"
+datestamp = "1278833720"
+
