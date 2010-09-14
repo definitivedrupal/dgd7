@@ -1,6 +1,5 @@
 *.swp
 *.swo
 drupal/sites/default/settings.php
-drupal/sites/default/modules/coder
-drupal/sites/default/modules/grammar_parser
 drupal/sites/all/modules/devel
+drupal/sites/default/files
