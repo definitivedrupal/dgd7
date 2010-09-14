@@ -75,8 +75,13 @@ function user_tokens($type, $tokens, array $data = array(), array $options = arr
 
   $replacements = array();
 
-  if ($type == 'user' && !empty($data['user'])) {
-    $account = $data['user'];
+  if ($type == 'user' && (!empty($data['user']) || !empty($data['account']))) {
+    if (!empty($data['account'])) {
+      $account = $data['account'];
+    }
+    else {
+      $account = $data['user'];
+    }
     foreach ($tokens as $name => $original) {
       switch ($name) {
         // Basic user account information.

@@ -1,6 +1,16 @@
 cck user_reference module:
 http://drupal.org/node/843608
+cck-user_reference-ambiguous-uid-pdo-exception-843608.patch
 
-book module:
+core:
 book-589440.patch
 book-589440-38.patch
+
+735426-options-required-default.patch
+
+user-870868-account-tokens-when-saving-user.patch
+user-870868-user-account-when-saving.patch
+
+
+Applied still?
+eliminating_fixed_font_sizes-v7.patch
