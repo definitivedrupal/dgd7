@@ -1,0 +1,9 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Allows users to annotate text areas per-paragraph.
+ */
+
+
