@@ -10,7 +10,7 @@
  */
 
 /**
- * Implementation of hook_form_alter().
+ * Implements hook_form_alter().
  */
 function submitagain_form_alter(&$form, $form_state, $form_id) {
   if (strpos($form_id, '_node_form') && !isset($form['nid']['#value'])) {
@@ -18,7 +18,7 @@ function submitagain_form_alter(&$form, $form_state, $form_id) {
       $form['actions']['submit_again'] = array(
         '#type' => 'submit',
         '#value' => t('Save and create another'),
-        '#weight' => 41,
+        '#weight' => 7,
         '#submit' => array('node_form_submit', 'submitagain_node_form_submit'),
       );
     }
