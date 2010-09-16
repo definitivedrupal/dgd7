@@ -2,6 +2,14 @@
 // $Id$
 
 /**
+ * @file
+ * This module provides an input filter which can be used in text formats to
+ * allow users to use simple "[tip] Here's a tip! [/tip]"-style notation to
+ * emphasize tips, notes, hints, and other paragraphs of text as specially
+ * formatted, featured text.
+ */
+
+/**
  * Implements hook_filter_info().
  */
 function dgd7_tip_filter_info() {
