@@ -18,6 +18,10 @@ function dgd7_tip_filter_info() {
     'description' => t('Allows simple notation to indicate paragraphs of text to be emphasized as tips, notes, hints, or other specially featured interjections..'),
     'prepare callback' => '_dgd7_tip_prepare',
     'process callback' => '_dgd7_tip_process',
+    'default settings' => array(
+      '[/tip]' => '<div class="featured-element tip"><span class="featured-name"><span class="leading-square">T</span>ip</span>[content]</div>',
+    ),
+    'settings callback' => '_dgd7_tip_settings',
     'tips callback' => '_dgd7_tip_tips',
   );
   return $filters;
@@ -44,3 +48,20 @@ function _dgd7_tip_tips() {
 
 }
 
+/**
+ * Settings callback for dgd7_tip filter.
+ */
+function _dgd7_tip_settings($form, $form_state, $filter, $format, $defaults) {
+  $settings = array();
+  // Administrators can override the hard-coded default settings, so if any
+  // settings have been defined, we do not load them.  If an administrator 
+  // deletes all settings, the default comes back.
+  if (empty($filter->settings)) { // @TODO may be an isset check needed first.
+    $defset = $defaults;
+  }
+  else {
+    $defset = $filter->settings;
+  }
+
+  foreach ($defset as $key => $value) {
+    $settings[$key] = array
