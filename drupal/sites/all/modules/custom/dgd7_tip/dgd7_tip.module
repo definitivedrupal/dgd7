@@ -14,12 +14,13 @@
  */
 function dgd7_tip_filter_info() {
   $filters['dgd7_tip'] = array(
-    'title' => t('Tip formatter'),
-    'description' => t('Allows simple notation to indicate paragraphs of text to be emphasized as tips, notes, hints, or other specially featured interjections..'),
+    'title' => t('Custom markup'),
+    'description' => t('Allows simple notation to indicate paragraphs of text to be wrapped in custom markup, for instance to emphasize tips, notes, or other featured interjections.'),
     'prepare callback' => '_dgd7_tip_prepare',
     'process callback' => '_dgd7_tip_process',
+    // Allow other modules to declare default tag replacement filters.
     'default settings' => array(
-      '[/tip]' => '<div class="featured-element tip"><span class="featured-name"><span class="leading-square">T</span>ip</span>[content]</div>',
+      'rt' => module_invoke_all('dgd7_tip_rt_defaults'),
     ),
     'settings callback' => '_dgd7_tip_settings',
     'tips callback' => '_dgd7_tip_tips',
@@ -28,40 +29,135 @@ function dgd7_tip_filter_info() {
 }
 
 /**
- * Implements filter prepare callback.
+ * Implements hook_theme().
+ */
+function dgd7_tip_theme() {
+  return array(
+    'dgd7_tip_settings' => array(
+      'render element' => 'form',
+    ),
+  );
+}
+
+/**
+ * Implements hook_dgd7_tip_rt_defaults().
+ */
+function dgd7_tip_dgd7_tip_rt_defaults() {
+  $rt = array();
+  $rt['[/tip]'] = array(
+    'before' => '<div class="featured-element tip"><span class="featured-name"><span class="leading-square">T</span>ip</span>',
+    'after' => '</div>',
+  );
+  return $rt;
+}
+
+/**
+ * Filter prepare callback.
  */
 function _dgd7_tip_prepare() {
 
 }
 
 /**
- * Implements filter process callback.
+ * Process callback for tag filter.
  */
 function _dgd7_tip_process() {
 
 }
 
 /**
- * Implements filter tips callback.
+ * Tips callback for tag filter.
  */
 function _dgd7_tip_tips() {
 
 }
 
 /**
- * Settings callback for dgd7_tip filter.
+ * Settings callback for tag filter.
+ *
  */
 function _dgd7_tip_settings($form, $form_state, $filter, $format, $defaults) {
+  // Declare the array will hold our settings form elements.
   $settings = array();
-  // Administrators can override the hard-coded default settings, so if any
-  // settings have been defined, we do not load them.  If an administrator 
-  // deletes all settings, the default comes back.
-  if (empty($filter->settings)) { // @TODO may be an isset check needed first.
-    $defset = $defaults;
+  $rt = $defaults['rt']; // "rt" is short for replacement tags.
+  // Administrator settings override the default settings.
+  if (isset($filter->settings['rt'])) {
+    $rt = array_merge($rt, $filter->settings['rt']);
   }
   else {
-    $defset = $filter->settings;
+    drupal_set_message("this never happens.");
   }
+  // Always add two empty sets of form fields to be filled in.
+  for($i = 1; $i<=2; $i++) {
+    $rt['</example' . $i . '>'] = array('before' => '', 'after' => '');
+  }
+  drupal_set_message('<pre>'.var_export($filter,TRUE).'</pre>'); // @DEBUG
+  $settings['rt'] = array(
+    '#description' => t('To set tags and replacement markup, enter only the closing tag (such as &lt;/tip&gt;).  The opening tag will be calculated automatically by removing the slash.  Then enter the before and after markup that will replace theopening and closing tag, respectively.'),
+    '#theme' => 'dgd7_tip_settings',
+    '#format' => $format,
+    '#parents' => array('filters', 'dgd7_tip', 'settings'),
+  );
+  $i = 0;
+  foreach ($rt as $tag => $replace) {
+    $settings['rt'][$i]['tag'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Tag'),
+      '#maxlength' => 64,
+      '#size' => 10,
+      '#default_value' => $tag,
+    );
+    $settings['rt'][$i]['before'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Before'),
+      '#maxlength' => 1024,
+      '#size' => 40,
+      '#default_value' => $replace['before'],
+    );
+    $settings['rt'][$i]['after'] = array(
+      '#type' => 'textfield',
+      '#title' => t('After'),
+      '#maxlength' => 1024,
+      '#size' => 40,
+      '#default_value' => $replace['after'],
+    );
+    $i++; // Increment our number of filters by one.
+  }
+  return $settings;
+}
 
-  foreach ($defset as $key => $value) {
-    $settings[$key] = array
+/**
+ * Replace with tags with markup given a closing tag (containing a /).
+ *
+ * @param $text
+ *   String to be modified to use markup in place of tags, passed by reference.
+ * @param $ctag
+ *   A closing tag, identical to the opening tag except it includes a /.
+ * @param $before
+ *   Markup to replace the opening tag.
+ * @param $after
+ *   Markup to replace the closing tag.
+ * @return NULL 
+ */
+function dgd7_replace_tags(&$text, $ctag, $before = '', $after = '') {
+  $otag = str_replace('/', '', $ctag);
+  $text = preg_replace('@' . $otag . '(.+?)' . $ctag . '@se',
+                       "dgd7_tip_replace_tag('$1', '$ctag', '$before', '$after')",
+                       $text);
+}
+
+/**
+ * Replace tags with markup for an excerpt bounded by opening and closing tags.
+ */
+function dgd7_tip_replace_tag($excerpt, $ctag, $before, $after) {
+  return $before . substr($excerpt, strlen($ctag)-1, strlen($ctag)) . $after;
+}
+
+function theme_dgd7_tip_settings($vars) {
+  $form = $vars['form'];
+  return '<p>' . filter_xss_admin($form['#description']) . '</p>'
+         . drupal_render_children($form);
+}
+
+
+// must contain a slash (<tt>/</tt>).  We calculate the opening tag by removing the slash.
