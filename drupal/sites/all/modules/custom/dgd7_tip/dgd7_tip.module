@@ -152,10 +152,8 @@ drupal_set_message('element: <pre>'.var_export($element,TRUE).'</pre>'); // @DEB
  * Rearrange form elements to be keyed by tag before filter_format_save() runs.
  */
 function dgd7_tip_rt_form_keys_validate($element, &$form_state) {
-drupal_set_message('rt element: <pre>'.var_export($element,TRUE).'</pre>'); // @DEBUG
-  $return = $element;
+  $rt = array();
 
-/*
   // Create a stripped down set of form results to work from.
   $values = array();
   foreach ($element as $i => $value) {
@@ -167,22 +165,15 @@ drupal_set_message('rt element: <pre>'.var_export($element,TRUE).'</pre>'); // @
   // Create a tag-keyed version of each element.
   foreach ($values as $value) {
     $key = $value['tag']['#value'];
-    // Remove the tag value; it's redundant with the key now.
-    unset($value['tag']);
-    $return[$key] = $value;
+    $rt[$key] = array(
+      'before' => $value['before']['#value'],
+      'after' => $value['after']['#value'],
+    );
   }
 
-  // Remove the superseded numeric keys.
-  foreach ($return as $i => $value) {
-    if (is_numeric($i)) {
-      unset($return[$i]);
-    }
-  }
-drupal_set_message('return <pre>'.var_export($return,TRUE).'</pre>'); // @DEBUG
-*/
-  $return = array();
-  $return['rt']['test'] = array('before' => 'before!', 'after' => 'after!');
-  form_set_value($element, $return, $form_state);
+// drupal_set_message('return <pre>'.var_export($rt,TRUE).'</pre>'); // @DEBUG
+//  $return['rt']['test'] = array('before' => 'before!', 'after' => 'after!');
+  form_set_value($element, array('rt' => $rt), $form_state);
 }
 
 /**
