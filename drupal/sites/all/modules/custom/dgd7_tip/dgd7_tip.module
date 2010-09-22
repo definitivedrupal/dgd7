@@ -153,26 +153,19 @@ drupal_set_message('element: <pre>'.var_export($element,TRUE).'</pre>'); // @DEB
  */
 function dgd7_tip_rt_form_keys_validate($element, &$form_state) {
   $rt = array();
-
-  // Create a stripped down set of form results to work from.
-  $values = array();
-  foreach ($element as $i => $value) {
-    if (is_numeric($i)) {
-      $values[$i] = $value;
-    }
-  }
-
   // Create a tag-keyed version of each element.
-  foreach ($values as $value) {
+  foreach ($element as $i => $value) {
+    // Strip out non-value form elements (our form has numbers).
+    if (!is_numeric($i))  continue;
     $key = $value['tag']['#value'];
+    // Do not save empty keys.
+    if (!$key) continue;
     $rt[$key] = array(
       'before' => $value['before']['#value'],
       'after' => $value['after']['#value'],
     );
   }
 
-// drupal_set_message('return <pre>'.var_export($rt,TRUE).'</pre>'); // @DEBUG
-//  $return['rt']['test'] = array('before' => 'before!', 'after' => 'after!');
   form_set_value($element, array('rt' => $rt), $form_state);
 }
 
