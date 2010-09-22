@@ -138,13 +138,10 @@ function _dgd7_tip_add_rt_formset(&$settings, $i, $tag = '', $replace = array('b
  * Validate each tag to include one and only one slash.
  */
 function dgd7_tip_rt_form_tag_validate($element, &$form_state, $whole_form) {
-drupal_set_message('element: <pre>'.var_export($element,TRUE).'</pre>'); // @DEBUG
-// drupal_set_message('<pre>'.var_export($form_state,TRUE).'</pre>'); // @DEBUG
-// drupal_set_message('whole form: <pre>'.var_export($whole_form,TRUE).'</pre>'); // @DEBUG
   if (strlen($element['#value']) && substr_count($element['#value'], '/') !== 1) {
     // We describe where the error is because after submission it is likely to
     // be in a non-visible verticle tab.
-    form_error($element, t('In the Custom markup Filter settings, each tag must be in the form of a closing tag with exactly one slash ("/").'));
+    form_error($element, t('In the Custom markup Filter settings, each tag must be in the form of a closing tag with exactly one slash ("/").  The opening tag is calculated by removing the slash.'));
   }
 }
 
@@ -202,5 +199,3 @@ function theme_dgd7_tip_settings($vars) {
          . drupal_render_children($form);
 }
 
-
-// must contain a slash (<tt>/</tt>).  We calculate the opening tag by removing the slash.
