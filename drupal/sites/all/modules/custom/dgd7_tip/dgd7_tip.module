@@ -16,7 +16,7 @@ function dgd7_tip_filter_info() {
   $filters['dgd7_tip'] = array(
     'title' => t('Custom markup'),
     'description' => t('Allows simple notation to indicate paragraphs of text to be wrapped in custom markup, for instance to emphasize tips, notes, or other featured interjections.'),
-    'prepare callback' => '_dgd7_tip_prepare',
+//    'prepare callback' => '_dgd7_tip_prepare',
     'process callback' => '_dgd7_tip_process',
     // Allow other modules to declare default tag replacement filters.
     'default settings' => array(
@@ -61,8 +61,14 @@ function _dgd7_tip_prepare() {
 /**
  * Process callback for tag filter.
  */
-function _dgd7_tip_process() {
-
+function _dgd7_tip_process($text, $format) {
+  if (!isset($format->settings['rt']) || !is_array($format->settings['rt'])) {
+    return $text;
+  }
+  foreach ($format->settings['rt'] as $ctag => $replace) {
+    dgd7_replace_tags($text, $ctag, $replace['before'], $replace['after']);
+  }
+  return $text;
 }
 
 /**
@@ -77,7 +83,6 @@ function _dgd7_tip_tips() {
  *
  */
 function _dgd7_tip_settings($form, $form_state, $filter, $format, $defaults) {
-drupal_set_message('fs: <pre>'.var_export($filter->settings,TRUE).'</pre>'); // @DEBUG
   // Declare the array will hold our settings form elements.
   $settings = array();
   $rt = $defaults['rt']; // "rt" is short for replacement tags.
@@ -181,16 +186,18 @@ function dgd7_tip_rt_form_keys_validate($element, &$form_state) {
  */
 function dgd7_replace_tags(&$text, $ctag, $before = '', $after = '') {
   $otag = str_replace('/', '', $ctag);
-  $text = preg_replace('@' . $otag . '(.+?)' . $ctag . '@se',
-                       "dgd7_tip_replace_tag('$1', '$ctag', '$before', '$after')",
-                       $text);
+  $text = preg_replace(
+    '@' . preg_quote($otag) . '(.+?)' . preg_quote($ctag) . '@se',
+    "dgd7_tip_replace_tag('$1', '$before', '$after')",
+    $text
+  );
 }
 
 /**
- * Replace tags with markup for an excerpt bounded by opening and closing tags.
+ * Place open before and after markup around an excerpt.
  */
-function dgd7_tip_replace_tag($excerpt, $ctag, $before, $after) {
-  return $before . substr($excerpt, strlen($ctag)-1, strlen($ctag)) . $after;
+function dgd7_tip_replace_tag($excerpt, $before, $after) {
+  return $before . $excerpt . $after;
 }
 
 function theme_dgd7_tip_settings($vars) {
