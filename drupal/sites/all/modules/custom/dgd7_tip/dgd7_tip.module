@@ -66,7 +66,7 @@ function _dgd7_tip_process($text, $format) {
     return $text;
   }
   foreach ($format->settings['rt'] as $ctag => $replace) {
-    dgd7_replace_tags($text, $ctag, $replace['before'], $replace['after']);
+    dgd7_tip_replace_tags($text, $ctag, $replace['before'], $replace['after']);
   }
   return $text;
 }
@@ -74,8 +74,31 @@ function _dgd7_tip_process($text, $format) {
 /**
  * Tips callback for tag filter.
  */
-function _dgd7_tip_tips() {
-
+function _dgd7_tip_tips($format, $long = FALSE) {
+  $tips = '';
+  if (!isset($format->settings['rt']) || !is_array($format->settings['rt'])) {
+    if (user_access('administer filters')) {
+      $tips .= '<p class="warning">' . t('No custom markup tag replacement defined.') . '</p>';
+    }
+  }
+  elseif ($long) {
+    $tips .= '<ul>';
+    foreach ($format->settings['rt'] as $tag => $replace) {
+      $tips .= '<li>';
+      $tips .= '<code>' . check_plain($tag) . '</code> becomes ';
+      $tips .= '<code>' . check_plain($replace['before']) . '</code> and ';
+      $tips .= '<code>' . check_plain($replace['after']) . '</code>.';
+      $tips .= '</li>';
+    }
+    $tips .= '</ul>';
+  }
+  else {
+    t(' tags are replaced with before and after markup.');
+  }
+  if (user_access('administer filters')) {
+    $tips .= ' ' . l(t('Configure format.'), 'admin/config/content/formats/' . $format->format);
+  }
+  return $tips;
 }
 
 /**
@@ -86,13 +109,13 @@ function _dgd7_tip_settings($form, $form_state, $filter, $format, $defaults) {
   // Declare the array will hold our settings form elements.
   $settings = array();
   $rt = $defaults['rt']; // "rt" is short for replacement tags.
-  // Administrator settings override the default settings.
+  // Administrator-set settings override the default settings.
   if (isset($filter->settings['rt'])) {
     $rt = array_merge($rt, $filter->settings['rt']);
   }
 
   $settings['rt'] = array(
-    '#description' => t('To set tags and replacement markup, enter only the closing tag (such as &lt;/tip&gt;).  The opening tag will be calculated automatically by removing the slash.  Then enter the before and after markup that will replace theopening and closing tag, respectively.'),
+    '#description' => t('To set tags and replacement markup, enter only the closing tag (such as &lt;/tip&gt;); the opening tag will be calculated automatically by removing the slash.  Then enter the before and after markup which will replace the opening and closing tag, respectively.'),
     '#theme' => 'dgd7_tip_settings',
     '#format' => $format,
     '#parents' => array('filters', 'dgd7_tip', 'settings'),
@@ -184,8 +207,8 @@ function dgd7_tip_rt_form_keys_validate($element, &$form_state) {
  *   Markup to replace the closing tag.
  * @return NULL 
  */
-function dgd7_replace_tags(&$text, $ctag, $before = '', $after = '') {
-  $otag = str_replace('/', '', $ctag);
+function dgd7_tip_replace_tags(&$text, $ctag, $before = '', $after = '') {
+  $otag = dgd7_tip_otag($ctag));
   $text = preg_replace(
     '@' . preg_quote($otag) . '(.+?)' . preg_quote($ctag) . '@se',
     "dgd7_tip_replace_tag('$1', '$before', '$after')",
@@ -200,9 +223,18 @@ function dgd7_tip_replace_tag($excerpt, $before, $after) {
   return $before . $excerpt . $after;
 }
 
+/**
+ * Theme callback to print description with settings form.
+ */
 function theme_dgd7_tip_settings($vars) {
   $form = $vars['form'];
   return '<p>' . filter_xss_admin($form['#description']) . '</p>'
          . drupal_render_children($form);
 }
 
+/**
+ * Take a closing tag and strip the slash to present the opening tag.
+ */
+function dgd7_tip_otag($ctag);
+  return str_replace('/', '', $ctag);
+}
