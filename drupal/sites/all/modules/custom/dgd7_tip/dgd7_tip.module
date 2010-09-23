@@ -138,7 +138,9 @@ function _dgd7_tip_settings($form, $form_state, $filter, $format, $defaults) {
  * Add a set of form fields for adding a new tag and replacement markup pair.
  */
 function _dgd7_tip_add_rt_formset(&$settings, $i, $tag = '', $replace = array('before' => '', 'after' => '')) {
+  drupal_add_css(drupal_get_path('module', 'dgd7_tip') . '/dgd7_tip.css');
   $settings['rt'][$i]['tag'] = array(
+    '#prefix' => '<div class="rt-formset">',
     '#type' => 'textfield',
     '#title' => t('Tag'),
     '#maxlength' => 64,
@@ -159,6 +161,7 @@ function _dgd7_tip_add_rt_formset(&$settings, $i, $tag = '', $replace = array('b
     '#maxlength' => 1024,
     '#size' => 40,
     '#default_value' => $replace['after'],
+    '#suffix' => '</div>',
   );
 }
 
@@ -208,7 +211,7 @@ function dgd7_tip_rt_form_keys_validate($element, &$form_state) {
  * @return NULL 
  */
 function dgd7_tip_replace_tags(&$text, $ctag, $before = '', $after = '') {
-  $otag = dgd7_tip_otag($ctag));
+  $otag = dgd7_tip_otag($ctag);
   $text = preg_replace(
     '@' . preg_quote($otag) . '(.+?)' . preg_quote($ctag) . '@se',
     "dgd7_tip_replace_tag('$1', '$before', '$after')",
@@ -235,6 +238,6 @@ function theme_dgd7_tip_settings($vars) {
 /**
  * Take a closing tag and strip the slash to present the opening tag.
  */
-function dgd7_tip_otag($ctag);
+function dgd7_tip_otag($ctag) {
   return str_replace('/', '', $ctag);
 }
