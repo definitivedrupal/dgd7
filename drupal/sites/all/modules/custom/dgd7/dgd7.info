@@ -1,0 +1,7 @@
+; $Id$
+name = DGD7 Custom Code
+description = [dgd7] Glue, or custom, code for DefinitiveDrupal.org
+core = 7.x
+files[] = dgd7.module
+files[] = dgd7.css
+dependencies[] = remarkup

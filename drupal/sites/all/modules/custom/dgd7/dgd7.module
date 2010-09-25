@@ -1,0 +1,18 @@
+<?php
+// $Id$
+
+/**
+ * Implements hook_remarkup_defaults().
+ */
+function dgd7_remarkup_defaults() {
+  return array(
+    '[/tip]' => array(
+      'before' => '<div class="dgd7-featured dgd7-tip"><span class="featured-name"><span class="leading-square">T</span>ip</span>',
+      'after' => '</div>',
+    ),
+    '[/reality]' => array(
+      'before' => '<div class="dgd7-featured dgd7-tip"><strong class="dgd7-name">Reality</strong>',
+      'after' => '</div>',
+    ),
+  );
+}
