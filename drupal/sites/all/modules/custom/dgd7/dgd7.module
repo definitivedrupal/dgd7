@@ -5,14 +5,31 @@
  * Implements hook_remarkup_defaults().
  */
 function dgd7_remarkup_defaults() {
-  return array(
-    '[/tip]' => array(
-      'before' => '<div class="dgd7-featured dgd7-tip"><span class="featured-name"><span class="leading-square">T</span>ip</span>',
-      'after' => '</div>',
-    ),
-    '[/reality]' => array(
-      'before' => '<div class="dgd7-featured dgd7-tip"><strong class="dgd7-name">Reality</strong>',
-      'after' => '</div>',
-    ),
+  $rm = array();
+  // Define the simple tips-style replacements, machine and human-readable.
+  $tips = array(
+    'tip' => t('Tip'),
+    'note' => t('Note'),
+    'hint' => t('Hint'),
+    'reality' => t('Reality'),
+    'warning' => t('Warning'),
+    'new' => t('New in 7'),
   );
+  foreach ($tips as $type => $name) {
+    $rm['[/' . $type . ']'] = array(
+      'before' => '<div class="dgd7-featured dgd7-' . $type . '"><strong class="dgd7-name">' . $name . '</strong>',
+      'after' => '</div>',
+    );
+  }
+  // A few rules are unique.
+  $rm['[/file-txt]'] = array(
+      'before' => '<code>',
+      'after' => '</code>',
+  );
+  // NOTE!  This requires the codefilter module.
+  $rm['[/file-php]'] = array(
+      'before' => '<?php',
+      'after' => '?>',
+  );
+  return $rm;
 }

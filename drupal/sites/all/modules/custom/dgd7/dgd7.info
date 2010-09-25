@@ -5,3 +5,4 @@ core = 7.x
 files[] = dgd7.module
 files[] = dgd7.css
 dependencies[] = remarkup
+styles[] = dgd7.css
