@@ -2,9 +2,177 @@
 
 h1,
 #preview h1 {
+  color: inherit;
+}
+
+#header #name-and-slogan,
+#preview #preview-header #preview-name-and-slogan {
+  margin-left: 15px;
+}
+
+#navigation ul.links {
+  float: right;
+}
+
+#navigation ul.links li a {
+  background: #ffe373;
+}
+
+#navigation ul.links li a:active {
+  background: #ffcd00;
+}
+
+.content {
+  margin-top: 0;
+}
+
+#block-system-main .node-teaser h2 a {
+  color: #ffe373;
+}
+
+#block-system-main .link-wrapper {
+  text-align: right;
+}
+
+/* ------------------ Sidebar ----------------- */
+ 
+.sidebar .content {
+  padding: 5px;
+}
+
+.sidebar .block {
+  border: inherit;
+}
+
+/* ----------------- Triptych ----------------- */
+ 
+#triptych-wrapper {
+  background-color: #000000;
+  border-top: 4px solid #FFCC00;
+}
+
+#triptych h2 {
+  color: #dedede;
+}
+
+/* ------------------ Footer ------------------ */
+ 
+#footer-wrapper {
+  color: #c0c0c0; 
+}
+
+#footer-wrapper a {
+  color: inherit;
+}
+
+#footer-wrapper a:hover,
+#footer-wrapper a:focus {
+  color: #fefefe; 
+}
+
+#footer-wrapper div.block {
+  border: none;  
+}
+
+/* --------------- System Tabs  --------------- */
+
+.tabs {
+  margin-bottom: inherit;
+  padding-left: 20px;
+}
+
+
+
+#comment-form fieldset.filter-wrapper {
+  top: 0;
+}
+
+
+/* Make the highlight region text a bit larger than body default. */
+#highlight {
+  font-size: 26px;
+  line-height: 32px;
+  letter-spacing: .01em;
+  margin: 25px 0px;
+  background: url('../images/sm-bookcover-logo.png') no-repeat left;
+  padding-left: 260px;
+  height: 270px;
+}
+
+/* Suggestion node add form styling: condense type radio buttons. */
+#suggestion-node-form .form-type-radio {
+  display: inline;
+  margin-right: 10px;
+}
+
+#suggestion-node-form .form-radio {
+  margin-right: 2px;
+}
+
+
+/* ---------- Basic Layout Styles ----------- */
+ 
+.front.one-sidebar #content {
+  width: 960px;
+  float: none;
+}
+
+#main-wrapper {
+  min-height: 300px;
+}
+
+body.not-front {
+  background-color: #fffee4;
   color: #000;
 }
 
-#preview #preview-header #preview-name-and-slogan {
-  margin-left: 0;
+html,
+#page-wrapper,
+body.overlay {
+  background-color: inherit;
+  color: inherit;
+}
+
+#navigation ul.links li.active-trail a {
+  background: #ffcd00;
+}
+
+#header {
+  background-image: none;
+  background-color: #000000;
+  border-bottom:4px solid #FFCC00;
+}
+
+a {
+  color: #104BA9;
+}
+
+a:hover,
+a:focus {
+  color: #447BD4;
+}
+
+a:active {
+  color: #23aeff;
+  color: #6A93D4;
+}
+
+#footer-wrapper {
+  background: #000000;
+  color:#000000;
+  padding: 0px;
+}
+
+#footer-wrapper .section
+{
+  background: #FFCC00;
+  -moz-border-radius-topright:175px;
+  -webkit-border-radius-topright:175px;
+}
+
+/* ---------- Typography ---------- */
+
+code, pre {
+  font-family: "TheSansMonoConNormalNormal","Monaco","Bistream Vera Mono","Courier New",monospace;
+  font-style: normal;
 }
