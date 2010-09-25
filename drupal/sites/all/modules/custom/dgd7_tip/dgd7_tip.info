@@ -1,6 +1,0 @@
-; $Id$
-
-name = Tip formatter
-description = [dgd7_tip] Text format filter for tips, notes, hints and other emphasized paragraphs of text.
-core = 7.x
-files[] = dgd7_tip.module
