@@ -7,9 +7,7 @@ package = Core
 version = VERSION
 core = 7.x
 
-stylesheets[all][] = css/layout.css
-stylesheets[all][] = css/style.css
-stylesheets[all][] = css/colors.css
+stylesheets[all][] = css/dgd7theme.css
 
 scripts[] = scripts/search.js
 

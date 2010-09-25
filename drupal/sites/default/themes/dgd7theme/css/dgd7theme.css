@@ -1,0 +1,10 @@
+/* $Id$ */
+
+h1,
+#preview h1 {
+  color: #000;
+}
+
+#preview #preview-header #preview-name-and-slogan {
+  margin-left: 0;
+}
