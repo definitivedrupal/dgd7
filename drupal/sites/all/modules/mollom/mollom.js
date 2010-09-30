@@ -1,5 +1,4 @@
-// $Id: mollom.js,v 1.8 2010/05/06 14:48:04 dries Exp $
-
+// $Id: mollom.js,v 1.9 2010/08/04 03:58:46 dries Exp $
 (function ($) {
 
 /**
@@ -43,6 +42,9 @@ function getMollomCaptcha() {
   // Retrieve a CAPTCHA:
   $.getJSON(Drupal.settings.basePath + 'mollom/captcha/' + newCaptchaType + '/' + formBuildId + '/' + mollomSessionId,
     function (data) {
+      if (!(data && data.content)) {
+        return;
+      }
       // Inject new CAPTCHA.
       $('.mollom-captcha-content', context).parent().html(data.content);
       // Update session id.

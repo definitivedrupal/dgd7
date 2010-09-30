@@ -1,5 +1,5 @@
 <?php
-// $Id: mollom.pages.inc,v 1.10 2010/05/06 14:48:04 dries Exp $
+// $Id: mollom.pages.inc,v 1.14 2010/08/04 03:58:46 dries Exp $
 
 /**
  * @file
@@ -40,7 +40,7 @@ function mollom_captcha_js($type, $form_build_id, $mollom_session_id) {
   if (!empty($captcha['response']['session_id'])) {
     if ($cache = cache_get('form_state_' . $form_build_id, 'cache_form')) {
       $form_state = $cache->data;
-      $form_state['mollom']['session_id'] = $captcha['response']['session_id'];
+      $form_state['mollom']['response']['session_id'] = $captcha['response']['session_id'];
       cache_set('form_state_' . $form_build_id, $form_state, 'cache_form', REQUEST_TIME + 21600);
       // After successfully updating the cache, replace the original session id.
       $mollom_session_id = $captcha['response']['session_id'];
@@ -90,6 +90,11 @@ function mollom_report_form($form, &$form_state, $entity, $id) {
     '#description' => t("Mollom is a web service that helps you moderate your site's content: see <a href=\"http://mollom.com\">http://mollom.com</a> for more information. By sending feedback to Mollom, you teach Mollom about the content you like and dislike, allowing Mollom to do a better job helping you moderate your site's content. If you want to report multiple posts at once, you can use Mollom's bulk operations on the content and comment administration pages."),
   );
 
+  // @todo "Delete" does not work for reporting mails to Mollom. In D7+, this
+  //   form should be used solely for mails, as other entities are reported
+  //   through existing delete confirmation forms instead. Perhaps there should
+  //   be a dedicated form for reporting mails, as they are not really
+  //   compatible with any of the standard processes either way.
   return confirm_form($form,
     t('Are you sure you want to delete and report the content as inappropriate?'),
     '<front>',
