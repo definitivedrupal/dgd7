@@ -1,0 +1,26 @@
+<?php
+// $Id: content_type_overview.install,v 1.2 2010/01/16 14:41:23 wulff Exp $
+
+/**
+ * Implementation of hook_install().
+ */
+function content_type_overview_install() {
+  db_query("UPDATE {system} SET weight = 99 WHERE name = 'content_type_overview'");
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function content_type_overview_uninstall() {
+  variable_del('content_type_overview_types');
+  variable_del('content_type_overview_shorten_labels');
+}
+
+/**
+ * Implementation of hook_update_N().
+ */
+function content_type_overview_update_6100() {
+  $ret = array();
+  $ret[] = update_sql("UPDATE {system} SET weight = 99 WHERE name = 'content_type_overview'");
+  return $ret;
+}

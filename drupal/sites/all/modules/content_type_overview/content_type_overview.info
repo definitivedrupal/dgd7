@@ -1,0 +1,14 @@
+; $Id: content_type_overview.info,v 1.1.4.1 2010/01/17 15:24:13 wulff Exp $
+name = Content type overview
+description = Provides easy access to all basic content type settings.
+core = 7.x
+files[] = content_type_overview.install
+files[] = content_type_overview.module
+package = Administration
+
+; Information added by drupal.org packaging script on 2010-02-11
+version = "7.x-1.0-beta2"
+core = "7.x"
+project = "content_type_overview"
+datestamp = "1265887205"
+

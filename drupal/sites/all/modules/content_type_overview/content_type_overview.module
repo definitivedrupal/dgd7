@@ -1,0 +1,412 @@
+<?php
+// $Id: content_type_overview.module,v 1.3.2.4 2010/02/11 11:16:43 wulff Exp $
+
+/**
+ * @file
+ * Provides easy access to all basic content type settings.
+ */
+
+/* --- HOOKS ---------------------------------------------------------------- */
+
+/**
+ * Implementation of hook_menu().
+ */
+function content_type_overview_menu() {
+  $items = array();
+
+  $items['admin/structure/types/overview'] = array(
+    'title' => 'Overview',
+    'page callback' => 'content_type_overview_page',
+    'access arguments' => array('administer content types'),
+    'file' => 'content_types.inc',
+    'file path' => drupal_get_path('module', 'node'),
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/config/development/content_type_overview'] = array(
+    'title' => 'Content type overview',
+    'description' => 'Provides easy access to all basic content type settings.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('content_type_overview_settings_form'),
+    'access arguments' => array('administer content types'),
+  );
+
+  return $items;
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function content_type_overview_theme($existing, $type, $theme, $path) {
+  return array(
+    'content_type_overview_form' => array(
+      'render element' => 'form',
+    ),
+    'content_type_overview_group_title' => array(
+      'variables' => array('title' => NULL),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_form_alter().
+ *
+ * We're doing the cleanup in hook_form_alter() to be able to update forms which
+ * have been modified in hook_form_FORM_ID_alter(). (This hook is called last.)
+ */
+// TODO: use drupal_alter to allow for easy addition of cleanup plugins
+function DISABLED_content_type_overview_form_alter(&$form, &$form_state, $form_id) {
+  $shorten_labels = variable_get('content_type_overview_shorten_labels', TRUE);
+  if ($shorten_labels && 'node_type_form' == $form_id && arg(3) != 'manage') {
+    $form['submission']['min_word_count']['#title'] = t('Min. word count');
+    $form['submission']['help']['#title'] = t('Guidelines');
+
+    // tighten up workflow
+    foreach ($form['workflow']['node_options']['#options'] as $key => $value) {
+      switch ($key) {
+        case 'status':
+          $value = t('Published');
+          break;
+        case 'promote':
+          $value = t('Promoted');
+          break;
+        case 'sticky':
+          $value = t('Sticky');
+          break;
+        case 'revision':
+          $value = t('New revision');
+          break;
+      }
+      $form['workflow']['node_options']['#options'][$key] = $value;
+    }
+
+    // tighten up comment options if comment module is enabled
+    if (module_exists('comment')) {
+      $form['comment']['comment']['#title'] = t('Comments');
+      $form['comment']['comment_default_mode']['#title'] = t('Display mode');
+      $form['comment']['comment_default_mode']['#options'] = array(
+        1 => t('Flat, collapsed'),
+        2 => t('Flat, expanded'),
+        3 => t('Threaded, coll.'),
+        4 => t('Threaded, exp.'),
+      );
+      $form['comment']['comment_default_order']['#title'] = t('Display order');
+      $form['comment']['comment_default_order']['#options'] = array(
+        1 => t('Newest first'),
+        2 => t('Oldest first'),
+      );
+      $form['comment']['comment_default_per_page']['#title'] = t('Comments per page');
+      $form['comment']['comment_controls']['#title'] = t('Controls');
+      $form['comment']['comment_controls']['#options'] = array(
+        0 => t('Above'),
+        1 => t('Below'),
+        2 => t('Both'),
+        3 => t('None'),
+      );
+      $form['comment']['comment_anonymous']['#options'] = array(
+        0 => t('May not'),
+        1 => t('May'),
+        2 => t('Must'),
+      );
+      $form['comment']['comment_subject_field']['#title'] = t('Subject field');
+      $form['comment']['comment_form_location']['#title'] = t('Form location');
+      $form['comment']['comment_form_location']['#options'] = array(
+        0 => t('Separate page'),
+        1 => t('Below post'),
+      );
+    }
+
+    // tighten up title options if the auto_nodetitle module is enabled
+    if (module_exists('auto_nodetitle')) {
+      $form['auto_nodetitle']['ant']['#options'] = array(
+        0 => t('Disabled'),
+        1 => t('Generate and hide field'),
+        2 => t('Generate if empty'),
+      );
+      unset($form['auto_nodetitle']['token_help']);
+    }
+  }
+}
+
+/* --- CALLBACKS ------------------------------------------------------------ */
+
+/**
+ * Menu callback; content type overview page.
+ */
+function content_type_overview_page() {
+  $content_types = variable_get('content_type_overview_types', array());
+  if (empty($content_types)) {
+    drupal_set_message(t('You need to enable at least one content type on the !url.', array('!url' => l(t('Content type overview settings page'), 'admin/config/development/content_type_overview'))));
+    return '';
+  }
+  else {
+    return drupal_get_form('content_type_overview_form');
+  }
+}
+
+/* --- FORMS ---------------------------------------------------------------- */
+
+/**
+ * Menu callback; main content type overview form.
+ */
+function content_type_overview_form($form, &$form_state) {
+  $types = array();
+
+  $content_types = variable_get('content_type_overview_types', array());
+
+  // clear node type cache
+  drupal_static_reset('_node_types_build');
+
+  foreach (array_filter($content_types) as $type) {
+    $form = array();
+    // load the content type and get its configuration form
+    $type = node_type_get_type($type);
+    $node_type_form = node_type_form($form, $form_state, $type);
+    drupal_prepare_form('node_type_form', $node_type_form, $form_state);
+
+    // remove unwanted FAPI fields from the form array
+    if (isset($node_type_form['additional_settings'])) {
+      unset($node_type_form['additional_settings']);
+    }
+    foreach ($node_type_form as $key => $value) {
+      if (substr($key, 0, 1) == '#') {
+        unset($node_type_form[$key]);
+        continue;
+      }
+      if (isset($node_type_form[$key]['#type']) && $node_type_form[$key]['#type'] == 'submit') {
+        unset($node_type_form[$key]);
+      }
+
+      foreach (array('#attached', '#group') as $field) {
+        unset($node_type_form[$key][$field]);
+      }
+    }
+
+    $types[$type->type] = $node_type_form;
+
+    $types[$type->type]['operations'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Operations'),
+    );
+
+    // add edit/delete/manage fields links to each node type form
+    $links = array();
+    $links[] = l(t('Edit'), 'admin/structure/types/manage/'. $type->type);
+    $links[] = l(t('Manage fields'), 'admin/structure/types/manage/'. $type->type .'/fields');
+    $links[] = l(t('Delete'), 'admin/structure/types/manage/'. $type->type .'/delete');
+
+    $types[$type->type]['operations']['links'] = array(
+      '#type' => 'item',
+      '#markup' => theme('item_list', array('items' => $links)),
+    );
+  }
+
+  $form = array('types' => $types);
+  if (!empty($form['types'])) {
+    $form['types']['#tree'] = TRUE;
+  }
+
+  $form['actions'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save'),
+  );
+
+  return $form;
+}
+
+function content_type_overview_form_submit($form, &$form_state) {
+  foreach ($form_state['values']['types'] as $type => $values) {
+    $new_form_state = array(
+      'values' => _content_type_overview_postprocess($values, $form['types'][$type]),
+    );
+    // TODO: we must either call all submit handlers or modify the code to
+    //       work with drupal_execute().
+    node_type_form_submit(array(), $new_form_state);
+  }
+}
+
+/**
+ * Menu callback; admin settings form.
+ */
+function content_type_overview_settings_form() {
+  $form = array();
+
+  $types = node_type_get_types();
+
+  $options = array();
+  foreach ($types as $name => $type) {
+    $options[$name] = $type->name;
+  }
+
+  $form['content_type_overview_types'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t('Content types'),
+    '#description' => t('Select the content types you want to include on the overview page.'),
+    '#options' => $options,
+    '#default_value' => variable_get('content_type_overview_types', array()),
+  );
+  $form['content_type_overview_shorten_labels'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Shorten form labels'),
+    '#description' => t('Enable this to shorten the form element labels. This makes it possible to display more widgets per screen.'),
+    '#default_value' => variable_get('content_type_overview_shorten_labels', TRUE),
+  );
+
+  return system_settings_form($form);
+}
+
+/* --- UTILITY -------------------------------------------------------------- */
+
+/**
+ * Preprocessor for node type forms.
+ */
+function _content_type_overview_preprocess(&$form) {
+  $processed = array();
+
+  if (isset($form['actions'])) {
+    unset($form['actions']);
+  }
+
+  foreach (element_children($form) as $element) {
+    if (isset($form[$element]['#type']) && $form[$element]['#type'] == 'fieldset') {
+      // remove fieldset and mark for display as a group heading in the table
+      $form[$element]['#type'] = 'value';
+      $processed[] = array(
+        'data' => theme('content_type_overview_group_title', array('title' => $form[$element]['#title'])),
+        'class' => 'group',
+      );
+      unset($form[$element]['#theme_wrappers']);
+      $children = _content_type_overview_preprocess($form[$element]);
+      foreach ($children as $child) {
+        $processed[] = $child;
+      }
+    }
+    else {
+      if (isset($form[$element]['#type']) && $form[$element]['#type'] != 'value') {
+        $class = '';
+
+        // convert textareas to textfields and set a maximum size for textfields
+        if ($form[$element]['#type'] == 'textarea') {
+          $form[$element]['#type'] = 'textfield';
+          $form[$element]['#theme'] = 'textfield';
+          $form[$element]['#autocomplete_path'] = '';
+        }
+        if ($form[$element]['#type'] == 'textfield') {
+          $form[$element]['#size'] = 16;
+        }
+        if ($form[$element]['#type'] == 'hidden' || $form[$element]['#type'] == 'token') {
+          $class = 'hidden';
+        }
+
+        $title = isset($form[$element]['#title']) ? $form[$element]['#title'] : '';
+
+        unset($form[$element]['#title']);
+        unset($form[$element]['#description']);
+
+        $processed[] = array(
+          'data' => drupal_render($form[$element]),
+          'title' => $title,
+          'class' => $class,
+        );
+      }
+    }
+    $form[$element]['#printed'] = TRUE;
+  }
+
+  return $processed;
+}
+
+/**
+ * Postprocess the form values to make them acceptable to the node_type_submit
+ * handler.
+ */
+function _content_type_overview_postprocess($values, $form) {
+  $processed = array();
+
+  foreach ($values as $key => $element) {
+    if (is_array($element)) {
+      if ($form[$key]['#type'] == 'checkboxes') {
+        $processed[$key] = $element;
+      }
+      else {
+        $children = _content_type_overview_postprocess($element, $form[$key]);
+        foreach ($children as $child_key => $child_element) {
+          $processed[$child_key] = $child_element;
+        }
+      }
+    }
+    else {
+      $processed[$key] = $element;
+    }
+  }
+
+  return $processed;
+}
+
+/* --- THEME ---------------------------------------------------------------- */
+
+/**
+ * Render the main content type overview form. We do this by rendering each
+ * node type form as a table column. Each node type form is preprocessed to
+ * unfold fieldsets.
+ */
+function theme_content_type_overview_form($variables) {
+  $form = $variables['form'];
+
+  drupal_add_css('input.form-text { width: 100%; }', array('type' => 'inline', 'preprecess' => FALSE));
+
+  $output = '';
+  if (!empty($form['types'])) {
+    // pre-process each node type form
+    foreach (element_children($form['types']) as $type) {
+      $elements[$type] = _content_type_overview_preprocess($form['types'][$type]);
+    }
+
+    $header = array('');
+    $rows = array();
+
+    $types = node_type_get_types();
+
+    // create table header
+    $keys = array_keys($elements);
+    foreach ($keys as $key) {
+      $header[] = $types[$key]->name;
+    }
+
+    // create table rows
+    foreach ($elements[$keys[0]] as $name => $value) {
+      $row = array();
+      foreach ($keys as $key) {
+        // ignore hidden fields
+        if ($elements[$key][$name]['class'] == 'hidden') {
+          continue;
+        }
+        if ($elements[$key][$name]['class'] == 'group') {
+          // set group heading
+          $row[0] = array(
+            'data' => $elements[$key][$name]['data'],
+            'colspan' => count($keys) + 1,
+          );
+        }
+        else {
+          $row[0] = $elements[$key][$name]['title'];
+          $row[] = $elements[$key][$name];
+        }
+      }
+      $rows[] = $row;
+    }
+
+    $output .= theme('table', array('header' => $header, 'rows' => $rows));
+  }
+
+  $output .= drupal_render_children($form);
+
+  return $output;
+}
+
+/**
+ * Render a group heading
+ */
+function theme_content_type_overview_group_title($variables) {
+  $title = $variables['title'];
+  return '<strong>'. $title .'</strong>';
+}
