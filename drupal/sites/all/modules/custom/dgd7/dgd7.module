@@ -12,7 +12,8 @@ function dgd7_remarkup_defaults() {
     'note' => t('Note'),
     'hint' => t('Hint'),
     'reality' => t('Reality'),
-    'warning' => t('Warning'),
+    'caution' => t('Caution'),
+    'gotcha' => t('gotcha'),
     'new' => t('New in 7'),
   );
   foreach ($tips as $type => $name) {
@@ -30,6 +31,11 @@ function dgd7_remarkup_defaults() {
   $rm['[/file-php]'] = array(
       'before' => '<?php',
       'after' => '?>',
+  );
+  $rm['[/cli]'] = array(
+    'before' => '<h4>Command-line steps</h4>
+    <tt>',
+    'after' => '</tt>',
   );
   return $rm;
 }
