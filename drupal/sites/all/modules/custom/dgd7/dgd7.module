@@ -13,7 +13,7 @@ function dgd7_remarkup_defaults() {
     'hint' => t('Hint'),
     'reality' => t('Reality'),
     'caution' => t('Caution'),
-    'gotcha' => t('gotcha'),
+    'gotcha' => t('Gotcha'),
     'new' => t('New in 7'),
   );
   foreach ($tips as $type => $name) {
