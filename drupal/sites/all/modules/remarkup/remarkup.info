@@ -1,0 +1,6 @@
+; $Id$
+
+name = Re-markup
+description = [remarkup] Replacement markup text format filter to make it easy to style tips, notes, hints and other emphasized paragraphs of text.
+core = 7.x
+files[] = remarkup.module

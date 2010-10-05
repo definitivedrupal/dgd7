@@ -1,0 +1,11 @@
+/* $Id$ */
+
+.remarkup-formset .form-item {
+  display: inline-block;
+  padding: 0;
+  margin-bottom: 5px;
+}
+
+.remarkup-formset {
+  margin-bottom: 10px;
+}
