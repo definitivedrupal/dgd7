@@ -180,8 +180,25 @@ code, pre {
 
 /* -------- Hints and Tips and Stuff --------- */
 
-.dgd7-hint {
+.dgd7-hint,
+.dgd7-tip,
+.dgd7-note,
+.dgd7-reality,
+.dgd7-caution,
+.dgd7-gotcha,
+.dgd7-new {
   margin: 10px 0px 10px 0px;
+  padding: 15px 0px 15px 0px;
   border-top: 2px solid black;
   border-bottom: 2px solid black;
   }
+
+.dgd7-hint strong,
+.dgd7-tip strong,
+.dgd7-note strong,
+.dgd7-reality strong,
+.dgd7-caution strong,
+.dgd7-gotcha strong,
+.dgd7-new strong {
+  margin: 0px 5px;
+}
