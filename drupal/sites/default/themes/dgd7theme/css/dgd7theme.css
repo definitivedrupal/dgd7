@@ -202,3 +202,8 @@ code, pre {
 .dgd7-new strong {
   margin: 0px 5px;
 }
+
+blockquote {
+  background: none;
+  border: none;
+}
