@@ -134,14 +134,18 @@ margin-top:10px;
 }
 
 .book-navigation,
-body.not-front #main #content .region,
-.sidebar .section .region {
+body.not-front #main #content .region {
   background: #fffee4;
   border-radius: 8px;
   -moz-border-radius: 8px;
   -webkit-border-radius: 8px;
   color: #000000;
   padding: 10px;
+}
+
+.sidebar .block {
+background-color:#000000;
+color:#FFFFFF;
 }
 
 html,
@@ -159,6 +163,10 @@ body.overlay {
   background-image: none;
   background-color: #000000;
   border-bottom:4px solid #FFCC00;
+}
+#header #logo, #preview #preview-header #preview-logo {
+float:left;
+padding:15px 30px 0 0;
 }
 
 a {
