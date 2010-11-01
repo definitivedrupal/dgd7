@@ -147,6 +147,12 @@ body.not-front #main #content .region {
 background-color:#000000;
 color:#FFFFFF;
 }
+.sidebar a {
+  color: #FFCC00;
+}
+.sidebar a:hover {
+  color: #CCCCCC;
+}
 
 html,
 #page-wrapper,
