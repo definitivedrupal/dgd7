@@ -201,6 +201,10 @@ a:active {
   background: url('../images/cornercurve.png') no-repeat right;
   height: 106px;
 }
+#footer-columns .section
+{
+  background: none;
+}
 
 /* ---------- Typography ---------- */
 
