@@ -2,7 +2,7 @@
 
 name = DGD7
 base theme = bartik
-description = The theme for the Definitive Guide to Drupal 7 Book
+description = The theme for the Definitive Guide to Drupal 7 Book work?
 package = Core
 version = VERSION
 core = 7.x

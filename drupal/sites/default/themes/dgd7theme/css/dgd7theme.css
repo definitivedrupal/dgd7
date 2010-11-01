@@ -1,5 +1,12 @@
 /* $Id$ */
 
+
+/* The Basic Theme Colors */
+body {
+background-color:#000000;
+color:#FFFFFF;
+}
+
 h1,
 #preview h1 {
   color: inherit;
@@ -117,13 +124,24 @@ h1,
   float: none;
 }
 
+#main, #preview #preview-main {
+margin-bottom:40px;
+margin-top:10px;
+}
+
 #main-wrapper {
   min-height: 300px;
 }
 
-body.not-front {
-  background-color: #fffee4;
-  color: #000;
+.book-navigation,
+body.not-front #main #content .region,
+.sidebar .section .region {
+  background: #fffee4;
+  border-radius: 8px;
+  -moz-border-radius: 8px;
+  -webkit-border-radius: 8px;
+  color: #000000;
+  padding: 10px;
 }
 
 html,
@@ -158,16 +176,16 @@ a:active {
 }
 
 #footer-wrapper {
-  background: #000000;
+  background: #FFCC00;
   color:#000000;
   padding: 0px;
+  height: 120px;
 }
 
 #footer-wrapper .section
 {
-  background: #FFCC00;
-  -moz-border-radius-topright:175px;
-  -webkit-border-radius-topright:175px;
+  background: url('../images/cornercurve.png') no-repeat right;
+  height: 106px;
 }
 
 /* ---------- Typography ---------- */
