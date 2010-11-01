@@ -160,6 +160,9 @@ body.overlay {
   background-color: inherit;
   color: inherit;
 }
+.tabs ul.primary {
+  border:none;
+}
 
 #navigation ul.links li.active-trail a {
   background: #ffcd00;
@@ -213,6 +216,9 @@ code, pre {
   font-style: normal;
 }
 
+.sidebar h2, #preview .sidebar h2 {
+text-shadow:none;
+}
 
 /* -------- Hints and Tips and Stuff --------- */
 
