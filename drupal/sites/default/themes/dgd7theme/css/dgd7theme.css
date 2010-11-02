@@ -2,6 +2,12 @@
 
 
 /* The Basic Theme Colors */
+
+html {
+background: url('../images/yellowfiller.png') repeat-x bottom;
+background-color: #FFCC00;
+}
+
 body {
 background-color:#000000;
 color:#FFFFFF;
@@ -154,7 +160,6 @@ color:#FFFFFF;
   color: #CCCCCC;
 }
 
-html,
 #page-wrapper,
 body.overlay {
   background-color: inherit;
@@ -193,16 +198,14 @@ a:active {
 }
 
 #footer-wrapper {
-  background: #FFCC00;
+  background: #FFCC00 url('../images/cornercurve.png') no-repeat top right;
   color:#000000;
-  padding: 0px;
-  height: 120px;
+  padding-bottom: 0px;
+  margin-bottom: 0px;
 }
 
 #footer-wrapper .section
 {
-  background: url('../images/cornercurve.png') no-repeat right;
-  height: 106px;
 }
 #footer-columns .section
 {
