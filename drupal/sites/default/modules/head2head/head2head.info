@@ -1,0 +1,8 @@
+; $Id: head2head.info,v 1.1 2010/04/23 00:18:52 catch Exp $
+name = HEAD to HEAD
+description = Provides helpers to upgrade between versions of Drupal 7 HEAD.
+
+core = 7.x
+
+files[] = head2head.module
+files[] = head2head.install

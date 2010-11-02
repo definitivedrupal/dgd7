@@ -1,0 +1,764 @@
+<?php
+// $Id: head2head.module,v 1.47 2010/10/07 22:35:42 drothstein Exp $
+
+/**
+ * @file
+ * Provides HEAD-HEAD upgrade helpers.
+ */
+
+/**
+ * Increase size of init field on users table to 254 characters.
+ */
+function head2head_809132() {
+  // Re-run user_update_7005(); this will update the schema to the new values.
+  $sandbox = array();
+  module_load_install('user');
+  user_update_7005($sandbox);
+}
+
+/**
+ * Numeric list fields should not be unsigned.
+ *
+ * Note: This function only works for fields stored via the field_sql_storage
+ * module, and assumes that module is enabled. And we cannot use
+ * field_update_field() to perform the updates since field_sql_storage.module
+ * specifically forbids schema updates.
+ */
+function head2head_795198() {
+  // Get all numeric list fields that previously were forced to be unsigned.
+  $fields = array();
+  $types = array('list', 'list_boolean', 'list_number');
+  foreach ($types as $type) {
+    $conditions = array('type' => $type, 'storage_module' => 'field_sql_storage');
+    $fields = array_merge($fields, field_read_fields($conditions, array('include_inactive' => TRUE)));
+  }
+
+  // For each field, build up the list of tables, columns and indexes we will
+  // be updating, and run the update.
+  foreach ($fields as $field) {
+    $tables = array(
+      _field_sql_storage_tablename($field),
+      _field_sql_storage_revision_tablename($field),
+    );
+    $column_name = _field_sql_storage_columnname($field['field_name'], 'value');
+    $index_name = _field_sql_storage_indexname($field['field_name'], 'value');
+    $spec = array(
+      'type' => ($field['type'] == 'list_number' ? 'float' : 'int'),
+      'not null' => FALSE,
+    );
+    foreach ($tables as $table) {
+      // Sometimes certain field database tables don't exist even though the
+      // schema thinks they should, so be paranoid.
+      if (db_table_exists($table)) {
+        db_drop_index($table, $index_name);
+        db_change_field($table, $column_name, $column_name, $spec, array('indexes' => array($index_name => array($column_name))));
+      }
+    }
+  }
+}
+
+/**
+ * Taxonomy_tags field renamed to field_tags.
+ */
+function head2head_762404() {
+  // If the site already has a field_tags field, do nothing.
+  if (db_table_exists('field_data_field_tags') || !db_table_exists('field_data_taxonomy_tags')) {
+    return;
+  }
+
+  if (module_exists('taxonomy')) {
+    $data_table_spec = drupal_get_schema_unprocessed('field_sql_storage', 'field_data_taxonomy_tags');
+    $rev_table_spec = drupal_get_schema_unprocessed('field_sql_storage', 'field_revision_taxonomy_tags');
+    $data_table_spec['fields']['taxonomy_tags_tid']['description'] = str_replace('taxonomy_tags', 'field_tags', $data_table_spec['fields']['taxonomy_tags_tid']['description']);
+    $rev_table_spec['fields']['taxonomy_tags_tid']['description'] = str_replace('taxonomy_tags', 'field_tags', $rev_table_spec['fields']['taxonomy_tags_tid']['description']);
+    $tid_data_spec = $data_table_spec['fields']['taxonomy_tags_tid'];
+    $tid_rev_spec = $rev_table_spec['fields']['taxonomy_tags_tid'];
+  }
+  else {
+    // Handle the case when taxonomy module is disabled.
+    $tid_data_spec = $tid_rev_spec = array(
+      'type' => 'int',
+      'unsigned' => TRUE,
+      'not null' => FALSE,
+    );
+  }
+
+  db_drop_index('field_data_taxonomy_tags', 'taxonomy_tags_tid');
+  db_drop_index('field_revision_taxonomy_tags', 'taxonomy_tags_tid');
+
+  db_change_field('field_data_taxonomy_tags', 'taxonomy_tags_tid', 'field_tags_tid', $tid_data_spec, array('indexes' => array('field_tags_tid' => array('field_tags_tid'))));
+  db_change_field('field_revision_taxonomy_tags', 'taxonomy_tags_tid', 'field_tags_tid', $tid_rev_spec, array('indexes' => array('field_tags_tid' => array('field_tags_tid'))));
+
+  //db_change_field($table, $field, $field_new, $spec, $keys_new)
+  db_rename_table('field_data_taxonomy_tags', 'field_data_field_tags');
+  db_rename_table('field_revision_taxonomy_tags', 'field_revision_field_tags');
+
+  _head2head_util_renamed_field_and_instances('taxonomy_tags', 'field_tags');
+
+  if (db_table_exists('rdf_mapping')) {
+    // Remove the RDF mapping for the old field, add the new one.
+    $results = db_select('rdf_mapping', 'r')
+      ->fields('r')
+      ->execute()
+      ->fetchAll();
+
+    foreach ($results as $result) {
+      $mapping = unserialize($result->mapping);
+      if (isset($mapping['taxonomy_tags'])) {
+        $mapping['field_tags'] = $mapping['taxonomy_tags'];
+        unset($mapping['taxonomy_tags']);
+        db_update('rdf_mapping')
+        ->fields(array('mapping' => serialize($mapping)))
+        ->condition('type', $result->type)
+        ->condition('bundle', $result->bundle)
+        ->execute();
+      }
+    }
+  }
+}
+
+/**
+ * Updates the field configuration tables with a new name for a field.
+ *
+ * Note: You'll still have to rename the database columns / indexes yourself.
+ * @see head2head_762404
+ *
+ * @param $old_name
+ * @param $new_name
+ */
+function _head2head_util_renamed_field_and_instances($old_name, $new_name) {
+  db_update('field_config')
+    ->fields(array('field_name' => $new_name))
+    ->condition('field_name', $old_name)
+    ->execute();
+
+  db_update('field_config_instance')
+    ->fields(array('field_name' => $new_name))
+    ->condition('field_name', $old_name)
+    ->execute();
+}
+
+/**
+ * File becomes file_managed.
+ *
+ * @see http://drupal.org/node/782830
+ */
+function head2head_741578() {
+  // Rename file to file_managed.
+  db_rename_table('file', 'file_managed');
+}
+
+/**
+ * Update for changes due to new core hashing scheme.
+ */
+function head2head_723802() {
+  if (db_table_exists('aggregator_feed')) {
+    // Increase length of hash column in aggregator feed table.
+    db_change_field('aggregator_feed', 'hash', 'hash', array('type' => 'varchar', 'length' => 64, 'not null' => TRUE, 'default' => ''));
+  }
+  // Generate a more secure cron key.
+  variable_set('cron_key', drupal_hash_base64(drupal_random_bytes(55)));
+}
+
+/**
+ * Field_config_instance.object_type becomes entity_type.
+ */
+function head2head_707724() {
+  db_drop_index('field_config_instance', 'field_name_bundle');
+
+  db_change_field('field_config_instance', 'object_type', 'entity_type',
+    array(
+      'type' => 'varchar',
+      'length' => 32,
+      'not null' => TRUE,
+      'default' => '',
+    ),
+    array(
+      'indexes' => array(
+        'field_name_bundle' => array('field_name', 'entity_type', 'bundle'),
+      ),
+    )
+  );
+}
+
+/**
+ * Block_node_type table moved from block module to node module.
+ */
+function head2head_684774() {
+  // node_update_7010() does what block_update_7001() used to, so we simply skip
+  // node_update_7010().
+  db_update('system')
+    ->fields(array('schema_version' => '7010'))
+    ->condition('name', 'node')
+    ->condition('schema_version', '7009')
+    ->execute();
+}
+
+/**
+ * Menus user-menu and management are created in system_update_7053() and menu_install().
+ *
+ * Note: It seems #410636 is still open, but the patch in comment #19 was
+ * committed and makes this update necessary.
+ */
+function head2head_410636_19() {
+  // system_update_7053() will re-create the required menus. Otherwise, it is
+  // not safe to delete the required menus.
+  $system_version = db_query('SELECT schema_version FROM {system} WHERE name = :module', array(':module' => 'system'))->fetchField();
+  if ($system_version < 7053) {
+    db_delete('menu_custom')
+      ->condition('menu_name', 'user-menu')
+      ->execute();
+    db_delete('menu_custom')
+      ->condition('menu_name', 'management')
+      ->execute();
+  }
+}
+
+/**
+ * Update for node body field API changes.
+ */
+function head2head_553306() {
+  if (db_field_exists('node_type', 'has_body')) {
+    // Get node type info, specifically the body field settings.
+    $result = db_select('node_type', 'node_type')
+      ->fields('node_type')
+      ->execute();
+
+    // Add body field instances for existing node types.
+    foreach ($result as $node_type) {
+      if ($node_type->has_body) {
+        node_add_body_field($node_type, $node_type->body_label);
+      }
+    }
+    // Remove node_type properties related to the former 'body'.
+    db_drop_field('node_type', 'has_body');
+    db_drop_field('node_type', 'body_label');
+  }
+}
+
+/**
+ * Add signature_format field to users table.
+ */
+function head2head_824932() {
+  $field = array(
+    'type' => 'int',
+    'size' => 'small',
+    'not null' => TRUE,
+    'default' => 0,
+    'description' => 'The {filter_format}.format of the signature.',
+  );
+
+  db_add_field('users', 'signature_format', $field);
+
+  db_update('users')
+    ->fields(array(
+      'signature_format' => filter_fallback_format(),
+    ))
+    ->execute();
+}
+
+/**
+ * Alter the session table to change schema of ssid field and keys.
+ */
+function head2head_813492() {
+  $ssid_field = array(
+    'description' => "Unique key: Secure session ID. The value is generated by PHP's Session API.",
+    'type' => 'varchar',
+    'length' => 64,
+    'not null' => TRUE,
+    'default' => '',
+  );
+
+  $keys = array('primary key' => array('ssid', 'sid'));
+
+  db_drop_primary_key('sessions');
+  db_drop_unique_key('sessions', 'ssid');
+  db_change_field('sessions', 'ssid', 'ssid', $ssid_field, $keys);
+}
+
+/**
+ * Alter the session table to change sid and ssid descriptions and add an index.
+ *
+ * Note: This function can either replace head2head_813492() or be run after
+ * head2head_813492() has been executed.
+ *
+ */
+function head2head_813492_33() {
+  // Change all NULL values in existing sid/ssid columns to an empty string.
+  db_update('sessions')
+    ->fields(array('sid' => ''))
+    ->isNull('sid')
+    ->execute();
+  db_drop_unique_key('sessions', 'ssid');
+  db_update('sessions')
+    ->fields(array('ssid' => ''))
+    ->isNull('ssid')
+    ->execute();
+
+  $sid_field = array(
+    'description' => "A session ID. The value is generated by PHP's Session API.",
+    'type' => 'varchar',
+    'length' => 64,
+    'not null' => TRUE,
+    'default' => '',
+  );
+
+  $ssid_field = array(
+    'description' => "Secure session ID. The value is generated by PHP's Session API.",
+    'type' => 'varchar',
+    'length' => 64,
+    'not null' => TRUE,
+    'default' => '',
+  );
+
+  $keys = array('primary key' => array('ssid', 'sid'));
+
+  db_drop_primary_key('sessions');
+  db_change_field('sessions', 'sid', 'sid', $sid_field, $keys);
+  db_change_field('sessions', 'ssid', 'ssid', $ssid_field);
+  db_add_index('sessions', 'ssid', array('ssid'));
+}
+
+/**
+ * Alter the session table to change sid and ssid length.
+ */
+function head2head_837832() {
+  $spec = array(
+    'description' => "Secure session ID. The value is generated by PHP's Session API.",
+    'type' => 'varchar',
+    'length' => 128,
+    'not null' => TRUE,
+    'default' => '',
+  );
+  db_change_field('sessions', 'ssid', 'ssid', $spec);
+}
+
+/**
+ * Registry now uses hash not file timestamps to identify changes.
+ */
+function head2head_819388() {
+  if (!db_field_exists('registry_file', 'hash')) {
+    db_drop_field('registry_file', 'filectime');
+    db_drop_field('registry_file', 'filemtime');
+    $hashfield = array(
+      'description' => "sha-256 hash of the file's contents when last parsed.",
+      'type' => 'varchar',
+      'length' => 64,
+      'not null' => TRUE,
+      'default' => '',
+    );
+    db_add_field('registry_file', 'hash', $hashfield);
+    unset($hashfield['default']);
+    db_change_field('registry_file', 'hash', 'hash', $hashfield);
+    // When this is included in a regular update batch, update_finished() will
+    // run drupal_flush_all_caches() which will fill in the proper hash values
+    // and refresh the registry properly. Make sure to do that if not running
+    // this as part of a regular update process.
+  }
+}
+
+/**
+ * Alter the {url_alias} table to have the correct indexes.
+ */
+function head2head_818214() {
+  // Depending on whether the site in question has run the initial update
+  // introduced in http://drupal.org/node/818214#comment-3134348 already, we
+  // may have different database indexes that need to be removed. It's always
+  // safe to try to remove database indexes that don't exist, though, so we
+  // take the approach here of trying to remove all possible ones.
+  db_drop_index('url_alias', 'source_language_pid');
+  db_drop_unique_key('url_alias', 'alias_language_pid');
+  db_drop_index('url_alias', 'source_language');
+  db_drop_unique_key('url_alias', 'alias_language');
+  // Now we add back the correct indexes that should be there.
+  db_add_index('url_alias', 'source_language_pid', array('source', 'language', 'pid'));
+  db_add_index('url_alias', 'alias_language_pid', array('alias', 'language', 'pid'));
+}
+
+/**
+ * Field instances need display settings for 'default' mode.
+ */
+function head2head_553298() {
+  $instances = field_read_instances();
+  $bundle_settings = array();
+  foreach ($instances as $instance) {
+    $bundle = $instance['bundle'];
+    $entity_type = $instance['entity_type'];
+    if (!isset($bundle_settings[$entity_type])) {
+      $bundle_settings[$entity_type] = array();
+    }
+    if (!isset($bundle_settings[$entity_type][$bundle])) {
+      $bundle_settings[$entity_type][$bundle] = field_bundle_settings($entity_type, $bundle);
+    }
+
+    foreach ($instance['display'] as $key => $mode) {
+      // If there is a formatter set for this field, set the bundle to use
+      // custom display.
+      if (isset($mode['type']) && ($key != 'default')) {
+        // WTF array of the century.
+        $bundle_settings[$entity_type][$bundle]['view_modes'][$key]['custom_settings'] = TRUE;
+      }
+    }
+
+    // Not sure if this is the correct behavior, but basically just renames
+    // full to default.
+    if (isset($instance['display']['full'])) {
+      $instance['display']['default'] = $instance['display']['full'];
+    }
+
+    field_update_instance($instance);
+  }
+
+  foreach ($bundle_settings as $entity_type => $bundles) {
+    foreach ($bundles as $bundle => $settings) {
+      field_bundle_settings($entity_type, $bundle, $settings);
+    }
+  }
+
+  // Remove deprecated variable.
+  variable_del('field_extra_weights');
+}
+
+/**
+ * Stop using bit-wise operators for {file_managed}.status.
+ */
+function head2head_809600() {
+  db_drop_index('file_managed', 'status');
+  db_change_field('file_managed', 'status', 'status',
+    array(
+      'description' => 'A field indicating the status of the file. Two status are defined in core: temporary (0) and permanent (1). Temporary files older than DRUPAL_MAXIMUM_TEMP_FILE_AGE will be removed during a cron run.',
+      'type' => 'int',
+      'not null' => TRUE,
+      'default' => 0,
+      'size' => 'tiny',
+    ),
+    array(
+      'indexes' => array(
+        'status' => array('status'),
+      ),
+    )
+  );
+}
+
+/**
+ * No index on {semaphore}.expire.
+ */
+function head2head_800432() {
+  if (!db_index_exists('semaphore', 'expire')) {
+    db_add_index('semaphore', 'expire', array('expire'));
+  }
+}
+
+/**
+ * Change text columns with serialized fields to blob.
+ */
+function head2head_690746() {
+  global $conf;
+
+  $schema = drupal_get_schema();
+  $module_info = system_get_info('module');
+
+  foreach ($schema as $table_name => $table) {
+    $module = $table['module'];
+    // We only want to fix tables created by core modules because contrib modules
+    // may provide their own update functions.
+    if ($module_info[$module]['package'] != 'Core') {
+      continue;
+    }
+    foreach ($table['fields'] as $field_name => $field) {
+      if ($field['type'] == 'blob') {
+        // Since the schema has changed, and the schema cache is cleared before
+        // the update, this will turn fields which were text into blobs in the DB.
+        db_change_field($table_name, $field_name, $field_name, $field);
+      }
+    }
+  }
+  drupal_schema_fields_sql($table);
+}
+
+/**
+ * Create the {file_usage} table if it wasn't created already.
+ */
+function head2head_895032() {
+  // The {file_usage} table is now created in system_update_7059(), but an
+  // older version of that update already ran on some sites; for those sites,
+  // the {file_usage} table was never created, so we need to rerun the update.
+  // NOTE: See alpha2alpha_update_7704() and alpha2alpha_update_dependencies()
+  // for an example of the dependencies that must be declared by anyone calling
+  // this HEAD to HEAD function.
+  if (!db_table_exists('file_usage')) {
+    module_load_install('system');
+    system_update_7059();
+  }
+}
+
+/**
+ * Set the 'trim_length' formatter setting for existing fields.
+ */
+function head2head_504564() {
+  $instances = field_info_instances();
+  // It was previously possible to set the teaser length for a node type, but
+  // not for any other entity type. So we only check node instances.
+  foreach ($instances['node'] as $node_type => $bundle) {
+    foreach ($bundle as $field_name => $instance) {
+      foreach ($instance['display'] as $view_mode => $settings) {
+        // Fields that used the text_trimmed or text_summary_or_trimmed
+        // formatters were picking up the teaser_length_{node_type} setting.
+        if ($settings['type'] == 'text_trimmed' || $settings['type'] == 'text_summary_or_trimmed' && !isset($settings['settings']['trim_length'])) {
+          $instance['display'][$view_mode]['settings']['trim_length'] = variable_get('teaser_length_' . $node_type, 600);
+        }
+      }
+      field_update_instance($instance);
+    }
+    // The teaser_length_{node_type} variable is no longer used.
+    variable_del('teaser_length_' . $node_type);
+  }
+}
+
+/**
+ * Update existing image field instances to use formatter settings.
+ */
+function head2head_812688() {
+  // Read directly from the database; field_info_instances() won't give us the
+  // correct information because some of the display types stored in the
+  // database might no longer exist.
+  $instances = field_read_instances(array(), array('include_inactive' => TRUE));
+  foreach ($instances as $instance) {
+    $update_instance = FALSE;
+    foreach ($instance['display'] as $view_mode => $display) {
+      if (strpos($display['type'], 'image_') === 0) {
+        $update_instance = TRUE;
+        // The formatter may be one of
+        // - image__[style]
+        // - image_link_content
+        // - image_link_content__[style]
+        // - image_link_file
+        // - image_link_file__[style]
+        if (strpos($display['type'], 'image_link_content') === 0) {
+          $instance['display'][$view_mode]['settings']['image_link'] = 'content';
+        }
+        elseif (strpos($display['type'], 'image_link_file') === 0) {
+          $instance['display'][$view_mode]['settings']['image_link'] = 'file';
+        }
+        // Use logic from the previous version of image_field_formatter_info
+        // to see if the formatter involved a particular image style.
+        $matches = array();
+        if (preg_match('/__([a-z0-9_-]+)/', $display['type'], $matches)) {
+          $image_style = $matches[1];
+          $instance['display'][$view_mode]['settings']['image_style'] = $image_style;
+        }
+        // Now that we've extracted formatter settings from the original
+        // formatter name, we can set the formatter to simply 'image'.
+        $instance['display'][$view_mode]['type'] = 'image';
+      }
+    }
+    if ($update_instance) {
+      field_update_instance($instance);
+    }
+  }
+}
+
+/**
+ * Update type field on search tables to be NOT NULL.
+ */
+function head2head_853896() {
+  if (drupal_get_installed_schema_version('search') == SCHEMA_UNINSTALLED) {
+    return;
+  }
+  db_drop_primary_key('search_dataset');
+  $dataset_type_spec = array(
+    'type' => 'varchar',
+    'length' => 16,
+    'not null' => TRUE,
+    'description' => 'Type of item, e.g. node.',
+  );
+  db_change_field('search_dataset', 'type', 'type', $dataset_type_spec);
+  db_add_primary_key('search_dataset', array('sid', 'type'));
+
+  db_drop_primary_key('search_index');
+  db_drop_index('search_index', 'sid_type');
+  $index_type_spec = array(
+    'type' => 'varchar',
+    'length' => 16,
+    'not null' => TRUE,
+    'description' => 'The {search_dataset}.type of the searchable item to which the word belongs.',
+  );
+  db_change_field('search_index', 'type', 'type', $index_type_spec);
+  db_add_primary_key('search_index', array('word', 'sid', 'type'));
+  db_add_index('search_index', 'sid_type', array('sid', 'type'));
+}
+
+/**
+ * Increase permission field length restriction from 64 to 128 characters.
+ */
+function head2head_894898() {
+  db_drop_primary_key('role_permission');
+  db_drop_index('role_permission', 'permission');
+  $permission_spec = array(
+    'type' => 'varchar',
+    'length' => 128,
+    'not null' => TRUE,
+    'description' => 'A single permission granted to the role identified by rid.',
+  );
+  db_change_field('role_permission', 'permission', 'permission', $permission_spec);
+  db_add_primary_key('role_permission', array('rid', 'permission'));
+  db_add_index('role_permission', 'permission', array('permission'));
+}
+
+/**
+ * Fix the schema versions for modules which had update functions removed.
+ *
+ * Given an array of modules, check if any of them have a schema version in the
+ * database that is higher than the latest schema version currently defined by
+ * the module. (This can happen because during alpha, some module update
+ * functions in core were removed or renumbered.)
+ *
+ * If so, change the schema version to match the latest in the code; that way,
+ * if future update functions are ever added to these modules, they will be
+ * able to actually run.
+ *
+ * @param $modules
+ *   An array of module names to check.
+ */
+function head2head_909338($modules) {
+  $schema_versions = drupal_get_installed_schema_version(NULL, FALSE, TRUE);
+  foreach ($schema_versions as $module => $current_version) {
+    if (in_array($module, $modules) && $current_version != SCHEMA_UNINSTALLED) {
+      $available_versions = drupal_get_schema_versions($module);
+      if (!empty($available_versions)) {
+        $latest_version = max($available_versions);
+        if ($current_version > $latest_version) {
+          drupal_set_installed_schema_version($module, $latest_version);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Add status column to {filter_format}.
+ */
+function head2head_914458() {
+  // Add the new {filter_format}.status column.
+  db_add_field('filter_format', 'status', array(
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+    'default' => 1,
+    'size' => 'tiny',
+    'description' => 'The status of the text format. (1 = enabled, 0 = disabled)',
+  ));
+  // Drop simple weight index and add status_weight combined index.
+  db_drop_index('filter_format', 'weight');
+  db_add_index('filter_format', 'status_weight', array('status', 'weight'));
+}
+
+/**
+ * Helper function for head2head_358437 to update table schema and data.
+ */
+function _head2head_358437_update_format($table, $field, $text_field, $description) {
+  static $existing_formats;
+  if (!isset($existing_formats)) {
+    $existing_formats = db_query("SELECT format FROM {filter_format}")->fetchCol();
+  }
+
+  // First update the table schema. None of the tables have indexes on the
+  // format field, so no indexes need to be dropped before changing the field.
+  if (db_table_exists($table) && db_field_exists($table, $field)) {
+    db_change_field($table, $field, $field, array(
+      'type' => 'int',
+      'unsigned' => TRUE,
+      'not null' => FALSE,
+      'description' => $description,
+    ));
+    // For rows with no text and no selected format, the previous schema
+    // defaulted to 0. The correct value is now NULL.
+    db_update($table)
+      ->fields(array($field => NULL))
+      ->condition($text_field, '')
+      ->condition($field, 0)
+      ->execute();
+  }
+}
+
+/**
+ * Update database schema and existing data for tables storing format data.
+ */
+function head2head_358437() {
+  _head2head_358437_update_format('block_custom', 'format', 'body', 'The {filter_format}.format of the block body.');
+  _head2head_358437_update_format('taxonomy_term_data', 'format', 'description', 'The {filter_format}.format of the description.');
+  _head2head_358437_update_format('users', 'signature_format', 'signature', 'The {filter_format}.format of the signature.');
+}
+
+/**
+ * Convert term reference field vids to vocabulary machine names references.
+ */
+function head2head_881530() {
+  if (db_table_exists('taxonomy_vocabulary')) {
+    $fields = field_info_fields();
+    foreach ($fields as $field) {
+      if (isset($field['type'], $field['settings']['allowed_values']) && $field['type'] === 'taxonomy_term_reference') {
+        $changed = FALSE;
+        foreach ($field['settings']['allowed_values'] as $delta => $settings) {
+          if (isset($settings['vid'])) {
+            $vocabulary = db_select('taxonomy_vocabulary')
+              ->fields('taxonomy_vocabulary')
+              ->condition('vid', $settings['vid'])
+              ->execute()
+              ->fetchObject();
+            if ($vocabulary) {
+              $field['settings']['allowed_values'][$delta]['vocabulary'] = $vocabulary->machine_name;
+              unset($field['settings']['allowed_values'][$delta]['vid']);
+              $changed = TRUE;
+            }
+          }
+        }
+        if ($changed) {
+          field_update_field($field);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Update for system_update_7061() becoming system_update_7062().
+ */
+function head2head_895176() {
+  $schema_versions = drupal_get_installed_schema_version(NULL, FALSE, TRUE);
+  if ($schema_versions['system'] == 7061) {
+    drupal_set_installed_schema_version($module, 7062);
+  }
+}
+
+/**
+ * Update for foreign key support added to field schema and core field modules.
+ */
+function head2head_915168() {
+  $result = db_query("SELECT id, module, data FROM {field_config}");
+  foreach ($result as $record) {
+    $data = unserialize($record->data);
+    if (!isset($data['foreign keys'])) {
+      if ($record->module == 'text') {
+        $data['foreign keys'] = array(
+          'format' => array(
+            'table' => 'filter_format',
+            'columns' => array('format' => 'format'),
+          ),
+        );
+      }
+      elseif ($record->module == 'file') {
+        $data['foreign keys'] = array(
+          'fid' => array(
+            'table' => 'file',
+            'columns' => array('fid' => 'fid'),
+          ),
+        );
+      }
+      else {
+        $data['foreign keys'] = array();
+      }
+      db_query("UPDATE {field_config} SET data = :data WHERE id = :id", array(':data' => serialize($data), ':id' => $record->id));
+    }
+  }
+}

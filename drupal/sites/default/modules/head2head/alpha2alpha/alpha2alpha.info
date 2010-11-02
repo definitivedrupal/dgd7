@@ -1,0 +1,12 @@
+; $Id: alpha2alpha.info,v 1.1 2010/04/29 20:23:09 johnalbin Exp $
+name = Alpha to Alpha
+description = Provides an upgrade path for alpha versions of Drupal 7 until the first beta is released.
+
+core = 7.x
+
+dependencies[] = head2head
+
+files[] = alpha2alpha.module
+files[] = alpha2alpha.install
+
+configure = admin/config/development/alpha2alpha

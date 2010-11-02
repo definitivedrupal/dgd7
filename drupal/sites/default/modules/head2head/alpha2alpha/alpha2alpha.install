@@ -1,0 +1,338 @@
+<?php
+// $Id: alpha2alpha.install,v 1.31 2010/10/07 22:35:42 drothstein Exp $
+
+/**
+ * @file
+ * Updates drupal core from alpha version to alpha version.
+ *
+ * NOTICE: make sure you add a head2head_*() function in the appropriate update
+ * series. Upgrades from alpha3 to alpha4 go in the 74xx series. The
+ * alpha2alpha_update_helper() ensures that a site on alpha4 won't get any 75xx
+ * series updates.
+ *
+ * Only add those functions needed for the most recent alpha version! People running this
+ * module are not chasing HEAD and won't need all the updates until they upgrade
+ * to a new version of Drupal core.
+ */
+
+/**
+ * Implements hook_update_dependencies().
+ */
+function alpha2alpha_update_dependencies() {
+  // System update 7052 is not in alpha3, but is in alpha4. So this is just a
+  // handy marker to use to make sure the updates don't run before alpha4 is
+  // installed.
+  $dependencies['alpha2alpha'][7400] = array(
+    'system' => 7052,
+  );
+
+  // Node update 7010 creates a table that was already created by the block
+  // module in alpha3.
+  $dependencies['node'][7010] = array(
+    'alpha2alpha' => 7401,
+  );
+
+  // System update 7053 creates menus that were already created by new D7
+  // installs before 7.0-alpha5.
+  $dependencies['system'][7053] = array(
+    'alpha2alpha' => 7501,
+  );
+
+  // User update 7013 relies on the {file_usage} table, which is created by
+  // core in system_update_7059(), but sites using alpha2alpha already ran an
+  // older version of that update function. So we need to declare a similar
+  // dependency on our alpha2alpha replacement for that update function.
+  $dependencies['user'][7013] = array(
+    'alpha2alpha' => 7704,
+  );
+  // We also need to make sure that on any site, system_update_7059() never
+  // runs after our custom version of it, since it will fail.
+  $dependencies['alpha2alpha'][7704] = array(
+    'system' => 7059,
+  );
+
+  return $dependencies;
+}
+
+/**
+ * Implements hook_install().
+ */
+function alpha2alpha_install() {
+  // No-op.
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function alpha2alpha_uninstall() {
+  variable_del('alpha2alpha_version');
+  variable_del('alpha2alpha_forced_update');
+}
+
+/**
+ * Implements hook_enable().
+ */
+function alpha2alpha_enable() {
+  $version = alpha2alpha_get_alpha_version();
+  alpha2alpha_set_alpha_version($version);
+}
+
+/**
+ * Ensure that only updates necessary for the current alpha version are completed.
+ *
+ * @param $head2head_update
+ *   The number of the head2head helper function to run.
+ * @param $alpha_version
+ *   The version of Drupal 7 alpha that is being updated to.
+ * @param ...
+ *   Any additional arguments to pass to the head2head helper function.
+ */
+function alpha2alpha_update_helper($head2head_update, $alpha_version) {
+  // Delete any forcibly-set older alpha version.
+  variable_del('alpha2alpha_version');
+  $current_alpha_version = alpha2alpha_get_alpha_version();
+  if (!$current_alpha_version || $current_alpha_version < $alpha_version) {
+    throw new DrupalUpdateException(t('Not yet on Drupal 7.0-alpha@version.', array('@version' => $alpha_version)));
+  }
+  else {
+    // Run the head2head update, passing along any additional arguments that
+    // were provided.
+    $args = func_get_args();
+    array_shift($args);
+    array_shift($args);
+    $function = 'head2head_' . $head2head_update;
+    call_user_func_array($function, $args);
+  }
+}
+
+/**
+ * @defgroup updates-alpha-3-to-4 Drupal updates from 7.0-alpha3 to 7.0-alpha4
+ * @{
+ */
+
+/**
+ * Field_config_instance.object_type becomes entity_type.
+ */
+function alpha2alpha_update_7400() {
+  alpha2alpha_update_helper('707724', 4);
+}
+
+/**
+ * Block_node_type table moved from block module to node module.
+ */
+function alpha2alpha_update_7401() {
+  alpha2alpha_update_helper('684774', 4);
+}
+
+/**
+ * File becomes file_managed.
+ */
+function alpha2alpha_update_7402() {
+  alpha2alpha_update_helper('741578', 4);
+}
+
+/**
+ * @} End of "defgroup updates-alpha-3-to-4"
+ */
+
+/**
+ * @defgroup updates-alpha-4-to-5 Drupal updates from 7.0-alpha4 to 7.0-alpha5
+ * @{
+ */
+
+/**
+ * Update for changes due to new core hashing scheme.
+ */
+function alpha2alpha_update_7500() {
+  alpha2alpha_update_helper('723802', 5);
+}
+
+/**
+ * Recreate required menus.
+ */
+function alpha2alpha_update_7501() {
+  alpha2alpha_update_helper('410636_19', 5);
+}
+
+/**
+ * @} End of "defgroup updates-alpha-4-to-5"
+ * The next series of updates should start at 7600.
+ */
+
+/**
+ * @defgroup updates-alpha-5-to-6 Drupal updates from 7.0-alpha5 to 7.0-alpha6
+ * @{
+ */
+
+/**
+ * Increase size of init field on users table to 254 characters.
+ */
+function alpha2alpha_update_7600() {
+  alpha2alpha_update_helper('809132', 6);
+}
+
+/**
+ * Add signature_format field to users table.
+ */
+function alpha2alpha_update_7601() {
+  alpha2alpha_update_helper('824932', 6);
+}
+
+/**
+ * Alter the session table to change schema of sid and ssid fields and keys.
+ */
+function alpha2alpha_update_7602() {
+  alpha2alpha_update_helper('813492_33', 6);
+}
+
+/**
+ * Alter the session table to change sid and ssid length.
+ */
+function alpha2alpha_update_7603() {
+  alpha2alpha_update_helper('837832', 6);
+}
+
+/**
+ * Numeric list fields should not be unsigned.
+ */
+function alpha2alpha_update_7604() {
+  alpha2alpha_update_helper('795198', 6);
+}
+
+/**
+ * Make all serialized fields blobs.
+ */
+function alpha2alpha_update_7605() {
+  alpha2alpha_update_helper('690746', 6);
+}
+
+
+/**
+ * @} End of "defgroup updates-alpha-5-to-6"
+ * The next series of updates should start at 7700.
+ */
+
+/**
+ * @defgroup updates-alpha-6-to-7 Drupal updates from 7.0-alpha6 to 7.0-alpha7 (or beta1)
+ * @{
+ */
+
+/**
+ * Registry now uses hash not file timestamps to identify changes.
+ */
+function alpha2alpha_update_7700() {
+  alpha2alpha_update_helper('819388', 7);
+}
+
+/**
+ * Alter the {url_alias} table to have the correct indexes.
+ */
+function alpha2alpha_update_7701() {
+  alpha2alpha_update_helper('818214', 7);
+}
+
+/**
+ * Stop using bit-wise operators for {file_managed}.status.
+ */
+function alpha2alpha_update_7702() {
+  alpha2alpha_update_helper('809600', 7);
+}
+
+/**
+ * No index on {semaphore}.expire.
+ */
+function alpha2alpha_update_7703() {
+  alpha2alpha_update_helper('800432', 7);
+}
+
+/**
+ * Create the {file_usage} table if it wasn't created already.
+ */
+function alpha2alpha_update_7704() {
+  alpha2alpha_update_helper('895032', 7);
+}
+
+/**
+ * Set the 'trim_length' formatter setting for existing fields.
+ */
+function alpha2alpha_update_7705() {
+  alpha2alpha_update_helper('504564', 7);
+}
+
+/**
+ * Update existing image field instances to use formatter settings.
+ */
+function alpha2alpha_update_7706() {
+  alpha2alpha_update_helper('812688', 7);
+}
+
+/**
+ * Update type field on search tables to be NOT NULL.
+ */
+function alpha2alpha_update_7707() {
+  alpha2alpha_update_helper('853896', 7);
+}
+
+/**
+ * Increase permission field length restriction from 64 to 128 characters.
+ */
+function alpha2alpha_update_7708() {
+  alpha2alpha_update_helper('894898', 7);
+}
+
+/**
+ * Fix the schema versions for the comment and dblog modules.
+ */
+function alpha2alpha_update_7709() {
+  alpha2alpha_update_helper('909338', 7, array('comment', 'dblog'));
+}
+
+/**
+ * @} End of "defgroup updates-alpha-6-to-7"
+ * The next series of updates should start at 7800.
+ */
+
+/**
+ * @defgroup updates-alpha-7-to-8 Drupal updates from 7.0-alpha7 to 7.0-alpha8 (or beta1)
+ * @{
+ */
+
+/**
+ * Fix the filter_format table.
+ */
+function alpha2alpha_update_7800() {
+  alpha2alpha_update_helper('914458', 8);
+}
+
+/**
+ * Update existing image field instances to use formatter settings (again).
+ */
+function alpha2alpha_update_7801() {
+  alpha2alpha_update_helper('812688', 8);
+}
+
+/**
+ * Fix the schema versions for the locale module.
+ */
+function alpha2alpha_update_7802() {
+  alpha2alpha_update_helper('909338', 8, array('locale'));
+}
+
+/**
+ * Update database schema and existing data for tables storing format data.
+ */
+function alpha2alpha_update_7803() {
+  alpha2alpha_update_helper('358437', 8);
+}
+
+/**
+ * Update for foreign key support added to field schema and core field modules.
+ */
+function alpha2alpha_update_7804() {
+  alpha2alpha_update_helper('915168', 8);
+}
+
+/**
+ * @} End of "defgroup updates-alpha-7-to-8"
+ * The next series of updates should start at 7900.
+ */

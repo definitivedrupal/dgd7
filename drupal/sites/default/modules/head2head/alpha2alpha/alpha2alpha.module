@@ -1,0 +1,134 @@
+<?php
+// $Id: alpha2alpha.module,v 1.5 2010/08/19 12:42:45 johnalbin Exp $
+
+/**
+ * @file
+ * Provides ALPHA to ALPHA upgrade support.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function alpha2alpha_menu() {
+  $items['admin/config/development/alpha2alpha'] = array(
+    'title' => 'Alpha 2 Alpha',
+    'description' => 'Configure alpha 2 alpha.',
+    'access arguments' => array('administer site configuration'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('alpha2alpha_admin_settings_form'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+  return $items;
+}
+
+/**
+ * Determines the core alpha version.
+ */
+function alpha2alpha_get_alpha_version() {
+  $version = variable_get('alpha2alpha_version', FALSE);
+
+  if (!$version) {
+    $version = alpha2alpha_determine_alpha_version();
+  }
+  return $version;
+}
+
+/**
+ * Determines the core alpha version.
+ *
+ * @return
+ *   Returns an integer representing the current Drupal core alpha version. If
+ *   Drupal core is not on an alpha version, return FALSE.
+ */
+function alpha2alpha_determine_alpha_version() {
+  if (strpos(VERSION, '7.0-alpha') === 0) {
+    return str_replace('7.0-alpha', '', VERSION);
+  }
+  else {
+    return FALSE;
+  }
+}
+
+/**
+ * Returns admin settings form.
+ */
+function alpha2alpha_admin_settings_form($form, &$form_state) {
+  $form['heading'] = array(
+    '#markup' => '<p>' . t('We’ve automatically determined that you are using <strong>Drupal @version</strong>.', array('@version' => VERSION)) . '</p>',
+  );
+
+  $form['alpha2alpha_version'] = array(
+    '#type' => 'select',
+    '#disabled' => !alpha2alpha_determine_alpha_version(),
+    '#title' => t('Allow updates from this older version of core'),
+    '#default_value' => alpha2alpha_get_alpha_version(),
+    '#options' => array(
+      '0' => t('unknown alpha version'),
+      '1' => '7.0-alpha1',
+      '2' => '7.0-alpha2',
+      '3' => '7.0-alpha3',
+      '4' => '7.0-alpha4',
+      '5' => '7.0-alpha5',
+      '6' => '7.0-alpha6',
+    ),
+    '#description' => t('To upgrade from an old alpha version of core to the latest alpha version, select the older version from the list.'),
+  );
+
+  if (variable_get('alpha2alpha_forced_update', FALSE)) {
+    $form['warning'] = array(
+      '#markup' => '<p>' . t('<strong>Warning:</strong> You have submitted this form before. While you can safely use this form once, repeated use of this form can cause problems since it forces the module to do updates it thinks may not be necessary.', array('@version' => VERSION)) . '</p>',
+    );
+  }
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save configuration'),
+  );
+
+  return $form;
+}
+
+/**
+ * Form submission handler.
+ */
+function alpha2alpha_admin_settings_form_submit($form, &$form_state) {
+  if (isset($form_state['values']['alpha2alpha_version'])) {
+    $version = $form_state['values']['alpha2alpha_version'];
+    if (alpha2alpha_set_alpha_version($version)) {
+      variable_set('alpha2alpha_version', $version);
+      drupal_set_message(t('You can now <a href="!url">update Drupal</a> from Drupal 7.0-alpha@version', array('!url' => url('update.php'), '@version' => $version)));
+    }
+    else {
+      variable_del('alpha2alpha_version');
+      drupal_set_message(t('No update is needed for Drupal 7.0-alpha@version', array('@version' => $version)));
+    }
+    // Note that one forced update has already been requested.
+    variable_set('alpha2alpha_forced_update', TRUE);
+  }
+}
+
+/**
+ * Sets the internal schema version based on the specified core alpha version.
+ *
+ * This allows the update.php page to run alpha2alpha's updates for earlier
+ * versions of drupal core.
+ *
+ * @param $version
+ *   Integer specifying the core alpha version.
+ * @return
+ *   Returns TRUE if the schema was updated to an older alpha version. Note that
+ *   FALSE does not indicate an error, just that an update wasn't needed.
+ */
+function alpha2alpha_set_alpha_version($version) {
+  // For known older alpha versions of core, we can forcibly set this module's
+  // schema version to an earlier state in order to run later updates.
+
+  if ($version >= 3) {
+    db_update('system')
+      ->fields(array('schema_version' => '7' . $version . '99'))
+      ->condition('name', 'alpha2alpha')
+      ->execute();
+    return TRUE;
+  }
+  return FALSE;
+}
