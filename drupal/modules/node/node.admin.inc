@@ -1,5 +1,5 @@
 <?php
-// $Id: node.admin.inc,v 1.94 2010/04/24 14:49:14 dries Exp $
+// $Id: node.admin.inc,v 1.101 2010/10/20 01:31:07 dries Exp $
 
 /**
  * @file
@@ -119,14 +119,12 @@ function node_filters() {
 function node_build_filter_query(SelectQueryInterface $query) {
   // Build query
   $filter_data = isset($_SESSION['node_overview_filter']) ? $_SESSION['node_overview_filter'] : array();
-  $counter = 0;
   foreach ($filter_data as $index => $filter) {
     list($key, $value) = $filter;
     switch ($key) {
       case 'term':
-        $index = 'ti' . $counter++;
-        $query->join('taxonomy_index', $index, "n.nid = $index.nid");
-        $query->condition($index . '.tid', $value);
+        $alias = $query->join('taxonomy_index', 'ti', "n.nid = %alias.nid");
+        $query->condition($alias . '.tid', $value);
         break;
       case 'status':
         // Note: no exploitable hole as $key/$value have already been checked when submitted
@@ -150,7 +148,7 @@ function node_filter_form() {
   $form['filters'] = array(
     '#type' => 'fieldset',
     '#title' => t('Show only items where'),
-    '#theme' => 'node_filters',
+    '#theme' => 'exposed_filters__node',
   );
   foreach ($session as $filter) {
     list($type, $value) = $filter;
@@ -165,11 +163,12 @@ function node_filter_form() {
     else {
       $value = $filters[$type]['options'][$value];
     }
+    $t_args = array('%property' => $filters[$type]['title'], '%value' => $value);
     if ($i++) {
-      $form['filters']['current'][] = array('#markup' => t('<em>and</em> where <strong>%type</strong> is <strong>%value</strong>', array('%type' => $filters[$type]['title'], '%value' => $value)));
+      $form['filters']['current'][] = array('#markup' => t('and where %property is %value', $t_args));
     }
     else {
-      $form['filters']['current'][] = array('#markup' => t('<strong>%type</strong> is <strong>%value</strong>', array('%type' => $filters[$type]['title'], '%value' => $value)));
+      $form['filters']['current'][] = array('#markup' => t('where %property is %value', $t_args));
     }
     if (in_array($type, array('type', 'language'))) {
       // Remove the option if it is already being filtered on.
@@ -177,9 +176,17 @@ function node_filter_form() {
     }
   }
 
+  $form['filters']['status'] = array(
+    '#type' => 'container',
+    '#attributes' => array('class' => array('clearfix')),
+    '#prefix' => ($i ? '<div class="additional-filters">' . t('and where') . '</div>' : ''),
+  );
+  $form['filters']['status']['filters'] = array(
+    '#type' => 'container',
+    '#attributes' => array('class' => array('filters')),
+  );
   foreach ($filters as $key => $filter) {
-    $names[$key] = $filter['title'];
-    $form['filters']['status'][$key] = array(
+    $form['filters']['status']['filters'][$key] = array(
       '#type' => 'select',
       '#options' => $filter['options'],
       '#title' => $filter['title'],
@@ -187,60 +194,22 @@ function node_filter_form() {
     );
   }
 
-  $form['filters']['actions'] = array(
+  $form['filters']['status']['actions'] = array(
     '#type' => 'actions',
-    '#id' => 'node-admin-buttons',
     '#attributes' => array('class' => array('container-inline')),
   );
-  $form['filters']['actions']['submit'] = array('#type' => 'submit', '#value' => (count($session) ? t('Refine') : t('Filter')));
+  $form['filters']['status']['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => count($session) ? t('Refine') : t('Filter'),
+  );
   if (count($session)) {
-    $form['filters']['actions']['undo'] = array('#type' => 'submit', '#value' => t('Undo'));
-    $form['filters']['actions']['reset'] = array('#type' => 'submit', '#value' => t('Reset'));
+    $form['filters']['status']['actions']['undo'] = array('#type' => 'submit', '#value' => t('Undo'));
+    $form['filters']['status']['actions']['reset'] = array('#type' => 'submit', '#value' => t('Reset'));
   }
 
   drupal_add_js('misc/form.js');
 
   return $form;
-}
-
-/**
- * Returns HTML for a node administration filter selector.
- *
- * @param $variables
- *   An associative array containing:
- *   - form: A render element representing the form.
- *
- * @ingroup themeable
- */
-function theme_node_filters($variables) {
-  $form = $variables['form'];
-  $output = '';
-
-  $output .= '<ul class="clearfix">';
-  if (!empty($form['current'])) {
-    foreach (element_children($form['current']) as $key) {
-      $output .= '<li>' . drupal_render($form['current'][$key]) . '</li>';
-    }
-  }
-  $output .= '</ul>';
-
-  $output .= '<div class="clearfix">';
-
-  $output .= '<dl class="multiselect">' . (!empty($form['current']) ? '<dt><em>' . t('and') . '</em> ' . t('where') . '</dt>' : '');
-
-  $output .= '<dd>';
-
-  foreach (element_children($form['status']) as $key) {
-    $output .= drupal_render($form['status'][$key]);
-  }
-  $output .= '</dd>';
-
-  $output .= '</dl>';
-  $output .= drupal_render($form['actions']);
-
-  $output .= '</div>';
-
-  return $output;
 }
 
 /**
@@ -405,6 +374,8 @@ function node_admin_nodes() {
   }
   $form['options']['operation'] = array(
     '#type' => 'select',
+    '#title' => t('Operation'),
+    '#title_display' => 'invisible',
     '#options' => $options,
     '#default_value' => 'approve',
   );
@@ -463,7 +434,7 @@ function node_admin_nodes() {
   $destination = drupal_get_destination();
   $options = array();
   foreach ($nodes as $node) {
-    $l_options = $node->language != LANGUAGE_NONE ? array('language' => $languages[$node->language]) : array();
+    $l_options = $node->language != LANGUAGE_NONE && isset($languages[$node->language]) ? array('language' => $languages[$node->language]) : array();
     $options[$node->nid] = array(
       'title' => array(
         'data' => array(
@@ -480,7 +451,12 @@ function node_admin_nodes() {
       'changed' => format_date($node->changed, 'short'),
     );
     if ($multilanguage) {
-      $options[$node->nid]['language'] = $node->language == LANGUAGE_NONE ? t('Language neutral') : t($languages[$node->language]->name);
+      if ($node->language == LANGUAGE_NONE || isset($languages[$node->language])) {
+        $options[$node->nid]['language'] = $node->language == LANGUAGE_NONE ? t('Language neutral') : t($languages[$node->language]->name);
+      }
+      else {
+        $options[$node->nid]['language'] = t('Undefined language (@langcode)', array('@langcode' => $node->language));
+      }
     }
     // Build a list of all the accessible operations for the current node.
     $operations = array();
@@ -543,7 +519,7 @@ function node_admin_nodes() {
     );
   }
 
-  $form['pager'] = array('#markup' => theme('pager', array('tags' => NULL)));
+  $form['pager'] = array('#markup' => theme('pager'));
   return $form;
 }
 

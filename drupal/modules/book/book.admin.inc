@@ -1,5 +1,5 @@
 <?php
-// $Id: book.admin.inc,v 1.35 2010/05/01 08:12:22 dries Exp $
+// $Id: book.admin.inc,v 1.38 2010/10/20 01:31:06 dries Exp $
 
 /**
  * @file
@@ -34,7 +34,7 @@ function book_admin_settings() {
   $form['book_allowed_types'] = array(
     '#type' => 'checkboxes',
     '#title' => t('Content types allowed in book outlines'),
-    '#default_value' => array('book'),
+    '#default_value' => variable_get('book_allowed_types', array('book')),
     '#options' => $types,
     '#description' => t('Users with the %outline-perm permission can add all content types.', array('%outline-perm' => t('Administer book outlines'))),
     '#required' => TRUE,
@@ -42,14 +42,14 @@ function book_admin_settings() {
   $form['book_child_type'] = array(
     '#type' => 'radios',
     '#title' => t('Content type for child pages'),
-    '#default_value' => 'book',
+    '#default_value' => variable_get('book_child_type', 'book'),
     '#options' => $types,
     '#required' => TRUE,
   );
   $form['array_filter'] = array('#type' => 'value', '#value' => TRUE);
   $form['#validate'][] = 'book_admin_settings_validate';
 
-  return system_settings_form($form, TRUE);
+  return system_settings_form($form);
 }
 
 /**
@@ -91,7 +91,6 @@ function book_admin_edit($form, $form_state, $node) {
 function book_admin_edit_validate($form, &$form_state) {
   if ($form_state['values']['tree_hash'] != $form_state['values']['tree_current_hash']) {
     form_set_error('', t('This book has been modified by another user, the changes could not be saved.'));
-    $form_state['rebuild'] = TRUE;
   }
 }
 
@@ -176,8 +175,6 @@ function _book_admin_table($node, &$form) {
  * @see book_admin_edit()
  */
 function _book_admin_table_tree($tree, &$form) {
-  $delta = book_weight_delta_calculate($tree);
-
   foreach ($tree as $data) {
     $form['book-admin-' . $data['link']['nid']] = array(
       '#item' => $data['link'],
@@ -193,12 +190,13 @@ function _book_admin_table_tree($tree, &$form) {
       'weight' => array(
         '#type' => 'weight',
         '#default_value' => $data['link']['weight'],
-        '#delta' => $delta,
+        '#delta' => 15,
+        '#title' => t('Weight for @title', array('@title' => $data['link']['title'])),
+        '#title_display' => 'invisible',
       ),
       'plid' => array(
-        '#type' => 'textfield',
+        '#type' => 'hidden',
         '#default_value' => $data['link']['plid'],
-        '#size' => 6,
       ),
       'mlid' => array(
         '#type' => 'hidden',

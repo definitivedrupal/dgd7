@@ -1,4 +1,4 @@
-/* $Id: filter.css,v 1.4 2010/03/09 11:45:37 dries Exp $ */
+/* $Id: filter.css,v 1.6 2010/09/19 18:10:41 dries Exp $ */
 
 .text-format-wrapper .form-item {
   margin-bottom: 0;
@@ -24,7 +24,7 @@
 }
 .filter-help a {
   background: transparent url(../../misc/help.png) right center no-repeat;
-  padding-right: 20px;
+  padding: 0 20px;
 }
 .filter-guidelines {
   clear: left;
@@ -43,4 +43,12 @@
 }
 input#edit-filters-filter-html-settings-allowed-html {
   width: 100%;
+}
+
+.tips {
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  font-size: 0.9em;
 }

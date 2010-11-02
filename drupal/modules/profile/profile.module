@@ -1,5 +1,5 @@
 <?php
-// $Id: profile.module,v 1.290 2010/04/23 04:32:16 webchick Exp $
+// $Id: profile.module,v 1.294 2010/10/01 15:24:18 webchick Exp $
 
 /**
  * @file
@@ -98,8 +98,8 @@ function profile_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('profile_field_form'),
     'access arguments' => array('administer users'),
+    'type' => MENU_VISIBLE_IN_BREADCRUMB,
     'file' => 'profile.admin.inc',
-    'type' => MENU_CALLBACK,
   );
   $items['admin/config/people/profile/autocomplete'] = array(
     'title' => 'Profile category autocomplete',
@@ -113,16 +113,16 @@ function profile_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('profile_field_form'),
     'access arguments' => array('administer users'),
+    'type' => MENU_VISIBLE_IN_BREADCRUMB,
     'file' => 'profile.admin.inc',
-    'type' => MENU_CALLBACK,
   );
   $items['admin/config/people/profile/delete'] = array(
     'title' => 'Delete field',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('profile_field_delete'),
     'access arguments' => array('administer users'),
+    'type' => MENU_VISIBLE_IN_BREADCRUMB,
     'file' => 'profile.admin.inc',
-    'type' => MENU_CALLBACK,
   );
   $items['profile/autocomplete'] = array(
     'title' => 'Profile autocomplete',
@@ -177,14 +177,14 @@ function profile_block_save($delta = '', $edit = array()) {
 function profile_block_view($delta = '') {
   if (user_access('access user profiles')) {
     $output = '';
-    if ((arg(0) == 'node') && is_numeric(arg(1)) && (arg(2) == NULL)) {
+    if (arg(0) == 'node' && is_numeric(arg(1)) && arg(2) == NULL) {
       $node = node_load(arg(1));
-      $account = user_load(array('uid' => $node->uid));
+      $account = user_load($node->uid);
 
       if ($use_fields = variable_get('profile_block_author_fields', array())) {
         // Compile a list of fields to show.
         $fields = array();
-        $result = db_query('SELECT name, title, weight, visibility FROM {profile_field} WHERE visibility IN (:visibility) ORDER BY weight', array(':visibility' => array(PROFILE_PUBLIC, PROFILE_PUBLIC_LISTINGS)));
+        $result = db_query('SELECT * FROM {profile_field} WHERE visibility IN (:visibility) ORDER BY weight', array(':visibility' => array(PROFILE_PUBLIC, PROFILE_PUBLIC_LISTINGS)));
         foreach ($result as $record) {
           // Ensure that field is displayed only if it is among the defined block fields and, if it is private, the user has appropriate permissions.
           if (isset($use_fields[$record->name]) && $use_fields[$record->name]) {

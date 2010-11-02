@@ -1,5 +1,5 @@
 <?php
-// $Id: search.pages.inc,v 1.19 2010/05/01 01:04:24 webchick Exp $
+// $Id: search.pages.inc,v 1.23 2010/08/18 18:40:50 dries Exp $
 
 /**
  * @file
@@ -8,57 +8,69 @@
 
 /**
  * Menu callback; presents the search form and/or search results.
+ *
+ * @param $module
+ *   Search module to use for the search.
+ * @param $keys
+ *   Keywords to use for the search.
  */
-function search_view($type = 'node') {
-  // Search form submits with POST but redirects to GET. This way we can keep
-  // the search query URL clean as a whistle:
-  // search/type/keyword+keyword
-  if (!isset($_POST['form_id'])) {
-    $keys = search_get_keys();
-    if ($_GET['q'] != 'search' && $type == 'node' && !$keys) {
-      // Due to how search_menu() sets up the tabs, path search/node would
-      // display two sets of tabs. So instead, if there are no keywords and
-      // we're on the node tab, just redirect to the bare 'search' path.
-      drupal_goto('search');
-    }
+function search_view($module = NULL, $keys = '') {
+  $info = FALSE;
+  $redirect = FALSE;
+  $keys = trim($keys);
+  // Also try to pull search keywords out of the $_REQUEST variable to
+  // support old GET format of searches for existing links.
+  if (!$keys && !empty($_REQUEST['keys'])) {
+    $keys = trim($_REQUEST['keys']);
+  }
 
-    // Only perform search if there is non-whitespace search term:
-    $results = '';
-    if (trim($keys)) {
-      // Log the search keys.
-      $info = search_get_info();
-      watchdog('search', 'Searched %type for %keys.', array('%keys' => $keys, '%type' => $info[$type]['title']), WATCHDOG_NOTICE, l(t('results'), 'search/' . $type . '/' . $keys));
-
-      // Collect the search results.
-      $results = search_data($keys, $type);
-
-      // Construct the search form.
-      $build['search_form'] = drupal_get_form('search_form', NULL, $keys, $type);
-      $build['search_results'] = array(
-        '#theme' => 'search_results_listing',
-        '#content' => $results,
-      );
-
-      return $build;
+  if (!empty($module)) {
+    $active_module_info = search_get_info();
+    if (isset($active_module_info[$module])) {
+      $info = $active_module_info[$module];
     }
   }
 
-  return drupal_get_form('search_form', NULL, empty($keys) ? '' : $keys, $type);
-}
+  if (empty($info)) {
+    // No path or invalid path: find the default module. Note that if there
+    // are no enabled search modules, this function should never be called,
+    // since hook_menu() would not have defined any search paths.
+    $info = search_get_default_module_info();
+    // Redirect from bare /search or an invalid path to the default search path.
+    $path = 'search/' . $info['path'];
+    if ($keys) {
+      $path .= '/' . $keys;
+    }
+    drupal_goto($path);
+  }
 
-/**
- * Returns HTML for a listing of search results.
- *
- * @param $variables
- *   An associative array containing:
- *   - title: The subject of the listing.
- *   - content: The content of the listing.
- *
- * @ingroup themeable
- */
-function theme_search_results_listing($variables) {
-  $output = '<h2 class="title">' . $variables['title'] . '</h2><div>' . $variables['content'] . '</div>';
-  return $output;
+  // Default results output is an empty string.
+  $results = array('#markup' => '');
+  // Process the search form. Note that if there is $_POST data,
+  // search_form_submit() will cause a redirect to search/[module path]/[keys],
+  // which will get us back to this page callback. In other words, the search
+  // form submits with POST but redirects to GET. This way we can keep
+  // the search query URL clean as a whistle.
+  if (empty($_POST['form_id']) || $_POST['form_id'] != 'search_form') {
+    $conditions =  NULL;
+    if (isset($info['conditions_callback']) && function_exists($info['conditions_callback'])) {
+      // Build an optional array of more search conditions.
+      $conditions = call_user_func($info['conditions_callback'], $keys);
+    }
+    // Only search if there are keywords or non-empty conditions.
+    if ($keys || !empty($conditions)) {
+      // Log the search keys.
+      watchdog('search', 'Searched %type for %keys.', array('%keys' => $keys, '%type' => $info['title']), WATCHDOG_NOTICE, l(t('results'), 'search/' . $info['path'] . '/' . $keys));
+
+      // Collect the search results.
+      $results = search_data($keys, $info['module'], $conditions);
+    }
+  }
+  // The form may be altered based on whether the search was run.
+  $build['search_form'] = drupal_get_form('search_form', NULL, $keys, $info['module']);
+  $build['search_results'] = $results;
+
+  return $build;
 }
 
 /**
@@ -66,17 +78,20 @@ function theme_search_results_listing($variables) {
  *
  * The $variables array contains the following arguments:
  * - $results
- * - $type
+ * - $module
  *
  * @see search-results.tpl.php
  */
 function template_preprocess_search_results(&$variables) {
   $variables['search_results'] = '';
+  if (!empty($variables['module'])) {
+    $variables['module'] = check_plain($variables['module']);
+  }
   foreach ($variables['results'] as $result) {
-    $variables['search_results'] .= theme('search_result', array('result' => $result, 'type' => $variables['type']));
+    $variables['search_results'] .= theme('search_result', array('result' => $result, 'module' => $variables['module']));
   }
   $variables['pager'] = theme('pager', array('tags' => NULL));
-  $variables['theme_hook_suggestions'][] = 'search_results__' . $variables['type'];
+  $variables['theme_hook_suggestions'][] = 'search_results__' . $variables['module'];
 }
 
 /**
@@ -84,7 +99,7 @@ function template_preprocess_search_results(&$variables) {
  *
  * The $variables array contains the following arguments:
  * - $result
- * - $type
+ * - $module
  *
  * @see search-result.tpl.php
  */
@@ -94,8 +109,8 @@ function template_preprocess_search_result(&$variables) {
   $variables['title'] = check_plain($result['title']);
 
   $info = array();
-  if (!empty($result['type'])) {
-    $info['type'] = check_plain($result['type']);
+  if (!empty($result['module'])) {
+    $info['module'] = check_plain($result['module']);
   }
   if (!empty($result['user'])) {
     $info['user'] = $result['user'];
@@ -111,7 +126,7 @@ function template_preprocess_search_result(&$variables) {
   // Provide separated and grouped meta information..
   $variables['info_split'] = $info;
   $variables['info'] = implode(' - ', $info);
-  $variables['theme_hook_suggestions'][] = 'search_result__' . $variables['type'];
+  $variables['theme_hook_suggestions'][] = 'search_result__' . $variables['module'];
 }
 
 /**
@@ -131,10 +146,9 @@ function search_form_submit($form, &$form_state) {
   $keys = $form_state['values']['processed_keys'];
   if ($keys == '') {
     form_set_error('keys', t('Please enter some keywords.'));
-    // Fall through to the drupal_goto() call.
+    // Fall through to the form redirect.
   }
 
-  $type = $form_state['values']['module'] ? $form_state['values']['module'] : 'node';
   $form_state['redirect'] = $form_state['action'] . '/' . $keys;
   return;
 }

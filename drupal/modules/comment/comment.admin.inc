@@ -1,5 +1,5 @@
 <?php
-// $Id: comment.admin.inc,v 1.46 2010/03/31 11:49:50 dries Exp $
+// $Id: comment.admin.inc,v 1.51 2010/10/20 01:31:06 dries Exp $
 
 /**
  * @file
@@ -16,19 +16,17 @@ function comment_admin($type = 'new') {
     return drupal_get_form('comment_multiple_delete_confirm');
   }
   else {
-    return drupal_get_form('comment_admin_overview', $type, arg(4));
+    return drupal_get_form('comment_admin_overview', $type);
   }
 }
 
 /**
- * Form builder; Builds the comment overview form for the admin.
+ * Form builder for the comment overview administration form.
  *
- * @param $type
- *   Not used.
  * @param $arg
- *   Current path's fourth component deciding the form type (Published comments/Approval queue).
- * @return
- *   The form structure.
+ *   Current path's fourth component: the type of overview form ('approval' or
+ *   'new').
+ *
  * @ingroup forms
  * @see comment_admin_overview_validate()
  * @see comment_admin_overview_submit()
@@ -52,6 +50,8 @@ function comment_admin_overview($form, &$form_state, $arg) {
 
   $form['options']['operation'] = array(
     '#type' => 'select',
+    '#title' => t('Operation'),
+    '#title_display' => 'invisible',
     '#options' => $options,
     '#default_value' => 'publish',
   );
@@ -66,7 +66,7 @@ function comment_admin_overview($form, &$form_state, $arg) {
     'subject' => array('data' => t('Subject'), 'field' => 'subject'),
     'author' => array('data' => t('Author'), 'field' => 'name'),
     'posted_in' => array('data' => t('Posted in'), 'field' => 'node_title'),
-    'changed' => array('data' => t('Updated'), 'field' => 'changed', 'sort' => 'desc'),
+    'changed' => array('data' => t('Updated'), 'field' => 'c.changed', 'sort' => 'desc'),
     'operations' => array('data' => t('Operations')),
   );
 
@@ -170,7 +170,7 @@ function comment_admin_overview_submit($form, &$form_state) {
       if ($operation == 'unpublish') {
         $comment->status = COMMENT_NOT_PUBLISHED;
       }
-      else if ($operation == 'publish') {
+      elseif ($operation == 'publish') {
         $comment->status = COMMENT_PUBLISHED;
       }
       comment_save($comment);
@@ -275,7 +275,7 @@ function comment_confirm_delete_submit($form, &$form_state) {
   // Delete the comment and its replies.
   comment_delete($comment->cid);
   drupal_set_message(t('The comment and all its replies have been deleted.'));
-  watchdog('content', t('Deleted comment @cid and its replies.', array('@cid' => $comment->cid)));
+  watchdog('content', 'Deleted comment @cid and its replies.', array('@cid' => $comment->cid));
   // Clear the cache so an anonymous user sees that his comment was deleted.
   cache_clear_all();
 

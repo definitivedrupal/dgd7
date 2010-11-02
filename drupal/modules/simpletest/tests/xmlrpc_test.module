@@ -1,5 +1,5 @@
 <?php
-// $Id: xmlrpc_test.module,v 1.5 2009/12/04 16:49:47 dries Exp $
+// $Id: xmlrpc_test.module,v 1.7 2010/10/02 01:22:41 dries Exp $
 
 function xmlrpc_test_arrayOfStructsTest($array) {
   $sum = 0;
@@ -64,6 +64,29 @@ function xmlrpc_test_xmlrpc() {
 }
 
 /**
+ * Implements hook_xmlrpc_alter().
+ *
+ * Hide (or not) the system.methodSignature() service depending on a variable.
+ */
+function xmlrpc_test_xmlrpc_alter(&$services) {
+  if (variable_get('xmlrpc_test_xmlrpc_alter', FALSE)) {
+    $remove = NULL;
+    foreach ($services as $key => $value) {
+      if (!is_array($value)) {
+        continue;
+      }
+      if ($value[0] == 'system.methodSignature') {
+        $remove = $key;
+        break;
+      }
+    }
+    if (isset($remove)) {
+      unset($services[$remove]);
+    }
+  }
+}
+
+/**
  * Created a message of the desired size in KB.
  *
  * @param $size
@@ -81,7 +104,7 @@ function xmlrpc_test_message_sized_in_kb($size) {
     $line['word_' . $i] = $word;
   }
 
-  for($i = 0; $i < $size; $i++) {
+  for ($i = 0; $i < $size; $i++) {
     $message['line_' . $i] = $line;
   }
 

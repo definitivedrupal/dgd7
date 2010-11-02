@@ -1,5 +1,5 @@
 <?php
-// $Id: node.api.php,v 1.67 2010/05/05 06:55:25 webchick Exp $
+// $Id: node.api.php,v 1.78 2010/10/22 00:35:35 dries Exp $
 
 /**
  * @file
@@ -96,8 +96,7 @@
  *   an existing node, it will already be loaded; see the Loading section
  *   above):
  *   - hook_prepare() (node-type-specific)
- *   - hook_node_prepare() (all); if translation.module is enabled, this will
- *     also invoke hook_node_prepare_translation() on all modules.
+ *   - hook_node_prepare() (all)
  *   - hook_form() (node-type-specific)
  *   - field_attach_form()
  * - Validating a node during editing form submit (calling
@@ -139,7 +138,10 @@
  * an array of the list IDs that this user is a member of.
  *
  * A node access module may implement as many realms as necessary to
- * properly define the access privileges for the nodes.
+ * properly define the access privileges for the nodes. Note that the system
+ * makes no distinction between published and unpublished nodes. It is the
+ * module's responsibility to provide appropriate realms to limit access to
+ * unpublished content.
  *
  * @param $account
  *   The user object whose grants are requested.
@@ -170,6 +172,12 @@ function hook_node_grants($account, $op) {
  * interested, it must respond with an array of permissions arrays for that
  * node.
  *
+ * Node access grants apply regardless of the published or unpublished status
+ * of the node. Implementations must make sure not to grant access to
+ * unpublished nodes if they don't want to change the standard access control
+ * behavior. Your module may need to create a separate access realm to handle
+ * access to unpublished nodes.
+ *
  * Note that the grant values in the return value from your hook must be
  * integers and not boolean TRUE and FALSE.
  *
@@ -178,7 +186,9 @@ function hook_node_grants($account, $op) {
  *   hook_node_grants().
  * - 'gid': A 'grant ID' from hook_node_grants().
  * - 'grant_view': If set to 1 a user that has been identified as a member
- *   of this gid within this realm can view this node.
+ *   of this gid within this realm can view this node. This should usually be
+ *   set to $node->status. Failure to do so may expose unpublished content
+ *   to some users.
  * - 'grant_update': If set to 1 a user that has been identified as a member
  *   of this gid within this realm can edit this node.
  * - 'grant_delete': If set to 1 a user that has been identified as a member
@@ -188,28 +198,58 @@ function hook_node_grants($account, $op) {
  *   priority will not be written. If there is any doubt, it is best to
  *   leave this 0.
  *
+ *
+ * When an implementation is interested in a node but want to deny access to
+ * everyone, it may return a "deny all" grant:
+ *
+ * @code
+ * $grants[] = array(
+ *   'realm' => 'all',
+ *   'gid' => 0,
+ *   'grant_view' => 0,
+ *   'grant_update' => 0,
+ *   'grant_delete' => 0,
+ *   'priority' => 1,
+ * );
+ * @endcode
+ *
+ * Setting the priority should cancel out other grants. In the case of a
+ * conflict between modules, it is safer to use hook_node_access_records_alter()
+ * to return only the deny grant.
+ *
+ * Note: a deny all grant is not written to the database; denies are implicit.
+ *
+ * @see node_access_write_grants()
+ *
+ * @param $node
+ *   The node that has just been saved.
+ *
+ * @return
+ *   An array of grants as defined above.
+ *
  * @ingroup node_access
  */
 function hook_node_access_records($node) {
-  if (node_access_example_disabling()) {
-    return;
-  }
-
   // We only care about the node if it has been marked private. If not, it is
   // treated just like any other node and we completely ignore it.
   if ($node->private) {
     $grants = array();
-    $grants[] = array(
-      'realm' => 'example',
-      'gid' => 1,
-      'grant_view' => 1,
-      'grant_update' => 0,
-      'grant_delete' => 0,
-      'priority' => 0,
-    );
-
+    // Only published nodes should be viewable to all users. If we allow access
+    // blindly here, then all users could view an unpublished node.
+    if ($node->status) {
+      $grants[] = array(
+        'realm' => 'example',
+        'gid' => 1,
+        'grant_view' => 1,
+        'grant_update' => 0,
+        'grant_delete' => 0,
+        'priority' => 0,
+      );
+    }
     // For the example_author array, the GID is equivalent to a UID, which
-    // means there are many many groups of just 1 user.
+    // means there are many groups of just 1 user.
+    // Note that an author can always view his or her nodes, even if they
+    // have status unpublished.
     $grants[] = array(
       'realm' => 'example_author',
       'gid' => $node->uid,
@@ -218,6 +258,7 @@ function hook_node_access_records($node) {
       'grant_delete' => 1,
       'priority' => 0,
     );
+
     return $grants;
   }
 }
@@ -238,6 +279,8 @@ function hook_node_access_records($node) {
  * permissions array that is compared against the stored access records. The
  * user must have one or more matching permissions in order to complete the
  * requested operation.
+ *
+ * A module may deny all access to a node by setting $grants to an empty array.
  *
  * @see hook_node_grants()
  * @see hook_node_grants_alter()
@@ -281,6 +324,8 @@ function hook_node_access_records_alter(&$grants, $node) {
  *
  * The resulting grants are then checked against the records stored in the
  * {node_access} table to determine if the operation may be completed.
+ *
+ * A module may deny all access to a user by setting $grants to an empty array.
  *
  * @see hook_node_access_records()
  * @see hook_node_access_records_alter()
@@ -407,13 +452,9 @@ function hook_node_delete($node) {
  * @ingroup node_api_hooks
  */
 function hook_node_revision_delete($node) {
-  db_delete('upload')->condition('vid', $node->vid)->execute();
-  if (!is_array($node->files)) {
-    return;
-  }
-  foreach ($node->files as $file) {
-    file_delete($file);
-  }
+  db_delete('mytable')
+    ->condition('vid', $node->vid)
+    ->execute();
 }
 
 /**
@@ -555,21 +596,6 @@ function hook_node_prepare($node) {
 }
 
 /**
- * Act on a node object being cloned for translation.
- *
- * This hook is invoked from translation_node_prepare() after the node is
- * loaded. $node->language is set to the language being requested, and
- * $node->translation_source is set to the node object being cloned.
- *
- * @param $node
- *   The node object being prepared for translation.
- *
- * @ingroup node_api_hooks
- */
-function hook_node_prepare_translation($node) {
-}
-
-/**
  * Act on a node being displayed as a search result.
  *
  * This hook is invoked from node_search_execute(), after node_load()
@@ -669,14 +695,44 @@ function hook_node_update_index($node) {
  *   The node being validated.
  * @param $form
  *   The form being used to edit the node.
+ * @param $form_state
+ *   The form state array.
  *
  * @ingroup node_api_hooks
  */
-function hook_node_validate($node, $form) {
+function hook_node_validate($node, $form, &$form_state) {
   if (isset($node->end) && isset($node->start)) {
     if ($node->start > $node->end) {
       form_set_error('time', t('An event may not end before it starts.'));
     }
+  }
+}
+
+/**
+ * Act on a node after validated form values have been copied to it.
+ *
+ * This hook is invoked when a node form is submitted with either the "Save" or
+ * "Preview" button, after form values have been copied to the form state's node
+ * object, but before the node is saved or previewed. It is a chance for modules
+ * to adjust the node's properties from what they are simply after a copy from
+ * $form_state['values']. This hook is intended for adjusting non-field-related
+ * properties. See hook_field_attach_submit() for customizing field-related
+ * properties.
+ *
+ * @param $node
+ *   The node being updated in response to a form submission.
+ * @param $form
+ *   The form being used to edit the node.
+ * @param $form_state
+ *   The form state array.
+ *
+ * @ingroup node_api_hooks
+ */
+function hook_node_submit($node, $form, &$form_state) {
+  // Decompose the selected menu parent option into 'menu_name' and 'plid', if
+  // the form used the default parent selection widget.
+  if (!empty($form_state['values']['menu']['parent'])) {
+    list($node->menu['menu_name'], $node->menu['plid']) = explode(':', $form_state['values']['menu']['parent']);
   }
 }
 
@@ -692,18 +748,20 @@ function hook_node_validate($node, $form) {
  * the RSS item generated for this node.
  * For details on how this is used, see node_feed().
  *
- * @see taxonomy_node_view()
- * @see upload_node_view()
+ * @see blog_node_view()
+ * @see forum_node_view()
  * @see comment_node_view()
  *
  * @param $node
  *   The node that is being assembled for rendering.
  * @param $view_mode
  *   The $view_mode parameter from node_view().
+ * @param $langcode
+ *   The language code used for rendering.
  *
  * @ingroup node_api_hooks
  */
-function hook_node_view($node, $view_mode) {
+function hook_node_view($node, $view_mode, $langcode) {
   $node->content['my_additional_field'] = array(
     '#markup' => $additional_field,
     '#weight' => 10,
@@ -959,28 +1017,37 @@ function hook_prepare($node) {
  * Display a node editing form.
  *
  * This hook, implemented by node modules, is called to retrieve the form
- * that is displayed when one attempts to "create/edit" an item. This form is
- * displayed at the URI http://www.example.com/?q=node/<add|edit>/nodetype.
+ * that is displayed to create or edit a node. This form is displayed at path
+ * node/add/[node type] or node/[node ID]/edit.
+ *
+ * The submit and preview buttons, administrative and display controls, and
+ * sections added by other modules (such as path settings, menu settings,
+ * comment settings, and fields managed by the Field UI module) are
+ * displayed automatically by the node module. This hook just needs to
+ * return the node title and form editing fields specific to the node type.
+ *
+ * For a detailed usage example, see node_example.module.
  *
  * @param $node
  *   The node being added or edited.
  * @param $form_state
- *   The form state array. Changes made to this variable will have no effect.
+ *   The form state array.
+ *
  * @return
- *   An array containing the form elements to be displayed in the node
- *   edit form.
- *
- * The submit and preview buttons, taxonomy controls, and administrative
- * accoutrements are displayed automatically by node.module. This hook
- * needs to return the node title, the body text area, and fields
- * specific to the node type.
- *
- * For a detailed usage example, see node_example.module.
+ *   An array containing the title and any custom form elements to be displayed
+ *   in the node editing form.
  *
  * @ingroup node_api_hooks
  */
-function hook_form($node, $form_state) {
+function hook_form($node, &$form_state) {
   $type = node_type_get_type($node);
+
+  $form['title'] = array(
+    '#type' => 'textfield',
+    '#title' => check_plain($type->title_label),
+    '#default_value' => !empty($node->title) ? $node->title : '',
+    '#required' => TRUE, '#weight' => -5
+  );
 
   $form['field1'] = array(
     '#type' => 'textfield',
@@ -1104,10 +1171,12 @@ function hook_update($node) {
  *   The node being validated.
  * @param $form
  *   The form being used to edit the node.
+ * @param $form_state
+ *   The form state array.
  *
  * @ingroup node_api_hooks
  */
-function hook_validate($node, &$form) {
+function hook_validate($node, $form, &$form_state) {
   if (isset($node->end) && isset($node->start)) {
     if ($node->start > $node->end) {
       form_set_error('time', t('An event may not end before it starts.'));
@@ -1142,8 +1211,8 @@ function hook_validate($node, &$form) {
  *
  * @ingroup node_api_hooks
  */
-function hook_view($node, $view_mode = 'full') {
-  if (node_is_page($node)) {
+function hook_view($node, $view_mode) {
+  if ($view_mode == 'full' && node_is_page($node)) {
     $breadcrumb = array();
     $breadcrumb[] = l(t('Home'), NULL);
     $breadcrumb[] = l(t('Example'), 'example');

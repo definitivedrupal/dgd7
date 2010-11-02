@@ -1,4 +1,4 @@
-// $Id: MAINTAINERS.txt,v 1.41 2010/04/20 07:13:34 webchick Exp $
+// $Id: MAINTAINERS.txt,v 1.48 2010/09/30 13:28:08 dries Exp $
 
 Drupal core is maintained by the community.  To participate, go to
 
@@ -31,6 +31,9 @@ Base system
 
 Batch system
 - Yves Chedemois 'yched' <http://drupal.org/user/39567>
+
+Cache system
+- Damien Tournoud 'DamZ' <http://drupal.org/user/22211>
 
 Cron system
 - Károly Négyesi 'chx' <http://drupal.org/user/9446>
@@ -115,7 +118,7 @@ Update system
 - ?
 
 XML-RPC system
-- ?
+- Frederic G. Marand 'fgm' <http://drupal.org/user/27985>
 
 
 Topic coordinators
@@ -123,6 +126,7 @@ Topic coordinators
 
 Accessibility
 - Everett Zufelt 'Everett Zufelt' <http://drupal.org/user/406552>
+- Brandon Bowersox 'brandonojc' <http://drupal.org/user/186415> 
 
 Documentation
 - Addison Berry 'add1sun' <http://drupal.org/user/65088>
@@ -228,7 +232,6 @@ RDF module
 - Stéphane Corlosquet 'scor' <http://drupal.org/user/52142>
 
 Search module
-- Jennifer Hodgdon 'jhodgdon' <http://drupal.org/user/155601>
 - Doug Green 'douggreen' <http://drupal.org/user/29191>
 
 Shortcut module
@@ -275,11 +278,15 @@ User module
 Theme maintainers
 -----------------
 
+Bartik theme
+- Jen Simmons 'jensimmons' <http://drupal.org/user/140882>
+- Jeff Burns 'Jeff Burnz' <http://drupal.org/user/61393>
+
 Garland theme
-- Stefan Nagtegaal 'steef' <http://drupal.org/user/612>
+- ?
 
 Seven theme
-- ?
+- Jeff Burns 'Jeff Burnz' <http://drupal.org/user/61393>
 
 Stark theme
 - John Wilkins 'JohnAlbin' <http://drupal.org/user/32095>

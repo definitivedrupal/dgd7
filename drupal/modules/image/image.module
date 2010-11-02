@@ -1,5 +1,5 @@
 <?php
-// $Id: image.module,v 1.42 2010/05/01 08:12:23 dries Exp $
+// $Id: image.module,v 1.53 2010/10/03 05:14:58 webchick Exp $
 
 /**
  * @file
@@ -71,10 +71,25 @@ function image_help($path, $arg) {
 function image_menu() {
   $items = array();
 
-  $items['image/generate/%image_style'] = array(
+  // Generate image derivatives of publicly available files.
+  // If clean URLs are disabled, image derivatives will always be served
+  // through the menu system.
+  // If clean URLs are enabled and the image derivative already exists,
+  // PHP will be bypassed.
+  $directory_path = file_stream_wrapper_get_instance_by_scheme('public')->getDirectoryPath();
+  $items[$directory_path . '/styles/%image_style'] = array(
     'title' => 'Generate image style',
-    'page callback' => 'image_style_generate',
-    'page arguments' => array(2),
+    'page callback' => 'image_style_deliver',
+    'page arguments' => array(count(explode('/', $directory_path)) + 1),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+  // Generate and deliver image derivatives of private files.
+  // These image derivatives are always delivered through the menu system.
+  $items['system/files/styles/%image_style'] = array(
+    'title' => 'Generate image style',
+    'page callback' => 'image_style_deliver',
+    'page arguments' => array(3),
     'access callback' => TRUE,
     'type' => MENU_CALLBACK,
   );
@@ -110,7 +125,6 @@ function image_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('image_style_form', 5),
     'access arguments' => array('administer image styles'),
-    'type' => MENU_CALLBACK,
     'file' => 'image.admin.inc',
   );
   $items['admin/config/media/image-styles/delete/%image_style'] = array(
@@ -120,7 +134,6 @@ function image_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('image_style_delete_form', 5),
     'access arguments' => array('administer image styles'),
-    'type' => MENU_CALLBACK,
     'file' => 'image.admin.inc',
   );
   $items['admin/config/media/image-styles/revert/%image_style'] = array(
@@ -130,27 +143,24 @@ function image_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('image_style_revert_form', 5),
     'access arguments' => array('administer image styles'),
-    'type' => MENU_CALLBACK,
     'file' => 'image.admin.inc',
   );
   $items['admin/config/media/image-styles/edit/%image_style/effects/%image_effect'] = array(
     'title' => 'Edit image effect',
-    'description' => 'Edit an exiting effect within a style.',
+    'description' => 'Edit an existing effect within a style.',
     'load arguments' => array(5, (string) IMAGE_STORAGE_EDITABLE),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('image_effect_form', 5, 7),
     'access arguments' => array('administer image styles'),
-    'type' => MENU_CALLBACK,
     'file' => 'image.admin.inc',
   );
   $items['admin/config/media/image-styles/edit/%image_style/effects/%image_effect/delete'] = array(
     'title' => 'Delete image effect',
-    'description' => 'Delete an exiting effect from a style.',
+    'description' => 'Delete an existing effect from a style.',
     'load arguments' => array(5, (string) IMAGE_STORAGE_EDITABLE),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('image_effect_delete_form', 5, 7),
     'access arguments' => array('administer image styles'),
-    'type' => MENU_CALLBACK,
     'file' => 'image.admin.inc',
   );
   $items['admin/config/media/image-styles/edit/%image_style/add/%image_effect_definition'] = array(
@@ -160,7 +170,6 @@ function image_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('image_effect_form', 5, 7),
     'access arguments' => array('administer image styles'),
-    'type' => MENU_CALLBACK,
     'file' => 'image.admin.inc',
   );
 
@@ -233,6 +242,25 @@ function image_permission() {
 }
 
 /**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function image_form_system_file_system_settings_alter(&$form, &$form_state) {
+  $form['#submit'][] = 'image_system_file_system_settings_submit';
+}
+
+/**
+ * Submit handler for the file system settings form.
+ *
+ * Adds a menu rebuild after the public file path has been changed, so that the
+ * menu router item depending on that file path will be regenerated.
+ */
+function image_system_file_system_settings_submit($form, &$form_state) {
+  if ($form['file_public_path']['#default_value'] !== $form_state['values']['file_public_path']) {
+    variable_set('menu_rebuild_needed', TRUE);
+  }
+}
+
+/**
  * Implements hook_flush_caches().
  */
 function image_flush_caches() {
@@ -254,6 +282,9 @@ function image_file_download($uri) {
     array_shift($args);
     // Get the style name from the second part.
     $style_name = array_shift($args);
+    // Remove the scheme from the path.
+    array_shift($args);
+
     // Then the remaining parts are the path to the image.
     $original_uri = file_uri_scheme($uri) . '://' . implode('/', $args);
 
@@ -307,14 +338,6 @@ function image_file_delete($file) {
 }
 
 /**
- * Implements hook_file_references().
- */
-function image_file_references($file) {
-  $count = file_get_file_reference_count($file, NULL, 'image');
-  return $count ? array('image' => $count) : NULL;
-}
-
-/**
  * Implements hook_image_default_styles().
  */
 function image_image_default_styles() {
@@ -344,7 +367,7 @@ function image_image_default_styles() {
     'effects' => array(
       array(
         'name' => 'image_scale',
-        'data' => array('width' => 640, 'height' => 640, 'upscale' => 0),
+        'data' => array('width' => 480, 'height' => 480, 'upscale' => 0),
         'weight' => 0,
       ),
     )
@@ -365,14 +388,11 @@ function image_image_style_save($style) {
         $instance_changed = FALSE;
         foreach ($instance['display'] as $view_mode => $display) {
           // Check if the formatter involves an image style.
-          $matches = array();
-          if (preg_match('/__([a-z0-9_]+)/', $display['type'], $matches)) {
+          if ($display['type'] == 'image' && $display['settings']['image_style'] == $style['old_name']) {
             // Update display information for any instance using the image
             // style that was just deleted.
-            if ($style['old_name'] == $matches[1]) {
-              $instance['display'][$view_mode]['type'] = str_replace($style['old_name'], $style['name'], $display['type']);
-              $instance_changed = TRUE;
-            }
+            $instance['display'][$view_mode]['settings']['image_style'] = $style['name'];
+            $instance_changed = TRUE;
           }
         }
         if ($instance['widget']['settings']['preview_image_style'] == $style['old_name']) {
@@ -620,32 +640,48 @@ function image_style_options($include_empty = TRUE) {
 /**
  * Menu callback; Given a style and image path, generate a derivative.
  *
- * This menu callback is always served after checking a token to prevent
- * generation of unnecessary images. After generating an image transfer it to
- * the requesting agent via file_transfer().
+ * After generating an image, transfer it to the requesting agent.
+ *
+ * @param $style
+ *   The image style
  */
-function image_style_generate() {
-  $args = func_get_args();
-  $style = array_shift($args);
-  $style_name = $style['name'];
-  $scheme = array_shift($args);
-  $path = implode('/', $args);
-
-  $path = $scheme . '://' . $path;
-  $path_hash = drupal_hash_base64($path);
-  $destination = image_style_path($style['name'], $path);
-
-  // Check that it's a defined style and that access was granted by
-  // image_style_url().
-  if (!$style || !cache_get('access:' . $style_name . ':' . $path_hash, 'cache_image')) {
-    drupal_access_denied();
+function image_style_deliver($style, $scheme) {
+  // Check that the style is defined and the scheme is valid.
+  if (!$style || !file_stream_wrapper_valid_scheme($scheme)) {
     drupal_exit();
   }
 
-  // Don't start generating the image if the derivate already exists or if
+  $args = func_get_args();
+  array_shift($args);
+  array_shift($args);
+  $target = implode('/', $args);
+
+  $image_uri = $scheme . '://' . $target;
+  $derivative_uri = image_style_path($style['name'], $image_uri);
+
+  // If using the private scheme, let other modules provide headers and
+  // control access to the file.
+  if ($scheme == 'private') {
+    if (file_exists($derivative_uri)) {
+      file_download($scheme, file_uri_target($derivative_uri));
+    }
+    else {
+      $headers = module_invoke_all('file_download', $image_uri);
+      if (in_array(-1, $headers) || empty($headers)) {
+        return drupal_access_denied();
+      }
+      if (count($headers)) {
+        foreach ($headers as $name => $value) {
+          drupal_add_http_header($name, $value);
+        }
+      }
+    }
+  }
+
+  // Don't start generating the image if the derivative already exists or if
   // generation is in progress in another thread.
-  $lock_name = 'image_style_generate:' . $style_name . ':' . $path_hash;
-  if (!file_exists($destination)) {
+  $lock_name = 'image_style_deliver:' . $style['name'] . ':' . drupal_hash_base64($image_uri);
+  if (!file_exists($derivative_uri)) {
     $lock_acquired = lock_acquire($lock_name);
     if (!$lock_acquired) {
       // Tell client to retry again in 3 seconds. Currently no browsers are known
@@ -659,18 +695,18 @@ function image_style_generate() {
 
   // Try to generate the image, unless another thread just did it while we were
   // acquiring the lock.
-  $success = file_exists($destination) || image_style_create_derivative($style, $path, $destination);
+  $success = file_exists($derivative_uri) || image_style_create_derivative($style, $image_uri, $derivative_uri);
 
   if (!empty($lock_acquired)) {
     lock_release($lock_name);
   }
 
   if ($success) {
-    $image = image_load($destination);
+    $image = image_load($derivative_uri);
     file_transfer($image->source, array('Content-Type' => $image->info['mime_type'], 'Content-Length' => $image->info['file_size']));
   }
   else {
-    watchdog('image', 'Unable to generate the derived image located at %path.', array('%path' => $destination));
+    watchdog('image', 'Unable to generate the derived image located at %path.', array('%path' => $derivative_uri));
     drupal_add_http_header('Status', '500 Internal Server Error');
     print t('Error generating image.');
     drupal_exit();
@@ -725,7 +761,7 @@ function image_style_create_derivative($style, $source, $destination) {
  *   An image style array.
  */
 function image_style_flush($style) {
-  $style_directory = drupal_realpath(variable_get('file_default_scheme', 'public') . '://styles/' . $style['name']);
+  $style_directory = drupal_realpath(file_default_scheme() . '://styles/' . $style['name']);
   if (is_dir($style_directory)) {
     file_unmanaged_delete_recursive($style_directory);
   }
@@ -753,13 +789,6 @@ function image_style_flush($style) {
 /**
  * Return the URL for an image derivative given a style and image path.
  *
- * This function is the default image generation method. It returns a URL for
- * an image that can be used in an <img> tag. When the browser requests the
- * image at image/generate/[style_name]/[scheme]/[path] the image is generated
- * if it does not already exist and then served to the browser. This allows
- * each image to have its own PHP instance (and memory limit) for generation of
- * the new image.
- *
  * @param $style_name
  *   The name of the style to be used with this image.
  * @param $path
@@ -767,29 +796,18 @@ function image_style_flush($style) {
  * @return
  *   The absolute URL where a style image can be downloaded, suitable for use
  *   in an <img> tag. Requesting the URL will cause the image to be created.
- * @see image_style_generate()
+ * @see image_style_deliver()
  */
 function image_style_url($style_name, $path) {
-  $destination = image_style_path($style_name, $path);
-
-  // If the image already exists use that rather than regenerating it.
-  if (file_exists($destination)) {
-    return file_create_url($destination);
-  }
-
-  // Disable page cache for this request. This prevents anonymous users from
-  // needlessly hitting the image generation URL when the image already exists.
-  drupal_page_is_cacheable(FALSE);
-
-  // Set a cache entry to grant access to this style/image path. This will be
-  // checked by image_style_generate().
-  cache_set('access:' . $style_name . ':' . drupal_hash_base64($path), 1, 'cache_image', REQUEST_TIME + 600);
-
   $scheme = file_uri_scheme($path);
-  $target = file_uri_target($path);
-
-  // Generate a callback path for the image.
-  $url = url('image/generate/' . $style_name . '/' . $scheme . '/' . $target, array('absolute' => TRUE));
+  if ($scheme === 'private') {
+    $target = file_uri_target($path);
+    $url = url('system/files/styles/' . $style_name . '/' . $scheme . '/' . $target, array('absolute' => TRUE));
+  }
+  else {
+    $destination = image_style_path($style_name, $path);
+    $url = url(file_stream_wrapper_get_instance_by_scheme($scheme)->getDirectoryPath() . '/' . file_uri_target($destination), array('absolute' => TRUE));
+  }
   return $url;
 }
 
@@ -814,9 +832,9 @@ function image_style_path($style_name, $uri) {
   }
   else {
     $path = $uri;
-    $scheme = variable_get('file_default_scheme', 'public');
+    $scheme = file_default_scheme();
   }
-  return $scheme . '://styles/' . $style_name . '/' . $path;
+  return $scheme . '://styles/' . $style_name . '/' . $scheme . '/' . $path;
 }
 
 /**
@@ -891,6 +909,7 @@ function image_effect_definitions() {
         }
       }
       uasort($effects, '_image_effect_definitions_sort');
+      drupal_alter('image_effect_info', $effects);
       cache_set("image_effects:$langcode", $effects);
     }
   }
@@ -1079,19 +1098,8 @@ function theme_image_style($variables) {
   if (!file_exists($style_path)) {
     $style_path = image_style_url($style_name, $path);
   }
-  $variables['path'] = file_create_url($style_path);
-  $variables['getsize'] = FALSE;
+  $variables['path'] = $style_path;
   return theme('image', $variables);
-}
-
-/**
- * Accept a percentage and return it in pixels.
- */
-function image_filter_percent($value, $current_pixels) {
-  if (strpos($value, '%') !== FALSE) {
-    $value = str_replace('%', '', $value) * 0.01 * $current_pixels;
-  }
-  return $value;
 }
 
 /**

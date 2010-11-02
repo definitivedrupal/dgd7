@@ -1,5 +1,5 @@
 <?php
-// $Id: content_types.inc,v 1.114 2010/05/05 06:55:25 webchick Exp $
+// $Id: content_types.inc,v 1.119 2010/10/13 13:43:21 dries Exp $
 
 /**
  * @file
@@ -94,41 +94,20 @@ function node_type_form($form, &$form_state, $type = NULL) {
     '#description' => t('The human-readable name of this content type. This text will be displayed as part of the list on the <em>Add new content</em> page. It is recommended that this name begin with a capital letter and contain only letters, numbers, and spaces. This name must be unique.'),
     '#required' => TRUE,
     '#size' => 30,
-    '#field_suffix' => ' <small id="edit-name-suffix">' . ($type->locked ? t('Machine name: @name', array('@name' => $type->type)) : '&nbsp;') . '</small>',
   );
 
-  if (!$type->locked) {
-    $js_settings = array(
-      'type' => 'setting',
-      'data' => array(
-        'machineReadableValue' => array(
-          'name' => array(
-            'text' => t('Machine name'),
-            'target' => 'type',
-            'searchPattern' => '[^a-z0-9]+',
-            'replaceToken' => '_',
-          ),
-        ),
-      ),
-    );
-    $form['type'] = array(
-      '#title' => t('Machine name'),
-      '#type' => 'textfield',
-      '#default_value' => $type->type,
-      '#maxlength' => 32,
-      '#required' => TRUE,
-      '#description' => t('The machine-readable name of this content type. This text will be used for constructing the URL of the <em>add new content</em> page for this content type. This name must contain only lowercase letters, numbers, and underscores. Underscores will be converted into hyphens when constructing the URL of the <em>add new content</em> page. This name must be unique.'),
-      '#attached' => array(
-        'js' => array(drupal_get_path('module', 'system') . '/system.js', $js_settings),
-      ),
-    );
-  }
-  else {
-    $form['type'] = array(
-      '#type' => 'value',
-      '#value' => $type->type,
-    );
-  }
+  $form['type'] = array(
+    '#type' => 'machine_name',
+    '#default_value' => $type->type,
+    '#maxlength' => 32,
+    '#disabled' => $type->locked,
+    '#machine_name' => array(
+      'exists' => 'node_type_load',
+    ),
+    '#description' => t('A unique machine-readable name for this content type. It must only contain lowercase letters, numbers, and underscores. This name will be used for constructing the URL of the %node-add page, in which underscores will be converted into hyphens.', array(
+      '%node-add' => t('Add new content'),
+    )),
+  );
 
   $form['description'] = array(
     '#title' => t('Description'),
@@ -139,6 +118,9 @@ function node_type_form($form, &$form_state, $type = NULL) {
 
   $form['additional_settings'] = array(
     '#type' => 'vertical_tabs',
+    '#attached' => array(
+      'js' => array(drupal_get_path('module', 'node') . '/content_types.js'),
+    ),
   );
 
   $form['submission'] = array(
@@ -207,13 +189,6 @@ function node_type_form($form, &$form_state, $type = NULL) {
     '#default_value' => variable_get('node_submitted_' . $type->type, TRUE),
     '#description' => t('Author username and publish date will be displayed.'),
   );
-  $form['display']['teaser_length'] = array(
-    '#type' => 'select',
-    '#title' => t('Length of trimmed content'),
-    '#default_value' => variable_get('teaser_length_' . $type->type, 600),
-    '#options' => drupal_map_assoc(array(0, 200, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000), '_node_characters'),
-    '#description' => t("The maximum number of characters used in the trimmed version of content.")
-  );
   $form['old_type'] = array(
     '#type' => 'value',
     '#value' => $type->type,
@@ -280,12 +255,6 @@ function node_type_form_validate($form, &$form_state) {
   $types = node_type_get_names();
 
   if (!$form_state['values']['locked']) {
-    if (isset($types[$type->type]) && $type->type != $old_type) {
-      form_set_error('type', t('The machine-readable name %type is already taken.', array('%type' => $type->type)));
-    }
-    if (!preg_match('!^[a-z0-9_]+$!', $type->type)) {
-      form_set_error('type', t('The machine-readable name must contain only lowercase letters, numbers, and underscores.'));
-    }
     // 'theme' conflicts with theme_node_form().
     // '0' is invalid, since elsewhere we check it using empty().
     if (in_array($type->type, array('0', 'theme'))) {
@@ -324,6 +293,9 @@ function node_type_form_submit($form, &$form_state) {
   $type->custom = $form_state['values']['custom'];
   $type->modified = TRUE;
   $type->locked = $form_state['values']['locked'];
+  if (isset($form['#node_type']->module)) {
+    $type->module = $form['#node_type']->module;
+  }
 
   if ($op == t('Delete content type')) {
     $form_state['redirect'] = 'admin/structure/types/manage/' . str_replace('_', '-', $type->old_type) . '/delete';
@@ -363,13 +335,13 @@ function node_type_form_submit($form, &$form_state) {
 
   node_types_rebuild();
   menu_rebuild();
-  node_add_body_field($type);
   $t_args = array('%name' => $type->name);
 
   if ($status == SAVED_UPDATED) {
     drupal_set_message(t('The content type %name has been updated.', $t_args));
   }
   elseif ($status == SAVED_NEW) {
+    node_add_body_field($type);
     drupal_set_message(t('The content type %name has been added.', $t_args));
     watchdog('node', 'Added content type %name.', $t_args, WATCHDOG_NOTICE, l(t('view'), 'admin/structure/types'));
   }
@@ -451,7 +423,6 @@ function node_type_delete_confirm($form, &$form_state, $type) {
 function node_type_delete_confirm_submit($form, &$form_state) {
   node_type_delete($form_state['values']['type']);
 
-  variable_del('teaser_length_' . $form_state['values']['type']);
   variable_del('node_preview_' . $form_state['values']['type']);
   $t_args = array('%name' => $form_state['values']['name']);
   drupal_set_message(t('The content type %name has been deleted.', $t_args));

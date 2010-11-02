@@ -1,5 +1,5 @@
 <?php
-// $Id: simpletest.pages.inc,v 1.30 2010/05/19 19:22:24 dries Exp $
+// $Id: simpletest.pages.inc,v 1.33 2010/10/20 01:31:07 dries Exp $
 
 /**
  * @file
@@ -108,12 +108,15 @@ function theme_simpletest_test_table($variables) {
 
     // Expand/collapse image and group title.
     $row[] = array(
-      'data' =>  '<div class="simpletest-image" id="simpletest-test-group-' . $test_class . '"></div>&nbsp;' .
-                 '<label for="' . $test_class . '-select-all" class="simpletest-group-label">' . $key . '</label>',
-      'style' => 'font-weight: bold;'
+      'data' => '<div class="simpletest-image" id="simpletest-test-group-' . $test_class . '"></div>' .
+        '<label for="' . $test_class . '-select-all" class="simpletest-group-label">' . $key . '</label>',
+      'class' => array('simpletest-group-label'),
     );
 
-    $row[] = '&nbsp;';
+    $row[] = array(
+      'data' => '&nbsp;',
+      'class' => array('simpletest-group-description'),
+    );
 
     $rows[] = array('data' => $row, 'class' => array('simpletest-group'));
 
@@ -139,15 +142,24 @@ function theme_simpletest_test_table($variables) {
       $title = $test['#title'];
       $description = $test['#description'];
 
-      unset($test['#title']);
+      $test['#title_display'] = 'invisible';
       unset($test['#description']);
 
       // Test name is used to determine what tests to run.
       $test['#name'] = $test_name;
 
-      $row[] = drupal_render($test);
-      $row[] = theme('indentation', array('size' => 1)) . '<label for="' . $test['#id'] . '">' . $title . '</label>';
-      $row[] = '<div class="description">' . $description . '</div>';
+      $row[] = array(
+        'data' => drupal_render($test),
+        'class' => array('simpletest-test-select'),
+      );
+      $row[] = array(
+        'data' => '<label for="' . $test['#id'] . '">' . $title . '</label>',
+        'class' => array('simpletest-test-label'),
+      );
+      $row[] = array(
+        'data' => '<div class="description">' . $description . '</div>',
+        'class' => array('simpletest-test-description'),
+      );
 
       $rows[] = array('data' => $row, 'class' => array($test_class . '-test', ($collapsed ? 'js-hide' : '')));
     }
@@ -344,7 +356,7 @@ function simpletest_result_form_submit($form, &$form_state) {
   if ($form_state['values']['filter'] == 'all') {
     $classes = array_merge($pass, $fail);
   }
-  else if ($form_state['values']['filter'] == 'pass') {
+  elseif ($form_state['values']['filter'] == 'pass') {
     $classes = $pass;
   }
   else {

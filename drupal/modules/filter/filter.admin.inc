@@ -1,5 +1,5 @@
 <?php
-// $Id: filter.admin.inc,v 1.61 2010/04/24 14:49:13 dries Exp $
+// $Id: filter.admin.inc,v 1.69 2010/10/22 16:36:14 webchick Exp $
 
 /**
  * @file
@@ -20,11 +20,11 @@ function filter_admin_overview($form) {
   $form['#tree'] = TRUE;
   foreach ($formats as $id => $format) {
     // Check whether this is the fallback text format. This format is available
-    // to all roles and cannot be deleted via the admin interface.
+    // to all roles and cannot be disabled via the admin interface.
     $form['formats'][$id]['#is_fallback'] = ($id == $fallback_format);
     if ($form['formats'][$id]['#is_fallback']) {
-      $form['formats'][$id]['name'] = array('#markup' => drupal_placeholder(array('text' => $format->name)));
-      $roles_markup = drupal_placeholder(array('text' => t('All roles may use this format')));
+      $form['formats'][$id]['name'] = array('#markup' => drupal_placeholder($format->name));
+      $roles_markup = drupal_placeholder(t('All roles may use this format'));
     }
     else {
       $form['formats'][$id]['name'] = array('#markup' => check_plain($format->name));
@@ -33,8 +33,13 @@ function filter_admin_overview($form) {
     }
     $form['formats'][$id]['roles'] = array('#markup' => $roles_markup);
     $form['formats'][$id]['configure'] = array('#type' => 'link', '#title' => t('configure'), '#href' => 'admin/config/content/formats/' . $id);
-    $form['formats'][$id]['delete'] = array('#type' => 'link', '#title' => t('delete'), '#href' => 'admin/config/content/formats/' . $id . '/delete', '#access' => !$form['formats'][$id]['#is_fallback']);
-    $form['formats'][$id]['weight'] = array('#type' => 'weight', '#default_value' => $format->weight);
+    $form['formats'][$id]['disable'] = array('#type' => 'link', '#title' => t('disable'), '#href' => 'admin/config/content/formats/' . $id . '/disable', '#access' => !$form['formats'][$id]['#is_fallback']);
+    $form['formats'][$id]['weight'] = array(
+      '#type' => 'weight',
+      '#title' => t('Weight for @title', array('@title' => $format->name)),
+      '#title_display' => 'invisible',
+      '#default_value' => $format->weight,
+    );
   }
   $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array('#type' => 'submit', '#value' => t('Save changes'));
@@ -76,7 +81,7 @@ function theme_filter_admin_overview($variables) {
         drupal_render($form['formats'][$id]['roles']),
         drupal_render($form['formats'][$id]['weight']),
         drupal_render($form['formats'][$id]['configure']),
-        drupal_render($form['formats'][$id]['delete']),
+        drupal_render($form['formats'][$id]['disable']),
       ),
       'class' => array('draggable'),
     );
@@ -96,7 +101,10 @@ function theme_filter_admin_overview($variables) {
 function filter_admin_format_page($format = NULL) {
   if (!isset($format->name)) {
     drupal_set_title(t('Add text format'));
-    $format = (object) array('name' => '', 'format' => 0);
+    $format = (object) array(
+      'format' => NULL,
+      'name' => '',
+    );
   }
   return drupal_get_form('filter_admin_format_form', $format);
 }
@@ -121,6 +129,16 @@ function filter_admin_format_form($form, &$form_state, $format) {
     '#title' => t('Name'),
     '#default_value' => $format->name,
     '#required' => TRUE,
+  );
+  $form['format'] = array(
+    '#type' => 'machine_name',
+    '#required' => TRUE,
+    '#default_value' => $format->format,
+    '#maxlength' => 255,
+    '#machine_name' => array(
+      'exists' => 'filter_format_exists',
+    ),
+    '#disabled' => !empty($format->format),
   );
 
   // Add user role access selection.
@@ -153,7 +171,7 @@ function filter_admin_format_form($form, &$form_state, $format) {
   foreach ($filter_info as $name => $filter) {
     // Create an empty filter object for new/unconfigured filters.
     if (!isset($filters[$name])) {
-      $filters[$name] = new stdClass;
+      $filters[$name] = new stdClass();
       $filters[$name]->status = 0;
       $filters[$name]->weight = $filter['weight'];
       $filters[$name]->settings = array();
@@ -191,6 +209,8 @@ function filter_admin_format_form($form, &$form_state, $format) {
     );
     $form['filters']['order'][$name]['weight'] = array(
       '#type' => 'weight',
+      '#title' => t('Weight for @title', array('@title' => $filter['title'])),
+      '#title_display' => 'invisible',
       '#delta' => 50,
       '#default_value' => $filters[$name]->weight,
       '#parents' => array('filters', $name, 'weight'),
@@ -227,9 +247,6 @@ function filter_admin_format_form($form, &$form_state, $format) {
     }
   }
 
-  if (!empty($format->format)) {
-    $form['format'] = array('#type' => 'value', '#value' => $format->format);
-  }
   $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array('#type' => 'submit', '#value' => t('Save configuration'));
 
@@ -271,13 +288,16 @@ function theme_filter_admin_format_filter_order($variables) {
  * Validate text format form submissions.
  */
 function filter_admin_format_form_validate($form, &$form_state) {
-  if (!isset($form_state['values']['format'])) {
-    $format_name = trim($form_state['values']['name']);
-    form_set_value($form['name'], $format_name, $form_state);
-    $result = db_query("SELECT format FROM {filter_format} WHERE name = :name", array(':name' => $format_name))->fetchField();
-    if ($result) {
-      form_set_error('name', t('Text format names must be unique. A format named %name already exists.', array('%name' => $format_name)));
-    }
+  $format_format = trim($form_state['values']['format']);
+  $format_name = trim($form_state['values']['name']);
+
+  // Ensure that the values to be saved later are exactly the ones validated.
+  form_set_value($form['format'], $format_format, $form_state);
+  form_set_value($form['name'], $format_name, $form_state);
+
+  $result = db_query("SELECT format FROM {filter_format} WHERE name = :name AND format <> :format", array(':name' => $format_name, ':format' => $format_format))->fetchField();
+  if ($result) {
+    form_set_error('name', t('Text format names must be unique. A format named %name already exists.', array('%name' => $format_name)));
   }
 }
 
@@ -290,9 +310,6 @@ function filter_admin_format_form_submit($form, &$form_state) {
 
   // Save text format.
   $format = (object) $form_state['values'];
-  if (!isset($form_state['values']['format'])) {
-    $format->format = NULL;
-  }
   $status = filter_format_save($format);
 
   // Save user permissions.
@@ -317,27 +334,26 @@ function filter_admin_format_form_submit($form, &$form_state) {
  * Menu callback; confirm deletion of a format.
  *
  * @ingroup forms
- * @see filter_admin_delete_submit()
+ * @see filter_admin_disable_submit()
  */
-function filter_admin_delete($form, &$form_state, $format) {
+function filter_admin_disable($form, &$form_state, $format) {
   $form['#format'] = $format;
 
   return confirm_form($form,
-    t('Are you sure you want to delete the text format %format?', array('%format' => $format->name)),
+    t('Are you sure you want to disable the text format %format?', array('%format' => $format->name)),
     'admin/config/content/formats',
-    t('If you have any content left in this text format, it will be switched to the %fallback text format. This action cannot be undone.', array('%fallback' => filter_fallback_format_title())),
-    t('Delete'),
-    t('Cancel')
+    t('Disabled text formats are completely removed from the administrative interface, and any content stored with that format will not be displayed. This action cannot be undone.'),
+    t('Disable')
   );
 }
 
 /**
- * Process filter delete form submission.
+ * Process filter disable form submission.
  */
-function filter_admin_delete_submit($form, &$form_state) {
+function filter_admin_disable_submit($form, &$form_state) {
   $format = $form['#format'];
-  filter_format_delete($format);
-  drupal_set_message(t('Deleted text format %format.', array('%format' => $format->name)));
+  filter_format_disable($format);
+  drupal_set_message(t('Disabled text format %format.', array('%format' => $format->name)));
 
   $form_state['redirect'] = 'admin/config/content/formats';
 }

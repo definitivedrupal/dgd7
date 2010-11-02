@@ -1,5 +1,5 @@
 <?php
-// $Id: simpletest.test,v 1.41 2010/05/10 06:38:23 dries Exp $
+// $Id: simpletest.test,v 1.46 2010/09/28 02:30:32 dries Exp $
 
 class SimpleTestFunctionalTest extends DrupalWebTestCase {
   /**
@@ -154,7 +154,7 @@ class SimpleTestFunctionalTest extends DrupalWebTestCase {
     $this->assertAssertion(t('Created permissions: @perms', array('@perms' => $this->valid_permission)), 'Role', 'Pass', 'simpletest.test', 'SimpleTestFunctionalTest->stubTest()');
     $this->assertAssertion(t('Invalid permission %permission.', array('%permission' => $this->invalid_permission)), 'Role', 'Fail', 'simpletest.test', 'SimpleTestFunctionalTest->stubTest()');
 
-    // Check that a warning is catched by simpletest.
+    // Check that a warning is caught by simpletest.
     $this->assertAssertion('Division by zero', 'Warning', 'Fail', 'simpletest.test', 'SimpleTestFunctionalTest->stubTest()');
 
     // Check that the backtracing code works for specific assert function.
@@ -272,10 +272,11 @@ class SimpleTestFunctionalTest extends DrupalWebTestCase {
 
   /**
    * Check if the test is being run from inside a CURL request.
-   *
-   * @return The test is being run from inside a CURL request.
    */
   function inCURL() {
+    // We cannot rely on drupal_static('drupal_test_info') here, because
+    // 'in_child_site' would be FALSE for the parent site when we are
+    // executing the tests. Default to direct detection of the HTTP headers.
     return isset($_SERVER['HTTP_USER_AGENT']) && preg_match("/^simpletest\d+/", $_SERVER['HTTP_USER_AGENT']);
   }
 }
@@ -290,6 +291,11 @@ class SimpleTestBrowserTestCase extends DrupalWebTestCase {
       'description' => 'Test the internal browser of the testing framework.',
       'group' => 'SimpleTest',
     );
+  }
+
+  function setUp() {
+    parent::setUp();
+    variable_set('user_register', USER_REGISTER_VISITORS);
   }
 
   /**
@@ -379,7 +385,7 @@ class SimpleTestMailCaptureTestCase extends DrupalWebTestCase {
 
     // Assert that the e-mail was sent by iterating over the message properties
     // and ensuring that they are captured intact.
-    foreach($message as $field => $value) {
+    foreach ($message as $field => $value) {
       $this->assertMail($field, $value, t('The e-mail was sent and the value for property @field is intact.', array('@field' => $field)), t('E-mail'));
     }
 
@@ -427,11 +433,13 @@ class SimpleTestFolderTestCase extends DrupalWebTestCase {
     );
   }
 
+  function setUp() {
+    return parent::setUp('image');
+  }
+
   function testFolderSetup() {
-    if (module_exists('image')) {
-      $path = file_directory_path() . '/styles';
-      $this->assertTrue(file_prepare_directory($path, FALSE), "Directory created.");
-    }
+    $directory = file_default_scheme() . '://styles';
+    $this->assertTrue(file_prepare_directory($directory, FALSE), "Directory created.");
   }
 }
 

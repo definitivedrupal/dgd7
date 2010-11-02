@@ -1,5 +1,5 @@
 <?php
-// $Id: system.install,v 1.469 2010/05/19 19:14:43 dries Exp $
+// $Id: system.install,v 1.520 2010/10/20 00:47:44 dries Exp $
 
 /**
  * @file
@@ -74,6 +74,17 @@ function system_requirements($phase) {
   if (version_compare($phpversion, DRUPAL_MINIMUM_PHP) < 0) {
     $requirements['php']['description'] = $t('Your PHP installation is too old. Drupal requires at least PHP %version.', array('%version' => DRUPAL_MINIMUM_PHP));
     $requirements['php']['severity'] = REQUIREMENT_ERROR;
+    // If PHP is old, it's not safe to continue with the requirements check.
+    return $requirements;
+  }
+  // Check that htmlspecialchars() is secure if the site is running any PHP
+  // version older than 5.2.5. We don't simply require 5.2.5, because Ubuntu
+  // 8.04 ships with PHP 5.2.4, but includes the necessary security patch.
+  elseif (version_compare($phpversion, '5.2.5') < 0 && strlen(@htmlspecialchars(chr(0xC0) . chr(0xAF), ENT_QUOTES, 'UTF-8'))) {
+    $requirements['php']['description'] = $t('Your PHP installation is too old. Drupal requires at least PHP 5.2.5, or PHP @version with the htmlspecialchars security patch backported.', array('@version' => DRUPAL_MINIMUM_PHP));
+    $requirements['php']['severity'] = REQUIREMENT_ERROR;
+    // If PHP is old, it's not safe to continue with the requirements check.
+    return $requirements;
   }
 
   // Test PHP register_globals setting.
@@ -126,10 +137,7 @@ function system_requirements($phase) {
       '@system_requirements' => 'http://drupal.org/requirements',
     ));
 
-    $description .= theme('item_list',  array(
-      'type' => 'ul',
-      'items' => $missing_extensions,
-    ));
+    $description .= theme('item_list', array('items' => $missing_extensions));
 
     $requirements['php_extensions']['value'] = $t('Disabled');
     $requirements['php_extensions']['severity'] = REQUIREMENT_ERROR;
@@ -139,27 +147,46 @@ function system_requirements($phase) {
     $requirements['php_extensions']['value'] = $t('Enabled');
   }
 
-  // Test for PDO (database).
-  $requirements['database_extensions'] = array(
-    'title' => $t('Database support'),
-  );
+  if ($phase == 'install' || $phase == 'update') {
+    // Test for PDO (database).
+    $requirements['database_extensions'] = array(
+      'title' => $t('Database support'),
+    );
 
-  // Test for at least one suitable PDO extension, if PDO is available.
-  $database_ok = extension_loaded('pdo');
-  if ($database_ok) {
-    $drivers = drupal_detect_database_types();
-    $database_ok = !empty($drivers);
-  }
+    // Make sure PDO is available.
+    $database_ok = extension_loaded('pdo');
+    if (!$database_ok) {
+      $pdo_message = $t('Your web server does not appear to support PDO (PHP Data Objects). Ask your hosting provider if they support the native PDO extension. See the <a href="@link">system requirements</a> page for more information.', array(
+        '@link' => 'http://drupal.org/requirements/pdo',
+      ));
+    }
+    else {
+      // Make sure at least one supported database driver exists.
+      $drivers = drupal_detect_database_types();
+      if (empty($drivers)) {
+        $database_ok = FALSE;
+        $pdo_message = $t('Your web server does not appear to support any common PDO database extensions. Check with your hosting provider to see if they support PDO (PHP Data Objects) and offer any databases that <a href="@drupal-databases">Drupal supports</a>.', array(
+          '@drupal-databases' => 'http://drupal.org/node/270#database',
+        ));
+      }
+      // Make sure the native PDO extension is available, not the older PEAR
+      // version. (See install_verify_pdo() for details.)
+      if (!defined('PDO::ATTR_DEFAULT_FETCH_MODE')) {
+        $database_ok = FALSE;
+        $pdo_message = $t('Your web server seems to have the wrong version of PDO installed. Drupal 7 requires the PDO extension from PHP core. This system has the older PECL version. See the <a href="@link">system requirements</a> page for more information.', array(
+          '@link' => 'http://drupal.org/requirements/pdo#pecl',
+        ));
+      }
+    }
 
-  if (!$database_ok) {
-    $requirements['database_extensions']['value'] = $t('Disabled');
-    $requirements['database_extensions']['severity'] = REQUIREMENT_ERROR;
-    $requirements['database_extensions']['description'] = $t('Your web server does not appear to support any common PDO database extensions. Check with your hosting provider to see if they support PDO (PHP Data Objects) and offer any databases that <a href="@drupal-databases">Drupal supports</a>.', array(
-      '@drupal-databases' => 'http://drupal.org/node/270#database',
-    ));
-  }
-  else {
-    $requirements['database_extensions']['value'] = $t('Enabled');
+    if (!$database_ok) {
+      $requirements['database_extensions']['value'] = $t('Disabled');
+      $requirements['database_extensions']['severity'] = REQUIREMENT_ERROR;
+      $requirements['database_extensions']['description'] = $pdo_message;
+    }
+    else {
+      $requirements['database_extensions']['value'] = $t('Enabled');
+    }
   }
 
   // Test PHP memory_limit
@@ -267,8 +294,18 @@ function system_requirements($phase) {
     // By default no private files directory is configured. For private files
     // to be secure the admin needs to provide a path outside the webroot.
     variable_get('file_private_path', FALSE),
-    variable_get('file_temporary_path', sys_get_temp_dir()),
   );
+
+  // Do not check for the temporary files directory at install time
+  // unless it has been set in settings.php. In this case the user has
+  // no alternative but to fix the directory if it is not writable.
+  if ($phase == 'install') {
+    $directories[] = variable_get('file_temporary_path', FALSE);
+  }
+  else {
+    $directories[] = variable_get('file_temporary_path', file_directory_temp());
+  }
+
   $requirements['file system'] = array(
     'title' => $t('File system'),
   );
@@ -309,7 +346,7 @@ function system_requirements($phase) {
       }
     }
     else {
-      if (variable_get('file_default_scheme', 'public') == 'public') {
+      if (file_default_scheme() == 'public') {
         $requirements['file system']['value'] = $t('Writable (<em>public</em> download method)');
       }
       else {
@@ -360,10 +397,11 @@ function system_requirements($phase) {
 
   // Display an error if a newly introduced dependency in a module is not resolved.
   if ($phase == 'update') {
+    $profile = drupal_get_profile();
     $files = system_rebuild_module_data();
     foreach ($files as $module => $file) {
-      // Ignore disabled modules.
-      if (!$file->status) {
+      // Ignore disabled modules and install profiles.
+      if (!$file->status || $module == $profile) {
         continue;
       }
       // Check the module's PHP version.
@@ -400,15 +438,6 @@ function system_requirements($phase) {
             'severity' => REQUIREMENT_ERROR,
           );
           continue;
-        }
-        // Check for a disabled dependency.
-        if (!$required_file->status) {
-          $requirements["$module-$required_module"] = array(
-            'title' => $t('Unresolved dependency'),
-            'description' => $t('@name requires this module.', array('@name' => $name)),
-            'value' => $t('@required_name (Disabled)', array('@required_name' => $required_name)),
-            'severity' => REQUIREMENT_ERROR,
-          );
         }
       }
     }
@@ -467,11 +496,11 @@ function system_install() {
   system_rebuild_theme_data();
 
   // Enable the default theme.
-  variable_set('theme_default', 'garland');
+  variable_set('theme_default', 'bartik');
   db_update('system')
     ->fields(array('status' => 1))
     ->condition('type', 'theme')
-    ->condition('name', 'garland')
+    ->condition('name', 'bartik')
     ->execute();
 
   // Populate the cron key variable.
@@ -498,7 +527,7 @@ function system_schema() {
       ),
       'value' => array(
         'description' => 'The value of the variable.',
-        'type' => 'text',
+        'type' => 'blob',
         'not null' => TRUE,
         'size' => 'big',
         'translatable' => TRUE,
@@ -533,7 +562,7 @@ function system_schema() {
       ),
       'parameters' => array(
         'description' => 'Parameters to be passed to the callback function.',
-        'type' => 'text',
+        'type' => 'blob',
         'not null' => TRUE,
         'size' => 'big',
       ),
@@ -572,7 +601,7 @@ function system_schema() {
       ),
       'batch' => array(
         'description' => 'A serialized array containing the processing data for the batch.',
-        'type' => 'text',
+        'type' => 'blob',
         'not null' => FALSE,
         'size' => 'big',
       ),
@@ -647,7 +676,6 @@ function system_schema() {
     ),
     'primary key' => array('cid'),
   );
-
   $schema['cache_bootstrap'] = $schema['cache'];
   $schema['cache_bootstrap']['description'] = 'Cache table for data required to bootstrap Drupal, may be routed to a shared memory cache.';
   $schema['cache_form'] = $schema['cache'];
@@ -765,14 +793,14 @@ function system_schema() {
         'default' => 0,
       ),
       'filename' => array(
-        'description' => 'Name of the file with no path components. This may differ from the basename of the filepath if the file is renamed to avoid overwriting an existing file.',
+        'description' => 'Name of the file with no path components. This may differ from the basename of the URI if the file is renamed to avoid overwriting an existing file.',
         'type' => 'varchar',
         'length' => 255,
         'not null' => TRUE,
         'default' => '',
       ),
       'uri' => array(
-        'description' => 'Path of the file relative to Drupal root.',
+        'description' => 'The URI to access the file (either local or remote).',
         'type' => 'varchar',
         'length' => 255,
         'not null' => TRUE,
@@ -793,10 +821,11 @@ function system_schema() {
         'default' => 0,
       ),
       'status' => array(
-        'description' => 'A bitmapped field indicating the status of the file. The least significant bit indicates temporary (0) or permanent (1). Temporary files older than DRUPAL_MAXIMUM_TEMP_FILE_AGE will be removed during a cron run.',
+        'description' => 'A field indicating the status of the file. Two status are defined in core: temporary (0) and permanent (1). Temporary files older than DRUPAL_MAXIMUM_TEMP_FILE_AGE will be removed during a cron run.',
         'type' => 'int',
         'not null' => TRUE,
         'default' => 0,
+        'size' => 'tiny',
       ),
       'timestamp' => array(
         'description' => 'UNIX timestamp for when the file was added.',
@@ -816,7 +845,56 @@ function system_schema() {
     ),
     'primary key' => array('fid'),
     'foreign keys' => array(
-      'uid' => array('users' => 'uid'),
+      'file_owner' => array(
+        'table' => 'users',
+        'columns' => array('uid' => 'uid'),
+      ),
+    ),
+  );
+
+  $schema['file_usage'] = array(
+    'description' => 'Track where a file is used.',
+    'fields' => array(
+      'fid' => array(
+        'description' => 'File ID.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'module' => array(
+        'description' => 'The name of the module that is using the file.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'type' => array(
+        'description' => 'The name of the object type in which the file is used.',
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'id' => array(
+        'description' => 'The primary key of the object using the file.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'count' => array(
+        'description' => 'The number of times this file is used by this object.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('fid', 'type', 'id', 'module'),
+    'indexes' => array(
+      'type_id' => array('type', 'id'),
+      'fid_count' => array('fid', 'count'),
+      'fid_module' => array('fid', 'module'),
     ),
   );
 
@@ -901,12 +979,12 @@ function system_schema() {
       ),
       'load_functions' => array(
         'description' => 'A serialized array of function names (like node_load) to be called to load an object corresponding to a part of the current path.',
-        'type' => 'text',
+        'type' => 'blob',
         'not null' => TRUE,
       ),
       'to_arg_functions' => array(
         'description' => 'A serialized array of function names (like user_uid_optional_to_arg) to be called to replace a part of the router path with another string.',
-        'type' => 'text',
+        'type' => 'blob',
         'not null' => TRUE,
       ),
       'access_callback' => array(
@@ -918,7 +996,7 @@ function system_schema() {
       ),
       'access_arguments' => array(
         'description' => 'A serialized array of arguments for the access callback.',
-        'type' => 'text',
+        'type' => 'blob',
         'not null' => FALSE,
       ),
       'page_callback' => array(
@@ -930,7 +1008,7 @@ function system_schema() {
       ),
       'page_arguments' => array(
         'description' => 'A serialized array of arguments for the page callback.',
-        'type' => 'text',
+        'type' => 'blob',
         'not null' => FALSE,
       ),
       'delivery_callback' => array(
@@ -1014,13 +1092,6 @@ function system_schema() {
         'not null' => TRUE,
         'default' => 0,
       ),
-      'block_callback' => array(
-        'description' => 'Name of a function used to render the block on the system administration page for this item.',
-        'type' => 'varchar',
-        'length' => 255,
-        'not null' => TRUE,
-        'default' => '',
-      ),
       'description' => array(
         'description' => 'A description of this item.',
         'type' => 'text',
@@ -1100,7 +1171,7 @@ function system_schema() {
       ),
       'options' => array(
         'description' => 'A serialized array of options to be passed to the url() or l() function, such as a query string or HTML attributes.',
-        'type' => 'text',
+        'type' => 'blob',
         'not null' => FALSE,
         'translatable' => TRUE,
       ),
@@ -1256,7 +1327,7 @@ function system_schema() {
         'description' => 'The queue name.',
       ),
       'data' => array(
-        'type' => 'text',
+        'type' => 'blob',
         'not null' => FALSE,
         'size' => 'big',
         'serialize' => TRUE,
@@ -1334,17 +1405,11 @@ function system_schema() {
         'length' => 255,
         'not null' => TRUE,
       ),
-      'filectime'  => array(
-        'description' => "The creation time of the file when last parsed.",
-        'type' => 'int',
+      'hash'  => array(
+        'description' => "sha-256 hash of the file's contents when last parsed.",
+        'type' => 'varchar',
+        'length' => 64,
         'not null' => TRUE,
-        'default' => 0,
-      ),
-      'filemtime'  => array(
-        'description' => "The modification time of the file when last parsed.",
-        'type' => 'int',
-        'not null' => TRUE,
-        'default' => 0,
       ),
     ),
     'primary key' => array('filename'),
@@ -1374,7 +1439,10 @@ function system_schema() {
         'not null' => TRUE
       ),
     ),
-    'indexes' => array('value' => array('value')),
+    'indexes' => array(
+      'value' => array('value'),
+      'expire' => array('expire'),
+    ),
     'primary key' => array('name'),
   );
 
@@ -1401,18 +1469,18 @@ function system_schema() {
         'not null' => TRUE,
       ),
       'sid' => array(
-        'description' => "Primary key: A session ID. The value is generated by PHP's Session API.",
+        'description' => "A session ID. The value is generated by PHP's Session API.",
         'type' => 'varchar',
-        'length' => 64,
+        'length' => 128,
         'not null' => TRUE,
         'default' => '',
       ),
       'ssid' => array(
-        'description' => "Unique key: Secure session ID. The value is generated by PHP's Session API.",
+        'description' => "Secure session ID. The value is generated by PHP's Session API.",
         'type' => 'varchar',
-        'length' => 64,
-        'not null' => FALSE,
-        'default' => NULL,
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
       ),
       'hostname' => array(
         'description' => 'The IP address that last used this session ID (sid).',
@@ -1435,21 +1503,25 @@ function system_schema() {
       ),
       'session' => array(
         'description' => 'The serialized contents of $_SESSION, an array of name/value pairs that persists across page requests by this session ID. Drupal loads $_SESSION from here at the start of each request and saves it at the end.',
-        'type' => 'text',
+        'type' => 'blob',
         'not null' => FALSE,
         'size' => 'big',
       ),
     ),
-    'primary key' => array('sid'),
+    'primary key' => array(
+      'sid',
+      'ssid',
+    ),
     'indexes' => array(
       'timestamp' => array('timestamp'),
       'uid' => array('uid'),
-    ),
-    'unique keys' => array(
       'ssid' => array('ssid'),
     ),
     'foreign keys' => array(
-      'uid' => array('users' => 'uid'),
+      'session_user' => array(
+        'table' => 'users',
+        'columns' => array('uid' => 'uid'),
+      ),
     ),
   );
 
@@ -1510,15 +1582,14 @@ function system_schema() {
         'default' => 0,
       ),
       'info' => array(
-        'description' => "A serialized array containing information from the module's .info file; keys can include name, description, package, version, core, dependencies, dependents, and php.",
-        'type' => 'text',
+        'description' => "A serialized array containing information from the module's .info file; keys can include name, description, package, version, core, dependencies, and php.",
+        'type' => 'blob',
         'not null' => FALSE,
       ),
     ),
     'primary key' => array('filename'),
     'indexes' => array(
-      'bootstrap' => array('status', 'bootstrap', 'type', 'weight', 'name'),
-      'system_list' => array('weight', 'name'),
+      'system_list' => array('status', 'bootstrap', 'type', 'weight', 'name'),
       'type_name' => array('type', 'name'),
     ),
   );
@@ -1554,11 +1625,9 @@ function system_schema() {
         'default' => '',
       ),
     ),
-    'unique keys' => array(
-      'alias_language_pid' => array('alias', 'language', 'pid'),
-    ),
     'primary key' => array('pid'),
     'indexes' => array(
+      'alias_language_pid' => array('alias', 'language', 'pid'),
       'source_language_pid' => array('source', 'language', 'pid'),
     ),
   );
@@ -1566,10 +1635,74 @@ function system_schema() {
   return $schema;
 }
 
+/**
+ * The cache schema corresponding to system_update_7054.
+ *
+ * Drupal 7 adds several new cache tables. Since they all have identical schema
+ * this helper function allows them to re-use the same definition, without
+ * relying on system_schema(), which may change with future updates.
+ */
+function system_schema_cache_7054() {
+  return array(
+    'description' => 'Generic cache table for caching things not separated out into their own tables. Contributed modules may also use this to store cached items.',
+    'fields' => array(
+      'cid' => array(
+        'description' => 'Primary Key: Unique cache ID.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'data' => array(
+        'description' => 'A collection of data to cache.',
+        'type' => 'blob',
+        'not null' => FALSE,
+        'size' => 'big',
+      ),
+      'expire' => array(
+        'description' => 'A Unix timestamp indicating when the cache entry should expire, or 0 for never.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'created' => array(
+        'description' => 'A Unix timestamp indicating when the cache entry was created.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'serialized' => array(
+        'description' => 'A flag to indicate whether content is serialized (1) or not (0).',
+        'type' => 'int',
+        'size' => 'small',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'indexes' => array(
+      'expire' => array('expire'),
+    ),
+    'primary key' => array('cid'),
+  );
+}
+
+
 // Updates for core.
 
 function system_update_last_removed() {
   return 6055;
+}
+
+/**
+ * Implements hook_update_dependencies().
+ */
+function system_update_dependencies() {
+  // Update 7053 adds new blocks, so make sure the block tables are updated.
+  $dependencies['system'][7053] = array(
+    'block' => 7002,
+  );
+
+  return $dependencies;
 }
 
 /**
@@ -1696,7 +1829,7 @@ function system_update_7004(&$sandbox) {
       '0' => 'active',
       '1' => 'new',
     ),
-    'locale' => array('0' => 'language-switcher'),
+    'locale' => array('0' => LANGUAGE_TYPE_INTERFACE),
     'node' => array('0' => 'syndicate'),
     'poll' => array('0' => 'recent'),
     'profile' => array('0' => 'author-information'),
@@ -1709,6 +1842,10 @@ function system_update_7004(&$sandbox) {
       '2' => 'new',
       '3' => 'online',
     ),
+  );
+
+  $moved_deltas = array(
+    'user' => array('navigation' => 'system'),
   );
 
   // Only run this the first time through the batch update.
@@ -1726,7 +1863,7 @@ function system_update_7004(&$sandbox) {
     }
   }
 
-  update_fix_d7_block_deltas($sandbox, $renamed_deltas);
+  update_fix_d7_block_deltas($sandbox, $renamed_deltas, $moved_deltas);
 
 }
 
@@ -1740,14 +1877,6 @@ function system_update_7005() {
   variable_del('throttle_anonymous');
   variable_del('throttle_level');
   variable_del('throttle_probability_limiter');
-}
-
-/**
- * Registry tables and drop the file key of the menu router, since it is no
- * longer needed.
- */
-function system_update_7006() {
-  // Update moved to update_fix_d7_requirements().
 }
 
 /**
@@ -1777,40 +1906,14 @@ function system_update_7007() {
 }
 
 /**
- * Use the poll_choice primary key to record votes in poll_votes rather than
- * the choice order. Rename chorder to weight.
- */
-function system_update_7008() {
-  if (db_table_exists('poll_votes')) {
-    // Add chid column and convert existing votes.
-    db_add_field('poll_votes', 'chid', array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0));
-    db_add_index('poll_votes', 'chid', array('chid'));
-    db_query("UPDATE {poll_votes} SET chid = (SELECT chid FROM {poll_choices} c WHERE {poll_votes}.chorder = c.chorder AND {poll_votes}.nid = c.nid)");
-    // Remove old chorder column.
-    db_drop_field('poll_votes', 'chorder');
-  }
-  if (db_table_exists('poll_choices')) {
-    // Change the chorder column to weight in poll_choices.
-    db_change_field('poll_choices', 'chorder', 'weight', array('type' => 'int', 'not null' => TRUE, 'default' => 0, 'size' => 'tiny'));
-  }
-}
-
-/**
- * Rename the variables for primary and secondary links.
- *
+ * Rename the variable for primary links.
  */
 function system_update_7009() {
-  db_update('variable')
-    ->fields(array('name' => 'main_menu_links_source'))
-    ->condition('name', 'menu_primary_links_source')
-    ->execute();
-}
-
-/**
- * Moved to system_update_6048().
- */
-function system_update_7010() {
-  return '';
+  $current_primary = variable_get('menu_primary_links_source');
+  if (isset($current_primary)) {
+    variable_set('menu_main_links_source', $current_primary);
+    variable_del('menu_primary_links_source');
+  }
 }
 
 /**
@@ -1833,8 +1936,6 @@ function system_update_7011() {
   }
   $insert->execute();
 }
-
-// system_update_7012() moved to block_update_7002().
 
 /**
  * Convert default time zone offset to default time zone name.
@@ -1861,11 +1962,22 @@ function system_update_7013() {
       // schema found.
     }
   }
+
+  // Check to see if timezone was overriden in update_prepare_d7_bootstrap().
+  $offset = variable_get('date_temporary_timezone');
+  // If not, use the default.
+  if (!isset($offset)) {
+    $offset = variable_get('date_default_timezone', 0);
+  }
+
   // If the previous default time zone was a non-zero offset, guess the site's
   // intended time zone based on that offset and the server's daylight saving
   // time status.
-  if (!$timezone && ($offset = variable_get('date_default_timezone', 0)) && ($timezone_name = timezone_name_from_abbr('', intval($offset), date('I'))) && isset($timezones[$timezone_name])) {
-    $timezone = $timezone_name;
+  if (!$timezone && $offset) {
+    $timezone_name = timezone_name_from_abbr('', intval($offset), date('I'));
+    if ($timezone_name && isset($timezones[$timezone_name])) {
+      $timezone = $timezone_name;
+    }
   }
   // Otherwise, the default time zone offset was zero, which is UTC.
   if (!$timezone) {
@@ -1873,12 +1985,8 @@ function system_update_7013() {
   }
   variable_set('date_default_timezone', $timezone);
   drupal_set_message('The default time zone has been set to <em>' . check_plain($timezone) . '</em>. Check the ' . l('date and time configuration page', 'admin/config/regional/settings') . ' to configure it correctly.', 'warning');
-}
-
-/**
- * Drop the bootstrap column from the {system} table. This was reverted.
- */
-function system_update_7014() {
+  // Remove temporary override.
+  variable_del('date_temporary_timezone');
 }
 
 /**
@@ -1889,10 +1997,22 @@ function system_update_7015() {
     ->fields(array('link_path' => 'user/logout'))
     ->condition('link_path', 'logout')
     ->execute();
-
- db_update('menu_links')
+  db_update('menu_links')
     ->fields(array('router_path' => 'user/logout'))
     ->condition('router_path', 'logout')
+    ->execute();
+
+  db_update('menu_links')
+    ->fields(array(
+      'menu_name' => 'user-menu',
+      'plid' => 0,
+    ))
+    ->condition(db_or()
+      ->condition('link_path', 'user/logout')
+      ->condition('router_path', 'user/logout')
+    )
+    ->condition('module', 'system')
+    ->condition('customized', 0)
     ->execute();
 }
 
@@ -1919,12 +2039,12 @@ function system_update_7016() {
           $datatype = 'bigint';
           break;
       }
-      db_query('ALTER TABLE ' . $row->table . ' ALTER COLUMN ' . $row->field . ' TYPE ' . $datatype);
-      db_query('ALTER TABLE ' . $row->table . ' ADD CHECK (' . $row->field . ' >= 0)');
+      db_query('ALTER TABLE ' . $row->table . ' ALTER COLUMN "' . $row->field . '" TYPE ' . $datatype);
+      db_query('ALTER TABLE ' . $row->table . ' ADD CHECK ("' . $row->field . '" >= 0)');
     }
-    db_query('DROP DOMAIN smallint_unsigned');
-    db_query('DROP DOMAIN int_unsigned');
-    db_query('DROP DOMAIN bigint_unsigned');
+    db_query('DROP DOMAIN IF EXISTS smallint_unsigned');
+    db_query('DROP DOMAIN IF EXISTS int_unsigned');
+    db_query('DROP DOMAIN IF EXISTS bigint_unsigned');
   }
 }
 
@@ -1932,13 +2052,15 @@ function system_update_7016() {
  * Change the theme setting 'toggle_node_info' into a per content type variable.
  */
 function system_update_7017() {
-  $types = node_type_get_types();
-  if (count($types)) {
-    foreach ($types as $type) {
-      $node_info = theme_get_setting('toggle_node_info_' . $type->type);
-      if ($node_info !== NULL) {
-        variable_set('node_submitted_' . $type->type, $node_info);
-      }
+  // Get the global theme settings.
+  $settings = variable_get('theme_settings', array());
+  // Get the settings of the default theme.
+  $settings = array_merge($settings, variable_get('theme_' . variable_get('theme_default', 'garland') . '_settings', array()));
+
+  $types = _update_7000_node_get_types();
+  foreach ($types as $type) {
+    if (isset($settings['toggle_node_info_' . $type->type])) {
+      variable_set('node_submitted_' . $type->type, $settings['toggle_node_info_' . $type->type]);
     }
   }
 
@@ -2003,8 +2125,6 @@ function system_update_7027() {
   module_enable($module_list, FALSE);
 }
 
-// system_update_7028() moved to taxonomy_update_7001().
-
 /**
  * Add new 'view own unpublished content' permission for authenticated users.
  * Preserves legacy behavior from Drupal 6.x.
@@ -2016,20 +2136,6 @@ function system_update_7029() {
       'permission' => 'view own unpublished content',
     ))
     ->execute();
-}
-
-/**
- * Moved to comment_update_7011().
- */
-function system_update_7030() {
-}
-
-/**
- * Removed in favour of Drupal 6 backport.
- *
- * @see system_update_6052()
- */
-function system_update_7031() {
 }
 
 /**
@@ -2115,10 +2221,11 @@ function system_update_7034() {
         'default' => 0,
       ),
       'status' => array(
-        'description' => 'A bitmapped field indicating the status of the file the least sigifigant bit indicates temporary (1) or permanent (0). Temporary files older than DRUPAL_MAXIMUM_TEMP_FILE_AGE will be removed during a cron run.',
+        'description' => 'A field indicating the status of the file. Two status are defined in core: temporary (0) and permanent (1). Temporary files older than DRUPAL_MAXIMUM_TEMP_FILE_AGE will be removed during a cron run.',
         'type' => 'int',
         'not null' => TRUE,
         'default' => 0,
+        'size' => 'tiny',
       ),
       'timestamp' => array(
         'description' => 'UNIX timestamp for when the file was added.',
@@ -2140,33 +2247,6 @@ function system_update_7034() {
   );
 
   db_create_table('file_managed', $schema['file_managed']);
-}
-
-/**
- * Migrate upload module files to the new {file_managed} table.
- */
-function system_update_7035() {
-  if (!db_table_exists('upload')) {
-    return;
-  }
-
-  // The old {files} tables still exists.  We migrate core data from upload
-  // module, but any contrib module using it will need to do its own update.
-  $result = db_query('SELECT f.fid, uid, filename, filepath AS uri, filemime, filesize, status, timestamp FROM {files} f INNER JOIN {upload} u ON u.fid = f.fid', array(), array('fetch' => PDO::FETCH_ASSOC));
-
-  // We will convert filepaths to uri using the default schmeme
-  // and stripping off the existing file directory path.
-  $basename = variable_get('file_directory_path', conf_path() . '/files');
-  $scheme = variable_get('file_default_scheme', 'public') . '://';
-  $fids = array();
-  // TODO: does this function need to run in batch mode, or should we use a multi-insert?
-  foreach ($result as $file) {
-    $file['uri'] = $scheme . str_replace($basename, '', $file['uri']);
-    $file['uri'] = file_stream_wrapper_uri_normalize($file['uri']);
-    db_insert('file_managed')->fields($file)->execute();
-    $fids[] = $file['fid'];
-  }
-  // TODO: delete the found fids from {files}?
 }
 
 /**
@@ -2194,36 +2274,6 @@ function system_update_7036() {
 }
 
 /**
- * Rename action description to label.
- */
-function system_update_7037() {
-  db_change_field('actions', 'description', 'label', array('type' => 'varchar', 'length' => 255, 'not null' => TRUE, 'default' => '0'));
-}
-
-/**
- * Adds fields to the {menu_router} table to allow custom themes to be set per
- * page.
- */
-function system_update_7039() {
-  // Moved to update_fix_d7_requirements().
-}
-
-/**
- * Create new date format tables.
- */
-function system_update_7040() {
-  // Moved to update_fix_d7_requirements().
-}
-
-/**
- * Adds 'delivery_callback' field to the {menu_router} table to allow a custom
- * function to be used for final page rendering and sending to browser.
- */
-function system_update_7041() {
-  // Moved to update_fix_d7_requirements().
-}
-
-/**
  * Upgrade the {url_alias} table and create a cache bin for path aliases.
  */
 function system_update_7042() {
@@ -2239,16 +2289,10 @@ function system_update_7042() {
   // Rename the fields, and increase their length to 255 characters.
   db_change_field('url_alias', 'src', 'source', array('type' => 'varchar', 'length' => 255, 'not null' => TRUE, 'default' => ''));
   db_change_field('url_alias', 'dst', 'alias', array('type' => 'varchar', 'length' => 255, 'not null' => TRUE, 'default' => ''));
-  // Add indexes back.
+  // Add indexes back. We replace the unique key with an index since it never
+  // provided any meaningful unique constraint ('pid' is a primary key).
   db_add_index('url_alias', 'source_language_pid', array('source', 'language', 'pid'));
-  db_add_unique_key('url_alias', 'alias_language_pid', array('alias', 'language', 'pid'));
-}
-
-/**
- * Add a 'context' field to {menu_router} to control contextual placement of local tasks.
- */
-function system_update_7043() {
-  // Moved to update_fix_d7_requirements().
+  db_add_index('url_alias', 'alias_language_pid', array('alias', 'language', 'pid'));
 }
 
 /**
@@ -2288,10 +2332,10 @@ function system_update_7046() {
       variable_set('theme_garland_settings', $settings);
       // Remove Garland's color files since they won't match Minnelli's.
       foreach (variable_get('color_garland_files', array()) as $file) {
-        @unlink($file);
+        @drupal_unlink($file);
       }
       if (isset($file) && $file = dirname($file)) {
-        @rmdir($file);
+        @drupal_rmdir($file);
       }
       variable_del('color_garland_palette');
       variable_del('color_garland_stylesheets');
@@ -2359,31 +2403,502 @@ function system_update_7052() {
  * Upgrade standard blocks and menus.
  */
 function system_update_7053() {
-  // Navigation block is now defined in system module.
-  db_update('block')
-    ->fields(array('module' => 'system'))
-    ->condition('module', 'user')
-    ->condition('delta', 'navigation')
-    ->execute();
+  if (db_table_exists('menu_custom')) {
+    // Create the same menus as in menu_install().
+    db_insert('menu_custom')
+      ->fields(array('menu_name' => 'user-menu', 'title' => 'User Menu', 'description' => "The <em>User</em> menu contains links related to the user's account, as well as the 'Log out' link."))
+      ->execute();
 
-  // Create the same menus as in menu_install().
-  db_insert('menu_custom')
-    ->fields(array('menu_name' => 'user-menu', 'title' => 'User Menu', 'description' => "The <em>User</em> menu contains links related to the user's account, as well as the 'Log out' link."))
-    ->execute();
+    db_insert('menu_custom')
+      ->fields(array('menu_name' => 'management', 'title' => 'Management', 'description' => "The <em>Management</em> menu contains links for administrative tasks."))
+      ->execute();
+  }
 
-  db_insert('menu_custom')
-    ->fields(array('menu_name' => 'management', 'title' => 'Management', 'description' => "The <em>Management</em> menu contains links for administrative tasks."))
-    ->execute();
+  block_flush_caches();
+
+  // Show the new menu blocks along the navigation block.
+  $blocks = db_query("SELECT theme, status, region, weight, visibility, pages FROM {block} WHERE module = 'system' AND delta = 'navigation'");
+  $deltas = db_or()
+    ->condition('delta', 'user-menu')
+    ->condition('delta', 'management');
+
+  foreach ($blocks as $block) {
+    db_update('block')
+      ->fields(array(
+        'status' => $block->status,
+        'region' => $block->region,
+        'weight' => $block->weight,
+        'visibility' => $block->visibility,
+        'pages' => $block->pages,
+      ))
+      ->condition('theme', $block->theme)
+      ->condition('module', 'system')
+      ->condition($deltas)
+      ->execute();
+  }
 }
 
 /**
  * Remove {cache_*}.headers columns.
  */
 function system_update_7054() {
-  $cache_tables = array('cache', 'cache_filter', 'cache_form', 'cache_menu', 'cache_page', 'cache_path');
-  foreach ($cache_tables as $table) {
-    db_drop_field($table, 'headers');
+  // Update: update_fix_d7_requirements() installs this version for cache_path
+  // already, so we don't include it in this particular update. It should be
+  // included in later updates though.
+  $cache_tables = array(
+    'cache' => 'Generic cache table for caching things not separated out into their own tables. Contributed modules may also use this to store cached items.',
+    'cache_form' => 'Cache table for the form system to store recently built forms and their storage data, to be used in subsequent page requests.',
+    'cache_page' => 'Cache table used to store compressed pages for anonymous users, if page caching is enabled.',
+    'cache_menu' => 'Cache table for the menu system to store router information as well as generated link trees for various menu/page/user combinations.',
+  );
+  $schema = system_schema_cache_7054();
+  foreach ($cache_tables as $table => $description) {
+    $schema['description'] = $description;
+    db_drop_table($table);
+    db_create_table($table, $schema);
   }
+}
+
+/**
+ * Converts fields that store serialized variables from text to blob.
+ */
+function system_update_7055() {
+  $spec = array(
+    'description' => 'The value of the variable.',
+    'type' => 'blob',
+    'not null' => TRUE,
+    'size' => 'big',
+    'translatable' => TRUE,
+  );
+  db_change_field('variable', 'value', 'value', $spec);
+
+  $spec = array(
+    'description' => 'Parameters to be passed to the callback function.',
+    'type' => 'blob',
+    'not null' => TRUE,
+    'size' => 'big',
+  );
+  db_change_field('actions', 'parameters', 'parameters', $spec);
+
+  $spec = array(
+    'description' => 'A serialized array containing the processing data for the batch.',
+    'type' => 'blob',
+    'not null' => FALSE,
+    'size' => 'big',
+  );
+  db_change_field('batch', 'batch', 'batch', $spec);
+
+  $spec = array(
+    'description' => 'A serialized array of function names (like node_load) to be called to load an object corresponding to a part of the current path.',
+    'type' => 'blob',
+    'not null' => TRUE,
+  );
+  db_change_field('menu_router', 'load_functions', 'load_functions', $spec);
+
+  $spec = array(
+    'description' => 'A serialized array of function names (like user_uid_optional_to_arg) to be called to replace a part of the router path with another string.',
+    'type' => 'blob',
+    'not null' => TRUE,
+  );
+  db_change_field('menu_router', 'to_arg_functions', 'to_arg_functions', $spec);
+
+  $spec = array(
+    'description' => 'A serialized array of arguments for the access callback.',
+    'type' => 'blob',
+    'not null' => FALSE,
+  );
+  db_change_field('menu_router', 'access_arguments', 'access_arguments', $spec);
+
+  $spec = array(
+    'description' => 'A serialized array of arguments for the page callback.',
+    'type' => 'blob',
+    'not null' => FALSE,
+  );
+  db_change_field('menu_router', 'page_arguments', 'page_arguments', $spec);
+
+  $spec = array(
+    'description' => 'A serialized array of options to be passed to the url() or l() function, such as a query string or HTML attributes.',
+    'type' => 'blob',
+    'not null' => FALSE,
+    'translatable' => TRUE,
+  );
+  db_change_field('menu_links', 'options', 'options', $spec);
+
+  $spec = array(
+    'description' => 'The serialized contents of $_SESSION, an array of name/value pairs that persists across page requests by this session ID. Drupal loads $_SESSION from here at the start of each request and saves it at the end.',
+    'type' => 'blob',
+    'not null' => FALSE,
+    'size' => 'big',
+  );
+  db_change_field('sessions', 'session', 'session', $spec);
+
+  $spec = array(
+    'description' => "A serialized array containing information from the module's .info file; keys can include name, description, package, version, core, dependencies, and php.",
+    'type' => 'blob',
+    'not null' => FALSE,
+  );
+  db_change_field('system', 'info', 'info', $spec);
+}
+
+/**
+ * Increase the size of session-ids.
+ */
+function system_update_7057() {
+  $spec = array(
+    'description' => "A session ID. The value is generated by PHP's Session API.",
+    'type' => 'varchar',
+    'length' => 128,
+    'not null' => TRUE,
+    'default' => '',
+  );
+  db_change_field('sessions', 'sid', 'sid', $spec);
+}
+
+/**
+ * Remove cron semaphore variable.
+ */
+function system_update_7058() {
+  variable_del('cron_semaphore');
+}
+
+/**
+ * Create the {file_usage} table.
+ */
+function system_update_7059() {
+  $spec = array(
+    'description' => 'Track where a file is used.',
+    'fields' => array(
+      'fid' => array(
+        'description' => 'File ID.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'module' => array(
+        'description' => 'The name of the module that is using the file.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'type' => array(
+        'description' => 'The name of the object type in which the file is used.',
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'id' => array(
+        'description' => 'The primary key of the object using the file.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'count' => array(
+        'description' => 'The number of times this file is used by this object.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('fid', 'type', 'id', 'module'),
+    'indexes' => array(
+      'type_id' => array('type', 'id'),
+      'fid_count' => array('fid', 'count'),
+      'fid_module' => array('fid', 'module'),
+    ),
+  );
+  db_create_table('file_usage', $spec);
+}
+
+/**
+ * Create fields in preparation for migrating upload.module to file.module.
+ */
+function system_update_7060() {
+  if (!db_table_exists('upload')) {
+    return;
+  }
+
+  if (!db_query_range('SELECT 1 FROM {upload}', 0, 1)->fetchField()) {
+    // There is nothing to migrate. Delete variables and the empty table. There
+    // is no need to create fields that are not going to be used.
+    foreach (_update_7000_node_get_types() as $node_type) {
+      variable_del('upload_' . $node_type->type);
+    }
+    db_drop_table('upload');
+    return;
+  }
+
+  // Check which node types have upload.module attachments enabled.
+  $context['types'] = array();
+  foreach (_update_7000_node_get_types() as $node_type) {
+    if (variable_get('upload_' . $node_type->type, 0)) {
+      $context['types'][$node_type->type] = $node_type->type;
+    }
+  }
+
+  // The {upload} table will be deleted when this update is complete so we
+  // want to be careful to migrate all the data, even for node types that
+  // may have had attachments disabled after files were uploaded. Look for
+  // any other node types referenced by the upload records and add those to
+  // the list. The admin can always remove the field later.
+  $results = db_query('SELECT DISTINCT type FROM {node} n INNER JOIN {node_revision} nr ON n.nid = nr.nid INNER JOIN {upload} u ON nr.vid = u.vid');
+  foreach ($results as $row) {
+    if (!isset($context['types'][$row->type])) {
+      drupal_set_message(t('The content type %rowtype had uploads disabled but contained uploaded file data. Uploads have been re-enabled to migrate the existing data. You may delete the "File attachments" field in the %rowtype type if this data is not necessary.', array('%rowtype' => $row->type)));
+      $context['types'][$row->type] = $row->type;
+    }
+  }
+
+  // Create a single "upload" field on all the content types that have uploads
+  // enabled, then add an instance to each enabled type.
+  if (count($context['types']) > 0) {
+    module_enable(array('file'));
+    $field = array(
+      'field_name' => 'upload',
+      'type' => 'file',
+      'module' => 'file',
+      'locked' => FALSE,
+      'cardinality' => FIELD_CARDINALITY_UNLIMITED,
+      'translatable' => FALSE,
+      'settings' => array(
+        'display_field' => 1,
+        'display_default' => variable_get('upload_list_default', 1),
+        'uri_scheme' => file_default_scheme(),
+        'default_file' => 0,
+      ),
+    );
+
+    $upload_size = variable_get('upload_uploadsize_default', 1);
+    $instance = array(
+      'field_name' => 'upload',
+      'entity_type' => 'node',
+      'bundle' => NULL,
+      'label' => 'File attachments',
+      'required' => 0,
+      'description' => '',
+      'widget' => array(
+        'weight' => '1',
+        'settings' => array(
+          'progress_indicator' => 'throbber',
+        ),
+        'type' => 'file_generic',
+      ),
+      'settings' => array(
+        'max_filesize' => $upload_size ? ($upload_size . ' MB') : '',
+        'file_extensions' => variable_get('upload_extensions_default', 'jpg jpeg gif png txt doc xls pdf ppt pps odt ods odp'),
+        'file_directory' => '',
+        'description_field' => 1,
+      ),
+      'display' => array(
+        'default' => array(
+          'label' => 'hidden',
+          'type' => 'file_table',
+          'settings' => array(),
+          'weight' => 0,
+          'module' => 'file',
+        ),
+        'full' => array(
+          'label' => 'hidden',
+          'type' => 'file_table',
+          'settings' => array(),
+          'weight' => 0,
+          'module' => 'file',
+        ),
+        'teaser' => array(
+          'label' => 'hidden',
+          'type' => 'hidden',
+          'settings' => array(),
+          'weight' => 0,
+          'module' => NULL,
+        ),
+        'rss' => array(
+          'label' => 'hidden',
+          'type' => 'file_table',
+          'settings' => array(),
+          'weight' => 0,
+          'module' => 'file',
+        ),
+      ),
+    );
+
+    // Create the field.
+    _update_7000_field_create_field($field);
+
+    // Create the instances.
+    foreach ($context['types'] as $bundle) {
+      $instance['bundle'] = $bundle;
+      _update_7000_field_create_instance($field, $instance);
+      // Now that the instance is created, we can safely delete any legacy
+      // node type information.
+      variable_del('upload_' . $bundle);
+    }
+  }
+  else {
+    // No uploads or content types with uploads enabled.
+    db_drop_table('upload');
+  }
+}
+
+/**
+ * Migrate upload.module data to the newly created file field.
+ */
+function system_update_7061(&$sandbox) {
+  if (!db_table_exists('upload')) {
+    return;
+  }
+
+  if (!isset($sandbox['progress'])) {
+    // Retrieve a list of node revisions that have uploaded files attached.
+    // DISTINCT queries are expensive, especially when paged, so we store the
+    // data in its own table for the duration of the update.
+    $table = array(
+      'description' => t('Stores temporary data for system_update_7061.'),
+      'fields' => array('vid' => array('type' => 'int')),
+      'primary key' => array('vid'),
+    );
+    db_create_table('system_update_7061', $table);
+    $query = db_select('upload', 'u');
+    $query->distinct();
+    $query->addField('u','vid');
+    db_insert('system_update_7061')
+      ->from($query)
+      ->execute();
+
+    // Initialize batch update information.
+    $sandbox['progress'] = 0;
+    $sandbox['last_vid_processed'] = -1;
+    $sandbox['max'] = db_query("SELECT COUNT(*) FROM {system_update_7061}")->fetchField();
+  }
+
+  $node_revisions = array();
+
+  // Determine vids for this batch.
+  // Process all files attached to a given revision during the same batch.
+  $limit = 100;
+  $vids = db_query_range('SELECT vid FROM {system_update_7061} WHERE vid > :lastvid ORDER BY vid', 0, $limit, array(':lastvid' => $sandbox['last_vid_processed']))
+    ->fetchCol();
+
+  // Retrieve information on all the files attached to these revisions.
+  $result = db_query('SELECT u.fid, u.vid, u.list, u.description, n.nid, n.type, u.weight FROM {upload} u INNER JOIN {node_revision} nr ON u.vid = nr.vid INNER JOIN {node} n ON n.nid = nr.nid WHERE u.vid IN (:vids) ORDER BY u.vid, u.weight, u.fid', array(':vids' => $vids));
+  foreach ($result as $record) {
+    // For each uploaded file, retrieve the corresponding data from the old
+    // files table (since upload doesn't know about the new entry in the
+    // file_managed table).
+    $file = db_select('files', 'f')
+      ->fields('f', array('fid', 'uid', 'filename', 'filepath', 'filemime', 'filesize', 'status', 'timestamp'))
+      ->condition('f.fid', $record->fid)
+      ->execute()
+      ->fetchAssoc();
+    if (!$file) {
+      continue;
+    }
+
+    // Add in the file information from the upload table.
+    $file['description'] = $record->description;
+    $file['display'] = $record->list;
+
+    // Create one record for each revision that contains all the uploaded files.
+    $node_revisions[$record->vid]['nid'] = $record->nid;
+    $node_revisions[$record->vid]['vid'] = $record->vid;
+    $node_revisions[$record->vid]['type'] = $record->type;
+    $node_revisions[$record->vid]['file'][LANGUAGE_NONE][] = $file;
+  }
+
+  // Now that we know which files belong to which revisions, update the files'
+  // database entries, and save a reference to each file in the upload field on
+  // their node revisions.
+  $basename = variable_get('file_directory_path', conf_path() . '/files');
+  $scheme = file_default_scheme() . '://';
+  foreach ($node_revisions as $vid => $revision) {
+    foreach ($revision['file'][LANGUAGE_NONE] as $delta => $file) {
+      // We will convert filepaths to uri using the default scheme
+      // and stripping off the existing file directory path.
+      $file['uri'] = $scheme . str_replace($basename, '', $file['filepath']);
+      $file['uri'] = file_stream_wrapper_uri_normalize($file['uri']);
+      unset($file['filepath']);
+      // Insert into the file_managed table.
+      // Each fid should only be stored once in file_managed.
+      db_merge('file_managed')
+        ->key(array(
+          'fid' => $file['fid'],
+        ))
+        ->fields(array(
+          'uid' => $file['uid'],
+          'filename' => $file['filename'],
+          'uri' => $file['uri'],
+          'filemime' => $file['filemime'],
+          'filesize' => $file['filesize'],
+          'status' => $file['status'],
+          'timestamp' => $file['timestamp'],
+        ))
+        ->execute();
+
+      // Add the usage entry for the file.
+      $file = (object) $file;
+      file_usage_add($file, 'file', 'node', $revision['nid']);
+
+      // Update the node revision's upload file field with the file data.
+      $revision['file'][LANGUAGE_NONE][$delta] = array('fid' => $file->fid, 'display' => $file->display, 'description' => $file->description);
+    }
+
+    // Write the revision's upload field data into the field_upload tables.
+    $node = (object) $revision;
+    _update_7000_field_sql_storage_write('node', $node->type, $node->nid, $node->vid, 'upload', $node->file);
+
+    // Update our progress information for the batch update.
+    $sandbox['progress']++;
+    $sandbox['last_vid_processed'] = $vid;
+  }
+
+  // If less than limit node revisions were processed, the update process is
+  // finished.
+  if (count($node_revisions) < $limit) {
+    $finished = TRUE;
+  }
+
+
+  // If there's no max value then there's nothing to update and we're finished.
+  if (empty($sandbox['max']) || isset($finished)) {
+    db_drop_table('upload');
+    db_drop_table('system_update_7061');
+    return t('Upload module has been migrated to File module.');
+  }
+  else {
+    // Indicate our current progress to the batch update system.
+    $sandbox['#finished'] = $sandbox['progress'] / $sandbox['max'];
+  }
+}
+
+/**
+ * Replace 'system_list' index with 'bootstrap' index on {system}.
+ */
+function system_update_7062() {
+  db_drop_index('system', 'bootstrap');
+  db_drop_index('system', 'system_list');
+  db_add_index('system', 'system_list', array('status', 'bootstrap', 'type', 'weight', 'name'));
+}
+
+/**
+ * Delete {menu_links} records for 'type' => MENU_CALLBACK which would not appear in a fresh install.
+ */
+function system_update_7063() {
+  // For router items where 'type' => MENU_CALLBACK, {menu_router}.type is
+  // stored as 4 in Drupal 6, and 0 in Drupal 7. Fortunately Drupal 7 doesn't
+  // store any types as 4, so delete both.
+  $result = db_query('SELECT ml.mlid FROM {menu_links} ml INNER JOIN {menu_router} mr ON ml.router_path = mr.path WHERE ml.module = :system AND ml.customized = 0 AND mr.type IN(:callbacks)', array(':callbacks' => array(0, 4), ':system' => 'system'));
+  foreach ($result as $record) {
+    db_delete('menu_links')->condition('mlid', $record->mlid)->execute();
+  }
+}
+
+/**
+ * Remove block_callback field from {menu_router}.
+ */
+function system_update_7064() {
+  db_drop_field('menu_router', 'block_callback');
 }
 
 /**

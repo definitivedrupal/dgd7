@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $Id: style-rtl.css,v 1.12 2010/10/07 17:59:01 webchick Exp $ */
 
 /* ------------------ Reset Styles ------------------ */
 
@@ -30,103 +30,94 @@ blockquote:after {
 ul.tips {
   padding: 0 1.25em 0 0;
 }
+.block ul {
+  padding: 0 1em 0.25em 0;
+}
 
 /* ------------------ Header ------------------ */
 
-#header #logo {
-  float: right;
-  padding: 15px 0 15px 30px;
+#logo {
+  padding: 15px 10px 15px 30px;
 }
-/* Menus when in the header region. */
-#header div.block-menu,
-#header div#block-system-main-menu,
-#header div#block-system-secondary-menu {
+#logo,
+#name-and-slogan,
+.region-header .block,
+.region-header #block-user-login .form-item,
+.region-header #block-user-login .item-list li {
   float: right;
 }
-#header .block-menu li a,
-#header #block-system-main-menu li a,
-#header #block-system-secondary-menu li a {
-  float: right;
-  border-left: 1px solid #555;
-
-  border-right: none;
+.region-header .form-text {
+  margin-left: 2px;
+  margin-right: 0;
 }
-#header .block-menu li.first a,
-#header #block-system-main-menu li.first a,
-#header #block-system-secondary-menu li.first a {
+.region-header #block-user-login .item-list li.last {
+  padding-left: 0;
+  padding-right: 0.5em;
+}
+.region-header #block-user-login ul.openid-links li.last {
   padding-right: 0;
-  padding-left: 12px;
 }
-#header .block-menu li.last a,
-#header #block-system-main-menu li.last a,
-#header #block-system-secondary-menu li.last a {
+.region-header #user-login-form li.openid-link a,
+.region-header #user-login li.openid-link a {
+  background-position: right -3px;
   padding-left: 0;
-  padding-right: 12px;
-  border-left: none;
-}
-#header #block-search-form {
-  float: left;
-}
-#header #block-user-login {
-  left: 2%;
-  right: auto;
-  float: left;
-}
-#header #block-user-login .form-text {
-  margin-left: 5px;
-}
-#header #block-user-login .item-list ul li {
-  margin: 0 15px 0 5px;
-}
-#header #block-user-login .userbox {
-  margin-right: 10px;
+  padding-right: 20px;
 }
 
-/* --------------- Main Navigation ------------ */
+/* --------------- Main Menu ------------ */
 
-#navigation ul.links li.first {
-  padding-right: 2px;
-  padding-left: 0;
+#main-menu ul.links li,
+#main-menu ul.links li a {
+  float: right;
+}
+
+/* --------------- Secondary Menu ------------ */
+
+#secondary-menu-links {
+  float: left;
 }
 
 /* ----------------- Content ------------------ */
 
-#block-system-main .submitted .user-picture img {
+.submitted .user-picture img {
   float: right;
   margin-left: 5px;
   margin-right: 0;
 }
-#block-system-main div.field-name-taxonomy-tags div.field-label,
-#block-system-main div.field-name-taxonomy-tags div.field-items,
-#block-system-main div.field-name-taxonomy-tags div.field-item {
+.field-type-taxonomy-term-reference .field-label,
+.field-type-taxonomy-term-reference .field-items,
+.field-type-taxonomy-term-reference .field-item {
   float: right;
   padding-left: 10px;
   padding-right: 0;
 }
-#block-system-main .link-wrapper {
+.link-wrapper {
   margin-right: 236px;
   margin-left: 0;
 }
 
 /* ----------------- Comments ----------------- */
 
-#comment-wrapper div.user-picture img {
+.comment .user-picture img {
   margin-right: 0;
 }
-#comments .attribution {
+.comment .attribution {
   float: right;
 }
-#comments .comment-arrow {
+.comment .comment-arrow {
   background: url(../images/comment-arrow-rtl.png);
   margin-right: -45px;
 }
-#comments .comment-text {
+.comment .comment-text {
   margin-right: 140px;
   margin-left: 0;
 }
-#comments .indented {
+.comment .indented {
   margin-right: 40px;
   margin-left: 0;
+}
+.comment ul.links li {
+  padding: 0 0 0.5em;
 }
 
 /* -------------- Password Meter  ------------- */
@@ -142,6 +133,23 @@ ul.tips {
 }
 .form-item-pass-pass2 label {
   clear: right;
+}
+
+/* ----------------- Buttons ------------------ */
+
+input.form-submit,
+a.button {
+  margin-right: 0;
+  margin-left: 1em;
+}
+
+/* --------------- Search Form ---------------- */
+
+#search-form input#edit-keys,
+#block-search-form .form-item-search-block-form input {
+  float: right;
+  margin-left: 5px;
+  margin-right: 0;
 }
 
 /* ------------------ Footer ------------------ */
@@ -212,15 +220,15 @@ html.js input.throbbing {
 }
 
 /* Comment form */
-#comment-form .form-type-textfield label,
-#comment-form .form-type-item label {
+.comment-form .form-type-textfield label,
+.comment-form .form-type-item label {
   float: right;
 }
-#comment-form .form-type-textfield input,
-#comment-form .form-item .username {
+.comment-form .form-type-textfield input,
+.comment-form .form-item .username {
   float: left;
 }
-#comment-form .form-item .description {
+.comment-form .form-item .description {
   float: left;
 }
 

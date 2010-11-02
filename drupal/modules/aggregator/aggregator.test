@@ -1,5 +1,5 @@
 <?php
-// $Id: aggregator.test,v 1.39 2010/03/24 08:51:42 dries Exp $
+// $Id: aggregator.test,v 1.46 2010/09/07 23:17:47 dries Exp $
 
 /**
  * @file
@@ -150,6 +150,19 @@ class AggregatorTestCase extends DrupalWebTestCase {
   }
 
   /**
+   * Pull categories from aggregator_category table.
+   */
+  function getCategories() {
+    $categories = array();
+    $result = db_query('SELECT * FROM {aggregator_category}');
+    foreach ($result as $category) {
+      $categories[$category->cid] = $category;
+    }
+    return $categories;
+  }
+
+
+  /**
    * Check if the feed name and url is unique.
    *
    * @param $feed_name
@@ -248,6 +261,12 @@ EOF;
     return $GLOBALS['base_url'] . '/' . drupal_get_path('module', 'aggregator') . '/tests/aggregator_test_rss091.xml';
   }
 
+  function getAtomSample() {
+    // The content of this sample ATOM feed is based directly off of the
+    // example provided in RFC 4287.
+    return $GLOBALS['base_url'] . '/' . drupal_get_path('module', 'aggregator') . '/tests/aggregator_test_atom.xml';
+  }
+
   function createSampleNodes() {
     $langcode = LANGUAGE_NONE;
     // Post 5 articles.
@@ -288,6 +307,49 @@ class AddFeedTestCase extends AggregatorTestCase {
 
     // Delete feed.
     $this->deleteFeed($feed);
+  }
+}
+
+class CategorizeFeedTestCase extends AggregatorTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Categorize feed functionality',
+      'description' => 'Categorize feed test.',
+      'group' => 'Aggregator'
+    );
+  }
+
+  /**
+   * Create a feed and make sure you can add more than one category to it.
+   */
+  function testCategorizeFeed() {
+
+    // Create 2 categories.
+    $category_1 = array('title' => $this->randomName(10), 'description' => '');
+    $this->drupalPost('admin/config/services/aggregator/add/category', $category_1, t('Save'));
+    $this->assertRaw(t('The category %title has been added.', array('%title' => $category_1['title'])), t('The category %title has been added.', array('%title' => $category_1['title'])));
+
+    $category_2 = array('title' => $this->randomName(10), 'description' => '');
+    $this->drupalPost('admin/config/services/aggregator/add/category', $category_2, t('Save'));
+    $this->assertRaw(t('The category %title has been added.', array('%title' => $category_2['title'])), t('The category %title has been added.', array('%title' => $category_2['title'])));
+
+    // Get categories from database.
+    $categories = $this->getCategories();
+
+    // Create a feed and assign 2 categories to it.
+    $feed = $this->getFeedEditArray();
+    $feed['block'] = 5;
+    foreach ($categories as $cid => $category) {
+      $feed['category'][$cid] = $cid;
+    }
+
+    // Use aggregator_save_feed() function to save the feed.
+    aggregator_save_feed($feed);
+    $db_feed = db_query("SELECT *  FROM {aggregator_feed} WHERE title = :title AND url = :url", array(':title' => $feed['title'], ':url' => $feed['url']))->fetch();
+
+    // Assert the feed has two categories.
+    $this->getFeedCategories($db_feed);
+    $this->assertEqual(count($db_feed->categories), 2, t('Feed has 2 categories'));
   }
 }
 
@@ -686,3 +748,112 @@ class AggregatorCronTestCase extends AggregatorTestCase {
     $this->assertEqual(5, db_query('SELECT COUNT(*) FROM {aggregator_item} WHERE fid = :fid', array(':fid' => $feed->fid))->fetchField(), 'Expected number of items in database.');
   }
 }
+
+class AggregatorRenderingTestCase extends AggregatorTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Checks display of aggregator items',
+      'description' => 'Checks display of aggregator items on the page.',
+      'group' => 'Aggregator'
+    );
+  }
+
+  /**
+   * Add a feed block to the page and checks its links.
+   *
+   * TODO: Test the category block as well.
+   */
+  public function testBlockLinks() {
+    // Create feed.
+    $this->createSampleNodes();
+    $feed = $this->createFeed();
+    $this->updateFeedItems($feed, $this->getDefaultFeedItemCount());
+
+    // Place block on page (@see block.test:moveBlockToRegion())
+    // Need admin user to be able to access block admin.
+    $this->admin_user = $this->drupalCreateUser(array(
+      'administer blocks',
+      'access administration pages',
+      'administer news feeds',
+      'access news feeds',
+    ));
+    $this->drupalLogin($this->admin_user);
+
+    // Prepare to use the block admin form.
+    $block = array(
+      'module' => 'aggregator',
+      'delta' => 'feed-' . $feed->fid,
+      'title' => $feed->title,
+    );
+    $region = 'footer';
+    $edit = array();
+    $edit['blocks[' . $block['module'] . '_' . $block['delta'] . '][region]'] = $region;
+    // Check the feed block is available in the block list form.
+    $this->drupalGet('admin/structure/block');
+    $this->assertFieldByName('blocks[' . $block['module'] . '_' . $block['delta'] . '][region]', '', 'Aggregator feed block is available for positioning.');
+    // Position it.
+    $this->drupalPost('admin/structure/block', $edit, t('Save blocks'));
+    $this->assertText(t('The block settings have been updated.'), t('Block successfully moved to %region_name region.', array( '%region_name' => $region)));
+    // Confirm that the block is now being displayed on pages.
+    $this->drupalGet('node');
+    $this->assertText(t($block['title']), t('Feed block is displayed on the page.'));
+
+    // Find the expected read_more link.
+    $href = 'aggregator/sources/' . $feed->fid;
+    $links = $this->xpath('//a[@href = :href]', array(':href' => url($href)));
+    $this->assert(isset($links[0]), t('Link to href %href found.', array('%href' => $href)));
+
+    // Visit that page.
+    $this->drupalGet($href);
+    $correct_titles = $this->xpath('//h1[normalize-space(text())=:title]', array(':title' => $feed->title));
+    $this->assertFalse(empty($correct_titles), t('Aggregator feed page is available and has the correct title.'));
+  }
+}
+
+/**
+ * Tests for feed parsing.
+ */
+class FeedParserTestCase extends AggregatorTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Feed parser functionality',
+      'description' => 'Test the built-in feed parser with valid feed samples.',
+      'group' => 'Aggregator',
+    );
+  }
+
+  function setUp() {
+    parent::setUp();
+    // Do not remove old aggregator items during these tests, since our sample
+    // feeds have hardcoded dates in them (which may be expired when this test
+    // is run).
+    variable_set('aggregator_clear', AGGREGATOR_CLEAR_NEVER);
+  }
+
+  /**
+   * Test a feed that uses the RSS 0.91 format.
+   */
+  function testRSS091Sample() {
+    $feed = $this->createFeed($this->getRSS091Sample());
+    aggregator_refresh($feed);
+    $this->drupalGet('aggregator/sources/' . $feed->fid);
+    $this->assertResponse(200, t('Feed %name exists.', array('%name' => $feed->title)));
+    $this->assertText('First example feed item title');
+    $this->assertLinkByHref('http://example.com/example-turns-one');
+    $this->assertText('First example feed item description.');
+  }
+
+  /**
+   * Test a feed that uses the Atom format.
+   */
+  function testAtomSample() {
+    $feed = $this->createFeed($this->getAtomSample());
+    aggregator_refresh($feed);
+    $this->drupalGet('aggregator/sources/' . $feed->fid);
+    $this->assertResponse(200, t('Feed %name exists.', array('%name' => $feed->title)));
+    $this->assertText('Atom-Powered Robots Run Amok');
+    $this->assertLinkByHref('http://example.org/2003/12/13/atom03');
+    $this->assertText('Some text.');
+  }
+}
+

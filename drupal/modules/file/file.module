@@ -1,5 +1,5 @@
 <?php
-// $Id: file.module,v 1.28 2010/05/09 19:34:26 dries Exp $
+// $Id: file.module,v 1.45 2010/10/20 15:22:53 dries Exp $
 
 /**
  * @file
@@ -41,12 +41,14 @@ function file_menu() {
     'page callback' => 'file_ajax_upload',
     'delivery callback' => 'ajax_deliver',
     'access arguments' => array('access content'),
+    'theme callback' => 'ajax_base_page_theme',
     'type' => MENU_CALLBACK,
   );
   $items['file/progress'] = array(
     'page callback' => 'file_ajax_progress',
     'delivery callback' => 'ajax_deliver',
     'access arguments' => array('access content'),
+    'theme callback' => 'ajax_base_page_theme',
     'type' => MENU_CALLBACK,
   );
 
@@ -65,6 +67,7 @@ function file_element_info() {
     '#process' => array('file_managed_file_process'),
     '#value_callback' => 'file_managed_file_value',
     '#element_validate' => array('file_managed_file_validate'),
+    '#pre_render' => array('file_managed_file_pre_render'),
     '#theme' => 'file_managed_file',
     '#theme_wrappers' => array('form_element'),
     '#progress_indicator' => 'throbber',
@@ -87,10 +90,10 @@ function file_theme() {
   return array(
     // file.module.
     'file_link' => array(
-      'variables' => array('file' => NULL),
+      'variables' => array('file' => NULL, 'icon_directory' => NULL),
     ),
     'file_icon' => array(
-      'variables' => array('file' => NULL),
+      'variables' => array('file' => NULL, 'icon_directory' => NULL),
     ),
     'file_managed_file' => array(
       'render element' => 'element',
@@ -124,77 +127,97 @@ function file_file_download($uri, $field_type = 'file') {
   // Get the file record based on the URI. If not in the database just return.
   $files = file_load_multiple(array(), array('uri' => $uri));
   if (count($files)) {
-    $file = reset($files);
+    foreach ($files as $item) {
+      // Since some database servers sometimes use a case-insensitive comparison
+      // by default, double check that the filename is an exact match.
+      if ($item->uri === $uri) {
+        $file = $item;
+        break;
+      }
+    }
   }
-  else {
+  if (!isset($file)) {
     return;
   }
 
-  // Find out which (if any) file fields contain this file.
+  // Find out which (if any) fields of this type contain the file.
   $references = file_get_file_references($file, NULL, FIELD_LOAD_REVISION, $field_type);
 
-  // TODO: Check field-level access if available here.
+  // If there are no references, stop processing, to avoid returning headers
+  // for files controlled by other modules.
+  if (empty($references)) {
+    return;
+  }
 
-  $denied = $file->status ? NULL : FALSE;
-  // Check access to content containing the file fields. If access is allowed
-  // to any of this content, allow the download.
+  // Default to allow access.
+  $denied = FALSE;
+  // Loop through all references of this file. If a reference explicitly allows
+  // access to the field to which this file belongs, no further checks are done
+  // and download access is granted. If a reference denies access, eventually
+  // existing additional references are checked. If all references were checked
+  // and no reference denied access, access is granted as well. If at least one
+  // reference denied access, access is denied.
   foreach ($references as $field_name => $field_references) {
     foreach ($field_references as $entity_type => $type_references) {
-      foreach ($type_references as $reference) {
-        // If access is allowed to any object, immediately stop and grant
-        // access. If access is denied, continue through in case another object
-        // grants access.
-        // TODO: Switch this to a universal access check mechanism if available.
-        if ($entity_type == 'node' && ($node = node_load($reference->nid))) {
-          if (node_access('view', $node)) {
-            $denied = FALSE;
-            break 3;
-          }
-          else {
-            $denied = TRUE;
+      foreach ($type_references as $id => $reference) {
+        // Try to load $entity and $field.
+        $entity = reset(entity_load($entity_type, array($id)));
+        $field = NULL;
+        if ($entity) {
+          // Load all fields for that entity.
+          $field_items = field_get_items($entity_type, $entity, $field_name);
+
+          // Find the field item with the matching URI.
+          foreach ($field_items as $field_item) {
+            if ($field_item['uri'] == $uri) {
+              $field = $field_item;
+              break;
+            }
           }
         }
-        if ($entity_type == 'user') {
-          if (user_access('access user profiles') || $user->uid == $reference->uid) {
-            $denied = FALSE;
-            break 3;
-          }
-          else {
-            $denied = TRUE;
-          }
+
+        // Check that $entity and $field were loaded successfully and check if
+        // access to that field is not disallowed. If any of these checks fail,
+        // stop checking access for this reference.
+        if (empty($entity) || empty($field) || !field_access('view', $field, $entity_type, $entity)) {
+          $denied = TRUE;
+          break;
+        }
+
+        // Invoke hook and collect grants/denies for download access.
+        // Default to FALSE and let entities overrule this ruling.
+        $grants = array('system' => FALSE);
+        foreach (module_implements('file_download_access') as $module) {
+          $grants = array_merge($grants, array($module => module_invoke($module, 'file_download_access', $field, $entity_type, $entity)));
+        }
+        // Allow other modules to alter the returned grants/denies.
+        drupal_alter('file_download_access', $grants, $field, $entity_type, $entity);
+
+        if (in_array(TRUE, $grants)) {
+          // If TRUE is returned, access is granted and no further checks are
+          // necessary.
+          $denied = FALSE;
+          break 3;
+        }
+
+        if (in_array(FALSE, $grants)) {
+          // If an implementation returns FALSE, access to this entity is denied
+          // but the file could belong to another entity to which the user might
+          // have access. Continue with these.
+          $denied = TRUE;
         }
       }
     }
   }
 
-  // No access was denied or granted.
-  if (!isset($denied)) {
-    return;
-  }
-  // Access specifically denied and not granted elsewhere.
-  elseif ($denied == TRUE) {
+  // Access specifically denied.
+  if ($denied) {
     return -1;
   }
 
   // Access is granted.
-  $name = mime_header_encode($file->filename);
-  $type = mime_header_encode($file->filemime);
-  // Serve images, text, and flash content for display rather than download.
-  $inline_types = variable_get('file_inline_types', array('^text/', '^image/', 'flash$'));
-  $disposition = 'attachment';
-  foreach ($inline_types as $inline_type) {
-    // Exclamation marks are used as delimiters to avoid escaping slashes.
-    if (preg_match('!' . $inline_type . '!', $file->filemime)) {
-      $disposition = 'inline';
-    }
-  }
-
-  return array(
-    'Content-Type' => $type . '; name="' . $name . '"',
-    'Content-Length' => $file->filesize,
-    'Content-Disposition' => $disposition . '; filename="' . $name . '"',
-    'Cache-Control' => 'private',
-  );
+  $headers = file_get_content_headers($file);
+  return $headers;
 }
 
 /**
@@ -217,7 +240,7 @@ function file_ajax_upload() {
     return array('#type' => 'ajax', '#commands' => $commands, '#header' => FALSE);
   }
 
-  list($form, $form_state, $form_id, $form_build_id) = ajax_get_form();
+  list($form, $form_state) = ajax_get_form();
 
   if (!$form) {
     // Invalid form_build_id.
@@ -234,12 +257,8 @@ function file_ajax_upload() {
   }
   $current_file_count = isset($current_element['#file_upload_delta']) ? $current_element['#file_upload_delta'] : 0;
 
-  // Build, validate and if possible, submit the form.
-  drupal_process_form($form_id, $form, $form_state);
-
-  // This call recreates the form relying solely on the form_state that the
-  // drupal_process_form() set up.
-  $form = drupal_rebuild_form($form_id, $form_state, $form);
+  // Process user input. $form and $form_state are modified in the process.
+  drupal_process_form($form['#form_id'], $form, $form_state);
 
   // Retrieve the element to be rendered.
   foreach ($form_parents as $parent) {
@@ -320,14 +339,6 @@ function file_progress_implementation() {
 }
 
 /**
- * Implements hook_file_references().
- */
-function file_file_references($file) {
-  $count = file_get_file_reference_count($file, NULL, 'file');
-  return $count ? array('file' => $count) : NULL;
-}
-
-/**
  * Implements hook_file_delete().
  */
 function file_file_delete($file) {
@@ -384,25 +395,6 @@ function file_managed_file_process($element, &$form_state, $form) {
     '#weight' => -5,
   );
 
-  // @todo It is not good to call these private functions. This should be
-  //   refactored so that the file deletion happens during a submit handler,
-  //   and form changes affected by that (such as toggling the upload and remove
-  //   buttons) happens during the 2nd run of this function that is triggered by
-  //   a form rebuild: http://drupal.org/node/736298.
-  if (_form_button_was_clicked($element['remove_button'], $form_state) || _form_element_triggered_scripted_submission($element['remove_button'], $form_state)) {
-    // If it's a temporary file we can safely remove it immediately, otherwise
-    // it's up to the implementing module to clean up files that are in use.
-    if ($element['#file'] && $element['#file']->status == 0) {
-      file_delete($element['#file']);
-    }
-    $element['#file'] = FALSE;
-    $fid = 0;
-  }
-
-  // Set access on the buttons.
-  $element['upload_button']['#access'] = empty($fid);
-  $element['remove_button']['#access'] = !empty($fid);
-
   $element['fid'] = array(
     '#type' => 'hidden',
     '#value' => $fid,
@@ -435,8 +427,9 @@ function file_managed_file_process($element, &$form_state, $form) {
   $element['upload'] = array(
     '#name' => 'files[' . implode('_', $element['#parents']) . ']',
     '#type' => 'file',
+    '#title' => t('Choose a file'),
+    '#title_display' => 'invisible',
     '#size' => 22,
-    '#access' => empty($fid),
     '#theme_wrappers' => array(),
     '#weight' => -10,
   );
@@ -539,12 +532,9 @@ function file_managed_file_validate(&$element, &$form_state) {
   if ($clicked_button != 'remove_button' && !empty($element['fid']['#value'])) {
     if ($file = file_load($element['fid']['#value'])) {
       if ($file->status == FILE_STATUS_PERMANENT) {
-        $reference_count = 0;
-        foreach (module_invoke_all('file_references', $file) as $module => $references) {
-          $reference_count += $references;
-        }
-        if ($reference_count == 0) {
-          form_error($element, t('Referencing to the file used in the !name field is not allowed.', array('!name' => $element['#title'])));
+        $references = file_usage_list($file);
+        if (empty($references)) {
+          form_error($element, t('The file used in the !name field may not be referenced.', array('!name' => $element['#title'])));
         }
       }
     }
@@ -565,13 +555,44 @@ function file_managed_file_validate(&$element, &$form_state) {
 }
 
 /**
- * Submit handler for non-JavaScript uploads.
+ * Submit handler for upload and remove buttons of managed_file elements.
  */
 function file_managed_file_submit($form, &$form_state) {
-  // Do not redirect and leave the page after uploading a file. This keeps
-  // all the current form values in place. The file is saved by the
-  // #value_callback on the form element.
-  $form_state['redirect'] = FALSE;
+  // Determine whether it was the upload or the remove button that was clicked,
+  // and set $element to the managed_file element that contains that button.
+  $parents = $form_state['triggering_element']['#array_parents'];
+  $button_key = array_pop($parents);
+  $element = drupal_array_get_nested_value($form, $parents);
+
+  // No action is needed here for the upload button, because all file uploads on
+  // the form are processed by file_managed_file_value() regardless of which
+  // button was clicked. Action is needed here for the remove button, because we
+  // only remove a file in response to its remove button being clicked.
+  if ($button_key == 'remove_button') {
+    // If it's a temporary file we can safely remove it immediately, otherwise
+    // it's up to the implementing module to clean up files that are in use.
+    if ($element['#file'] && $element['#file']->status == 0) {
+      file_delete($element['#file']);
+    }
+    // Update both $form_state['values'] and $form_state['input'] to reflect
+    // that the file has been removed, so that the form is rebuilt correctly.
+    // $form_state['values'] must be updated in case additional submit handlers
+    // run, and for form building functions that run during the rebuild, such as
+    // when the managed_file element is part of a field widget.
+    // $form_state['input'] must be updated so that file_managed_file_value()
+    // has correct information during the rebuild.
+    $values_element = $element['#extended'] ? $element['fid'] : $element;
+    form_set_value($values_element, NULL, $form_state);
+    drupal_array_set_nested_value($form_state['input'], $values_element['#parents'], NULL);
+  }
+
+  // Set the form to rebuild so that $form is correctly updated in response to
+  // processing the file removal. Since this function did not change $form_state
+  // if the upload button was clicked, a rebuild isn't necessary in that
+  // situation and setting $form_state['redirect'] to FALSE would suffice.
+  // However, we choose to always rebuild, to keep the form processing workflow
+  // consistent between the two buttons.
+  $form_state['rebuild'] = TRUE;
 }
 
 /**
@@ -626,19 +647,54 @@ function theme_file_managed_file($variables) {
 }
 
 /**
+ * #pre_render callback to hide display of the upload or remove controls.
+ *
+ * Upload controls are hidden when a file is already uploaded. Remove controls
+ * are hidden when there is no file attached. Controls are hidden here instead
+ * of in file_managed_file_process(), because #access for these buttons depends
+ * on the managed_file element's #value. See the documentation of form_builder()
+ * for more detailed information about the relationship between #process,
+ * #value, and #access.
+ *
+ * Because #access is set here, it affects display only and does not prevent
+ * JavaScript or other untrusted code from submitting the form as though access
+ * were enabled. The form processing functions for these elements should not
+ * assume that the buttons can't be "clicked" just because they are not
+ * displayed.
+ *
+ * @see file_managed_file_process()
+ * @see form_builder()
+ */
+function file_managed_file_pre_render($element) {
+  // If we already have a file, we don't want to show the upload controls.
+  if (!empty($element['#value']['fid'])) {
+    $element['upload']['#access'] = FALSE;
+    $element['upload_button']['#access'] = FALSE;
+  }
+  // If we don't already have a file, there is nothing to remove.
+  else {
+    $element['remove_button']['#access'] = FALSE;
+  }
+  return $element;
+}
+
+/**
  * Returns HTML for a link to a file.
  *
  * @param $variables
  *   An associative array containing:
  *   - file: A file object to which the link will be created.
+ *   - icon_directory: (optional) A path to a directory of icons to be used for
+ *     files. Defaults to the value of the "file_icon_directory" variable.
  *
  * @ingroup themeable
  */
 function theme_file_link($variables) {
   $file = $variables['file'];
+  $icon_directory = $variables['icon_directory'];
 
   $url = file_create_url($file->uri);
-  $icon = theme('file_icon', array('file' => $file));
+  $icon = theme('file_icon', array('file' => $file, 'icon_directory' => $icon_directory));
 
   // Set options as per anchor format described at
   // http://microformats.org/wiki/file-format-examples
@@ -666,14 +722,17 @@ function theme_file_link($variables) {
  * @param $variables
  *   An associative array containing:
  *   - file: A file object for which to make an icon.
+ *   - icon_directory: (optional) A path to a directory of icons to be used for
+ *     files. Defaults to the value of the "file_icon_directory" variable.
  *
  * @ingroup themeable
  */
 function theme_file_icon($variables) {
   $file = $variables['file'];
+  $icon_directory = $variables['icon_directory'];
 
   $mime = check_plain($file->filemime);
-  $icon_url = file_icon_url($file);
+  $icon_url = file_icon_url($file, $icon_directory);
   return '<img class="file-icon" alt="" title="' . $mime . '" src="' . $icon_url . '" />';
 }
 
@@ -879,73 +938,7 @@ function file_icon_map($file) {
  */
 
 /**
- * Count the number of times the file is referenced.
- *
- * @param $file
- *   A file object.
- * @param $field
- *   (optional) A CCK field array or field name as a string. If provided,
- *   limits the reference check to the given field.
- * @param $field_type
- *   (optional) The name of a field type. If provided, limits the reference
- *   check to fields of the given type.
- * @return
- *   An integer value.
- */
-function file_get_file_reference_count($file, $field = NULL, $field_type = NULL) {
-  // Determine the collection of fields to check.
-  if (isset($field)) {
-    // Support $field as 'field name'.
-    if (is_string($field)) {
-      $field = field_info_field($field);
-    }
-    $fields = array($field['field_name'] => $field);
-  }
-  else {
-    $fields = field_info_fields();
-  }
-
-  $types = entity_get_info();
-  $reference_count = 0;
-
-  foreach ($fields as $field) {
-    if (empty($field_type) || $field['type'] == $field_type) {
-      // TODO: Use a more efficient mechanism rather than actually retrieving
-      // all the references themselves, such as using a COUNT() query.
-      $references = file_get_file_references($file, $field, FIELD_LOAD_REVISION, $field_type);
-      foreach ($references as $entity_type => $type_references) {
-        $reference_count += count($type_references);
-      }
-
-      // If a field_name is present in the file object, the file is being deleted
-      // from this field.
-      if (isset($file->file_field_name) && $field['field_name'] == $file->file_field_name) {
-        // If deleting the entire piece of content, decrement references.
-        if (isset($file->file_field_type) && isset($file->file_field_id)) {
-          if ($file->file_field_type == $entity_type) {
-            $info = entity_get_info($entity_type);
-            $id = $types[$entity_type]['entity keys']['id'];
-            foreach ($type_references as $reference) {
-              if ($file->file_field_id == $reference->$id) {
-                $reference_count--;
-              }
-            }
-          }
-        }
-        // Otherwise we're just deleting a single reference in this field.
-        else {
-          $reference_count--;
-        }
-      }
-    }
-  }
-
-  return $reference_count;
-}
-
-
-/**
- * Get a list of references to a file.
+ * Gets a list of references to a file.
  *
  * @param $file
  *   A file object.
@@ -957,8 +950,9 @@ function file_get_file_reference_count($file, $field = NULL, $field_type = NULL)
  *   FIELD_LOAD_REVISION to retrieve all references within all revisions or
  *   FIELD_LOAD_CURRENT to retrieve references only in the current revisions.
  * @param $field_type
- *   Optional. The name of a field type. If given, limits the reference check to
- *   fields of the given type.
+ *   (optional) The name of a field type. If given, limits the reference check
+ *   to fields of the given type.
+ *
  * @return
  *   An integer value.
  */
@@ -967,10 +961,13 @@ function file_get_file_references($file, $field = NULL, $age = FIELD_LOAD_REVISI
   $fields = isset($field) ? array($field['field_name'] => $field) : field_info_fields();
 
   foreach ($fields as $field_name => $file_field) {
-    if ((empty($field_type) || $field['type'] == $field_type) && !isset($references[$field_name])) {
+    if ((empty($field_type) || $file_field['type'] == $field_type) && !isset($references[$field_name])) {
       // Get each time this file is used within a field.
-      $cursor = 0;
-      $references[$field_name] = field_attach_query($file_field['id'], array(array('fid', $file->fid)), array('limit' => FIELD_QUERY_NO_LIMIT, 'cursor' => &$cursor, 'age'=> $age));
+      $query = new EntityFieldQuery();
+      $query
+        ->fieldCondition($file_field, 'fid', $file->fid)
+        ->age($age);
+      $references[$field_name] = $query->execute();
     }
   }
 

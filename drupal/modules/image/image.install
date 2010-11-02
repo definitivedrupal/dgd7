@@ -1,5 +1,5 @@
 <?php
-// $Id: image.install,v 1.8 2010/04/09 12:07:12 dries Exp $
+// $Id: image.install,v 1.13 2010/09/04 15:40:51 dries Exp $
 
 /**
  * @file
@@ -11,8 +11,8 @@
  */
 function image_install() {
   // Create the styles directory and ensure it's writable.
-  $path = file_directory_path() . '/styles';
-  file_prepare_directory($path, FILE_CREATE_DIRECTORY | FILE_MODIFY_PERMISSIONS);
+  $directory = file_default_scheme() . '://styles';
+  file_prepare_directory($directory, FILE_CREATE_DIRECTORY | FILE_MODIFY_PERMISSIONS);
 }
 
 /**
@@ -20,8 +20,7 @@ function image_install() {
  */
 function image_uninstall() {
   // Remove the styles directory and generated images.
-  $path = file_directory_path() . '/styles';
-  file_unmanaged_delete_recursive($path);
+  file_unmanaged_delete_recursive(file_default_scheme() . '://styles');
 }
 
 /**
@@ -86,7 +85,7 @@ function image_schema() {
       ),
       'data' => array(
         'description' => 'The configuration data for the effect.',
-        'type' => 'text',
+        'type' => 'blob',
         'not null' => TRUE,
         'size' => 'big',
         'serialize' => TRUE,
@@ -98,11 +97,45 @@ function image_schema() {
       'weight' => array('weight'),
     ),
     'foreign keys' => array(
-      'isid' => array('image_styles' => 'isid'),
+      'image_style' => array(
+        'table' => 'image_styles',
+        'columns' => array('isid' => 'isid'),
+      ),
     ),
   );
 
   return $schema;
+}
+
+/**
+ * Implements hook_field_schema().
+ */
+function image_field_schema($field) {
+  return array(
+    'columns' => array(
+      'fid' => array(
+        'description' => 'The {files}.fid being referenced in this field.',
+        'type' => 'int',
+        'not null' => FALSE,
+        'unsigned' => TRUE,
+      ),
+      'alt' => array(
+        'description' => "Alternative image text, for the image's 'alt' attribute.",
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => FALSE,
+      ),
+      'title' => array(
+        'description' => "Image title text, for the image's 'title' attribute.",
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => FALSE,
+      ),
+    ),
+    'indexes' => array(
+      'fid' => array('fid'),
+    ),
+  );
 }
 
 /**
@@ -112,7 +145,7 @@ function image_update_7000() {
   if (!db_table_exists('image_styles')) {
     $schema = array();
 
-    $schema['cache_image'] = drupal_get_schema_unprocessed('system', 'cache');
+    $schema['cache_image'] = system_schema_cache_7054();
     $schema['cache_image']['description'] = 'Cache table used to store information about image manipulations that are in-progress.';
 
     $schema['image_styles'] = array(
@@ -168,7 +201,7 @@ function image_update_7000() {
         ),
         'data' => array(
           'description' => 'The configuration data for the effect.',
-          'type' => 'text',
+          'type' => 'blob',
           'not null' => TRUE,
           'size' => 'big',
           'serialize' => TRUE,
@@ -180,9 +213,13 @@ function image_update_7000() {
         'weight' => array('weight'),
       ),
       'foreign keys' => array(
-        'isid' => array('image_styles' => 'isid'),
+        'image_style' => array(
+          'table' => 'image_styles',
+          'columns' => array('isid' => 'isid'),
+        ),
       ),
     );
+
     db_create_table('cache_image', $schema['cache_image']);
     db_create_table('image_styles', $schema['image_styles']);
     db_create_table('image_effect', $schema['image_effects']);

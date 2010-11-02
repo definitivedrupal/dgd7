@@ -1,5 +1,5 @@
 <?php
-// $Id$
+// $Id: template.php,v 1.7 2010/10/05 19:59:10 dries Exp $
 
 /**
  * Add body classes if certain regions have content.
@@ -23,8 +23,8 @@ function bartik_preprocess_html(&$variables) {
   }
 
   // Add conditional stylesheets for IE
-  drupal_add_css(path_to_theme() . '/css/ie.css', array('weight' => CSS_THEME, 'browsers' => array('IE' => 'lte IE 7', '!IE' => FALSE), 'preprocess' => FALSE));
-  drupal_add_css(path_to_theme() . '/css/ie6.css', array('weight' => CSS_THEME, 'browsers' => array('IE' => 'IE 6', '!IE' => FALSE), 'preprocess' => FALSE));
+  drupal_add_css(path_to_theme() . '/css/ie.css', array('group' => CSS_THEME, 'browsers' => array('IE' => 'lte IE 7', '!IE' => FALSE), 'preprocess' => FALSE));
+  drupal_add_css(path_to_theme() . '/css/ie6.css', array('group' => CSS_THEME, 'browsers' => array('IE' => 'IE 6', '!IE' => FALSE), 'preprocess' => FALSE));
 }
 
 /**
@@ -75,6 +75,13 @@ function bartik_process_page(&$variables) {
 }
 
 /**
+ * Implements hook_preprocess_maintenance_page().
+ */
+function bartik_preprocess_maintenance_page(&$variables) {
+  drupal_add_css(drupal_get_path('theme', 'bartik') . '/css/maintenance-page.css');
+}
+
+/**
  * Override or insert variables into the maintenance page template.
  */
 function bartik_process_maintenance_page(&$variables) {
@@ -96,43 +103,8 @@ function bartik_process_maintenance_page(&$variables) {
  * Override or insert variables into the block template.
  */
 function bartik_preprocess_block(&$variables) {
-  // In the header region, visually hide the title of any menu block or of the
-  // user login block, but leave it accessible.
-  if ($variables['block']->region == 'header' && ($variables['block']->module == 'menu' || $variables['block']->module == 'user' && $variables['block']->delta == 'login')) {
+  // In the header region visually hide block titles.
+  if ($variables['block']->region == 'header') {
     $variables['title_attributes_array']['class'][] = 'element-invisible';
-  }
-  // Set "first" and "last" classes.
-  if ($variables['block']->position_first){
-    $variables['classes_array'][] = 'first';
-  }
-  if ($variables['block']->position_last){
-    $variables['classes_array'][] = 'last';
-  }
-  // Set "odd" & "even" classes.
-  $variables['classes_array'][] = $variables['block']->position % 2 == 0 ? 'odd' : 'even';
-}
-
-/**
- * Implements hook_page_alter().
- */
-function bartik_page_alter(&$page) {
-  // Determine the position and count of blocks within regions.
-  foreach ($page as &$region) {
-    // Make sure this is a "region" element.
-    if (is_array($region) && isset($region['#region'])) {
-      $i = 0;
-      foreach ($region as &$block) {
-        // Make sure this is a "block" element.
-        if (is_array($block) && isset($block['#block'])) {
-          $block['#block']->position = $i++;
-          // Set a flag for "first" and "last" blocks.
-          $block['#block']->position_first = ($block['#block']->position == 0);
-          $block['#block']->position_last = FALSE;
-          $last_block =& $block;
-        }
-      }
-      $last_block['#block']->position_last = TRUE;
-      $region['#block_count'] = $i;
-    }
   }
 }

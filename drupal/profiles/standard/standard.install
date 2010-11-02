@@ -1,5 +1,5 @@
 <?php
-// $Id: standard.install,v 1.15 2010/05/16 10:41:04 dries Exp $
+// $Id: standard.install,v 1.28 2010/10/21 04:22:34 webchick Exp $
 
 /**
  * Implements hook_install().
@@ -9,6 +9,7 @@
 function standard_install() {
   // Add text formats.
   $filtered_html_format = array(
+    'format' => 'filtered_html',
     'name' => 'Filtered HTML',
     'weight' => 0,
     'filters' => array(
@@ -38,6 +39,7 @@ function standard_install() {
   filter_format_save($filtered_html_format);
 
   $full_html_format = array(
+    'format' => 'full_html',
     'name' => 'Full HTML',
     'weight' => 1,
     'filters' => array(
@@ -62,11 +64,13 @@ function standard_install() {
   filter_format_save($full_html_format);
 
   // Enable some standard blocks.
+  $default_theme = variable_get('theme_default', 'bartik');
+  $admin_theme = 'seven';
   $values = array(
     array(
       'module' => 'system',
       'delta' => 'main',
-      'theme' => 'garland',
+      'theme' => $default_theme,
       'status' => 1,
       'weight' => 0,
       'region' => 'content',
@@ -76,7 +80,7 @@ function standard_install() {
     array(
       'module' => 'search',
       'delta' => 'form',
-      'theme' => 'garland',
+      'theme' => $default_theme,
       'status' => 1,
       'weight' => -1,
       'region' => 'sidebar_first',
@@ -86,7 +90,7 @@ function standard_install() {
     array(
       'module' => 'node',
       'delta' => 'recent',
-      'theme' => 'seven',
+      'theme' => $admin_theme,
       'status' => 1,
       'weight' => 10,
       'region' => 'dashboard_main',
@@ -96,7 +100,7 @@ function standard_install() {
     array(
       'module' => 'user',
       'delta' => 'login',
-      'theme' => 'garland',
+      'theme' => $default_theme,
       'status' => 1,
       'weight' => 0,
       'region' => 'sidebar_first',
@@ -106,7 +110,7 @@ function standard_install() {
     array(
       'module' => 'system',
       'delta' => 'navigation',
-      'theme' => 'garland',
+      'theme' => $default_theme,
       'status' => 1,
       'weight' => 0,
       'region' => 'sidebar_first',
@@ -115,18 +119,8 @@ function standard_install() {
     ),
     array(
       'module' => 'system',
-      'delta' => 'management',
-      'theme' => 'garland',
-      'status' => 1,
-      'weight' => 1,
-      'region' => 'sidebar_first',
-      'pages' => '',
-      'cache' => -1,
-    ),
-    array(
-      'module' => 'system',
       'delta' => 'powered-by',
-      'theme' => 'garland',
+      'theme' => $default_theme,
       'status' => 1,
       'weight' => 10,
       'region' => 'footer',
@@ -136,7 +130,7 @@ function standard_install() {
     array(
       'module' => 'system',
       'delta' => 'help',
-      'theme' => 'garland',
+      'theme' => $default_theme,
       'status' => 1,
       'weight' => 0,
       'region' => 'help',
@@ -146,7 +140,7 @@ function standard_install() {
     array(
       'module' => 'system',
       'delta' => 'main',
-      'theme' => 'seven',
+      'theme' => $admin_theme,
       'status' => 1,
       'weight' => 0,
       'region' => 'content',
@@ -156,7 +150,7 @@ function standard_install() {
     array(
       'module' => 'system',
       'delta' => 'help',
-      'theme' => 'seven',
+      'theme' => $admin_theme,
       'status' => 1,
       'weight' => 0,
       'region' => 'help',
@@ -166,7 +160,7 @@ function standard_install() {
     array(
       'module' => 'user',
       'delta' => 'login',
-      'theme' => 'seven',
+      'theme' => $admin_theme,
       'status' => 1,
       'weight' => 10,
       'region' => 'content',
@@ -176,7 +170,7 @@ function standard_install() {
     array(
       'module' => 'user',
       'delta' => 'new',
-      'theme' => 'seven',
+      'theme' => $admin_theme,
       'status' => 1,
       'weight' => 0,
       'region' => 'dashboard_sidebar',
@@ -186,7 +180,7 @@ function standard_install() {
     array(
       'module' => 'search',
       'delta' => 'form',
-      'theme' => 'seven',
+      'theme' => $admin_theme,
       'status' => 1,
       'weight' => -10,
       'region' => 'dashboard_sidebar',
@@ -245,7 +239,7 @@ function standard_install() {
       'mapping' => array(
         'rdftype' => array('sioc:Item', 'foaf:Document'),
         'field_image' => array(
-          'predicates' => array('rdfs:seeAlso'),
+          'predicates' => array('og:image', 'rdfs:seeAlso'),
           'type' => 'rel',
         ),
         'field_tags' => array(
@@ -272,6 +266,9 @@ function standard_install() {
   variable_set('user_picture_file_size', '800');
   variable_set('user_picture_style', 'thumbnail');
 
+  // Allow visitor account creation with administrative approval.
+  variable_set('user_register', USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL);
+
   // Create a default vocabulary named "Tags", enabled for the 'article' content type.
   $description = st('Use tags to group articles on similar topics into categories.');
   $help = st('Enter a comma-separated list of words to describe your content.');
@@ -292,7 +289,7 @@ function standard_install() {
     'settings' => array(
       'allowed_values' => array(
         array(
-          'vid' => $vocabulary->vid,
+          'vocabulary' => $vocabulary->machine_name,
           'parent' => 0,
         ),
       ),
@@ -308,7 +305,17 @@ function standard_install() {
     'description' => $vocabulary->help,
     'widget' => array(
       'type' => 'taxonomy_autocomplete',
-      'weight' => 4,
+      'weight' => -4,
+    ),
+    'display' => array(
+      'default' => array(
+        'type' => 'taxonomy_term_reference_link',
+        'weight' => 10,
+      ),
+      'teaser' => array(
+        'type' => 'taxonomy_term_reference_link',
+        'weight' => 10,
+      ),
     ),
   );
   field_create_instance($instance);
@@ -344,7 +351,7 @@ function standard_install() {
     'entity_type' => 'node',
     'label' => 'Image',
     'bundle' => 'article',
-    'description' => 'Upload an image to go with this article.',
+    'description' => st('Upload an image to go with this article.'),
     'required' => FALSE,
 
     'settings' => array(
@@ -367,34 +374,16 @@ function standard_install() {
     ),
 
     'display' => array(
-      'full' => array(
+      'default' => array(
         'label' => 'hidden',
-        'type' => 'image__large',
-        'settings' => array(),
+        'type' => 'image',
+        'settings' => array('image_style' => 'large', 'image_link' => ''),
         'weight' => -1,
       ),
       'teaser' => array(
         'label' => 'hidden',
-        'type' => 'image_link_content__medium',
-        'settings' => array(),
-        'weight' => -1,
-      ),
-      'rss' => array(
-        'label' => 'hidden',
-        'type' => 'image__large',
-        'settings' => array(),
-        'weight' => -1,
-      ),
-      'search_index' => array(
-        'label' => 'hidden',
-        'type' => 'image__large',
-        'settings' => array(),
-        'weight' => -1,
-      ),
-      'search_results' => array(
-        'label' => 'hidden',
-        'type' => 'image__large',
-        'settings' => array(),
+        'type' => 'image',
+        'settings' => array('image_style' => 'medium', 'image_link' => 'content'),
         'weight' => -1,
       ),
     ),
@@ -403,8 +392,8 @@ function standard_install() {
 
   // Enable default permissions for system roles.
   $filtered_html_permission = filter_permission_name($filtered_html_format);
-  user_role_grant_permissions(DRUPAL_ANONYMOUS_RID, array('access content', $filtered_html_permission));
-  user_role_grant_permissions(DRUPAL_AUTHENTICATED_RID, array('access content', 'access comments', 'post comments', 'post comments without approval', $filtered_html_permission));
+  user_role_grant_permissions(DRUPAL_ANONYMOUS_RID, array('access content', 'access comments', $filtered_html_permission));
+  user_role_grant_permissions(DRUPAL_AUTHENTICATED_RID, array('access content', 'access comments', 'post comments', 'skip comment approval', $filtered_html_permission));
 
   // Create a default role for site administrators, with all available permissions assigned.
   $admin_role = new stdClass();
@@ -419,6 +408,14 @@ function standard_install() {
   db_insert('users_roles')
     ->fields(array('uid' => 1, 'rid' => $admin_role->rid))
     ->execute();
+
+  // Create a Home link in the main menu.
+  $item = array(
+    'link_title' => 'Home',
+    'link_path' => '<front>',
+    'menu_name' => 'main-menu',
+  );
+  menu_link_save($item);
 
   // Update the menu router information.
   menu_rebuild();

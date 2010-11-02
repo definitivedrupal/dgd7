@@ -1,5 +1,5 @@
 <?php
-// $Id: php.test,v 1.24 2010/03/07 23:14:20 webchick Exp $
+// $Id: php.test,v 1.26 2010/08/05 23:53:38 webchick Exp $
 
 /**
  * Base PHP test case class.

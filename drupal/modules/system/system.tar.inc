@@ -36,10 +36,13 @@
  * @author      Vincent Blavet <vincent@phpconcept.net>
  * @copyright   1997-2008 The Authors
  * @license     http://www.opensource.org/licenses/bsd-license.php New BSD License
- * @version     CVS: $Id: system.tar.inc,v 1.5 2010/02/09 12:29:39 dries Exp $
+ * @version     CVS: Id: Tar.php,v 1.43 2008/10/30 17:58:42 dufuz Exp
  * @link        http://pear.php.net/package/Archive_Tar
  */
 
+//require_once 'PEAR.php';
+//
+//
 define ('ARCHIVE_TAR_ATT_SEPARATOR', 90001);
 define ('ARCHIVE_TAR_END_BLOCK', pack("a512", ''));
 
@@ -47,11 +50,11 @@ define ('ARCHIVE_TAR_END_BLOCK', pack("a512", ''));
 * Creates a (compressed) Tar archive
 *
 * @author   Vincent Blavet <vincent@phpconcept.net>
-* @version  $Revision: 1.5 $
+* @version  Revision: 1.43
 * @license  http://www.opensource.org/licenses/bsd-license.php New BSD License
 * @package  Archive_Tar
 */
-class Archive_Tar
+class Archive_Tar // extends PEAR
 {
     /**
     * @var string Name of the Tar
@@ -98,8 +101,10 @@ class Archive_Tar
     *                   boolean value 'true' means 'gz'.
     * @access public
     */
+//    function Archive_Tar($p_tarname, $p_compress = null)
     function __construct($p_tarname, $p_compress = null)
     {
+//        $this->PEAR();
         $this->_compress = false;
         $this->_compress_type = 'none';
         if (($p_compress === null) || ($p_compress == '')) {
@@ -150,11 +155,12 @@ class Archive_Tar
                 $extname = 'bz2';
 
             if (!extension_loaded($extname)) {
+//                PEAR::loadExtension($extname);
                 $this->loadExtension($extname);
             }
             if (!extension_loaded($extname)) {
                 die("The extension '$extname' couldn't be found.\n".
-                    "Make sure your version of PHP was built ".
+                    "Please make sure your version of PHP was built ".
                     "with '$extname' support.\n");
                 return false;
             }
@@ -165,6 +171,7 @@ class Archive_Tar
     /**
     * OS independant PHP extension load. Remember to take care
     * on the correct extension name for case sensitive OSes.
+    * The function is the copy of PEAR::loadExtension().
     *
     * @param string $ext The extension name
     * @return bool Success or not on the dl() call
@@ -197,12 +204,14 @@ class Archive_Tar
 
 
     // {{{ destructor
+//    function _Archive_Tar()
     function __destruct()
     {
         $this->_close();
         // ----- Look for a local copy to delete
         if ($this->_temp_tarname != '')
-            @unlink($this->_temp_tarname);
+            @drupal_unlink($this->_temp_tarname);
+//        $this->_PEAR();
     }
     // }}}
 
@@ -622,6 +631,7 @@ class Archive_Tar
     function _error($p_message)
     {
         // ----- To be completed
+//        $this->raiseError($p_message);
         throw new Exception($p_message);
     }
     // }}}
@@ -630,6 +640,7 @@ class Archive_Tar
     function _warning($p_message)
     {
         // ----- To be completed
+//        $this->raiseError($p_message);
         throw new Exception($p_message);
     }
     // }}}
@@ -766,7 +777,7 @@ class Archive_Tar
         // ----- Look if a local copy need to be erase
         // Note that it might be interesting to keep the url for a time : ToDo
         if ($this->_temp_tarname != '') {
-            @unlink($this->_temp_tarname);
+            @drupal_unlink($this->_temp_tarname);
             $this->_temp_tarname = '';
         }
 
@@ -782,11 +793,11 @@ class Archive_Tar
         // ----- Look for a local copy
         if ($this->_temp_tarname != '') {
             // ----- Remove the local copy but not the remote tarname
-            @unlink($this->_temp_tarname);
+            @drupal_unlink($this->_temp_tarname);
             $this->_temp_tarname = '';
         } else {
             // ----- Remove the local tarname file
-            @unlink($this->_tarname);
+            @drupal_unlink($this->_tarname);
         }
         $this->_tarname = '';
 
@@ -962,7 +973,7 @@ class Archive_Tar
       }
 
       // ----- Calculate the stored filename
-      $p_filename = $this->_translateWinPath($p_filename, false);
+      $p_filename = $this->_translateWinPath($p_filename, false);;
       $v_stored_filename = $p_filename;
       if (strcmp($p_filename, $p_remove_dir) == 0) {
           return true;
@@ -1025,7 +1036,7 @@ class Archive_Tar
       }
 
       // ----- Calculate the stored filename
-      $p_filename = $this->_translateWinPath($p_filename, false);
+      $p_filename = $this->_translateWinPath($p_filename, false);;
 
       if (!$this->_writeHeaderBlock($p_filename, strlen($p_string),
 	                                  time(), 384, "", 0, 0))
@@ -1582,6 +1593,8 @@ class Archive_Tar
         if ($v_extract_file) {
           if ($v_header['typeflag'] == "5") {
             if (!@file_exists($v_header['filename'])) {
+                // Drupal integration.
+                // Changed the code to use drupal_mkdir() instead of mkdir().
                 if (!@drupal_mkdir($v_header['filename'], 0777)) {
                     $this->_error('Unable to create directory {'
 					              .$v_header['filename'].'}');
@@ -1590,7 +1603,7 @@ class Archive_Tar
             }
           } elseif ($v_header['typeflag'] == "2") {
               if (@file_exists($v_header['filename'])) {
-                  @unlink($v_header['filename']);
+                  @drupal_unlink($v_header['filename']);
               }
               if (!@symlink($v_header['link'], $v_header['filename'])) {
                   $this->_error('Unable to extract symbolic link {'
@@ -1727,7 +1740,7 @@ class Archive_Tar
                 @bzclose($v_temp_tar);
             }
 
-            if (!@unlink($this->_tarname.".tmp")) {
+            if (!@drupal_unlink($this->_tarname.".tmp")) {
                 $this->_error('Error while deleting temporary file \''
 				              .$this->_tarname.'.tmp\'');
             }
@@ -1795,6 +1808,8 @@ class Archive_Tar
             (!$this->_dirCheck($p_parent_dir)))
              return false;
 
+        // Drupal integration.
+        // Changed the code to use drupal_mkdir() instead of mkdir().
         if (!@drupal_mkdir($p_dir, 0777)) {
             $this->_error("Unable to create directory '$p_dir'");
             return false;

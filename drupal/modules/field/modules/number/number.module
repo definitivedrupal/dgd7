@@ -1,5 +1,5 @@
 <?php
-// $Id: number.module,v 1.39 2010/05/06 05:59:31 webchick Exp $
+// $Id: number.module,v 1.44 2010/10/22 00:42:42 dries Exp $
 
 /**
  * @file
@@ -51,45 +51,6 @@ function number_field_info() {
 }
 
 /**
- * Implements hook_field_schema().
- */
-function number_field_schema($field) {
-  switch ($field['type']) {
-    case 'number_integer' :
-      $columns = array(
-        'value' => array(
-          'type' => 'int',
-          'not null' => FALSE
-        ),
-      );
-      break;
-
-    case 'number_float' :
-      $columns = array(
-        'value' => array(
-          'type' => 'float',
-          'not null' => FALSE
-        ),
-      );
-      break;
-
-    case 'number_decimal' :
-      $columns = array(
-        'value' => array(
-          'type' => 'numeric',
-          'precision' => $field['settings']['precision'],
-          'scale' => $field['settings']['scale'],
-          'not null' => FALSE
-        ),
-      );
-      break;
-  }
-  return array(
-    'columns' => $columns,
-  );
-}
-
-/**
  * Implements hook_field_settings_form().
  */
 function number_field_settings_form($field, $instance, $has_data) {
@@ -118,11 +79,7 @@ function number_field_settings_form($field, $instance, $has_data) {
     $form['decimal_separator'] = array(
       '#type' => 'select',
       '#title' => t('Decimal marker'),
-      '#options' => array(
-        '.' => 'decimal point',
-        ',' => 'comma',
-        ' ' => 'space',
-      ),
+      '#options' => array('.' => t('Decimal point'), ',' => t('Comma')),
       '#default_value' => $settings['decimal_separator'],
       '#description' => t('The character users will input to mark the decimal point in forms.'),
     );
@@ -163,7 +120,7 @@ function number_field_instance_settings_form($field, $instance) {
     '#title' => t('Suffix'),
     '#default_value' => $settings['suffix'],
     '#size' => 60,
-    '#description' => t("Define a string that should suffixed to the value, like ' m', ' kb/s'. Leave blank for none. Separate singular and plural values with a pipe ('pound|pounds')."),
+    '#description' => t("Define a string that should be suffixed to the value, like ' m', ' kb/s'. Leave blank for none. Separate singular and plural values with a pipe ('pound|pounds')."),
   );
 
   return $form;
@@ -173,8 +130,8 @@ function number_field_instance_settings_form($field, $instance) {
  * Implements hook_field_validate().
  *
  * Possible error codes:
- * - 'number_min': The value is smaller than the allowed minimum value.
- * - 'number_max': The value is larger than the allowed maximum value.
+ * - 'number_min': The value is less than the allowed minimum value.
+ * - 'number_max': The value is greater than the allowed maximum value.
  */
 function number_field_validate($entity_type, $entity, $field, $instance, $langcode, $items, &$errors) {
   foreach ($items as $delta => $item) {
@@ -182,13 +139,13 @@ function number_field_validate($entity_type, $entity, $field, $instance, $langco
       if (is_numeric($instance['settings']['min']) && $item['value'] < $instance['settings']['min']) {
         $errors[$field['field_name']][$langcode][$delta][] = array(
           'error' => 'number_min',
-          'message' => t('%name: the value may be no smaller than %min.', array('%name' => t($instance['label']), '%min' => $instance['settings']['min'])),
+          'message' => t('%name: the value may be no less than %min.', array('%name' => t($instance['label']), '%min' => $instance['settings']['min'])),
         );
       }
       if (is_numeric($instance['settings']['max']) && $item['value'] > $instance['settings']['max']) {
         $errors[$field['field_name']][$langcode][$delta][] = array(
           'error' => 'number_max',
-          'message' => t('%name: the value may be no larger than %max.', array('%name' => t($instance['label']), '%max' => $instance['settings']['max'])),
+          'message' => t('%name: the value may be no greater than %max.', array('%name' => t($instance['label']), '%max' => $instance['settings']['max'])),
         );
       }
     }
@@ -250,6 +207,67 @@ function number_field_formatter_info() {
       'field types' => array('number_integer', 'number_decimal', 'number_float'),
     ),
   );
+}
+
+/**
+ * Implements hook_field_formatter_settings_form().
+ */
+function number_field_formatter_settings_form($field, $instance, $view_mode, $form, &$form_state) {
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+
+  $options = array(
+    ''  => t('<none>'),
+    '.' => t('Decimal point'),
+    ',' => t('Comma'),
+    ' ' => t('Space'),
+  );
+  $element['thousand_separator'] = array(
+    '#type' => 'select',
+    '#title' => t('Thousand marker'),
+    '#options' => $options,
+    '#default_value' => $settings['thousand_separator'],
+  );
+
+  if ($display['type'] == 'number_decimal' || $display['type'] == 'number_float') {
+    $element['decimal_separator'] = array(
+      '#type' => 'select',
+      '#title' => t('Decimal marker'),
+      '#options' => array('.' => t('Decimal point'), ',' => t('Comma')),
+      '#default_value' => $settings['decimal_separator'],
+    );
+    $element['scale'] = array(
+      '#type' => 'select',
+      '#title' => t('Scale'),
+      '#options' => drupal_map_assoc(range(0, 10)),
+      '#default_value' => $settings['scale'],
+      '#description' => t('The number of digits to the right of the decimal.'),
+    );
+  }
+
+  $element['prefix_suffix'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Display prefix and suffix.'),
+    '#default_value' => $settings['prefix_suffix'],
+  );
+
+  return $element;
+}
+
+/**
+ * Implements hook_field_formatter_settings_summary().
+ */
+function number_field_formatter_settings_summary($field, $instance, $view_mode) {
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+
+  $summary = array();
+  $summary[] = number_format(1234.1234567890, $settings['scale'], $settings['decimal_separator'], $settings['thousand_separator']);
+  if ($settings['prefix_suffix']) {
+    $summary[] = t('Display with prefix and suffix.');
+  }
+
+  return implode('<br />', $summary);
 }
 
 /**

@@ -1,5 +1,5 @@
 <?php
-// $Id: theme.maintenance.inc,v 1.59 2010/05/12 09:22:24 dries Exp $
+// $Id: theme.maintenance.inc,v 1.67 2010/09/19 18:10:41 dries Exp $
 
 /**
  * @file
@@ -12,7 +12,7 @@
  * Used for site installs, updates and when the site is in maintenance mode.
  * It also applies when the database is unavailable or bootstrap was not
  * complete. Seven is always used for the initial install and update operations.
- * In other cases, Garland is used, but this can be overridden by setting a
+ * In other cases, Bartik is used, but this can be overridden by setting a
  * "maintenance_theme" key in the $conf variable in settings.php.
  */
 function _drupal_maintenance_theme() {
@@ -44,16 +44,16 @@ function _drupal_maintenance_theme() {
       spl_autoload_register('db_autoload');
     }
 
-    // Ensure that system.module is loaded.
-    if (!function_exists('_system_rebuild_theme_data')) {
-      $module_list['system']['filename'] = 'modules/system/system.module';
-      module_list(TRUE, FALSE, FALSE, $module_list);
-      drupal_load('module', 'system');
-    }
-
     // We use the default theme as the maintenance theme. If a default theme
-    // isn't specified in the database or in settings.php, we use Garland.
-    $custom_theme = variable_get('maintenance_theme', variable_get('theme_default', 'garland'));
+    // isn't specified in the database or in settings.php, we use Bartik.
+    $custom_theme = variable_get('maintenance_theme', variable_get('theme_default', 'bartik'));
+  }
+
+  // Ensure that system.module is loaded.
+  if (!function_exists('_system_rebuild_theme_data')) {
+    $module_list['system']['filename'] = 'modules/system/system.module';
+    module_list(TRUE, FALSE, FALSE, $module_list);
+    drupal_load('module', 'system');
   }
 
   $themes = list_themes();
@@ -77,19 +77,20 @@ function _drupal_maintenance_theme() {
 
   // These are usually added from system_init() -except maintenance.css.
   // When the database is inactive it's not called so we add it here.
-  drupal_add_css(drupal_get_path('module', 'system') . '/system.css');
-  drupal_add_css(drupal_get_path('module', 'system') . '/system-behavior.css');
-  drupal_add_css(drupal_get_path('module', 'system') . '/system-menus.css');
-  drupal_add_css(drupal_get_path('module', 'system') . '/maintenance.css');
-  drupal_add_css(drupal_get_path('module', 'system') . '/admin.css');
+  $path = drupal_get_path('module', 'system');
+  drupal_add_css($path . '/system.base.css');
+  drupal_add_css($path . '/system.admin.css');
+  drupal_add_css($path . '/system.menus.css');
+  drupal_add_css($path . '/system.messages.css');
+  drupal_add_css($path . '/system.theme.css');
+  drupal_add_css($path . '/system.maintenance.css');
 }
 
 /**
  * This builds the registry when the site needs to bypass any database calls.
  */
 function _theme_load_offline_registry($theme, $base_theme = NULL, $theme_engine = NULL) {
-  $registry = _theme_build_registry($theme, $base_theme, $theme_engine);
-  _theme_set_registry($registry);
+  return _theme_build_registry($theme, $base_theme, $theme_engine);
 }
 
 /**
@@ -141,33 +142,6 @@ function theme_task_list($variables) {
  */
 function theme_install_page($variables) {
   drupal_add_http_header('Content-Type', 'text/html; charset=utf-8');
-
-  // Delay setting the message variable so it can be processed below.
-  $variables['show_messages'] = FALSE;
-
-  // Special handling of error messages
-  $messages = drupal_set_message();
-  if (isset($messages['error'])) {
-    $title = count($messages['error']) > 1 ? st('The following errors must be resolved before you can continue the installation process') : st('The following error must be resolved before you can continue the installation process');
-    $variables['messages'] .= '<h3>' . $title . ':</h3>';
-    $variables['messages'] .= theme('status_messages', array('display' => 'error'));
-    $variables['content'] .= '<p>' . st('Check the error messages and <a href="!url">try again</a>.', array('!url' => check_url(request_uri()))) . '</p>';
-  }
-
-  // Special handling of warning messages
-  if (isset($messages['warning'])) {
-    $title = count($messages['warning']) > 1 ? st('The following installation warnings should be carefully reviewed') : st('The following installation warning should be carefully reviewed');
-    $variables['messages'] .= '<h4>' . $title . ':</h4>';
-    $variables['messages'] .= theme('status_messages', array('display' => 'warning'));
-  }
-
-  // Special handling of status messages
-  if (isset($messages['status'])) {
-    $title = count($messages['status']) > 1 ? st('The following installation warnings should be carefully reviewed, but in most cases may be safely ignored') : st('The following installation warning should be carefully reviewed, but in most cases may be safely ignored');
-    $variables['messages'] .= '<h4>' . $title . ':</h4>';
-    $variables['messages'] .= theme('status_messages', array('display' => 'status'));
-  }
-
   return theme('maintenance_page', $variables);
 }
 
@@ -183,17 +157,7 @@ function theme_install_page($variables) {
  *     FALSE can be useful to postpone the messages to a subsequent page.
  */
 function theme_update_page($variables) {
-  // Set required headers.
   drupal_add_http_header('Content-Type', 'text/html; charset=utf-8');
-
-  // Special handling of warning messages.
-  $messages = drupal_set_message();
-  if (isset($messages['warning'])) {
-    $title = count($messages['warning']) > 1 ? 'The following update warnings should be carefully reviewed before continuing' : 'The following update warning should be carefully reviewed before continuing';
-    $variables['messages'] .= '<h4>' . $title . ':</h4>';
-    $variables['messages'] .= theme('status_messages', array('display' => 'warning'));
-  }
-
   return theme('maintenance_page', $variables);
 }
 

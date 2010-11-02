@@ -1,4 +1,4 @@
-/* $Id: style.css,v 1.57 2010/05/05 16:41:57 dries Exp $ */
+/* $Id: style.css,v 1.80 2010/10/15 04:37:15 webchick Exp $ */
 
 /**
  * Generic elements.
@@ -6,10 +6,7 @@
 body {
   color: #000;
   background: #fff;
-  font-style: normal;
-  line-height: 20px;
-  font-size: 0.8em;
-  font-family: Lucida Grande, Lucida Sans Unicode, sans-serif;
+  font: normal 81.3%/1.538em "Lucida Grande", "Lucida Sans Unicode", sans-serif;
 }
 a {
   color: #0074BD;
@@ -38,22 +35,20 @@ h6 {
   margin: 10px 0;
 }
 h1 {
-  font-size: 150%;
+  font-size: 1.538em;
 }
 h2 {
-  font-size: 140%;
+  font-size: 1.385em;
 }
 h3 {
-  font-size: 130%;
+  font-size: 1.231em;
 }
 h4 {
-  font-size: 120%;
+  font-size: 1.154em;
 }
-h5 {
-  font-size: 110%;
-}
+h5,
 h6 {
-  font-size: 105%;
+  font-size: 1.077em;
 }
 p {
   margin: 1em 0;
@@ -142,7 +137,11 @@ code {
 code,
 pre,
 kbd {
-  font-size: 1.25em;
+  font-size: 1.231em;
+}
+pre {
+  margin: 0.5em 0;
+  white-space: pre-wrap;
 }
 
 /**
@@ -175,7 +174,6 @@ kbd {
   -webkit-border-top-right-radius: 0;
   -webkit-border-bottom-left-radius: 10px;
   -webkit-border-bottom-right-radius: 10px;
-
 }
 #skip-link a:hover,
 #skip-link a:active,
@@ -197,7 +195,7 @@ kbd {
   background-color: #e0e0d8;
 }
 #branding div.breadcrumb {
-  font-size: 11px;
+  font-size: 0.846em;
   padding-bottom: 5px;
 }
 #branding div.block {
@@ -229,44 +227,14 @@ kbd {
  * Help.
  */
 #help {
-  font-size: 0.9em;
+  font-size: 0.923em;
   margin-top: 1em;
 }
 #help p {
   margin: 0 0 10px;
 }
-
 #help div.more-help-link {
   text-align: right;
-}
-
-/**
- * Messages.
- */
-div.messages {
-  padding: 9px;
-  margin: 0.5em 0 0;
-  color: #036;
-  background: #bdf;
-  border: 1px solid #ace;
-}
-div.warning {
-  color: #840;
-  background: #fe6;
-  border-color: #ed5;
-}
-div.error {
-  color: #fff;
-  background: #e63;
-  border-color: #d52;
-}
-div.error p.error {
-  color: #333;
-}
-div.status {
-  color: #360;
-  background: #cf8;
-  border-color: #be7;
 }
 
 /**
@@ -280,7 +248,7 @@ div.status {
   color: #000;
   margin: 0;
   padding-bottom: 10px;
-  font-size: 18px;
+  font-size: 1.385em;
   font-weight: normal;
   float: left;
 }
@@ -298,11 +266,9 @@ div.status {
 ul.primary {
   float: right;
   border-bottom: none;
-  margin: 0 0 -10px 0;
-  padding: 3px 0 0 8px;
-  line-height: 30px;
+  padding: 0.769em 0 5px 8px;
   text-transform: uppercase;
-  font-size: 12px;
+  font-size: 0.923em;
 }
 ul.primary li {
   display: inline;
@@ -317,7 +283,7 @@ ul.primary li.active a {
   background-color: #a6a7a2;
   color: #000;
   font-weight: bold;
-  padding: 7px 20px 5px 20px;
+  padding: 6px 20px;
   border-width: 1px 1px 0 1px;
   border-style: solid;
   border-color: #a6a7a2;
@@ -342,10 +308,10 @@ ul.primary li.active a:hover {
 ul.secondary {
   float: none;
   clear: both;
-  font-size: 12px;
+  font-size: 0.923em;
   text-align: right;
   padding: 4px 10px 10px;
-  line-height: 18px;
+  line-height: 1.385em;
   overflow: hidden;
   background-color: #fff;
 }
@@ -387,8 +353,7 @@ ul.secondary li.active a.active {
   padding: 0 10px 10px 0;
 }
 #secondary-links ul.links li a {
-  font-size: 9px;
-  line-height: 10px;
+  font-size: 0.923em;
   background: #777;
   color: #fff;
   text-align: center;
@@ -414,7 +379,6 @@ ul.inline li {
 #secondary-links ul.links li a.active {
   background: #333;
 }
-ul.node-type-list li,
 ul.admin-list li {
   position: relative;
   padding-left: 30px;
@@ -433,24 +397,19 @@ ul.admin-list {
 }
 .admin-panel .item-list ul,
 ul.admin-list.compact {
-  margin-bottom: 8px;
+  margin: 8px 0;
 }
 .admin-panel .item-list li,
 ul.admin-list.compact li {
   border: none;
   background: none;
-  margin: 0.25em 0 0.25em 1.5em;
+  margin: 0 0 0.75em;
+  line-height: 1;
   padding: 0;
-  list-style-type: disc;
 }
 ul.admin-list li:last-child {
   border-bottom: none;
 }
-
-ul.node-type-list .label {
-  font-size: 15px;
-}
-ul.node-type-list li a,
 ul.admin-list li a {
   margin-left: -30px;
   padding: 0px 0 4px 30px;
@@ -460,11 +419,13 @@ ul.admin-list.compact li a {
   margin-left: 0;
   padding: 0;
 }
-ul.node-type-list li div.description a,
 ul.admin-list li div.description a {
   margin-left: 0px;
   padding: 0px;
   min-height: inherit;
+}
+div.submitted {
+  color: #898989;
 }
 
 /**
@@ -472,7 +433,7 @@ ul.admin-list li div.description a {
  */
 table {
   width: 100%;
-  font-size: 12px;
+  font-size: 0.923em;
   margin: 0 0 10px;
   border: 1px solid #bebfb9;
 }
@@ -500,7 +461,6 @@ tr.drag-previous {
   background: #ffb;
 }
 table th {
-  font-size: 12px;
   text-transform: uppercase;
   background: #e1e2dc;
   font-weight: normal;
@@ -515,6 +475,9 @@ table th.active {
 table th a {
   display: block;
   position: relative;
+}
+table th.active a {
+  padding: 0 25px 0 0; /* LTR */
 }
 table th.active img {
   position: absolute;
@@ -533,20 +496,26 @@ table tr.selected td {
   border-color: #eeb;
 }
 table.system-status-report tr {
- border-bottom: 1px solid #bebfb9;
+  border-bottom: 1px solid #ccc;
 }
-table.system-status-report tr.ok td {
-  background-color: #dfd;
+table.system-status-report tr.ok {
+  color: #255b1e;
+  background-color: #e5ffe2;
 }
-table.system-status-report tr.info td {
+table.system-status-report tr.info {
+  color: #040f37;
   background-color: #bdf;
 }
-table.system-status-report tr.warning td {
-  background-color: #ffd;
+table.system-status-report tr.warning {
+  color: #840;
+  background-color: #fffce5;
 }
-table.system-status-report tr.error td {
-  background-color: #fdd;
+table.system-status-report tr.error {
+  color: #8c2e0b;
+  background-color: #fef5f1;
 }
+
+
 /**
  * Fieldsets.
  *
@@ -622,10 +591,18 @@ div.teaser-checkbox .form-item,
   text-transform: none;
 }
 .form-item label.option {
-  font-size: 12px;
+  font-size: 0.923em;
 }
 .form-item label.option input {
   vertical-align: middle;
+}
+.form-disabled input.form-autocomplete,
+.form-disabled input.form-text,
+.form-disabled input.form-file,
+.form-disabled textarea.form-textarea,
+.form-disabled select.form-select {
+  background-color: #eee;
+  color: #777;
 }
 
 /* Filter */
@@ -633,22 +610,21 @@ div.teaser-checkbox .form-item,
   border-top: 0;
   padding: 10px 2px;
 }
-.filter-wrapper > div {
-  padding-right: 6px;
-  padding-left: 6px;
+.filter-wrapper .fieldset-wrapper {
+  padding: 0 6px;
 }
 .filter-wrapper .form-item,
 .filter-wrapper .filter-guidelines,
 .filter-wrapper .filter-help {
-  font-size: 12px;
-  padding: 0;
+  font-size: 0.923em;
+  padding: 2px 0 0 0;
 }
 ul.tips,
 div.description,
 .form-item div.description {
   margin: 5px 0;
-  line-height: 15px;
-  font-size: 12px;
+  line-height: 1.231em;
+  font-size: 0.923em;
   color: #666;
 }
 ul.tips li {
@@ -663,10 +639,11 @@ a.button {
   cursor: pointer;
   padding: 4px 17px;
   margin-bottom: 1em;
+  margin-right: 1em;
   color: #5a5a5a;
   text-align: center;
   font-weight: normal;
-  font-size: 1.1em;
+  font-size: 1.077em;
   font-family: "Lucida Grande", Verdana, sans-serif;
   border: 1px solid #e4e4e4;
   border-bottom: 1px solid #b4b4b4;
@@ -699,6 +676,13 @@ input.form-submit:active {
   border-color: #555;
   text-shadow: #222 0px -1px 0px;
 }
+input.form-button-disabled,
+input.form-button-disabled:active {
+  background: #eee none;
+  border-color: #eee;
+  text-shadow: none;
+  color: #999;
+}
 form input#edit-delete {
   background: #eee;
   border-color: #fff #ddd #ccc;
@@ -707,6 +691,7 @@ form input#edit-delete {
 }
 input.form-autocomplete,
 input.form-text,
+input.form-file,
 textarea.form-textarea,
 select.form-select {
   padding: 2px;
@@ -716,6 +701,7 @@ select.form-select {
   color: #333;
 }
 input.form-text:focus,
+input.form-file:focus,
 textarea.form-textarea:focus,
 select.form-select:focus {
   color: #000;
@@ -769,7 +755,7 @@ div.admin-panel {
   border: 1px solid #ccc;
 }
 div.admin-panel h3 {
-  font-size: 12px;
+  font-size: 0.923em;
   text-transform: uppercase;
   margin: 0;
   padding-bottom: 9px;
@@ -798,7 +784,7 @@ dl.multiselect dd {
 }
 dl.multiselect select,
 dl.multiselect dd select {
-  font-size: 12px;
+  font-size: 0.923em;
   background: #fff;
   border: 1px solid #ccc;
 }
@@ -814,7 +800,7 @@ div.admin-options {
 }
 div.admin-options label {
   text-transform: uppercase;
-  font: 12px/30px Lucida Grande, Lucida Sans Unicode, sans-serif;
+  font: 0.846em/1.875em Lucida Grande, Lucida Sans Unicode, sans-serif;
 }
 div.admin-options label,
 div.admin-options div.form-item {
@@ -906,12 +892,24 @@ ol.task-list li.done {
   position: relative;
   z-index: 10;
 }
+#overlay-tabs {
+  bottom: -1px;
+  font-size: 1.54em;
+  line-height: 1.54em;
+  margin: 0;
+}
+#overlay-tabs li {
+  margin: 0 -2px;
+}
 .overlay ul.secondary {
   background: transparent none;
   margin: -2.4em 0 0.3em 0;
 }
 .overlay #content {
   padding: 0;
+}
+h1#overlay-title {
+  font-weight: normal;
 }
 
 /* Shortcut theming */
@@ -938,6 +936,28 @@ div.add-or-remove-shortcuts {
 }
 #dashboard .dashboard-region .block {
   border: #ccc 1px solid;
+}
+
+/* Field UI */
+
+#field-display-overview input.field-formatter-settings-edit {
+  margin: 0;
+  padding: 1px 8px;
+}
+#field-display-overview tr.field-formatter-settings-changed {
+  background: #FFFFBB;
+}
+#field-display-overview tr.drag {
+  background: #FFEE77;
+}
+#field-display-overview tr.field-formatter-settings-editing {
+  background: #D5E9F2;
+}
+#field-display-overview .field-formatter-settings-edit-form .form-item {
+  margin: 10px 0;
+}
+#field-display-overview .field-formatter-settings-edit-form .form-submit {
+  margin-bottom: 0;
 }
 
 /* Recent content block */

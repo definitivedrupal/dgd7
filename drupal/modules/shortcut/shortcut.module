@@ -1,5 +1,5 @@
 <?php
-// $Id: shortcut.module,v 1.24 2010/03/06 06:33:14 dries Exp $
+// $Id: shortcut.module,v 1.27 2010/09/24 00:37:44 dries Exp $
 
 /**
  * @file
@@ -91,7 +91,6 @@ function shortcut_menu() {
     'title arguments' => array(4),
     'access callback' => 'shortcut_set_edit_access',
     'access arguments' => array(4),
-    'type' => MENU_CALLBACK,
     'file' => 'shortcut.admin.inc',
   );
   $items['admin/config/user-interface/shortcut/%shortcut_set/links'] = array(
@@ -114,7 +113,6 @@ function shortcut_menu() {
     'page arguments' => array('shortcut_set_delete_form', 4),
     'access callback' => 'shortcut_set_delete_access',
     'access arguments' => array(4),
-    'type' => MENU_CALLBACK,
     'file' => 'shortcut.admin.inc',
   );
   $items['admin/config/user-interface/shortcut/%shortcut_set/add-link'] = array(
@@ -141,7 +139,6 @@ function shortcut_menu() {
     'page arguments' => array('shortcut_link_edit', 5),
     'access callback' => 'shortcut_link_access',
     'access arguments' => array(5),
-    'type' => MENU_CALLBACK,
     'file' => 'shortcut.admin.inc',
   );
   $items['admin/config/user-interface/shortcut/link/%menu_link/delete'] = array(
@@ -150,7 +147,6 @@ function shortcut_menu() {
     'page arguments' => array('shortcut_link_delete', 5),
     'access callback' => 'shortcut_link_access',
     'access arguments' => array(5),
-    'type' => MENU_CALLBACK,
     'file' => 'shortcut.admin.inc',
   );
   $items['user/%user/shortcuts'] = array(
@@ -164,6 +160,16 @@ function shortcut_menu() {
   );
 
   return $items;
+}
+
+/**
+ * Implements hook_admin_paths().
+ */
+function shortcut_admin_paths() {
+  $paths = array(
+    'user/*/shortcuts' => TRUE,
+  );
+  return $paths;
 }
 
 /**
@@ -580,6 +586,19 @@ function shortcut_sets() {
   ->fields('ss')
   ->execute()
   ->fetchAllAssoc('set_name');
+}
+
+/**
+ * Check to see if a shortcut set with the given title already exists.
+ *
+ * @param $title
+ *   Human-readable name of the shortcut set to check.
+ *
+ * @return
+ *   TRUE if a shortcut set with that title exists; FALSE otherwise.
+ */
+function shortcut_set_title_exists($title) {
+  return (bool) db_query_range('SELECT 1 FROM {shortcut_set} WHERE title = :title', 0, 1, array(':title' => $title))->fetchField();
 }
 
 /**

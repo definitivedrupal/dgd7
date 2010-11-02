@@ -1,4 +1,4 @@
-// $Id: INSTALL.txt,v 1.80 2010/04/30 08:09:21 dries Exp $
+// $Id: INSTALL.txt,v 1.84 2010/10/11 23:49:48 dries Exp $
 
 CONTENTS OF THIS FILE
 ---------------------
@@ -16,11 +16,14 @@ REQUIREMENTS
 
 Drupal requires:
 
- - a web server, Apache (version 2.0 or greater) is recommended,
- - PHP 5 (5.2.0 or greater) (http://www.php.net/),
- - and either MySQL (5.0.15 or greater) (http://www.mysql.com/), PostgreSQL (8.3
-   or greater) (http://www.postgresql.org/), or SQLite (3.4.2 or greater)
-   (http://www.sqlite.org/).
+- A web server. Apache (version 2.0 or greater) is recommended.
+- PHP 5.2.0 (or greater) (http://www.php.net/).
+- One of the following databases:
+  - MySQL 5.0.15 (or greater) (http://www.mysql.com/).
+  - MariaDB 5.1.44 (or greater) (http://mariadb.org/). MariaDB is a fully
+    compatible drop-in replacement for MySQL.
+  - PostgreSQL 8.3 (or greater) (http://www.postgresql.org/).
+  - SQLite 3.4.2 (or greater) (http://www.sqlite.org/).
 
 For more detailed information about Drupal requirements, including a list of
 PHP extensions and configurations that are required, see "System requirements"
@@ -40,6 +43,9 @@ OPTIONAL TASKS
   the mod_rewrite module and the ability to use local .htaccess files. For
   Clean URLs support on IIS, see "Using Clean URLs with IIS"
   (http://drupal.org/node/3854) in the Drupal handbook.
+
+- To serve gzip compressed CSS and JS files on an Apache web server, you will
+  need the mod_headers module and the ability to use local .htaccess files.
 
 - Various Drupal features require that the web server process (for
   example, httpd) be able to initiate outbound connections. This is usually
@@ -69,20 +75,34 @@ INSTALLATION
 
      mv drupal-x.x/* drupal-x.x/.htaccess /var/www/html
 
-   If you would like to have the default English interface translated to a
-   different language, we have good news. You can install and use Drupal in
-   other languages from the start. Check whether a released package of the
-   language desired is available for this Drupal version at
-   http://drupal.org/project/translations and download the package. Extract
-   the contents to the same directory where you extracted Drupal into.
+   By default, Drupal is installed in English, and further languages may be
+   installed later. Follow these steps to translate Drupal into your language
+   during installation:
 
-2. CREATE THE CONFIGURATION FILE AND GRANT WRITE PERMISSIONS
+   - Download a translation file for this Drupal version from the translation
+     server:
+     http://localize.drupal.org/download
+
+   - Rename the downloaded file to your language's ISO code (e.g., de.po or
+     fr.po) and place it into the directory /translations right below
+     the installation profile's directory that you want to use for your
+     installation (usually "standard"):
+
+       /profiles/standard/translations/
+
+   - Reload the language selection page after adding translations.
+
+   For detailed instructions, visit http://drupal.org/localize.
+
+2. IF NECESSARY, CREATE THE CONFIGURATION FILE AND GRANT WRITE PERMISSIONS
 
    Drupal comes with a default.settings.php file in the sites/default
    directory. The installer uses this file as a template to create your
    settings file using the details you provide through the install process.
    To avoid problems when upgrading, Drupal is not packaged with an actual
-   settings file. You must create a file named settings.php. You may do so
+   settings file. During installation, Drupal will try to create this settings
+   file automatically. If this fails (which it can due to different server
+   setups), you must create a file named settings.php yourself. You may do so
    by making a copy of default.settings.php (or create an empty file with
    this name in the same directory). For example, (from the installation
    directory) make a copy of the default.settings.php file with the command:

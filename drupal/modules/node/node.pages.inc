@@ -1,5 +1,5 @@
 <?php
-// $Id: node.pages.inc,v 1.126 2010/05/10 06:34:39 dries Exp $
+// $Id: node.pages.inc,v 1.132 2010/09/09 23:01:48 dries Exp $
 
 /**
  * @file
@@ -76,12 +76,12 @@ function node_add($type) {
 }
 
 function node_form_validate($form, &$form_state) {
+  // $form_state['node'] contains the actual entity being edited, but we must
+  // not update it with form values that have not yet been validated, so we
+  // create a pseudo-entity to use during validation.
   $node = (object) $form_state['values'];
-  node_validate($node, $form);
-
-  // Field validation. Requires access to $form_state, so this cannot be
-  // done in node_validate() as it currently exists.
-  field_attach_form_validate('node', $node, $form, $form_state);
+  node_validate($node, $form, $form_state);
+  entity_form_field_validate('node', $form, $form_state);
 }
 
 /**
@@ -89,31 +89,34 @@ function node_form_validate($form, &$form_state) {
  */
 function node_form($form, &$form_state, $node) {
   global $user;
-  // This form has its own multistep persistence.
-  if ($form_state['rebuild']) {
-    $form_state['input'] = array();
-  }
 
-  if (isset($form_state['node'])) {
-    $node = (object) ($form_state['node'] + (array) $node);
-  }
-  if (isset($form_state['node_preview'])) {
-    $form['#prefix'] = $form_state['node_preview'];
-  }
-  foreach (array('title') as $key) {
-    if (!isset($node->$key)) {
-      $node->$key = NULL;
+  // During initial form build, add the node entity to the form state for use
+  // during form building and processing. During a rebuild, use what is in the
+  // form state.
+  if (!isset($form_state['node'])) {
+    if (!isset($node->title)) {
+      $node->title = NULL;
     }
-  }
-  if (!isset($form_state['node_preview'])) {
     node_object_prepare($node);
+    $form_state['node'] = $node;
   }
   else {
+    $node = $form_state['node'];
+  }
+
+  // Some special stuff when previewing a node.
+  if (isset($form_state['node_preview'])) {
+    $form['#prefix'] = $form_state['node_preview'];
     $node->in_preview = TRUE;
+  }
+  else {
+    unset($node->in_preview);
   }
 
   // Identify this as a node edit form.
+  // @todo D8: Remove. Modules can implement hook_form_BASE_FORM_ID_alter() now.
   $form['#node_edit_form'] = TRUE;
+
   $form['#attributes']['class'][] = 'node-form';
   if (!empty($node->type)) {
     $form['#attributes']['class'][] = 'node-' . $node->type . '-form';
@@ -133,14 +136,18 @@ function node_form($form, &$form_state, $node) {
     '#type' => 'hidden',
     '#default_value' => isset($node->changed) ? $node->changed : NULL,
   );
-  // Get the node-specific bits.
-  if ($extra = node_invoke($node, 'form', $form_state)) {
+  // Invoke hook_form() to get the node-specific bits. Can't use node_invoke(),
+  // because hook_form() needs to be able to receive $form_state by reference.
+  // @todo hook_form() implementations are unable to add #validate or #submit
+  //   handlers to the form buttons below. Remove hook_form() entirely.
+  $function = node_type_get_base($node) . '_form';
+  if (function_exists($function) && ($extra = $function($node, $form_state))) {
     $form = array_merge_recursive($form, $extra);
   }
   if (!isset($form['title']['#weight'])) {
     $form['title']['#weight'] = -5;
   }
-
+  // @todo D8: Remove. Modules should access the node using $form_state['node'].
   $form['#node'] = $node;
 
   $form['additional_settings'] = array(
@@ -219,7 +226,7 @@ function node_form($form, &$form_state, $node) {
     '#type' => 'textfield',
     '#title' => t('Authored on'),
     '#maxlength' => 25,
-    '#description' => t('Format: %time. The date format is YYYY-MM-DD and %timezone is the timezone offset from UTC. Leave blank to use the time of form submission.', array('%time' => !empty($node->date) ? $node->date : format_date($node->created, 'custom', 'Y-m-d H:i:s O'), '%timezone' => !empty($node->date) ? $node->date : format_date($node->created, 'custom', 'O'))),
+    '#description' => t('Format: %time. The date format is YYYY-MM-DD and %timezone is the time zone offset from UTC. Leave blank to use the time of form submission.', array('%time' => !empty($node->date) ? date_format(date_create($node->date), 'Y-m-d H:i:s O') : format_date($node->created, 'custom', 'Y-m-d H:i:s O'), '%timezone' => !empty($node->date) ? date_format(date_create($node->date), 'O') : format_date($node->created, 'custom', 'O'))),
     '#default_value' => !empty($node->date) ? $node->date : '',
   );
 
@@ -276,7 +283,17 @@ function node_form($form, &$form_state, $node) {
       '#submit' => array('node_form_delete_submit'),
     );
   }
+  // This form uses a button-level #submit handler for the form's main submit
+  // action. node_form_submit() manually invokes all form-level #submit handlers
+  // of the form. Without explicitly setting #submit, Form API would auto-detect
+  // node_form_submit() as submit handler, but that is the button-level #submit
+  // handler for the 'Save' action. To maintain backwards compatibility, a
+  // #submit handler is auto-suggested for custom node type modules.
   $form['#validate'][] = 'node_form_validate';
+  if (!isset($form['#submit']) && function_exists($node->type . '_node_form_submit')) {
+    $form['#submit'][] = $node->type . '_node_form_submit';
+  }
+  $form += array('#submit' => array());
 
   $form['#builder_function'] = 'node_form_submit_build_node';
   field_attach_form('node', $node, $form, $form_state, $node->language);
@@ -299,8 +316,9 @@ function node_form_delete_submit($form, &$form_state) {
 
 
 function node_form_build_preview($form, &$form_state) {
-  $node = node_form_submit_build_node($form, $form_state);
+  $node = $form['#builder_function']($form, $form_state);
   $form_state['node_preview'] = node_preview($node);
+  $form_state['rebuild'] = TRUE;
 }
 
 /**
@@ -332,11 +350,10 @@ function node_preview($node) {
     field_attach_prepare_view('node', $nodes, 'full');
 
     // Display a preview of the node.
-    // Previewing alters $node so it needs to be cloned.
     if (!form_get_errors()) {
-      $cloned_node = clone $node;
-      $cloned_node->in_preview = TRUE;
-      $output = theme('node_preview', array('node' => $cloned_node));
+      $node->in_preview = TRUE;
+      $output = theme('node_preview', array('node' => $node));
+      unset($node->in_preview);
     }
     drupal_set_title(t('Preview'), PASS_THROUGH);
 
@@ -382,7 +399,7 @@ function theme_node_preview($variables) {
 }
 
 function node_form_submit($form, &$form_state) {
-  $node = node_form_submit_build_node($form, $form_state);
+  $node = $form['#builder_function']($form, $form_state);
   $insert = empty($node->nid);
   node_save($node);
   $node_link = l(t('view'), 'node/' . $node->nid);
@@ -398,7 +415,6 @@ function node_form_submit($form, &$form_state) {
     drupal_set_message(t('@type %title has been updated.', $t_args));
   }
   if ($node->nid) {
-    unset($form_state['rebuild']);
     $form_state['values']['nid'] = $node->nid;
     $form_state['nid'] = $node->nid;
     $form_state['redirect'] = 'node/' . $node->nid;
@@ -407,25 +423,42 @@ function node_form_submit($form, &$form_state) {
     // In the unlikely case something went wrong on save, the node will be
     // rebuilt and node form redisplayed the same way as in preview.
     drupal_set_message(t('The post could not be saved.'), 'error');
+    $form_state['rebuild'] = TRUE;
   }
   // Clear the page and block caches.
   cache_clear_all();
 }
 
 /**
- * Build a node by processing submitted form values and prepare for a form rebuild.
+ * Updates the form state's node entity by processing this submission's values.
+ *
+ * This is the default #builder_function for the node form. It is called
+ * during the "Save" and "Preview" submit handlers to retrieve the entity to
+ * save or preview. This function can also be called by a "Next" button of a
+ * wizard to update the form state's entity with the current step's values
+ * before proceeding to the next step.
+ *
+ * @see node_form()
  */
 function node_form_submit_build_node($form, &$form_state) {
-  // Unset any button-level handlers, execute all the form-level submit
-  // functions to process the form values into an updated node.
+  // @todo Legacy support for modules that extend the node form with form-level
+  //   submit handlers that adjust $form_state['values'] prior to those values
+  //   being used to update the entity. Module authors are encouraged to instead
+  //   adjust the node directly within a hook_node_submit() implementation. For
+  //   Drupal 8, evaluate whether the pattern of triggering form-level submit
+  //   handlers during button-level submit processing is worth supporting
+  //   properly, and if so, add a Form API function for doing so.
   unset($form_state['submit_handlers']);
   form_execute_handlers('submit', $form, $form_state);
-  $node = node_submit((object) $form_state['values']);
 
-  field_attach_submit('node', $node, $form, $form_state);
+  $node = $form_state['node'];
+  entity_form_submit_build_entity('node', $node, $form, $form_state);
 
-  $form_state['node'] = (array) $node;
-  $form_state['rebuild'] = TRUE;
+  node_submit($node);
+  foreach (module_implements('node_submit') as $module) {
+    $function = $module . '_node_submit';
+    $function($node, $form, $form_state);
+  }
   return $node;
 }
 
@@ -486,7 +519,7 @@ function node_revision_overview($node) {
       $row[] = array('data' => t('!date by !username', array('!date' => l(format_date($revision->timestamp, 'short'), "node/$node->nid"), '!username' => theme('username', array('account' => $revision))))
                                . (($revision->log != '') ? '<p class="revision-log">' . filter_xss($revision->log) . '</p>' : ''),
                      'class' => array('revision-current'));
-      $operations[] = array('data' => drupal_placeholder(array('text' => t('current revision'))), 'class' => array('revision-current'), 'colspan' => 2);
+      $operations[] = array('data' => drupal_placeholder(t('current revision')), 'class' => array('revision-current'), 'colspan' => 2);
     }
     else {
       $row[] = t('!date by !username', array('!date' => l(format_date($revision->timestamp, 'short'), "node/$node->nid/revisions/$revision->vid/view"), '!username' => theme('username', array('account' => $revision))))

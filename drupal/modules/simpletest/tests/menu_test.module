@@ -1,5 +1,5 @@
 <?php
-// $Id: menu_test.module,v 1.14 2010/04/26 14:06:23 dries Exp $
+// $Id: menu_test.module,v 1.18 2010/10/15 04:46:59 webchick Exp $
 
 /**
  * @file
@@ -77,7 +77,7 @@ function menu_test_menu() {
     'access arguments' => array('access content'),
   );
   $items['menu-test/hidden'] = array(
-    'title' => 'Menu test parent',
+    'title' => 'Hidden test root',
     'page callback' => 'node_page_default',
     'access arguments' => array('access content'),
   );
@@ -110,7 +110,6 @@ function menu_test_menu() {
     'title' => 'Customize menu',
     'page callback' => 'node_page_default',
     'access arguments' => array('access content'),
-    'type' => MENU_CALLBACK,
   );
   $items['menu-test/hidden/menu/manage/%menu/list'] = array(
     'title' => 'List links',
@@ -135,7 +134,6 @@ function menu_test_menu() {
     'title' => 'Delete menu',
     'page callback' => 'node_page_default',
     'access arguments' => array('access content'),
-    'type' => MENU_CALLBACK,
   );
 
   // Hidden tests; two dynamic arguments.
@@ -173,6 +171,41 @@ function menu_test_menu() {
     'context' => MENU_CONTEXT_NONE,
   );
 
+  // Breadcrumbs tests.
+  // @see MenuBreadcrumbTestCase
+  $base = array(
+    'page callback' => 'menu_test_callback',
+    'access callback' => TRUE,
+  );
+  // Local tasks: Second level below default local task.
+  $items['menu-test/breadcrumb/tasks'] = array(
+    'title' => 'Breadcrumbs test: Local tasks',
+  ) + $base;
+  $items['menu-test/breadcrumb/tasks/first'] = array(
+    'title' => 'First',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  ) + $base;
+  $items['menu-test/breadcrumb/tasks/second'] = array(
+    'title' => 'Second',
+    'type' => MENU_LOCAL_TASK,
+  ) + $base;
+  $items['menu-test/breadcrumb/tasks/first/first'] = array(
+    'title' => 'First first',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  ) + $base;
+  $items['menu-test/breadcrumb/tasks/first/second'] = array(
+    'title' => 'First second',
+    'type' => MENU_LOCAL_TASK,
+  ) + $base;
+  $items['menu-test/breadcrumb/tasks/second/first'] = array(
+    'title' => 'Second first',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  ) + $base;
+  $items['menu-test/breadcrumb/tasks/second/second'] = array(
+    'title' => 'Second second',
+    'type' => MENU_LOCAL_TASK,
+  ) + $base;
+
   // File inheritance tests. This menu item should inherit the page callback
   // system_admin_menu_block_page() and therefore render its children as links
   // on the page.
@@ -186,7 +219,40 @@ function menu_test_menu() {
     'description' => 'File inheritance test description',
     'page callback' => 'menu_test_callback',
     'access arguments' => array('access content'),
-    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['menu_login_callback'] = array(
+    'title' => 'Used as a login path',
+    'page callback' => 'menu_login_callback',
+    'access callback' => TRUE,
+  );
+
+  $items['menu-title-test/case1'] = array(
+   'title' => 'Example title - Case 1',
+   'access callback' => TRUE,
+   'page callback' => 'menu_test_callback',
+  );
+  $items['menu-title-test/case2'] = array(
+   'title' => 'Example @sub1 - Case @op2',
+   // If '2' is not in quotes, the argument becomes arg(2).
+   'title arguments' => array('@sub1' => 'title', '@op2' => '2'),
+   'access callback' => TRUE,
+   'page callback' => 'menu_test_callback',
+  );
+  $items['menu-title-test/case3'] = array(
+   'title' => 'Example title',
+   'title callback' => 'menu_test_title_callback',
+   'access callback' => TRUE,
+   'page callback' => 'menu_test_callback',
+  );
+  $items['menu-title-test/case4'] = array(
+   // Title gets completely ignored. Good thing, too.
+   'title' => 'Bike sheds full of blue smurfs',
+   'title callback' => 'menu_test_title_callback',
+   // If '4' is not in quotes, the argument becomes arg(4).
+   'title arguments' => array('Example title', '4'),
+   'access callback' => TRUE,
+   'page callback' => 'menu_test_callback',
   );
 
   return $items;
@@ -328,4 +394,33 @@ function menu_test_static_variable($value = NULL) {
     $variable = $value;
   }
   return $variable;
+}
+
+/**
+ * Implements hook_menu_site_status_alter().
+ */
+function menu_test_menu_site_status_alter(&$menu_site_status, $path) {
+  // Allow access to ?q=menu_login_callback even if in maintenance mode.
+  if ($menu_site_status == MENU_SITE_OFFLINE && $path == 'menu_login_callback') {
+    $menu_site_status = MENU_SITE_ONLINE;
+  }
+}
+
+/**
+ * Menu callback to be used as a login path.
+ */
+function menu_login_callback() {
+  return 'This is menu_login_callback().';
+}
+
+/**
+ * Concatenates a string, by using the t() function and a case number.
+ *
+ * @param $title
+ *   Title string.
+ * @param $case_number
+ *   The current case number which is tests (defaults to 3).
+ */
+function menu_test_title_callback($title, $case_no = 3) {
+  return t($title) . ' - Case ' . $case_no;
 }

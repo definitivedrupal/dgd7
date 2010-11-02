@@ -1,5 +1,5 @@
 <?php
-// $Id: search-result.tpl.php,v 1.4 2008/12/30 16:43:18 dries Exp $
+// $Id: search-result.tpl.php,v 1.7 2010/08/18 18:40:50 dries Exp $
 
 /**
  * @file
@@ -16,7 +16,8 @@
  * - $info: String of all the meta information ready for print. Does not apply
  *   to user searches.
  * - $info_split: Contains same data as $info, split into a keyed array.
- * - $type: The type of search, e.g., "node" or "user".
+ * - $module: The machine-readable name of the module (tab) being searched, such
+ *   as "node" or "user".
  *
  * Default keys within $info_split:
  * - $info_split['type']: Node type.
@@ -46,14 +47,16 @@
  * @see template_preprocess_search_result()
  */
 ?>
-<dt class="title">
-  <a href="<?php print $url; ?>"><?php print $title; ?></a>
-</dt>
-<dd>
-  <?php if ($snippet) : ?>
-    <p class="search-snippet"><?php print $snippet; ?></p>
-  <?php endif; ?>
-  <?php if ($info) : ?>
-  <p class="search-info"><?php print $info; ?></p>
-  <?php endif; ?>
-</dd>
+<li>
+  <h3 class="title">
+    <a href="<?php print $url; ?>"><?php print $title; ?></a>
+  </h3>
+  <div class="search-snippet-info">
+    <?php if ($snippet) : ?>
+      <p class="search-snippet"><?php print $snippet; ?></p>
+    <?php endif; ?>
+    <?php if ($info) : ?>
+      <p class="search-info"><?php print $info; ?></p>
+    <?php endif; ?>
+  </div>
+</li>

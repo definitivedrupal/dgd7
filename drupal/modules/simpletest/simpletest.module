@@ -1,5 +1,5 @@
 <?php
-// $Id: simpletest.module,v 1.91 2010/03/30 07:17:19 webchick Exp $
+// $Id: simpletest.module,v 1.95 2010/10/10 11:34:22 dries Exp $
 
 /**
  * @file
@@ -56,7 +56,6 @@ function simpletest_menu() {
     'page arguments' => array('simpletest_result_form', 5),
     'description' => 'View result of tests.',
     'access arguments' => array('administer unit tests'),
-    'type' => MENU_CALLBACK,
     'file' => 'simpletest.pages.inc',
   );
   return $items;
@@ -86,19 +85,6 @@ function simpletest_theme() {
     'simpletest_result_summary' => array(
       'render element' => 'form',
       'file' => 'simpletest.pages.inc',
-    ),
-  );
-}
-
-/**
- * Implements hook_stream_wrappers().
- */
-function simpletest_test_stream_wrappers() {
-  return array(
-    'simpletest' => array(
-      'name' => t('Simpletest files'),
-      'class' => 'DrupalSimpleTestStreamWrapper',
-      'description' => t('Stream Wrapper for Simpletest files.'),
     ),
   );
 }
@@ -138,13 +124,12 @@ function _simpletest_format_summary_line($summary) {
  *   drupal being the default.
  */
 function simpletest_run_tests($test_list, $reporter = 'drupal') {
-  cache_clear_all();
   $test_id = db_insert('simpletest_test_id')
     ->useDefaults(array('test_id'))
     ->execute();
 
   // Clear out the previous verbose files.
-  file_unmanaged_delete_recursive(file_directory_path() . '/simpletest/verbose');
+  file_unmanaged_delete_recursive('public://simpletest/verbose');
 
   // Get the info for the first test being run.
   $first_test = array_shift($test_list);
@@ -419,7 +404,7 @@ function simpletest_generate_file($filename, $width, $lines, $type = 'binary-tex
   $text = wordwrap($text, $width - 1, "\n", TRUE) . "\n"; // Add \n for symetrical file.
 
   // Create filename.
-  file_put_contents(file_directory_path() . '/' . $filename . '.txt', $text);
+  file_put_contents('public://' . $filename . '.txt', $text);
   return $filename;
 }
 

@@ -1,5 +1,5 @@
 <?php
-// $Id: system.tokens.inc,v 1.9 2010/04/20 09:48:06 webchick Exp $
+// $Id: system.tokens.inc,v 1.12 2010/08/17 21:31:13 dries Exp $
 
 /**
  * @file
@@ -35,10 +35,6 @@ function system_token_info() {
   $site['slogan'] = array(
     'name' => t("Slogan"),
     'description' => t("The slogan of the site."),
-  );
-  $site['mission'] = array(
-    'name' => t("Mission"),
-    'description' => t("The optional 'mission' of the site."),
   );
   $site['mail'] = array(
     'name' => t("Email"),
@@ -88,10 +84,6 @@ function system_token_info() {
   $file['fid'] = array(
     'name' => t("File ID"),
     'description' => t("The unique ID of the uploaded file."),
-  );
-  $file['uid'] = array(
-    'name' => t("User ID"),
-    'description' => t("The unique ID of the user who owns the file."),
   );
   $file['name'] = array(
     'name' => t("File name"),
@@ -164,11 +156,6 @@ function system_tokens($type, $tokens, array $data = array(), array $options = a
           $replacements[$original] = $sanitize ? check_plain($slogan) : $slogan;
           break;
 
-        case 'mission':
-          $mission = variable_get('site_mission', '');
-          $replacements[$original] = $sanitize ? filter_xss($mission) : $mission;
-          break;
-
         case 'mail':
           $replacements[$original] = variable_get('site_mail', '');
           break;
@@ -215,7 +202,7 @@ function system_tokens($type, $tokens, array $data = array(), array $options = a
           break;
 
         case 'raw':
-          $replacements[$original] = filter_xss($date);
+          $replacements[$original] = $sanitize ? check_plain($date) : $date;
           break;
       }
     }
@@ -237,25 +224,21 @@ function system_tokens($type, $tokens, array $data = array(), array $options = a
           $replacements[$original] = $file->fid;
           break;
 
-        case 'uid':
-          $replacements[$original] = $file->uid;
-          break;
-
         // Essential file data
         case 'name':
           $replacements[$original] = $sanitize ? check_plain($file->filename) : $file->filename;
           break;
 
         case 'description':
-          $replacements[$original] = $sanitize ? filter_xss($file->description) : $file->description;
+          $replacements[$original] = $sanitize ? check_plain($file->description) : $file->description;
           break;
 
         case 'path':
-          $replacements[$original] = $sanitize ? filter_xss($file->uri) : $file->uri;
+          $replacements[$original] = $sanitize ? check_plain($file->uri) : $file->uri;
           break;
 
         case 'mime':
-          $replacements[$original] = $sanitize ? filter_xss($file->filemime) : $file->filemime;
+          $replacements[$original] = $sanitize ? check_plain($file->filemime) : $file->filemime;
           break;
 
         case 'size':
@@ -263,7 +246,7 @@ function system_tokens($type, $tokens, array $data = array(), array $options = a
           break;
 
         case 'url':
-          $replacements[$original] = url(file_create_url($file->uri), $url_options);
+          $replacements[$original] = $sanitize ? check_plain(file_create_url($file->uri)) : file_create_url($file->uri);
           break;
 
         // These tokens are default variations on the chained tokens handled below.
@@ -273,7 +256,7 @@ function system_tokens($type, $tokens, array $data = array(), array $options = a
 
         case 'owner':
           $account = user_load($file->uid);
-          $replacements[$original] = $sanitize ? filter_xss($account->name) : $account->name;
+          $replacements[$original] = $sanitize ? check_plain($account->name) : $account->name;
           break;
       }
     }

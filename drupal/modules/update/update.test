@@ -1,5 +1,5 @@
 <?php
-// $Id: update.test,v 1.13 2010/01/04 21:31:52 webchick Exp $
+// $Id: update.test,v 1.19 2010/10/06 13:36:30 dries Exp $
 
 /**
  * @file
@@ -181,6 +181,24 @@ class UpdateCoreTestCase extends UpdateTestHelper {
     $this->assertText(t('Checked available update data for one project.'));
     $this->assertNoText(t('There are updates available for your version of Drupal.'));
     $this->assertText(t('There is a security update available for your version of Drupal.'));
+
+    // Make sure admin/appearance warns you you're missing a security update.
+    $this->drupalGet('admin/appearance');
+    $this->assertNoText(t('There are updates available for your version of Drupal.'));
+    $this->assertText(t('There is a security update available for your version of Drupal.'));
+
+    // Make sure duplicate messages don't appear on Update status pages.
+    $this->drupalGet('admin/reports/status');
+    // We're expecting "There is a security update..." inside the status report
+    // itself, but the drupal_set_message() appears as an li so we can prefix
+    // with that and search for the raw HTML.
+    $this->assertNoRaw('<li>' . t('There is a security update available for your version of Drupal.'));
+
+    $this->drupalGet('admin/reports/updates');
+    $this->assertNoText(t('There is a security update available for your version of Drupal.'));
+
+    $this->drupalGet('admin/reports/updates/settings');
+    $this->assertNoText(t('There is a security update available for your version of Drupal.'));
   }
 
   protected function setSystemInfo7_0() {
@@ -491,5 +509,158 @@ class UpdateTestContribCase extends UpdateTestHelper {
     $this->assertRaw(l(t('CCC Update test'), 'http://example.com/project/ccc_update_test'), t('Link to bbb_update_test project appears.'));
   }
 
+  /**
+   * Check that hook_update_status_alter() works to change a status.
+   *
+   * We provide the same external data as if aaa_update_test 7.x-1.0 were
+   * installed and that was the latest release. Then we use
+   * hook_update_status_alter() to try to mark this as missing a security
+   * update, then assert if we see the appropriate warnings on the right
+   * pages.
+   */
+  function testHookUpdateStatusAlter() {
+    variable_set('allow_authorize_operations', TRUE);
+    $update_admin_user = $this->drupalCreateUser(array('administer site configuration', 'administer software updates'));
+    $this->drupalLogin($update_admin_user);
+
+    $system_info = array(
+      '#all' => array(
+        'version' => '7.0',
+      ),
+      'aaa_update_test' => array(
+        'project' => 'aaa_update_test',
+        'version' => '7.x-1.0',
+        'hidden' => FALSE,
+      ),
+    );
+    variable_set('update_test_system_info', $system_info);
+    $update_status = array(
+      'aaa_update_test' => array(
+        'status' => UPDATE_NOT_SECURE,
+      ),
+    );
+    variable_set('update_test_update_status', $update_status);
+    $this->refreshUpdateStatus(
+      array(
+        'drupal' => '0',
+        'aaa_update_test' => '1_0',
+      )
+    );
+    $this->drupalGet('admin/reports/updates');
+    $this->assertRaw('<h3>' . t('Modules') . '</h3>');
+    $this->assertText(t('Security update required!'));
+    $this->assertRaw(l(t('AAA Update test'), 'http://example.com/project/aaa_update_test'), t('Link to aaa_update_test project appears.'));
+
+    // Visit the reports page again without the altering and make sure the
+    // status is back to normal.
+    variable_set('update_test_update_status', array());
+    $this->drupalGet('admin/reports/updates');
+    $this->assertRaw('<h3>' . t('Modules') . '</h3>');
+    $this->assertNoText(t('Security update required!'));
+    $this->assertRaw(l(t('AAA Update test'), 'http://example.com/project/aaa_update_test'), t('Link to aaa_update_test project appears.'));
+
+    // Turn the altering back on and visit the Update manager UI.
+    variable_set('update_test_update_status', $update_status);
+    $this->drupalGet('admin/modules/update');
+    $this->assertText(t('Security update'));
+
+    // Turn the altering back off and visit the Update manager UI.
+    variable_set('update_test_update_status', array());
+    $this->drupalGet('admin/modules/update');
+    $this->assertNoText(t('Security update'));
+  }
+
 }
 
+class UpdateTestUploadCase extends UpdateTestHelper {
+  public static function getInfo() {
+    return array(
+      'name' => 'Upload and extract module functionality',
+      'description' => 'Tests the update module\'s upload and extraction functionality.',
+      'group' => 'Update',
+    );
+  }
+
+  public function setUp() {
+    parent::setUp('update', 'update_test');
+    variable_set('allow_authorize_operations', TRUE);
+    $admin_user = $this->drupalCreateUser(array('administer software updates', 'administer site configuration'));
+    $this->drupalLogin($admin_user);
+  }
+
+  /**
+   * Tests upload and extraction of a module.
+   */
+  public function testUploadModule() {
+    // Images are not valid archives, so get one and try to install it.
+    $invalidArchiveFile = reset($this->drupalGetTestFiles('image'));
+    $edit = array(
+      'files[project_upload]' => $invalidArchiveFile->uri,
+    );
+    // This also checks that the correct archive extensions are allowed.
+    $this->drupalPost('admin/modules/install', $edit, t('Install'));
+    $this->assertText(t('Only files with the following extensions are allowed: @archive_extensions.', array('@archive_extensions' => archiver_get_extensions())),'Only valid archives can be uploaded.');
+
+    // Check to ensure an existing module can't be reinstalled. Also checks that
+    // the archive was extracted since we can't know if the module is already
+    // installed until after extraction.
+    $validArchiveFile = drupal_get_path('module', 'update') . '/tests/aaa_update_test.tar.gz';
+    $edit = array(
+      'files[project_upload]' => $validArchiveFile,
+    );
+    $this->drupalPost('admin/modules/install', $edit, t('Install'));
+    $this->assertText(t('@module_name is already installed.', array('@module_name' => 'AAA Update test')), 'Existing module was extracted and not reinstalled.');
+  }
+
+  /**
+   * Ensure that archiver extensions are properly merged in the UI.
+   */
+  function testFileNameExtensionMerging() {
+    $this->drupalGet('admin/modules/install');    
+    // Make sure the bogus extension supported by update_test.module is there.
+    $this->assertPattern('/archive extensions are supported:.*update-test-extension/', t("Found 'update-test-extension' extension"));
+    // Make sure it didn't clobber the first option from core.
+    $this->assertPattern('/archive extensions are supported:.*zip/', t("Found 'zip' extension"));
+  }
+
+  /**
+   * Check the messages on Update manager pages when missing a security update.
+   */
+  function testUpdateManagerCoreSecurityUpdateMessages() {
+    $setting = array(
+      '#all' => array(
+        'version' => '7.0',
+      ),
+    );
+    variable_set('update_test_system_info', $setting);
+    variable_set('update_fetch_url', url('update-test', array('absolute' => TRUE)));
+    variable_set('update_test_xml_map', array('drupal' => '2-sec'));
+    // Initialize the update status.
+    $this->drupalGet('admin/reports/updates');
+
+    // Now, make sure none of the Update manager pages have duplicate messages
+    // about core missing a security update.
+
+    $this->drupalGet('admin/modules/install');
+    $this->assertNoText(t('There is a security update available for your version of Drupal.'));
+
+    $this->drupalGet('admin/modules/update');
+    $this->assertNoText(t('There is a security update available for your version of Drupal.'));
+
+    $this->drupalGet('admin/appearance/install');
+    $this->assertNoText(t('There is a security update available for your version of Drupal.'));
+
+    $this->drupalGet('admin/appearance/update');
+    $this->assertNoText(t('There is a security update available for your version of Drupal.'));
+
+    $this->drupalGet('admin/reports/updates/install');
+    $this->assertNoText(t('There is a security update available for your version of Drupal.'));
+
+    $this->drupalGet('admin/reports/updates/update');
+    $this->assertNoText(t('There is a security update available for your version of Drupal.'));
+
+    $this->drupalGet('admin/update/ready');
+    $this->assertNoText(t('There is a security update available for your version of Drupal.'));
+  }
+
+}

@@ -1,5 +1,5 @@
 <?php
-// $Id: menu.inc,v 1.392 2010/05/17 18:47:25 dries Exp $
+// $Id: menu.inc,v 1.416 2010/10/21 11:56:17 dries Exp $
 
 /**
  * @file
@@ -72,7 +72,7 @@
  */
 
 /**
- * @name Menu flags
+ * @defgroup menu_flags Menu flags
  * @{
  * Flags for use in the "type" attribute of menu items.
  */
@@ -122,7 +122,7 @@ define('MENU_IS_LOCAL_ACTION', 0x0100);
  */
 
 /**
- * @name Menu item types
+ * @defgroup menu_item_types Menu item types
  * @{
  * Menu item definitions provide one of these constants, which are shortcuts for
  * combinations of the above flags.
@@ -141,9 +141,9 @@ define('MENU_NORMAL_ITEM', MENU_VISIBLE_IN_TREE | MENU_VISIBLE_IN_BREADCRUMB);
  * Menu type -- A hidden, internal callback, typically used for API calls.
  *
  * Callbacks simply register a path so that the correct function is fired
- * when the URL is accessed. They are not shown in the menu.
+ * when the URL is accessed. They do not appear in menus or breadcrumbs.
  */
-define('MENU_CALLBACK', MENU_VISIBLE_IN_BREADCRUMB);
+define('MENU_CALLBACK', 0x0000);
 
 /**
  * Menu type -- A normal menu item, hidden until enabled by an administrator.
@@ -185,7 +185,7 @@ define('MENU_LOCAL_ACTION', MENU_IS_LOCAL_TASK | MENU_IS_LOCAL_ACTION | MENU_VIS
  */
 
 /**
- * @name Menu context types
+ * @defgroup menu_context_types Menu context types
  * @{
  * Flags for use in the "context" attribute of menu router items.
  */
@@ -213,7 +213,7 @@ define('MENU_CONTEXT_INLINE', 0x0002);
  */
 
 /**
- * @name Menu status codes
+ * @defgroup menu_status_codes Menu status codes
  * @{
  * Status codes for menu callbacks.
  */
@@ -239,11 +239,16 @@ define('MENU_ACCESS_DENIED', 3);
 define('MENU_SITE_OFFLINE', 4);
 
 /**
+ * Internal menu status code -- Everything is working fine.
+ */
+define('MENU_SITE_ONLINE', 5);
+
+/**
  * @} End of "Menu status codes".
  */
 
 /**
- * @Name Menu tree parameters
+ * @defgroup menu_tree_parameters Menu tree parameters
  * @{
  * Menu tree
  */
@@ -310,12 +315,16 @@ function menu_get_ancestors($parts) {
     }
     $current = '';
     for ($j = $length; $j >= 0; $j--) {
+      // Check the bit on the $j offset.
       if ($i & (1 << $j)) {
+        // Bit one means the original value.
         $current .= $parts[$length - $j];
       }
       else {
+        // Bit zero means means wildcard.
         $current .= '%';
       }
+      // Unless we are at offset 0, add a slash.
       if ($j) {
         $current .= '/';
       }
@@ -447,21 +456,23 @@ function menu_get_item($path = NULL, $router_item = NULL) {
  *   the result to the caller (FALSE).
  */
 function menu_execute_active_handler($path = NULL, $deliver = TRUE) {
-  if (_menu_site_is_offline()) {
-    $page_callback_result = MENU_SITE_OFFLINE;
-  }
-  else {
+  // Check if site is offline.
+  $page_callback_result = _menu_site_is_offline() ? MENU_SITE_OFFLINE : MENU_SITE_ONLINE;
+
+  // Allow other modules to change the site status but not the path because that
+  // would not change the global variable. hook_url_inbound_alter() can be used
+  // to change the path. Code later will not use the $read_only_path variable.
+  $read_only_path = !empty($path) ? $path : $_GET['q'];
+  drupal_alter('menu_site_status', $page_callback_result, $read_only_path);
+
+  // Only continue if the site status is not set.
+  if ($page_callback_result == MENU_SITE_ONLINE) {
     // Rebuild if we know it's needed, or if the menu masks are missing which
     // occurs rarely, likely due to a race condition of multiple rebuilds.
     if (variable_get('menu_rebuild_needed', FALSE) || !variable_get('menu_masks', array())) {
       menu_rebuild();
     }
     if ($router_item = menu_get_item($path)) {
-      // hook_menu_alter() lets modules control menu router information that
-      // doesn't depend on the details of a particular page request.
-      // Here, we want to give modules a chance to use request-time information
-      // to make alterations just for this request.
-      drupal_alter('menu_active_handler', $router_item, $path);
       if ($router_item['access']) {
         if ($router_item['include_file']) {
           require_once DRUPAL_ROOT . '/' . $router_item['include_file'];
@@ -565,6 +576,7 @@ function _menu_load_objects(&$item, &$map) {
  *   A menu router or menu link item
  * @param $map
  *   An array of path arguments (ex: array('node', '5'))
+ *
  * @return
  *   $item['access'] becomes TRUE if the item is accessible, FALSE otherwise.
  */
@@ -716,12 +728,26 @@ function _menu_translate(&$router_item, $map, $to_arg = FALSE) {
 
   // Generate the link path for the page request or local tasks.
   $link_map = explode('/', $router_item['path']);
+  if (isset($router_item['tab_root'])) {
+    $tab_root_map = explode('/', $router_item['tab_root']);
+  }
+  if (isset($router_item['tab_parent'])) {
+    $tab_parent_map = explode('/', $router_item['tab_parent']);
+  }
   for ($i = 0; $i < $router_item['number_parts']; $i++) {
     if ($link_map[$i] == '%') {
       $link_map[$i] = $path_map[$i];
     }
+    if (isset($tab_root_map[$i]) && $tab_root_map[$i] == '%') {
+      $tab_root_map[$i] = $path_map[$i];
+    }
+    if (isset($tab_parent_map[$i]) && $tab_parent_map[$i] == '%') {
+      $tab_parent_map[$i] = $path_map[$i];
+    }
   }
   $router_item['href'] = implode('/', $link_map);
+  $router_item['tab_root_href'] = implode('/', $tab_root_map);
+  $router_item['tab_parent_href'] = implode('/', $tab_parent_map);
   $router_item['options'] = array();
   _menu_check_access($router_item, $map);
 
@@ -766,7 +792,11 @@ function menu_tail_to_arg($arg, $map, $index) {
  * preparation such as always calling to_arg functions
  *
  * @param $item
- *   A menu link
+ *   A menu link.
+ * @param $translate
+ *   (optional) Whether to try to translate a link containing dynamic path
+ *   argument placeholders (%) based on the menu router item of the current
+ *   path. Defaults to FALSE. Internally used for breadcrumbs.
  *
  * @return
  *   Returns the map of path arguments with objects loaded as defined in the
@@ -777,8 +807,10 @@ function menu_tail_to_arg($arg, $map, $index) {
  *   $item['options'] is unserialized; it is also changed within the call here
  *   to $item['localized_options'] by _menu_item_localize().
  */
-function _menu_link_translate(&$item) {
-  $item['options'] = unserialize($item['options']);
+function _menu_link_translate(&$item, $translate = FALSE) {
+  if (!is_array($item['options'])) {
+    $item['options'] = unserialize($item['options']);
+  }
   if ($item['external']) {
     $item['access'] = 1;
     $map = array();
@@ -787,13 +819,40 @@ function _menu_link_translate(&$item) {
     $item['localized_options'] = $item['options'];
   }
   else {
+    // Complete the path of the menu link with elements from the current path,
+    // if it contains dynamic placeholders (%).
     $map = explode('/', $item['link_path']);
-    if (!empty($item['to_arg_functions'])) {
-      _menu_link_map_translate($map, $item['to_arg_functions']);
+    if (strpos($item['link_path'], '%') !== FALSE) {
+      // Invoke registered to_arg callbacks.
+      if (!empty($item['to_arg_functions'])) {
+        _menu_link_map_translate($map, $item['to_arg_functions']);
+      }
+      // Or try to derive the path argument map from the current router item,
+      // if this $item's path is within the router item's path. This means
+      // that if we are on the current path 'foo/%/bar/%/baz', then
+      // menu_get_item() will have translated the menu router item for the
+      // current path, and we can take over the argument map for a link like
+      // 'foo/%/bar'. This inheritance is only valid for breadcrumb links.
+      // @see _menu_tree_check_access()
+      // @see menu_get_active_breadcrumb()
+      elseif ($translate && ($current_router_item = menu_get_item())) {
+        // If $translate is TRUE, then this link is in the active trail.
+        // Only translate paths within the current path.
+        if (strpos($current_router_item['path'], $item['link_path']) === 0) {
+          $count = count($map);
+          $map = array_slice($current_router_item['original_map'], 0, $count);
+          $item['original_map'] = $map;
+          if (isset($current_router_item['map'])) {
+            $item['map'] = array_slice($current_router_item['map'], 0, $count);
+          }
+          // Reset access to check it (for the first time).
+          unset($item['access']);
+        }
+      }
     }
     $item['href'] = implode('/', $map);
 
-    // Note - skip callbacks without real values for their arguments.
+    // Skip links containing untranslated arguments.
     if (strpos($item['href'], '%') !== FALSE) {
       $item['access'] = FALSE;
       return FALSE;
@@ -857,7 +916,7 @@ function menu_get_object($type = 'node', $position = 1, $path = NULL) {
 }
 
 /**
- * Render a menu tree based on the current path.
+ * Renders a menu tree based on the current path.
  *
  * The tree is expanded based on the current path and dynamic paths are also
  * changed according to the defined to_arg functions (for example the 'My
@@ -867,7 +926,8 @@ function menu_get_object($type = 'node', $position = 1, $path = NULL) {
  *   The name of the menu.
  *
  * @return
- *   The rendered HTML of that menu on the current page.
+ *   A structured array representing the specified menu on the current page, to
+ *   be rendered by drupal_render().
  */
 function menu_tree($menu_name) {
   $menu_output = &drupal_static(__FUNCTION__, array());
@@ -900,11 +960,12 @@ function menu_tree_output($tree) {
   // Pull out just the menu links we are going to render so that we
   // get an accurate count for the first/last classes.
   foreach ($tree as $data) {
-    if (!$data['link']['hidden']) {
+    if ($data['link']['access'] && !$data['link']['hidden']) {
       $items[] = $data;
     }
   }
 
+  $router_item = menu_get_item();
   $num_items = count($items);
   foreach ($items as $i => $data) {
     $class = array();
@@ -914,8 +975,10 @@ function menu_tree_output($tree) {
     if ($i == $num_items - 1) {
       $class[] = 'last';
     }
-    // Set a class if the link has children.
-    if ($data['below']) {
+    // Set a class for the <li>-tag. Since $data['below'] may contain local
+    // tasks, only set 'expanded' class if the link also has children within
+    // the current menu.
+    if ($data['link']['has_children'] && $data['below']) {
       $class[] = 'expanded';
     }
     elseif ($data['link']['has_children']) {
@@ -927,7 +990,14 @@ function menu_tree_output($tree) {
     // Set a class if the link is in the active trail.
     if ($data['link']['in_active_trail']) {
       $class[] = 'active-trail';
-      $data['localized_options']['attributes']['class'][] = 'active-trail';
+      $data['link']['localized_options']['attributes']['class'][] = 'active-trail';
+    }
+    // Normally, l() compares the href of every link with $_GET['q'] and sets
+    // the active class accordingly. But local tasks do not appear in menu
+    // trees, so if the current path is a local task, and this link is its
+    // tab root, then we have to set the class manually.
+    if ($data['link']['href'] == $router_item['tab_root_href'] && $data['link']['href'] != $_GET['q']) {
+      $data['link']['localized_options']['attributes']['class'][] = 'active';
     }
 
     // Allow menu-specific theme overrides.
@@ -946,7 +1016,7 @@ function menu_tree_output($tree) {
     $build['#sorted'] = TRUE;
     // Add the theme wrapper for outer markup.
     // Allow menu-specific theme overrides.
-    $build['#theme_wrappers'][] = 'menu_tree__' . $data['link']['menu_name'];
+    $build['#theme_wrappers'][] = 'menu_tree__' . strtr($data['link']['menu_name'], '-', '_');
   }
 
   return $build;
@@ -978,86 +1048,43 @@ function menu_tree_all_data($menu_name, $link = NULL, $max_depth = NULL) {
   // Use $mlid as a flag for whether the data being loaded is for the whole tree.
   $mlid = isset($link['mlid']) ? $link['mlid'] : 0;
   // Generate a cache ID (cid) specific for this $menu_name, $link, $language, and depth.
-  $cid = 'links:' . $menu_name . ':all-cid:' . $mlid . ':' . $GLOBALS['language']->language . ':' . (int) $max_depth;
+  $cid = 'links:' . $menu_name . ':all:' . $mlid . ':' . $GLOBALS['language']->language . ':' . (int) $max_depth;
 
   if (!isset($tree[$cid])) {
     // If the static variable doesn't have the data, check {cache_menu}.
     $cache = cache_get($cid, 'cache_menu');
     if ($cache && isset($cache->data)) {
-      // If the cache entry exists, it will just be the cid for the actual data.
-      // This avoids duplication of large amounts of data.
-      $cache = cache_get($cache->data, 'cache_menu');
-      if ($cache && isset($cache->data)) {
-        $data = $cache->data;
-      }
+      // If the cache entry exists, it contains the parameters for
+      // menu_build_tree().
+      $tree_parameters = $cache->data;
     }
-    // If the tree data was not in the cache, $data will be NULL.
-    if (!isset($data)) {
-      // Build the query using a LEFT JOIN since there is no match in
-      // {menu_router} for an external link.
-      $query = db_select('menu_links', 'ml', array('fetch' => PDO::FETCH_ASSOC));
-      $query->addTag('translatable');
-      $query->leftJoin('menu_router', 'm', 'm.path = ml.router_path');
-      $query->fields('ml');
-      $query->fields('m', array(
-        'load_functions',
-        'to_arg_functions',
-        'access_callback',
-        'access_arguments',
-        'page_callback',
-        'page_arguments',
-        'delivery_callback',
-        'title',
-        'title_callback',
-        'title_arguments',
-        'theme_callback',
-        'theme_arguments',
-        'type',
-        'description',
-      ));
-      for ($i = 1; $i <= MENU_MAX_DEPTH; $i++) {
-        $query->orderBy('p' . $i, 'ASC');
-      }
-      $query->condition('ml.menu_name', $menu_name);
-      if (isset($max_depth)) {
-        $query->condition('ml.depth', $max_depth, '<=');
-      }
+    // If the tree data was not in the cache, build $tree_parameters.
+    if (!isset($tree_parameters)) {
+      $tree_parameters = array(
+        'min_depth' => 1,
+        'max_depth' => $max_depth,
+      );
       if ($mlid) {
         // The tree is for a single item, so we need to match the values in its
         // p columns and 0 (the top level) with the plid values of other links.
-        $args = array(0);
+        $parents = array(0);
         for ($i = 1; $i < MENU_MAX_DEPTH; $i++) {
-          $args[] = $link["p$i"];
+          if (!empty($link["p$i"])) {
+            $parents[] = $link["p$i"];
+          }
         }
-        $args = array_unique($args);
-        $query->condition('ml.plid', $args, 'IN');
-        $parents = $args;
-        $parents[] = $link['mlid'];
+        $tree_parameters['expanded'] = $parents;
+        $tree_parameters['active_trail'] = $parents;
+        $tree_parameters['active_trail'][] = $mlid;
       }
-      else {
-        // Get all links in this menu.
-        $parents = array();
-      }
-      // Select the links from the table, and build an ordered array of links
-      // using the query result object.
-      $links = array();
-      foreach ($query->execute() as $item) {
-        $links[] = $item;
-      }
-      $data['tree'] = menu_tree_data($links, $parents);
-      $data['node_links'] = array();
-      menu_tree_collect_node_links($data['tree'], $data['node_links']);
-      // Cache the data, if it is not already in the cache.
-      $tree_cid = _menu_tree_cid($menu_name, $data);
-      if (!cache_get($tree_cid, 'cache_menu')) {
-        cache_set($tree_cid, $data, 'cache_menu');
-      }
-      // Cache the cid of the (shared) data using the menu and item-specific cid.
-      cache_set($cid, $tree_cid, 'cache_menu');
+
+      // Cache the tree building parameters using the page-specific cid.
+      cache_set($cid, $tree_parameters, 'cache_menu');
     }
-    // Check access for the current user to each item in the tree.
-    menu_tree_check_access($data['tree'], $data['node_links']);
-    $tree[$cid] = $data['tree'];
+
+    // Build the tree using the parameters; the resulting tree will be cached
+    // by _menu_build_tree()).
+    $tree[$cid] = menu_build_tree($menu_name, $tree_parameters);
   }
 
   return $tree[$cid];
@@ -1070,9 +1097,13 @@ function menu_tree_all_data($menu_name, $link = NULL, $max_depth = NULL) {
  * field, see http://drupal.org/node/141866 for more.
  *
  * @param $menu_name
- *   The named menu links to return
+ *   The named menu links to return.
  * @param $max_depth
- *   Optional maximum depth of links to retrieve.
+ *   (optional) The maximum depth of links to retrieve.
+ * @param $only_active_trail
+ *   (optional) Whether to only return the links in the active trail (TRUE)
+ *   instead of all links on every level of the menu link tree (FALSE). Defaults
+ *   to FALSE. Internally used for breadcrumbs only.
  *
  * @return
  *   An array of menu links, in the order they should be rendered. The array
@@ -1081,7 +1112,7 @@ function menu_tree_all_data($menu_name, $link = NULL, $max_depth = NULL) {
  *   submenu below the link if there is one, and it is a subtree that has the
  *   same structure described for the top-level array.
  */
-function menu_tree_page_data($menu_name, $max_depth = NULL) {
+function menu_tree_page_data($menu_name, $max_depth = NULL, $only_active_trail = FALSE) {
   $tree = &drupal_static(__FUNCTION__, array());
 
   // Load the menu item corresponding to the current page.
@@ -1090,69 +1121,66 @@ function menu_tree_page_data($menu_name, $max_depth = NULL) {
       $max_depth = min($max_depth, MENU_MAX_DEPTH);
     }
     // Generate a cache ID (cid) specific for this page.
-    $cid = 'links:' . $menu_name . ':page-cid:' . $item['href'] . ':' . $GLOBALS['language']->language . ':' . (int) $item['access'] . ':' . (int) $max_depth;
+    $cid = 'links:' . $menu_name . ':page:' . $item['href'] . ':' . $GLOBALS['language']->language . ':' . (int) $item['access'] . ':' . (int) $max_depth;
+    // If we are asked for the active trail only, and $menu_name has not been
+    // built and cached for this page yet, then this likely means that it
+    // won't be built anymore, as this function is invoked from
+    // template_process_page(). So in order to not build a giant menu tree
+    // that needs to be checked for access on all levels, we simply check
+    // whether we have the menu already in cache, or otherwise, build a minimum
+    // tree containing the breadcrumb/active trail only.
+    // @see menu_set_active_trail()
+    if (!isset($tree[$cid]) && $only_active_trail) {
+      $cid .= ':trail';
+    }
 
     if (!isset($tree[$cid])) {
       // If the static variable doesn't have the data, check {cache_menu}.
       $cache = cache_get($cid, 'cache_menu');
       if ($cache && isset($cache->data)) {
-        // If the cache entry exists, it will just be the cid for the actual data.
-        // This avoids duplication of large amounts of data.
-        $cache = cache_get($cache->data, 'cache_menu');
-        if ($cache && isset($cache->data)) {
-          $data = $cache->data;
-        }
+        // If the cache entry exists, it contains the parameters for
+        // menu_build_tree().
+        $tree_parameters = $cache->data;
       }
-      // If the tree data was not in the cache, $data will be NULL.
-      if (!isset($data)) {
-        // Build and run the query, and build the tree.
+      // If the tree data was not in the cache, build $tree_parameters.
+      if (!isset($tree_parameters)) {
+        $tree_parameters = array(
+          'min_depth' => 1,
+          'max_depth' => $max_depth,
+        );
+        // Parent mlids; used both as key and value to ensure uniqueness.
+        // We always want all the top-level links with plid == 0.
+        $active_trail = array(0 => 0);
+
+        // If the item for the current page is accessible, build the tree
+        // parameters accordingly.
         if ($item['access']) {
-          // Check whether a menu link exists that corresponds to the current path.
-          $args[] = $item['href'];
-          if (drupal_is_front_page()) {
-            $args[] = '<front>';
+          // Find a menu link corresponding to the current path.
+          if ($active_link = menu_link_get_preferred()) {
+            // The active link may only be taken into account to build the
+            // active trail, if it resides in the requested menu. Otherwise,
+            // we'd needlessly re-run _menu_build_tree() queries for every menu
+            // on every page.
+            if ($active_link['menu_name'] == $menu_name) {
+              // Use all the coordinates, except the last one because there
+              // can be no child beyond the last column.
+              for ($i = 1; $i < MENU_MAX_DEPTH; $i++) {
+                if ($active_link['p' . $i]) {
+                  $active_trail[$active_link['p' . $i]] = $active_link['p' . $i];
+                }
+              }
+              // If we are asked to build links for the active trail only, skip
+              // the entire 'expanded' handling.
+              if ($only_active_trail) {
+                $tree_parameters['only_active_trail'] = TRUE;
+              }
+            }
           }
-          $parents = db_select('menu_links')
-            ->fields('menu_links', array(
-              'p1',
-              'p2',
-              'p3',
-              'p4',
-              'p5',
-              'p6',
-              'p7',
-              'p8',
-            ))
-            ->condition('menu_name', $menu_name)
-            ->condition('link_path', $args, 'IN')
-            ->execute()->fetchAssoc();
+          $parents = $active_trail;
 
-          if (empty($parents)) {
-            // If no link exists, we may be on a local task that's not in the links.
-            // TODO: Handle the case like a local task on a specific node in the menu.
-            $parents = db_select('menu_links')
-              ->fields('menu_links', array(
-                'p1',
-                'p2',
-                'p3',
-                'p4',
-                'p5',
-                'p6',
-                'p7',
-                'p8',
-              ))
-              ->condition('menu_name', $menu_name)
-              ->condition('link_path', $item['tab_root'])
-              ->execute()->fetchAssoc();
-          }
-          // We always want all the top-level links with plid == 0.
-          $parents[] = '0';
-
-          // Use array_values() so that the indices are numeric for array_merge().
-          $args = $parents = array_unique(array_values($parents));
           $expanded = variable_get('menu_expanded', array());
           // Check whether the current menu has any links set to be expanded.
-          if (in_array($menu_name, $expanded)) {
+          if (!$only_active_trail && in_array($menu_name, $expanded)) {
             // Collect all the links set to be expanded, and then add all of
             // their children to the list as well.
             do {
@@ -1161,72 +1189,31 @@ function menu_tree_page_data($menu_name, $max_depth = NULL) {
                 ->condition('menu_name', $menu_name)
                 ->condition('expanded', 1)
                 ->condition('has_children', 1)
-                ->condition('plid', $args, 'IN')
-                ->condition('mlid', $args, 'NOT IN')
+                ->condition('plid', $parents, 'IN')
+                ->condition('mlid', $parents, 'NOT IN')
                 ->execute();
               $num_rows = FALSE;
               foreach ($result as $item) {
-                $args[] = $item['mlid'];
+                $parents[$item['mlid']] = $item['mlid'];
                 $num_rows = TRUE;
               }
             } while ($num_rows);
           }
+          $tree_parameters['expanded'] = $parents;
+          $tree_parameters['active_trail'] = $active_trail;
         }
+        // If access is denied, we only show top-level links in menus.
         else {
-          // Show only the top-level menu items when access is denied.
-          $args = array(0);
-          $parents = array();
+          $tree_parameters['expanded'] = $active_trail;
+          $tree_parameters['active_trail'] = $active_trail;
         }
-        // Select the links from the table, and recursively build the tree. We
-        // LEFT JOIN since there is no match in {menu_router} for an external
-        // link.
-        $query = db_select('menu_links', 'ml', array('fetch' => PDO::FETCH_ASSOC));
-        $query->addTag('translatable');
-        $query->leftJoin('menu_router', 'm', 'm.path = ml.router_path');
-        $query->fields('ml');
-        $query->fields('m', array(
-          'load_functions',
-          'to_arg_functions',
-          'access_callback',
-          'access_arguments',
-          'page_callback',
-          'page_arguments',
-          'delivery_callback',
-          'title',
-          'title_callback',
-          'title_arguments',
-          'theme_callback',
-          'theme_arguments',
-          'type',
-          'description',
-        ));
-        for ($i = 1; $i <= MENU_MAX_DEPTH; $i++) {
-          $query->orderBy('p' . $i, 'ASC');
-        }
-        $query->condition('ml.menu_name', $menu_name);
-        $query->condition('ml.plid', $args, 'IN');
-        if (isset($max_depth)) {
-          $query->condition('ml.depth', $max_depth, '<=');
-        }
-        // Build an ordered array of links using the query result object.
-        $links = array();
-        foreach ($query->execute() as $item) {
-          $links[] = $item;
-        }
-        $data['tree'] = menu_tree_data($links, $parents);
-        $data['node_links'] = array();
-        menu_tree_collect_node_links($data['tree'], $data['node_links']);
-        // Cache the data, if it is not already in the cache.
-        $tree_cid = _menu_tree_cid($menu_name, $data);
-        if (!cache_get($tree_cid, 'cache_menu')) {
-          cache_set($tree_cid, $data, 'cache_menu');
-        }
-        // Cache the cid of the (shared) data using the page-specific cid.
-        cache_set($cid, $tree_cid, 'cache_menu');
+        // Cache the tree building parameters using the page-specific cid.
+        cache_set($cid, $tree_parameters, 'cache_menu');
       }
-      // Check access for the current user to each item in the tree.
-      menu_tree_check_access($data['tree'], $data['node_links']);
-      $tree[$cid] = $data['tree'];
+
+      // Build the tree using the parameters; the resulting tree will be cached
+      // by _menu_build_tree().
+      $tree[$cid] = menu_build_tree($menu_name, $tree_parameters);
     }
     return $tree[$cid];
   }
@@ -1235,10 +1222,124 @@ function menu_tree_page_data($menu_name, $max_depth = NULL) {
 }
 
 /**
- * Helper function - compute the real cache ID for menu tree data.
+ * Build a menu tree, translate links, and check access.
+ *
+ * @param $menu_name
+ *   The name of the menu.
+ * @param $parameters
+ *   (optional) An associative array of build parameters. Possible keys:
+ *   - expanded: An array of parent link ids to return only menu links that are
+ *     children of one of the plids in this list. If empty, the whole menu tree
+ *     is built, unless 'only_active_trail' is TRUE.
+ *   - active_trail: An array of mlids, representing the coordinates of the
+ *     currently active menu link.
+ *   - only_active_trail: Whether to only return links that are in the active
+ *     trail. This option is ignored, if 'expanded' is non-empty. Internally
+ *     used for breadcrumbs.
+ *   - min_depth: The minimum depth of menu links in the resulting tree.
+ *     Defaults to 1, which is the default to build a whole tree for a menu, i.e.
+ *     excluding menu container itself.
+ *   - max_depth: The maximum depth of menu links in the resulting tree.
+ *
+ * @return
+ *   A fully built menu tree.
  */
-function _menu_tree_cid($menu_name, $data) {
-  return 'links:' . $menu_name . ':tree-data:' . $GLOBALS['language']->language . ':' . hash('sha256', serialize($data));
+function menu_build_tree($menu_name, array $parameters = array()) {
+  // Build the menu tree.
+  $data = _menu_build_tree($menu_name, $parameters);
+  // Check access for the current user to each item in the tree.
+  menu_tree_check_access($data['tree'], $data['node_links']);
+  return $data['tree'];
+}
+
+/**
+ * Build a menu tree.
+ *
+ * This function may be used build the data for a menu tree only, for example
+ * to further massage the data manually before further processing happens.
+ * menu_tree_check_access() needs to be invoked afterwards.
+ *
+ * @see menu_build_tree()
+ */
+function _menu_build_tree($menu_name, array $parameters = array()) {
+  // Static cache of already built menu trees.
+  $trees = &drupal_static(__FUNCTION__, array());
+
+  // Build the cache id; sort parents to prevent duplicate storage and remove
+  // default parameter values.
+  if (isset($parameters['expanded'])) {
+    sort($parameters['expanded']);
+  }
+  $tree_cid = 'links:' . $menu_name . ':tree-data:' . $GLOBALS['language']->language . ':' . hash('sha256', serialize($parameters));
+
+  // If we do not have this tree in the static cache, check {cache_menu}.
+  if (!isset($trees[$tree_cid])) {
+    $cache = cache_get($tree_cid, 'cache_menu');
+    if ($cache && isset($cache->data)) {
+      $trees[$tree_cid] = $cache->data;
+    }
+  }
+
+  if (!isset($trees[$tree_cid])) {
+    // Select the links from the table, and recursively build the tree. We
+    // LEFT JOIN since there is no match in {menu_router} for an external
+    // link.
+    $query = db_select('menu_links', 'ml', array('fetch' => PDO::FETCH_ASSOC));
+    $query->addTag('translatable');
+    $query->leftJoin('menu_router', 'm', 'm.path = ml.router_path');
+    $query->fields('ml');
+    $query->fields('m', array(
+      'load_functions',
+      'to_arg_functions',
+      'access_callback',
+      'access_arguments',
+      'page_callback',
+      'page_arguments',
+      'delivery_callback',
+      'tab_parent',
+      'tab_root',
+      'title',
+      'title_callback',
+      'title_arguments',
+      'theme_callback',
+      'theme_arguments',
+      'type',
+      'description',
+    ));
+    for ($i = 1; $i <= MENU_MAX_DEPTH; $i++) {
+      $query->orderBy('p' . $i, 'ASC');
+    }
+    $query->condition('ml.menu_name', $menu_name);
+    if (!empty($parameters['expanded'])) {
+      $query->condition('ml.plid', $parameters['expanded'], 'IN');
+    }
+    elseif (!empty($parameters['only_active_trail'])) {
+      $query->condition('ml.mlid', $parameters['active_trail'], 'IN');
+    }
+    $min_depth = (isset($parameters['min_depth']) ? $parameters['min_depth'] : 1);
+    if ($min_depth != 1) {
+      $query->condition('ml.depth', $min_depth, '>=');
+    }
+    if (isset($parameters['max_depth'])) {
+      $query->condition('ml.depth', $parameters['max_depth'], '<=');
+    }
+
+    // Build an ordered array of links using the query result object.
+    $links = array();
+    foreach ($query->execute() as $item) {
+      $links[] = $item;
+    }
+    $active_trail = (isset($parameters['active_trail']) ? $parameters['active_trail'] : array());
+    $data['tree'] = menu_tree_data($links, $active_trail, $min_depth);
+    $data['node_links'] = array();
+    menu_tree_collect_node_links($data['tree'], $data['node_links']);
+
+    // Cache the data, if it is not already in the cache.
+    cache_set($tree_cid, $data, 'cache_menu');
+    $trees[$tree_cid] = $data;
+  }
+
+  return $trees[$tree_cid];
 }
 
 /**
@@ -1274,13 +1375,12 @@ function menu_tree_collect_node_links(&$tree, &$node_links) {
  *   menu_tree_collect_node_links().
  */
 function menu_tree_check_access(&$tree, $node_links = array()) {
-
   if ($node_links) {
     $nids = array_keys($node_links);
-    $select = db_select('node');
-    $select->addField('node', 'nid');
-    $select->condition('status', 1);
-    $select->condition('nid', $nids, 'IN');
+    $select = db_select('node', 'n');
+    $select->addField('n', 'nid');
+    $select->condition('n.status', 1);
+    $select->condition('n.nid', $nids, 'IN');
     $select->addTag('node_access');
     $nids = $select->execute()->fetchCol();
     foreach ($nids as $nid) {
@@ -1290,7 +1390,6 @@ function menu_tree_check_access(&$tree, $node_links = array()) {
     }
   }
   _menu_tree_check_access($tree);
-  return;
 }
 
 /**
@@ -1301,7 +1400,7 @@ function _menu_tree_check_access(&$tree) {
   foreach ($tree as $key => $v) {
     $item = &$tree[$key]['link'];
     _menu_link_translate($item);
-    if ($item['access']) {
+    if ($item['access'] || ($item['in_active_trail'] && strpos($item['href'], '%') !== FALSE)) {
       if ($tree[$key]['below']) {
         _menu_tree_check_access($tree[$key]['below']);
       }
@@ -1493,7 +1592,6 @@ function menu_get_active_help() {
   }
 
   $arg = drupal_help_arg(arg(NULL));
-  $empty_arg = drupal_help_arg();
 
   foreach (module_implements('help') as $module) {
     $function = $module . '_help';
@@ -1576,7 +1674,6 @@ function menu_list_system_menus() {
     'management' => 'Management',
     'user-menu' => 'User menu',
     'main-menu' => 'Main menu',
-    'secondary-menu' => 'Secondary menu',
   );
 }
 
@@ -1635,6 +1732,7 @@ function menu_navigation_links($menu_name, $level = 0) {
   }
 
   // Create a single level of links.
+  $router_item = menu_get_item();
   $links = array();
   foreach ($tree as $item) {
     if (!$item['link']['hidden']) {
@@ -1644,6 +1742,14 @@ function menu_navigation_links($menu_name, $level = 0) {
       $l['title'] = $item['link']['title'];
       if ($item['link']['in_active_trail']) {
         $class = ' active-trail';
+        $l['attributes']['class'][] = 'active-trail';
+      }
+      // Normally, l() compares the href of every link with $_GET['q'] and sets
+      // the active class accordingly. But local tasks do not appear in menu
+      // trees, so if the current path is a local task, and this link is its
+      // tab root, then we have to set the class manually.
+      if ($item['link']['href'] == $router_item['tab_root_href'] && $item['link']['href'] != $_GET['q']) {
+        $l['attributes']['class'][] = 'active';
       }
       // Keyed with the unique mlid to generate classes in theme_links().
       $links['menu-' . $item['link']['mlid'] . $class] = $l;
@@ -1689,7 +1795,7 @@ function menu_local_tasks($level = 0) {
     // If this router item points to its parent, start from the parents to
     // compute tabs and actions.
     if ($router_item && ($router_item['type'] & MENU_LINKS_TO_PARENT)) {
-      $router_item = menu_get_item($router_item['tab_parent']);
+      $router_item = menu_get_item($router_item['tab_parent_href']);
     }
 
     // If we failed to fetch a router item or the current user doesn't have
@@ -1698,7 +1804,7 @@ function menu_local_tasks($level = 0) {
       return $empty;
     }
 
-    // Get all tabs and the root page.
+    // Get all tabs (also known as local tasks) and the root page.
     $result = db_select('menu_router', NULL, array('fetch' => PDO::FETCH_ASSOC))
       ->fields('menu_router')
       ->condition('tab_root', $router_item['tab_root'])
@@ -1735,14 +1841,31 @@ function menu_local_tasks($level = 0) {
       $tab_count = 0;
       $action_count = 0;
       foreach ($children[$path] as $item) {
+        // Local tasks can be normal items too, so bitmask with
+        // MENU_IS_LOCAL_TASK before checking.
+        if (!($item['type'] & MENU_IS_LOCAL_TASK)) {
+          // This item is not a tab, skip it.
+          continue;
+        }
         if ($item['access']) {
           $link = $item;
-          // The default task is always active.
-          if ($item['type'] == MENU_DEFAULT_LOCAL_TASK) {
+          // The default task is always active. As tabs can be normal items
+          // too, so bitmask with MENU_LINKS_TO_PARENT before checking.
+          if (($item['type'] & MENU_LINKS_TO_PARENT) == MENU_LINKS_TO_PARENT) {
             // Find the first parent which is not a default local task or action.
-            for ($p = $item['tab_parent']; $tasks[$p]['type'] == MENU_DEFAULT_LOCAL_TASK; $p = $tasks[$p]['tab_parent']);
+            for ($p = $item['tab_parent']; ($tasks[$p]['type'] & MENU_LINKS_TO_PARENT) == MENU_LINKS_TO_PARENT; $p = $tasks[$p]['tab_parent']);
             // Use the path of the parent instead.
             $link['href'] = $tasks[$p]['href'];
+            // Mark the link as active, if the current path happens to be the
+            // path of the default local task itself (i.e., instead of its
+            // tab_parent_href or tab_root_href). Normally, links for default
+            // local tasks link to their parent, but the path of default local
+            // tasks can still be accessed directly, in which case this link
+            // would not be marked as active, since l() only compares the href
+            // with $_GET['q'].
+            if ($link['href'] != $_GET['q']) {
+              $link['localized_options']['attributes']['class'][] = 'active';
+            }
             $tabs_current[] = array(
               '#theme' => 'menu_local_task',
               '#link' => $link,
@@ -1752,19 +1875,23 @@ function menu_local_tasks($level = 0) {
             $tab_count++;
           }
           else {
-            if ($item['type'] == MENU_LOCAL_TASK) {
-              $tabs_current[] = array(
-                '#theme' => 'menu_local_task',
-                '#link' => $link,
-              );
-              $tab_count++;
-            }
-            else {
+            // Actions can be normal items too, so bitmask with
+            // MENU_IS_LOCAL_ACTION before checking.
+            if (($item['type'] & MENU_IS_LOCAL_ACTION) == MENU_IS_LOCAL_ACTION) {
+              // The item is an action, display it as such.
               $actions_current[] = array(
                 '#theme' => 'menu_local_action',
                 '#link' => $link,
               );
               $action_count++;
+            }
+            else {
+              // Otherwise, it's a normal tab.
+              $tabs_current[] = array(
+                '#theme' => 'menu_local_task',
+                '#link' => $link,
+              );
+              $tab_count++;
             }
           }
         }
@@ -1788,15 +1915,18 @@ function menu_local_tasks($level = 0) {
       $next_parent = '';
       $count = 0;
       foreach ($children[$parent] as $item) {
+        // Skip local actions.
         if ($item['type'] & MENU_IS_LOCAL_ACTION) {
           continue;
         }
         if ($item['access']) {
           $count++;
           $link = $item;
-          if ($item['type'] == MENU_DEFAULT_LOCAL_TASK) {
+          // Local tasks can be normal items too, so bitmask with
+          // MENU_LINKS_TO_PARENT before checking.
+          if (($item['type'] & MENU_LINKS_TO_PARENT) == MENU_LINKS_TO_PARENT) {
             // Find the first parent which is not a default local task.
-            for ($p = $item['tab_parent']; $tasks[$p]['type'] == MENU_DEFAULT_LOCAL_TASK; $p = $tasks[$p]['tab_parent']);
+            for ($p = $item['tab_parent']; ($tasks[$p]['type'] & MENU_LINKS_TO_PARENT) == MENU_LINKS_TO_PARENT; $p = $tasks[$p]['tab_parent']);
             // Use the path of the parent instead.
             $link['href'] = $tasks[$p]['href'];
             if ($item['path'] == $router_item['path']) {
@@ -1805,6 +1935,13 @@ function menu_local_tasks($level = 0) {
           }
           // We check for the active tab.
           if ($item['path'] == $path) {
+            // Mark the link as active, if the current path is a (second-level)
+            // local task of a default local task. Since this default local task
+            // links to its parent, l() will not mark it as active, as it only
+            // compares the link's href to $_GET['q'].
+            if ($link['href'] != $_GET['q']) {
+              $link['localized_options']['attributes']['class'][] = 'active';
+            }
             $tabs_current[] = array(
               '#theme' => 'menu_local_task',
               '#link' => $link,
@@ -1999,12 +2136,12 @@ function theme_menu_local_tasks() {
   $output = array();
 
   if ($primary = menu_primary_local_tasks()) {
-    $primary['#prefix'] = '<ul class="tabs primary">';
+    $primary['#prefix'] = '<h2 class="element-invisible">' . t('Primary tabs') . '</h2><ul class="tabs primary">';
     $primary['#suffix'] = '</ul>';
     $output[] = $primary;
   }
   if ($secondary = menu_secondary_local_tasks()) {
-    $secondary['#prefix'] = '<ul class="tabs secondary">';
+    $secondary['#prefix'] = '<h2 class="element-invisible">' . t('Secondary tabs') . '</h2><ul class="tabs secondary">';
     $secondary['#suffix'] = '</ul>';
     $output[] = $secondary;
   }
@@ -2022,7 +2159,7 @@ function menu_set_active_menu_names($menu_names = NULL) {
     $active = $menu_names;
   }
   elseif (!isset($active)) {
-    $active = variable_get('menu_default_active_menus', array('management', 'navigation', 'user-menu', 'main-menu'));
+    $active = variable_get('menu_default_active_menus', array_keys(menu_list_system_menus()));
   }
   return $active;
 }
@@ -2049,7 +2186,7 @@ function menu_set_active_item($path) {
 }
 
 /**
- * Sets or gets the active trail (path to root menu root) of the current page.
+ * Sets or gets the active trail (path to menu tree root) of the current page.
  *
  * @param $new_trail
  *   Menu trail to set, or NULL to use previously-set or calculated trail. If
@@ -2078,74 +2215,148 @@ function menu_set_active_trail($new_trail = NULL) {
   }
   elseif (!isset($trail)) {
     $trail = array();
-    $trail[] = array('title' => t('Home'), 'href' => '<front>', 'localized_options' => array(), 'type' => 0);
-    $item = menu_get_item();
+    $trail[] = array(
+      'title' => t('Home'),
+      'href' => '<front>',
+      'link_path' => '',
+      'localized_options' => array(),
+      'type' => 0,
+    );
 
-    // Check whether the current item is a local task (displayed as a tab).
-    if ($item['tab_parent']) {
-      // The title of a local task is used for the tab, never the page title.
-      // Thus, replace it with the item corresponding to the root path to get
-      // the relevant href and title. For example, the menu item corresponding
-      // to 'admin' is used when on the 'By module' tab at 'admin/by-module'.
-      $parts = explode('/', $item['tab_root']);
-      $args = arg();
-      // Replace wildcards in the root path using the current path.
-      foreach ($parts as $index => $part) {
-        if ($part == '%') {
-          $parts[$index] = $args[$index];
-        }
-      }
-      // Retrieve the menu item using the root path after wildcard replacement.
-      $root_item = menu_get_item(implode('/', $parts));
-      if ($root_item && $root_item['access']) {
-        $item = $root_item;
-      }
+    // Try to retrieve a menu link corresponding to the current path. If more
+    // than one exists, the link from the most preferred menu is returned.
+    $preferred_link = menu_link_get_preferred();
+    $current_item = menu_get_item();
+
+    // There is a link for the current path.
+    if ($preferred_link) {
+      // Pass TRUE for $only_active_trail to make menu_tree_page_data() build
+      // a stripped down menu tree containing the active trail only, in case
+      // the given menu has not been built in this request yet.
+      $tree = menu_tree_page_data($preferred_link['menu_name'], NULL, TRUE);
+      list($key, $curr) = each($tree);
     }
-    $menu_names = menu_get_active_menu_names();
-    $curr = FALSE;
-    // Determine if the current page is a link in any of the active menus.
-    if ($menu_names) {
-      $query = db_select('menu_links', 'ml');
-      $query->fields('ml', array('menu_name'));
-      $query->condition('ml.link_path', $item['href']);
-      $query->condition('ml.menu_name', $menu_names, 'IN');
-      $result = $query->execute();
-      $found = array();
-      foreach ($result as $menu) {
-        $found[] = $menu->menu_name;
-      }
-      // The $menu_names array is ordered, so take the first one that matches.
-      $found_menu_names = array_intersect($menu_names, $found);
-      $name = current($found_menu_names);
-      if ($name !== FALSE) {
-        $tree = menu_tree_page_data($name);
-        list($key, $curr) = each($tree);
-      }
+    // There is no link for the current path.
+    else {
+      $preferred_link = $current_item;
+      $curr = FALSE;
     }
 
     while ($curr) {
-      // Terminate the loop when we find the current path in the active trail.
-      if ($curr['link']['href'] == $item['href']) {
-        $trail[] = $curr['link'];
-        $curr = FALSE;
-      }
-      else {
-        // Add the link if it's in the active trail, then move to the link below.
-        if ($curr['link']['in_active_trail']) {
-          $trail[] = $curr['link'];
-          $tree = $curr['below'] ? $curr['below'] : array();
+      $link = $curr['link'];
+      if ($link['in_active_trail']) {
+        // Add the link to the trail, unless it links to its parent.
+        if (!($link['type'] & MENU_LINKS_TO_PARENT)) {
+          // The menu tree for the active trail may contain additional links
+          // that have not been translated yet, since they contain dynamic
+          // argument placeholders (%). Such links are not contained in regular
+          // menu trees, and have only been loaded for the additional
+          // translation that happens here, so as to be able to display them in
+          // the breadcumb for the current page.
+          // @see _menu_tree_check_access()
+          // @see _menu_link_translate()
+          if (strpos($link['href'], '%') !== FALSE) {
+            _menu_link_translate($link, TRUE);
+          }
+          if ($link['access']) {
+            $trail[] = $link;
+          }
         }
-        list($key, $curr) = each($tree);
+        $tree = $curr['below'] ? $curr['below'] : array();
       }
+      list($key, $curr) = each($tree);
     }
     // Make sure the current page is in the trail (needed for the page title),
-    // but exclude tabs and the front page.
-    $last = count($trail) - 1;
-    if ($trail[$last]['href'] != $item['href'] && !(bool) ($item['type'] & MENU_IS_LOCAL_TASK) && !drupal_is_front_page()) {
-      $trail[] = $item;
+    // if the link's type allows it to be shown in the breadcrumb. Also exclude
+    // it if we are on the front page.
+    $last = end($trail);
+    if ($last['href'] != $preferred_link['href'] && ($preferred_link['type'] & MENU_VISIBLE_IN_BREADCRUMB) == MENU_VISIBLE_IN_BREADCRUMB && !drupal_is_front_page()) {
+      $trail[] = $preferred_link;
     }
   }
   return $trail;
+}
+
+/**
+ * Lookup the preferred menu link for a given system path.
+ *
+ * @param $path
+ *   The path, for example 'node/5'. The function will find the corresponding
+ *   menu link ('node/5' if it exists, or fallback to 'node/%').
+ *
+ * @return
+ *   A fully translated menu link, or NULL if not matching menu link was
+ *   found. The most specific menu link ('node/5' preferred over 'node/%') in
+ *   the most preferred menu (as defined by menu_get_active_menu_names()) is
+ *   returned.
+ */
+function menu_link_get_preferred($path = NULL) {
+  $preferred_links = &drupal_static(__FUNCTION__);
+
+  if (!isset($path)) {
+    $path = $_GET['q'];
+  }
+
+  if (!isset($preferred_links[$path])) {
+    $preferred_links[$path] = FALSE;
+
+    // Look for the correct menu link by building a list of candidate paths,
+    // which are ordered by priority (translated hrefs are preferred over
+    // untranslated paths). Afterwards, the most relevant path is picked from
+    // the menus, ordered by menu preference.
+    $item = menu_get_item($path);
+    $path_candidates = array();
+    // 1. The current item href.
+    $path_candidates[$item['href']] = $item['href'];
+    // 2. The tab root href of the current item (if any).
+    if ($item['tab_parent'] && ($tab_root = menu_get_item($item['tab_root_href']))) {
+      $path_candidates[$tab_root['href']] = $tab_root['href'];
+    }
+    // 3. The current item path (with wildcards).
+    $path_candidates[$item['path']] = $item['path'];
+    // 4. The tab root path of the current item (if any).
+    if (!empty($tab_root)) {
+      $path_candidates[$tab_root['path']] = $tab_root['path'];
+    }
+
+    // Retrieve a list of menu names, ordered by preference.
+    $menu_names = menu_get_active_menu_names();
+
+    $query = db_select('menu_links', 'ml', array('fetch' => PDO::FETCH_ASSOC));
+    $query->leftJoin('menu_router', 'm', 'm.path = ml.router_path');
+    $query->fields('ml');
+    // Weight must be taken from {menu_links}, not {menu_router}.
+    $query->fields('m', array_diff(drupal_schema_fields_sql('menu_router'), array('weight')));
+    $query->condition('ml.menu_name', $menu_names, 'IN');
+    $query->condition('ml.link_path', $path_candidates, 'IN');
+
+    // Sort candidates by link path and menu name.
+    $candidates = array();
+    foreach ($query->execute() as $candidate) {
+      $candidates[$candidate['link_path']][$candidate['menu_name']] = $candidate;
+    }
+
+    // Pick the most specific link, in the most preferred menu.
+    foreach ($path_candidates as $link_path) {
+      if (!isset($candidates[$link_path])) {
+        continue;
+      }
+      foreach ($menu_names as $menu_name) {
+        if (!isset($candidates[$link_path][$menu_name])) {
+          continue;
+        }
+        $candidate_item = $candidates[$link_path][$menu_name];
+        $map = explode('/', $path);
+        _menu_translate($candidate_item, $map);
+        if ($candidate_item['access']) {
+          $preferred_links[$path] = $candidate_item;
+        }
+        break 2;
+      }
+    }
+  }
+
+  return $preferred_links[$path];
 }
 
 /**
@@ -2159,6 +2370,8 @@ function menu_get_active_trail() {
 
 /**
  * Get the breadcrumb for the current page, as determined by the active trail.
+ *
+ * @see menu_set_active_trail()
  */
 function menu_get_active_breadcrumb() {
   $breadcrumb = array();
@@ -2169,17 +2382,38 @@ function menu_get_active_breadcrumb() {
   }
 
   $item = menu_get_item();
-  if ($item && $item['access']) {
+  if (!empty($item['access'])) {
     $active_trail = menu_get_active_trail();
+
+    // Allow modules to alter the breadcrumb, if possible, as that is much
+    // faster than rebuilding an entirely new active trail.
+    drupal_alter('menu_breadcrumb', $active_trail, $item);
+
+    // Don't show a link to the current page in the breadcrumb trail.
+    $end = end($active_trail);
+    if ($item['href'] == $end['href']) {
+      array_pop($active_trail);
+    }
+
+    // Remove the tab root (parent) if the current path links to its parent.
+    // Normally, the tab root link is included in the breadcrumb, as soon as we
+    // are on a local task or any other child link. However, if we are on a
+    // default local task (e.g., node/%/view), then we do not want the tab root
+    // link (e.g., node/%) to appear, as it would be identical to the current
+    // page. Since this behavior also needs to work recursively (i.e., on
+    // default local tasks of default local tasks), and since the last non-task
+    // link in the trail is used as page title (see menu_get_active_title()),
+    // this condition cannot be cleanly integrated into menu_get_active_trail().
+    // menu_get_active_trail() already skips all links that link to their parent
+    // (commonly MENU_DEFAULT_LOCAL_TASK). In order to also hide the parent link
+    // itself, we always remove the last link in the trail, if the current
+    // router item links to its parent.
+    if (($item['type'] & MENU_LINKS_TO_PARENT) == MENU_LINKS_TO_PARENT) {
+      array_pop($active_trail);
+    }
 
     foreach ($active_trail as $parent) {
       $breadcrumb[] = l($parent['title'], $parent['href'], $parent['localized_options']);
-    }
-    $end = end($active_trail);
-
-    // Don't show a link to the current page in the breadcrumb trail.
-    if ($item['href'] == $end['href'] || ($item['type'] == MENU_DEFAULT_LOCAL_TASK && $end['href'] != '<front>')) {
-      array_pop($breadcrumb);
     }
   }
   return $breadcrumb;
@@ -2260,10 +2494,12 @@ function menu_cache_clear_all() {
  * Resets the menu system static cache.
  */
 function menu_reset_static_cache() {
+  drupal_static_reset('_menu_build_tree');
   drupal_static_reset('menu_tree');
   drupal_static_reset('menu_tree_all_data');
   drupal_static_reset('menu_tree_page_data');
   drupal_static_reset('menu_load_all');
+  drupal_static_reset('menu_link_get_preferred');
 }
 
 /**
@@ -2307,7 +2543,8 @@ function menu_rebuild() {
     }
   }
   catch (Exception $e) {
-    $transaction->rollback('menu', $e->getMessage(), array(), WATCHDOG_ERROR);
+    $transaction->rollback();
+    watchdog_exception('menu', $e);
   }
 
   lock_release('menu_rebuild');
@@ -2495,6 +2732,7 @@ function _menu_navigation_links_rebuild($menu) {
  *   (optional) The name of a menu that the links will be cloned for. If not
  *   set, the cloned links will be in the same menu as the original set of
  *   links that were passed in.
+ *
  * @return
  *   An array of menu links with the same properties as the passed-in array,
  *   but with the link identifiers removed so that a new link will be created
@@ -2518,6 +2756,7 @@ function menu_links_clone($links, $menu_name = NULL) {
  *
  * @param $menu_name
  *   The name of the menu whose links should be returned.
+ *
  * @return
  *   An array of menu links.
  */
@@ -2891,6 +3130,7 @@ function _menu_find_router_path($link_path) {
  * @param $link_title
  *   Title of the link to insert or new title to update the link to.
  *   Unused for delete.
+ *
  * @return
  *   The insert op returns the mlid of the new item. Others op return NULL.
  */
@@ -2962,25 +3202,31 @@ function _menu_link_move_children($item, $existing_item) {
   $query->fields(array('menu_name' => $item['menu_name']));
 
   $p = 'p1';
+  $expressions = array();
   for ($i = 1; $i <= $item['depth']; $p = 'p' . ++$i) {
-    $query->fields(array($p => $item[$p]));
+    $expressions[] = array($p, ":p_$i", array(":p_$i" => $item[$p]));
   }
   $j = $existing_item['depth'] + 1;
   while ($i <= MENU_MAX_DEPTH && $j <= MENU_MAX_DEPTH) {
-    $query->expression('p' . $i++, 'p' . $j++);
+    $expressions[] = array('p' . $i++, 'p' . $j++, array());
   }
   while ($i <= MENU_MAX_DEPTH) {
-    $query->fields(array('p' . $i++ => 0));
+    $expressions[] = array('p' . $i++, 0, array());
   }
 
   $shift = $item['depth'] - $existing_item['depth'];
-  if ($shift < 0) {
-    $query->expression('depth', 'depth - :depth', array(':depth' => -$shift));
+  if ($shift > 0) {
+    // The order of expressions must be reversed so the new values don't
+    // overwrite the old ones before they can be used because "Single-table
+    // UPDATE assignments are generally evaluated from left to right"
+    // see: http://dev.mysql.com/doc/refman/5.0/en/update.html
+    $expressions = array_reverse($expressions);
   }
-  elseif ($shift > 0) {
-    $query->expression('depth', 'depth + :depth', array(':depth' => $shift));
+  foreach ($expressions as $expression) {
+    $query->expression($expression[0], $expression[1], $expression[2]);
   }
 
+  $query->expression('depth', 'depth + :depth', array(':depth' => $shift));
   $query->condition('menu_name', $existing_item['menu_name']);
   $p = 'p1';
   for ($i = 1; $i <= MENU_MAX_DEPTH && $existing_item[$p]; $p = 'p' . ++$i) {
@@ -3102,6 +3348,7 @@ function _menu_router_build($callbacks) {
       'title' => '',
       'weight' => 0,
       'type' => MENU_NORMAL_ITEM,
+      'module' => '',
       '_number_parts' => $number_parts,
       '_parts' => $parts,
       '_fit' => $fit,
@@ -3217,7 +3464,6 @@ function _menu_router_build($callbacks) {
       'page arguments' => array(),
       'page callback' => '',
       'delivery callback' => '',
-      'block callback' => '',
       'title arguments' => array(),
       'title callback' => 't',
       'theme arguments' => array(),
@@ -3231,7 +3477,6 @@ function _menu_router_build($callbacks) {
       'file' => '',
       'file path' => '',
       'include file' => '',
-      'module' => '',
     );
 
     // Calculate out the file to be included for each callback, if any.
@@ -3277,7 +3522,6 @@ function _menu_router_save($menu, $masks) {
       'theme_callback',
       'theme_arguments',
       'type',
-      'block_callback',
       'description',
       'position',
       'weight',
@@ -3308,7 +3552,6 @@ function _menu_router_save($menu, $masks) {
       'theme_callback' => $item['theme callback'],
       'theme_arguments' => serialize($item['theme arguments']),
       'type' => $item['type'],
-      'block_callback' => $item['block callback'],
       'description' => $item['description'],
       'position' => $item['position'],
       'weight' => $item['weight'],
@@ -3364,15 +3607,7 @@ function _menu_site_is_offline($check_only = FALSE) {
       }
     }
     else {
-      // Anonymous users get a FALSE at the login prompt, TRUE otherwise.
-      if (user_is_anonymous()) {
-        return ($_GET['q'] != 'user' && $_GET['q'] != 'user/login');
-      }
-      // Logged in users are unprivileged here, so they are logged out.
-      if (!$check_only) {
-        require_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'user') . '/user.pages.inc';
-        user_logout();
-      }
+      return TRUE;
     }
   }
   return FALSE;

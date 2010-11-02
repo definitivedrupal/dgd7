@@ -1,5 +1,5 @@
 <?php
-// $Id: theme.test,v 1.16 2010/04/29 05:22:06 webchick Exp $
+// $Id: theme.test,v 1.22 2010/10/06 13:38:40 dries Exp $
 
 /**
  * @file
@@ -65,6 +65,37 @@ class ThemeUnitTest extends DrupalWebTestCase {
     // Set it back to not annoy the batch runner.
     $_GET['q'] = $q;
     $this->assertTrue(in_array('page__front', $suggestions), t('Front page template was suggested.'));
+  }
+
+  /**
+   * Ensures theme hook_*_alter() implementations can run before anything is rendered.
+   */
+  function testAlter() {
+    $this->drupalGet('theme-test/alter');
+    $this->assertText('The altered data is test_theme_theme_test_alter_alter was invoked.', t('The theme was able to implement an alter hook during page building before anything was rendered.'));
+  }
+
+  /**
+   * Ensures a theme's .info file is able to override a module CSS file from being added to the page.
+   *
+   * @see test_theme.info
+   */
+  function testCSSOverride() {
+    // Reuse the same page as in testPreprocessForSuggestions(). We're testing
+    // what is output to the HTML HEAD based on what is in a theme's .info file,
+    // so it doesn't matter what page we get, as long as it is themed with the
+    // test theme. First we test with CSS aggregation disabled.
+    variable_set('preprocess_css', 0);
+    $this->drupalGet('theme-test/suggestion');
+    $this->assertNoText('system.base.css', t('The theme\'s .info file is able to override a module CSS file from being added to the page.'));
+
+    // Also test with aggregation enabled, simply ensuring no PHP errors are
+    // triggered during drupal_build_css_cache() when a source file doesn't
+    // exist. Then allow remaining tests to continue with aggregation disabled
+    // by default.
+    variable_set('preprocess_css', 1);
+    $this->drupalGet('theme-test/suggestion');
+    variable_set('preprocess_css', 0);
   }
 }
 
@@ -151,7 +182,7 @@ class ThemeItemListUnitTest extends DrupalWebTestCase {
 </ul></div></li>
 <li class="last">e</li>
 </ul></div>';
-    $output = theme('item_list', array('items' => $items, 'type' => 'ul', 'title' => NULL, 'attributes' => array()));
+    $output = theme('item_list', array('items' => $items));
     $this->assertIdentical($expected, $output, 'Nested list is rendered correctly.');
   }
 }
@@ -170,7 +201,6 @@ class ThemeHookInitUnitTest extends DrupalWebTestCase {
 
   function setUp() {
     parent::setUp('theme_test');
-    variable_set('theme_default', 'garland');
   }
 
   /**
@@ -179,6 +209,33 @@ class ThemeHookInitUnitTest extends DrupalWebTestCase {
   function testThemeInitializationHookInit() {
     $this->drupalGet('theme-test/hook-init');
     $this->assertRaw('Themed output generated in hook_init()', t('Themed output generated in hook_init() correctly appears on the page.'));
-    $this->assertRaw('garland/style.css', t("The default theme's CSS appears on the page when the theme system is initialized in hook_init()."));
+    $this->assertRaw('bartik/css/style.css', t("The default theme's CSS appears on the page when the theme system is initialized in hook_init()."));
+  }
+}
+
+/**
+ * Tests autocompletion not loading registry.
+ */
+class ThemeFastTestCase extends DrupalWebTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Theme fast initialization',
+      'description' => 'Test that autocompletion does not load the registry.',
+      'group' => 'Theme'
+    );
+  }
+
+  function setUp() {
+    parent::setUp('theme_test');
+    $this->account = $this->drupalCreateUser(array('access user profiles'));
+  }
+
+  /**
+   * Tests access to user autocompletion and verify the correct results.
+   */
+  function testUserAutocomplete() {
+    $this->drupalLogin($this->account);
+    $this->drupalGet('user/autocomplete/' . $this->account->name);
+    $this->assertText('registry not initialized', t('The registry was not initialized'));
   }
 }

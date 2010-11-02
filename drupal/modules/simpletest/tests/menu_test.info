@@ -7,8 +7,8 @@ core = 7.x
 files[] = menu_test.module
 hidden = TRUE
 
-; Information added by drupal.org packaging script on 2010-05-23
-version = "7.0-alpha5"
+; Information added by drupal.org packaging script on 2010-10-23
+version = "7.0-beta2"
 project = "drupal"
-datestamp = "1274628610"
+datestamp = "1287812130"
 

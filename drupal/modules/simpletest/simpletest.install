@@ -1,5 +1,5 @@
 <?php
-// $Id: simpletest.install,v 1.35 2010/03/26 17:14:45 dries Exp $
+// $Id: simpletest.install,v 1.39 2010/10/15 23:40:21 webchick Exp $
 
 /**
  * @file
@@ -20,15 +20,17 @@ function simpletest_uninstall() {
   variable_del('simpletest_verbose');
 
   // Remove generated files.
-  $path = file_directory_path() . '/simpletest';
+  $path = 'public://simpletest';
   $files = file_scan_directory($path, '/.*/');
   foreach ($files as $file) {
     file_unmanaged_delete($file->uri);
   }
-  rmdir($path);
+  drupal_rmdir($path);
 }
 
 /**
+ * Implements hook_requirements().
+ *
  * Check that the cURL extension exists for PHP.
  */
 function simpletest_requirements($phase) {
@@ -37,7 +39,7 @@ function simpletest_requirements($phase) {
 
   $has_curl = function_exists('curl_init');
   $has_hash = function_exists('hash_hmac');
-  $has_domdocument = class_exists('DOMDocument');
+  $has_domdocument = method_exists('DOMDocument', 'loadHTML');
   $open_basedir = ini_get('open_basedir');
 
   $requirements['curl'] = array(
@@ -81,6 +83,9 @@ function simpletest_requirements($phase) {
   return $requirements;
 }
 
+/**
+ * Implements hook_schema().
+ */
 function simpletest_schema() {
   $schema['simpletest'] = array(
     'description' => 'Stores simpletest messages',

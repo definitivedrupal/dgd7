@@ -1,5 +1,5 @@
 <?php
-// $Id: form.test,v 1.50 2010/04/28 16:11:22 dries Exp $
+// $Id: form.test,v 1.72 2010/10/04 18:00:46 dries Exp $
 
 /**
  * @file
@@ -42,12 +42,15 @@ class FormsTestCase extends DrupalWebTestCase {
     $elements['password']['empty_values'] = $empty_strings;
 
     $elements['password_confirm']['element'] = array('#title' => $this->randomName(), '#type' => 'password_confirm');
-    $elements['password_confirm']['empty_values'] = $empty_strings;
+    // Provide empty values for both password fields.
+    foreach ($empty_strings as $key => $value) {
+      $elements['password_confirm']['empty_values'][$key] = array('pass1' => $value, 'pass2' => $value);
+    }
 
     $elements['textarea']['element'] = array('#title' => $this->randomName(), '#type' => 'textarea');
     $elements['textarea']['empty_values'] = $empty_strings;
 
-    $elements['radios']['element'] = array('#title' => $this->randomName(), '#type' => 'radios', '#options' => array($this->randomName(), $this->randomName(), $this->randomName()));
+    $elements['radios']['element'] = array('#title' => $this->randomName(), '#type' => 'radios', '#options' => array('' => t('None'), $this->randomName(), $this->randomName(), $this->randomName()));
     $elements['radios']['empty_values'] = $empty_arrays;
 
     $elements['checkbox']['element'] = array('#title' => $this->randomName(), '#type' => 'checkbox', '#required' => TRUE, '#title' => $this->randomName());
@@ -56,7 +59,7 @@ class FormsTestCase extends DrupalWebTestCase {
     $elements['checkboxes']['element'] = array('#title' => $this->randomName(), '#type' => 'checkboxes', '#options' => array($this->randomName(), $this->randomName(), $this->randomName()));
     $elements['checkboxes']['empty_values'] = $empty_arrays;
 
-    $elements['select']['element'] = array('#title' => $this->randomName(), '#type' => 'select', '#options' => array($this->randomName(), $this->randomName(), $this->randomName()));
+    $elements['select']['element'] = array('#title' => $this->randomName(), '#type' => 'select', '#options' => array('' => t('None'), $this->randomName(), $this->randomName(), $this->randomName()));
     $elements['select']['empty_values'] = $empty_strings;
 
     $elements['file']['element'] = array('#title' => $this->randomName(), '#type' => 'file');
@@ -77,8 +80,7 @@ class FormsTestCase extends DrupalWebTestCase {
           $element = $data['element']['#title'];
           $form[$element] = $data['element'];
           $form[$element]['#required'] = $required;
-          $form_state['values'][$element] = $empty;
-          $form_state['input'] = $form_state['values'];
+          $form_state['input'][$element] = $empty;
           $form_state['input']['form_id'] = $form_id;
           $form_state['method'] = 'post';
           drupal_prepare_form($form_id, $form, $form_state);
@@ -151,6 +153,70 @@ class FormsTestCase extends DrupalWebTestCase {
   }
 
   /**
+   * Tests validation of #type 'select' elements.
+   */
+  function testSelect() {
+    $form = $form_state = array();
+    $form = form_test_select($form, $form_state);
+    $error = '!name field is required.';
+    $this->drupalGet('form-test/select');
+
+    // Posting without any values should throw validation errors.
+    $this->drupalPost(NULL, array(), 'Submit');
+    $this->assertNoText(t($error, array('!name' => $form['select']['#title'])));
+    $this->assertNoText(t($error, array('!name' => $form['select_required']['#title'])));
+    $this->assertNoText(t($error, array('!name' => $form['select_optional']['#title'])));
+    $this->assertNoText(t($error, array('!name' => $form['empty_value']['#title'])));
+    $this->assertNoText(t($error, array('!name' => $form['empty_value_one']['#title'])));
+    $this->assertText(t($error, array('!name' => $form['no_default']['#title'])));
+    $this->assertNoText(t($error, array('!name' => $form['no_default_optional']['#title'])));
+    $this->assertText(t($error, array('!name' => $form['no_default_empty_option']['#title'])));
+    $this->assertNoText(t($error, array('!name' => $form['no_default_empty_option_optional']['#title'])));
+    $this->assertText(t($error, array('!name' => $form['no_default_empty_value']['#title'])));
+    $this->assertText(t($error, array('!name' => $form['no_default_empty_value_one']['#title'])));
+    $this->assertNoText(t($error, array('!name' => $form['no_default_empty_value_optional']['#title'])));
+    $this->assertNoText(t($error, array('!name' => $form['multiple']['#title'])));
+    $this->assertNoText(t($error, array('!name' => $form['multiple_no_default']['#title'])));
+    $this->assertText(t($error, array('!name' => $form['multiple_no_default_required']['#title'])));
+
+    // Post values for required fields.
+    $edit = array(
+      'no_default' => 'three',
+      'no_default_empty_option' => 'three',
+      'no_default_empty_value' => 'three',
+      'no_default_empty_value_one' => 'three',
+      'multiple_no_default_required[]' => 'three',
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $values = drupal_json_decode($this->drupalGetContent());
+
+    // Verify expected values.
+    $expected = array(
+      'select' => 'one',
+      'empty_value' => 'one',
+      'empty_value_one' => 'one',
+      'no_default' => 'three',
+      'no_default_optional' => 'one',
+      'no_default_optional_empty_value' => '',
+      'no_default_empty_option' => 'three',
+      'no_default_empty_option_optional' => '',
+      'no_default_empty_value' => 'three',
+      'no_default_empty_value_one' => 'three',
+      'no_default_empty_value_optional' => 0,
+      'multiple' => array('two' => 'two'),
+      'multiple_no_default' => array(),
+      'multiple_no_default_required' => array('three' => 'three'),
+    );
+    foreach ($expected as $key => $value) {
+      $this->assertIdentical($values[$key], $value, t('@name: @actual is equal to @expected.', array(
+        '@name' => $key,
+        '@actual' => var_export($values[$key], TRUE),
+        '@expected' => var_export($value, TRUE),
+      )));
+    }
+  }
+
+  /**
    * Test handling of disabled elements.
    *
    * @see _form_test_disabled_elements()
@@ -185,27 +251,121 @@ class FormsTestCase extends DrupalWebTestCase {
     // element. drupalPost() emulates a browser by not submitting input for
     // disabled elements, so we need to un-disable those elements first.
     $this->drupalGet('form-test/disabled-elements');
+    $disabled_elements = array();
     foreach ($this->xpath('//*[@disabled]') as $element) {
+      $disabled_elements[] = (string) $element['name'];
       unset($element['disabled']);
     }
+
+    // All the elements should be marked as disabled, including the ones below
+    // the disabled container.
+    $this->assertEqual(count($disabled_elements), 32, t('The correct elements have the disabled property in the HTML code.'));
+
     $this->drupalPost(NULL, $edit, t('Submit'));
     $returned_values['hijacked'] = drupal_json_decode($this->content);
 
     // Ensure that the returned values match the form's default values in both
     // cases.
     foreach ($returned_values as $type => $values) {
-      foreach (element_children($form) as $key) {
-        if (isset($form[$key]['#default_value'])) {
-          $expected_value = $form[$key]['#default_value'];
-
-          if ($key == 'checkboxes_multiple') {
-            // Checkboxes values are not filtered out.
-            $values[$key] = array_filter($values[$key]);
-          }
-          $this->assertIdentical($expected_value, $values[$key], t('Default value for %type: expected %expected, returned %returned.', array('%type' => $key, '%expected' => var_export($expected_value, TRUE), '%returned' => var_export($values[$key], TRUE))));
-        }
-      }
+      $this->assertFormValuesDefault($values, $form);
     }
+  }
+
+  /**
+   * Assert that the values submitted to a form matches the default values of the elements.
+   */
+  function assertFormValuesDefault($values, $form) {
+    foreach (element_children($form) as $key) {
+      if (isset($form[$key]['#default_value'])) {
+        if (isset($form[$key]['#expected_value'])) {
+          $expected_value = $form[$key]['#expected_value'];
+        }
+        else {
+          $expected_value = $form[$key]['#default_value'];
+        }
+
+        if ($key == 'checkboxes_multiple') {
+          // Checkboxes values are not filtered out.
+          $values[$key] = array_filter($values[$key]);
+        }
+        $this->assertIdentical($expected_value, $values[$key], t('Default value for %type: expected %expected, returned %returned.', array('%type' => $key, '%expected' => var_export($expected_value, TRUE), '%returned' => var_export($values[$key], TRUE))));
+      }
+
+      // Recurse children.
+      $this->assertFormValuesDefault($values, $form[$key]);
+    }
+  }
+
+  /**
+   * Verify markup for disabled form elements.
+   *
+   * @see _form_test_disabled_elements()
+   */
+  function testDisabledMarkup() {
+    $this->drupalGet('form-test/disabled-elements');
+    $form_state = array();
+    $form = _form_test_disabled_elements(array(), $form_state);
+    $type_map = array(
+      'textarea' => 'textarea',
+      'select' => 'select',
+      'weight' => 'select',
+      'date' => 'select',
+    );
+
+    foreach ($form as $name => $item) {
+      // Skip special #types.
+      if (!isset($item['#type']) || in_array($item['#type'], array('hidden', 'text_format'))) {
+        continue;
+      }
+      // Setup XPath and CSS class depending on #type.
+      if (in_array($item['#type'], array('image_button', 'button', 'submit'))) {
+        $path = "//!type[contains(@class, :div-class) and @value=:value]";
+        $class = 'form-button-disabled';
+      }
+      else {
+        // starts-with() required for checkboxes.
+        $path = "//div[contains(@class, :div-class)]/descendant::!type[starts-with(@name, :name)]";
+        $class = 'form-disabled';
+      }
+      // Replace DOM element name in $path according to #type.
+      $type = 'input';
+      if (isset($type_map[$item['#type']])) {
+        $type = $type_map[$item['#type']];
+      }
+      $path = strtr($path, array('!type' => $type));
+      // Verify that the element exists.
+      $element = $this->xpath($path, array(
+        ':name' => check_plain($name),
+        ':div-class' => $class,
+        ':value' => isset($item['#value']) ? $item['#value'] : '',
+      ));
+      $this->assertTrue(isset($element[0]), t('Disabled form element class found for #type %type.', array('%type' => $item['#type'])));
+    }
+
+    // Verify special element #type text-format.
+    $element = $this->xpath('//div[contains(@class, :div-class)]/descendant::textarea[@name=:name]', array(
+      ':name' => 'text_format[value]',
+      ':div-class' => 'form-disabled',
+    ));
+    $this->assertTrue(isset($element[0]), t('Disabled form element class found for #type %type.', array('%type' => 'text_format[value]')));
+    $element = $this->xpath('//div[contains(@class, :div-class)]/descendant::select[@name=:name]', array(
+      ':name' => 'text_format[format]',
+      ':div-class' => 'form-disabled',
+    ));
+    $this->assertTrue(isset($element[0]), t('Disabled form element class found for #type %type.', array('%type' => 'text_format[format]')));
+  }
+
+  /**
+   * Test Form API protections against input forgery.
+   *
+   * @see _form_test_input_forgery()
+   */
+  function testInputForgery() {
+    $this->drupalGet('form-test/input-forgery');
+    $checkbox = $this->xpath('//input[@name="checkboxes[two]"]');
+    $checkbox[0]['value'] = 'FORGERY';
+    $this->drupalPost(NULL, array('checkboxes[one]' => TRUE, 'checkboxes[two]' => TRUE), t('Submit'));
+    $this->assertText('An illegal choice has been detected.', t('Input forgery was detected.'));
   }
 }
 
@@ -311,6 +471,10 @@ class FormValidationTestCase extends DrupalWebTestCase {
     $this->assertNoText(t('!name field is required.', array('!name' => 'Title')));
     $this->assertText('Test element is invalid');
 
+    // Ensure not validated values are not available to submit handlers.
+    $this->drupalPost($path, array('title' => '', 'test' => 'valid'), t('Partial validate'));
+    $this->assertText('Only validated values appear in the form values.');
+
     // Now test full form validation and ensure that the #element_validate
     // handler is still triggered.
     $this->drupalPost($path, $edit, t('Full validate'));
@@ -364,14 +528,14 @@ class FormsElementsLabelsTestCase extends DrupalWebTestCase {
     $elements = $this->xpath('//input[@id="edit-form-textfield-test-no-title-required"]/preceding-sibling::label[@for="edit-form-textfield-test-no-title-required"]/span[@class="form-required"]');
     $this->assertTrue(isset($elements[0]), t("Label tag with required marker preceeds required textfield with no title."));
 
+    $elements = $this->xpath('//input[@id="edit-form-textfield-test-title-invisible"]/preceding-sibling::label[@for="edit-form-textfield-test-title-invisible" and @class="element-invisible"]');
+    $this->assertTrue(isset($elements[0]), t("Label preceeding field and label class is element-invisible."));
+
     $elements = $this->xpath('//input[@id="edit-form-textfield-test-title"]/preceding-sibling::span[@class="form-required"]');
     $this->assertFalse(isset($elements[0]), t("No required marker on non-required field."));
 
     $elements = $this->xpath('//input[@id="edit-form-textfield-test-title-after"]/following-sibling::label[@for="edit-form-textfield-test-title-after" and @class="option"]');
     $this->assertTrue(isset($elements[0]), t("Label after field and label option class correct for text field."));
-
-    $elements = $this->xpath('//input[@id="edit-form-textfield-test-title-invisible"]/following-sibling::label[@for="edit-form-textfield-test-title-invisible" and @class="element-invisible"]');
-    $this->assertTrue(isset($elements[0]), t("Label after field and label class is element-invisible."));
 
     $elements = $this->xpath('//label[@for="edit-form-textfield-test-title-no-show"]');
     $this->assertFalse(isset($elements[0]), t("No label tag when title set not to display."));
@@ -522,11 +686,11 @@ class FormsElementsTableSelectFunctionalTest extends DrupalWebTestCase {
     );
 
     // Test with a valid value.
-    list($processed_form, $form_state, $errors) = $this->formSubmitHelper($form, array('tableselect' => 'row1'));
+    list($processed_form, $form_state, $errors) = $this->formSubmitHelper($form, array('tableselect' => array('row1' => 'row1')));
     $this->assertFalse(isset($errors['tableselect']), t('Option checker allows valid values for checkboxes.'));
 
     // Test with an invalid value.
-    list($processed_form, $form_state, $errors) = $this->formSubmitHelper($form, array('tableselect' => 'non_existing_value'));
+    list($processed_form, $form_state, $errors) = $this->formSubmitHelper($form, array('tableselect' => array('non_existing_value' => 'non_existing_value')));
     $this->assertTrue(isset($errors['tableselect']), t('Option checker disallows invalid values for checkboxes.'));
 
   }
@@ -627,24 +791,21 @@ class FormsFormStorageTestCase extends DrupalWebTestCase {
     $this->assertText('Form constructions: 1');
 
     $edit = array('title' => 'new', 'value' => 'value_is_set');
-    // Reload the form, but don't rebuild.
-    $this->drupalPost(NULL, $edit, 'Reload');
-    $this->assertText('Form constructions: 2');
 
-    // Now use form rebuilding triggered by a submit button.
+    // Use form rebuilding triggered by a submit button.
     $this->drupalPost(NULL, $edit, 'Continue submit');
+    $this->assertText('Form constructions: 2');
     $this->assertText('Form constructions: 3');
-    $this->assertText('Form constructions: 4');
 
     // Reset the form to the values of the storage, using a form rebuild
     // triggered by button of type button.
     $this->drupalPost(NULL, array('title' => 'changed'), 'Reset');
     $this->assertFieldByName('title', 'new', 'Values have been resetted.');
     // After rebuilding, the form has been cached.
-    $this->assertText('Form constructions: 5');
+    $this->assertText('Form constructions: 4');
 
     $this->drupalPost(NULL, $edit, 'Save');
-    $this->assertText('Form constructions: 5');
+    $this->assertText('Form constructions: 4');
     $this->assertText('Title: new', t('The form storage has stored the values.'));
   }
 
@@ -656,11 +817,8 @@ class FormsFormStorageTestCase extends DrupalWebTestCase {
     $this->assertText('Form constructions: 1');
 
     $edit = array('title' => 'new', 'value' => 'value_is_set');
-    // Reload the form, but don't rebuild.
-    $this->drupalPost(NULL, $edit, 'Reload');
-    $this->assertNoText('Form constructions');
 
-    // Now use form rebuilding triggered by a submit button.
+    // Use form rebuilding triggered by a submit button.
     $this->drupalPost(NULL, $edit, 'Continue submit');
     $this->assertText('Form constructions: 2');
 
@@ -730,7 +888,7 @@ class FormsFormStorageTestCase extends DrupalWebTestCase {
       array(),
       array('query' => array('cache' => 1)),
     );
-    foreach($run_options as $options) {
+    foreach ($run_options as $options) {
       $this->drupalPost('form-test/state-persist', array(), t('Submit'), $options);
       // The submit handler outputs the value in $form_state, assert it's there.
       $this->assertText('State persisted.');
@@ -896,11 +1054,7 @@ class FormsRebuildTestCase extends DrupalWebTestCase {
     // submission and verify it worked by ensuring the updated page has two text
     // field items in the field for which we just added an item.
     $this->drupalGet('node/add/page');
-    preg_match('/jQuery\.extend\(Drupal\.settings, (.*?)\);/', $this->content, $matches);
-    $settings = drupal_json_decode($matches[1]);
-    $button = $this->xpath('//input[@name="field_ajax_test_add_more"]');
-    $button_id = (string) $button[0]['id'];
-    $this->drupalPostAJAX(NULL, array(), array('field_ajax_test_add_more' => t('Add another item')), 'system/ajax', array(), array(), 'page-node-form', $settings['ajax'][$button_id]);
+    $this->drupalPostAJAX(NULL, array(), array('field_ajax_test_add_more' => t('Add another item')), 'system/ajax', array(), array(), 'page-node-form');
     $this->assert(count($this->xpath('//div[contains(@class, "field-name-field-ajax-test")]//input[@type="text"]')) == 2, t('AJAX submission succeeded.'));
 
     // Submit the form with the non-AJAX "Save" button, leaving the title field
@@ -910,6 +1064,10 @@ class FormsRebuildTestCase extends DrupalWebTestCase {
     // a validation error.
     $this->drupalPost(NULL, array(), t('Save'));
     $this->assertText('Title field is required.', t('Non-AJAX submission correctly triggered a validation error.'));
+
+    // Ensure that the form contains two items in the multi-valued field, so we
+    // know we're testing a form that was correctly retrieved from cache.
+    $this->assert(count($this->xpath('//form[contains(@id, "page-node-form")]//div[contains(@class, "form-item-field-ajax-test")]//input[@type="text"]')) == 2, t('Form retained its state from cache.'));
 
     // Ensure that the form's action is correct.
     $forms = $this->xpath('//form[contains(@class, "node-page-form")]');
@@ -943,10 +1101,19 @@ class FormsProgrammaticTestCase extends DrupalWebTestCase {
     $current_batch = $batch =& batch_get();
     $batch = array();
 
-    $this->submitForm();
-    $this->submitForm('test 1');
-    $this->submitForm();
-    $this->submitForm('test 2');
+    // Test that a programmatic form submission is rejected when a required
+    // textfield is omitted and correctly processed when it is provided.
+    $this->submitForm(array(), FALSE);
+    $this->submitForm(array('textfield' => 'test 1'), TRUE);
+    $this->submitForm(array(), FALSE);
+    $this->submitForm(array('textfield' => 'test 2'), TRUE);
+
+    // Test that a programmatic form submission can turn on and off checkboxes
+    // which are, by default, checked.
+    $this->submitForm(array('textfield' => 'dummy value', 'checkboxes' => array(1 => 1, 2 => 2)), TRUE);
+    $this->submitForm(array('textfield' => 'dummy value', 'checkboxes' => array(1 => 1, 2 => NULL)), TRUE);
+    $this->submitForm(array('textfield' => 'dummy value', 'checkboxes' => array(1 => NULL, 2 => 2)), TRUE);
+    $this->submitForm(array('textfield' => 'dummy value', 'checkboxes' => array(1 => NULL, 2 => NULL)), TRUE);
 
     // Restore the current batch status.
     $batch = $current_batch;
@@ -954,43 +1121,49 @@ class FormsProgrammaticTestCase extends DrupalWebTestCase {
 
   /**
    * Helper function used to programmatically submit the form defined in
-   * form_test.module with the given value.
+   * form_test.module with the given values.
    *
-   * @param string $value
-   *   The field value to be submitted.
+   * @param $values
+   *   An array of field values to be submitted.
+   * @param $valid_input
+   *   A boolean indicating whether or not the form submission is expected to
+   *   be valid.
    */
-  private function submitForm($value = NULL) {
-    // Programmatically submit the given value.
-    $form_state = array('values' => array('submitted_field' => $value));
+  private function submitForm($values, $valid_input) {
+    // Programmatically submit the given values.
+    $form_state = array('values' => $values);
     drupal_form_submit('form_test_programmatic_form', $form_state);
 
+    // Check that the form returns an error when expected, and vice versa.
     $errors = form_get_errors();
     $valid_form = empty($errors);
-    $valid_input = !empty($value);
-
-    // If no value was passed the form should return an error and viceversa.
-    $args = array('%value' => $value, '%errors' => $valid_form ? '' : implode(' ', $errors));
-    $this->assertTrue($valid_input == $valid_form, t('Input value: %value<br/>Validation handler errors: %errors', $args));
+    $args = array(
+      '%values' => print_r($values, TRUE),
+      '%errors' => $valid_form ? t('None') : implode(' ', $errors),
+    );
+    $this->assertTrue($valid_input == $valid_form, t('Input values: %values<br/>Validation handler errors: %errors', $args));
 
     // We check submitted values only if we have a valid input.
     if ($valid_input) {
-      // By fetching the value from $form_state['storage'] we ensure that the
+      // By fetching the values from $form_state['storage'] we ensure that the
       // submission handler was properly executed.
-      $submitted_value = $form_state['storage']['programmatic_form_submit'];
-      $this->assertTrue($submitted_value == $value, t('Submission handler correctly executed: %submitted_value', array('%submitted_value' => $submitted_value)));
+      $stored_values = $form_state['storage']['programmatic_form_submit'];
+      foreach ($values as $key => $value) {
+        $this->assertTrue(isset($stored_values[$key]) && $stored_values[$key] == $value, t('Submission handler correctly executed: %stored_key is %stored_value', array('%stored_key' => $key, '%stored_value' => print_r($value, TRUE))));
+      }
     }
   }
 }
 
 /**
- * Test that FAPI correctly determines $form_state['clicked_button'].
+ * Test that FAPI correctly determines $form_state['triggering_element'].
  */
-class FormsClickedButtonTestCase extends DrupalWebTestCase {
+class FormsTriggeringElementTestCase extends DrupalWebTestCase {
 
   public static function getInfo() {
     return array(
-      'name' => 'Form clicked button determination',
-      'description' => 'Test the determination of $form_state[\'clicked_button\'].',
+      'name' => 'Form triggering element determination',
+      'description' => 'Test the determination of $form_state[\'triggering_element\'].',
       'group' => 'Form API',
     );
   }
@@ -1000,59 +1173,85 @@ class FormsClickedButtonTestCase extends DrupalWebTestCase {
   }
 
   /**
-   * Test the determination of $form_state['clicked_button'] when no button
+   * Test the determination of $form_state['triggering_element'] when no button
    * information is included in the POST data, as is sometimes the case when
    * the ENTER key is pressed in a textfield in Internet Explorer.
    */
   function testNoButtonInfoInPost() {
     $path = 'form-test/clicked-button';
     $edit = array();
-    $form_id = 'form-test-clicked-button';
+    $form_html_id = 'form-test-clicked-button';
 
     // Ensure submitting a form with no buttons results in no
-    // $form_state['clicked_button'] and the form submit handler not running.
-    drupal_static_reset('drupal_html_id');
-    $this->drupalPost($path, $edit, NULL, array(), array(), $form_id);
-    $this->assertText('There is no clicked button.', t('$form_state[\'clicked_button\'] set to NULL.'));
+    // $form_state['triggering_element'] and the form submit handler not
+    // running.
+    $this->drupalPost($path, $edit, NULL, array(), array(), $form_html_id);
+    $this->assertText('There is no clicked button.', t('$form_state[\'triggering_element\'] set to NULL.'));
     $this->assertNoText('Submit handler for form_test_clicked_button executed.', t('Form submit handler did not execute.'));
 
     // Ensure submitting a form with one or more submit buttons results in
-    // $form_state['clicked_button'] being set to the first one the user has
+    // $form_state['triggering_element'] being set to the first one the user has
     // access to. An argument with 'r' in it indicates a restricted
     // (#access=FALSE) button.
-    drupal_static_reset('drupal_html_id');
-    $this->drupalPost($path . '/s', $edit, NULL, array(), array(), $form_id);
-    $this->assertText('The clicked button is button1.', t('$form_state[\'clicked_button\'] set to only button.'));
+    $this->drupalPost($path . '/s', $edit, NULL, array(), array(), $form_html_id);
+    $this->assertText('The clicked button is button1.', t('$form_state[\'triggering_element\'] set to only button.'));
     $this->assertText('Submit handler for form_test_clicked_button executed.', t('Form submit handler executed.'));
-    drupal_static_reset('drupal_html_id');
-    $this->drupalPost($path . '/s/s', $edit, NULL, array(), array(), $form_id);
-    $this->assertText('The clicked button is button1.', t('$form_state[\'clicked_button\'] set to first button.'));
+
+    $this->drupalPost($path . '/s/s', $edit, NULL, array(), array(), $form_html_id);
+    $this->assertText('The clicked button is button1.', t('$form_state[\'triggering_element\'] set to first button.'));
     $this->assertText('Submit handler for form_test_clicked_button executed.', t('Form submit handler executed.'));
-    drupal_static_reset('drupal_html_id');
-    $this->drupalPost($path . '/rs/s', $edit, NULL, array(), array(), $form_id);
-    $this->assertText('The clicked button is button2.', t('$form_state[\'clicked_button\'] set to first available button.'));
+
+    $this->drupalPost($path . '/rs/s', $edit, NULL, array(), array(), $form_html_id);
+    $this->assertText('The clicked button is button2.', t('$form_state[\'triggering_element\'] set to first available button.'));
     $this->assertText('Submit handler for form_test_clicked_button executed.', t('Form submit handler executed.'));
 
     // Ensure submitting a form with buttons of different types results in
-    // $form_state['clicked_button'] being set to the first button, regardless
-    // of type. For the FAPI 'button' type, this should result in the submit
-    // handler not executing. The types are 's'(ubmit), 'b'(utton), and
+    // $form_state['triggering_element'] being set to the first button,
+    // regardless of type. For the FAPI 'button' type, this should result in the
+    // submit handler not executing. The types are 's'(ubmit), 'b'(utton), and
     // 'i'(mage_button).
-    drupal_static_reset('drupal_html_id');
-    $this->drupalPost($path . '/s/b/i', $edit, NULL, array(), array(), $form_id);
-    $this->assertText('The clicked button is button1.', t('$form_state[\'clicked_button\'] set to first button.'));
+    $this->drupalPost($path . '/s/b/i', $edit, NULL, array(), array(), $form_html_id);
+    $this->assertText('The clicked button is button1.', t('$form_state[\'triggering_element\'] set to first button.'));
     $this->assertText('Submit handler for form_test_clicked_button executed.', t('Form submit handler executed.'));
-    drupal_static_reset('drupal_html_id');
-    $this->drupalPost($path . '/b/s/i', $edit, NULL, array(), array(), $form_id);
-    $this->assertText('The clicked button is button1.', t('$form_state[\'clicked_button\'] set to first button.'));
+
+    $this->drupalPost($path . '/b/s/i', $edit, NULL, array(), array(), $form_html_id);
+    $this->assertText('The clicked button is button1.', t('$form_state[\'triggering_element\'] set to first button.'));
     $this->assertNoText('Submit handler for form_test_clicked_button executed.', t('Form submit handler did not execute.'));
-    drupal_static_reset('drupal_html_id');
-    $this->drupalPost($path . '/i/s/b', $edit, NULL, array(), array(), $form_id);
-    $this->assertText('The clicked button is button1.', t('$form_state[\'clicked_button\'] set to first button.'));
+
+    $this->drupalPost($path . '/i/s/b', $edit, NULL, array(), array(), $form_html_id);
+    $this->assertText('The clicked button is button1.', t('$form_state[\'triggering_element\'] set to first button.'));
     $this->assertText('Submit handler for form_test_clicked_button executed.', t('Form submit handler executed.'));
   }
-}
 
+  /**
+   * Test that $form_state['triggering_element'] does not get set to a button
+   * with #access=FALSE.
+   */
+  function testAttemptAccessControlBypass() {
+    $path = 'form-test/clicked-button';
+    $form_html_id = 'form-test-clicked-button';
+
+    // Retrieve a form where 'button1' has #access=FALSE and 'button2' doesn't.
+    $this->drupalGet($path . '/rs/s');
+
+    // Submit the form with 'button1=button1' in the POST data, which someone
+    // trying to get around security safeguards could easily do. We have to do
+    // a little trickery here, to work around the safeguards in drupalPost(): by
+    // renaming the text field that is in the form to 'button1', we can get the
+    // data we want into $_POST.
+    $elements = $this->xpath('//form[@id="' . $form_html_id . '"]//input[@name="text"]');
+    $elements[0]['name'] = 'button1';
+    $this->drupalPost(NULL, array('button1' => 'button1'), NULL, array(), array(), $form_html_id);
+
+    // Ensure that $form_state['triggering_element'] was not set to the
+    // restricted button. Do this with both a negative and positive assertion,
+    // because negative assertions alone can be brittle. See
+    // testNoButtonInfoInPost() for why the triggering element gets set to
+    // 'button2'.
+    $this->assertNoText('The clicked button is button1.', t('$form_state[\'triggering_element\'] not set to a restricted button.'));
+    $this->assertText('The clicked button is button2.', t('$form_state[\'triggering_element\'] not set to a restricted button.'));
+  }
+}
 
 /**
  * Tests rebuilding of arbitrary forms by altering them.
@@ -1088,6 +1287,7 @@ class FormsArbitraryRebuildTestCase extends DrupalWebTestCase {
       ),
     );
     field_create_instance($instance);
+    variable_set('user_register', USER_REGISTER_VISITORS);
   }
 
   /**
@@ -1116,5 +1316,39 @@ class FormsArbitraryRebuildTestCase extends DrupalWebTestCase {
     $this->assertText('Test a multiple valued field', 'Form has been rebuilt.');
     $this->assertFieldByName('name', 'foo', 'Entered user name has been kept.');
     $this->assertFieldByName('mail', 'bar@example.com', 'Entered mail address has been kept.');
+  }
+}
+
+/**
+ * Tests form API file inclusion.
+ */
+class FormsFileInclusionTestCase extends DrupalWebTestCase {
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Form API file inclusion',
+      'description' => 'Tests form API file inclusion.',
+      'group' => 'Form API',
+    );
+  }
+
+  function setUp() {
+    parent::setUp('form_test');
+  }
+
+  /**
+   * Tests loading an include specified in hook_menu().
+   */
+  function testLoadMenuInclude() {
+    $this->drupalPostAJAX('form-test/load-include-menu', array(), array('op' => t('Save')), 'system/ajax', array(), array(), 'form-test-load-include-menu');
+    $this->assertText('Submit callback called.');
+  }
+
+  /**
+   * Tests loading a custom specified inlcude.
+   */
+  function testLoadCustomInclude() {
+    $this->drupalPost('form-test/load-include-custom', array(), t('Save'));
+    $this->assertText('Submit callback called.');
   }
 }

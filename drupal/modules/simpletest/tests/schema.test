@@ -1,5 +1,5 @@
 <?php
-// $Id: schema.test,v 1.19 2010/03/28 11:45:11 dries Exp $
+// $Id: schema.test,v 1.23 2010/10/22 15:18:56 webchick Exp $
 
 /**
  * @file
@@ -112,6 +112,25 @@ class SchemaTestCase extends DrupalWebTestCase {
 
     $count = db_query('SELECT COUNT(*) FROM {test_table}')->fetchField();
     $this->assertEqual($count, 2, t('There were two rows.'));
+
+    // Use database specific data type and ensure that table is created.
+    $table_specification = array(
+      'description' => 'Schema table description.',
+      'fields' => array(
+        'timestamp'  => array(
+          'mysql_type' => 'timestamp',
+          'pgsql_type' => 'timestamp',
+          'sqlite_type' => 'datetime',
+          'not null' => FALSE,
+          'default' => NULL,
+        ),
+      ),
+    );
+    try {
+      db_create_table('test_timestamp', $table_specification);
+    }
+    catch (Exception $e) {}
+    $this->assertTrue(db_table_exists('test_timestamp'), t('Table with database specific datatype was created.'));
   }
 
   function tryInsert($table = 'test_table') {
@@ -169,7 +188,7 @@ class SchemaTestCase extends DrupalWebTestCase {
     }
 
     // Finally, check each column and try to insert invalid values into them.
-    foreach($table_spec['fields'] as $column_name => $column_spec) {
+    foreach ($table_spec['fields'] as $column_name => $column_spec) {
       $this->assertTrue(db_field_exists($table_name, $column_name), t('Unsigned @type column was created.', array('@type' => $column_spec['type'])));
       $this->assertFalse($this->tryUnsignedInsert($table_name, $column_name), t('Unsigned @type column rejected a negative value.', array('@type' => $column_spec['type'])));
     }

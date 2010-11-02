@@ -1,5 +1,5 @@
 <?php
-// $Id: color.module,v 1.86 2010/05/01 08:12:23 dries Exp $
+// $Id: color.module,v 1.92 2010/10/05 19:59:10 dries Exp $
 
 /**
  * Implements hook_help().
@@ -63,7 +63,7 @@ function _color_theme_select_form_alter(&$form, &$form_state) {
   foreach (element_children($form) as $theme) {
     if ($screenshot = variable_get('color_' . $theme . '_screenshot')) {
       if (isset($form[$theme]['screenshot'])) {
-        $form[$theme]['screenshot']['#markup'] = theme('image', array('path' => $screenshot, 'alt' => '', 'title' => '', 'attributes' => array('class' => array('screenshot')), 'getsize' => FALSE));
+        $form[$theme]['screenshot']['#markup'] = theme('image', array('path' => $screenshot, 'title' => '', 'attributes' => array('class' => array('screenshot'))));
       }
     }
   }
@@ -73,7 +73,7 @@ function _color_theme_select_form_alter(&$form, &$form_state) {
  * Callback for the theme to alter the resources used.
  */
 function _color_html_alter(&$vars) {
-  global $language, $theme_key;
+  global $theme_key;
   $themes = list_themes();
 
   // Override stylesheets.
@@ -102,7 +102,7 @@ function _color_html_alter(&$vars) {
  * Callback for the theme to alter the resources used.
  */
 function _color_page_alter(&$vars) {
-  global $language, $theme_key;
+  global $theme_key;
 
   // Override logo.
   $logo = variable_get('color_' . $theme_key . '_logo');
@@ -189,7 +189,7 @@ function color_scheme_form($complete_form, &$form_state, $theme) {
       ),
       // Add custom CSS.
       'css' => array(
-        $base . '/color.css' => array('preprocess' => FALSE),
+        $base . '/color.css' => array(),
       ),
       // Add custom JavaScript.
       'js' => array(
@@ -247,7 +247,7 @@ function theme_color_scheme_form($variables) {
   
   $preview_js_path = isset($info['preview_js']) ? $path . $info['preview_js'] : drupal_get_path('module', 'color') . '/' . 'preview.js';
   // Add the JS at a weight below color.js.
-  drupal_add_js($preview_js_path, array('weight' => JS_DEFAULT - 1));
+  drupal_add_js($preview_js_path, array('weight' => -1));
     
   $output  = '';
   $output .= '<div class="color-form clearfix">';
@@ -312,10 +312,10 @@ function color_scheme_form_submit($form, &$form_state) {
 
   // Delete old files.
   foreach (variable_get('color_' . $theme . '_files', array()) as $file) {
-    @unlink($file);
+    @drupal_unlink($file);
   }
   if (isset($file) && $file = dirname($file)) {
-    @rmdir($file);
+    @drupal_rmdir($file);
   }
 
   // Don't render the default colorscheme, use the standard theme instead.
@@ -406,7 +406,6 @@ function _color_rewrite_stylesheet($theme, &$info, &$paths, $palette, $style) {
   $themes = list_themes();
   // Prepare color conversion table.
   $conversion = $palette;
-  unset($conversion['base']);
   foreach ($conversion as $k => $v) {
     $conversion[$k] = drupal_strtolower($v);
   }

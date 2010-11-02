@@ -1,5 +1,5 @@
 <?php
-// $Id: shortcut.admin.inc,v 1.13 2010/04/24 14:49:14 dries Exp $
+// $Id: shortcut.admin.inc,v 1.16 2010/10/20 01:31:07 dries Exp $
 
 /**
  * @file
@@ -33,6 +33,7 @@ function shortcut_max_slots() {
  *   An array representing the form definition.
  *
  * @ingroup forms
+ * @see shortcut_set_switch_validate()
  * @see shortcut_set_switch_submit()
  */
 function shortcut_set_switch($form, &$form_state, $account = NULL) {
@@ -71,6 +72,8 @@ function shortcut_set_switch($form, &$form_state, $account = NULL) {
 
     $form['new'] = array(
       '#type' => 'textfield',
+      '#title' => t('Name'),
+      '#title_display' => 'invisible',
       '#description' => t('The new set is created by copying items from your default shortcut set.'),
       '#access' => $add_access,
     );
@@ -99,6 +102,22 @@ function shortcut_set_switch($form, &$form_state, $account = NULL) {
   }
 
   return $form;
+}
+
+/**
+ * Validation handler for shortcut_set_switch().
+ */
+function shortcut_set_switch_validate($form, &$form_state) {
+  if ($form_state['values']['set'] == 'new') {
+    // Check to prevent creating a shortcut set with an empty title.
+    if (trim($form_state['values']['new']) == '') {
+      form_set_error('new', t('The new set name is required.'));
+    }
+    // Check to prevent a duplicate title.
+    if (shortcut_set_title_exists($form_state['values']['new'])) {
+      form_set_error('new', t('The shortcut set %name already exists. Choose another name.', array('%name' => $form_state['values']['new'])));
+    }
+  }
 }
 
 /**
@@ -184,6 +203,7 @@ function shortcut_set_admin() {
  *   An array representing the form definition.
  *
  * @ingroup forms
+ * @see shortcut_set_add_form_validate()
  * @see shortcut_set_add_form_submit()
  */
 function shortcut_set_add_form($form, &$form_state) {
@@ -191,6 +211,7 @@ function shortcut_set_add_form($form, &$form_state) {
     '#type' => 'textfield',
     '#title' => t('Set name'),
     '#description' => t('The new set is created by copying items from your default shortcut set.'),
+    '#required' => TRUE,
   );
 
   $form['actions'] = array('#type' => 'actions');
@@ -200,6 +221,16 @@ function shortcut_set_add_form($form, &$form_state) {
   );
 
   return $form;
+}
+
+/**
+ * Validation handler for shortcut_set_add_form().
+ */
+function shortcut_set_add_form_validate($form, &$form_state) {
+  // Check to prevent a duplicate title.
+  if (shortcut_set_title_exists($form_state['values']['new'])) {
+    form_set_error('new', t('The shortcut set %name already exists. Choose another name.', array('%name' => $form_state['values']['new'])));
+  }
 }
 
 /**
@@ -430,6 +461,9 @@ function _shortcut_link_form_elements($shortcut_link = NULL) {
       'link_path' => ''
     );
   }
+  else {
+    $shortcut_link['link_path'] = drupal_get_path_alias($shortcut_link['link_path']);
+  }
 
   $form['shortcut_link']['#tree'] = TRUE;
   $form['shortcut_link']['link_title'] = array(
@@ -475,7 +509,11 @@ function shortcut_link_edit_validate($form, &$form_state) {
  * Submit handler for shortcut_link_edit().
  */
 function shortcut_link_edit_submit($form, &$form_state) {
+  // Normalize the path in case it is an alias.
+  $form_state['values']['shortcut_link']['link_path'] = drupal_get_normal_path($form_state['values']['shortcut_link']['link_path']);
+
   $shortcut_link = array_merge($form_state['values']['original_shortcut_link'], $form_state['values']['shortcut_link']);
+
   menu_link_save($shortcut_link);
   $form_state['redirect'] = 'admin/config/user-interface/shortcut/' . $shortcut_link['menu_name'];
   drupal_set_message(t('The shortcut %link has been updated.', array('%link' => $shortcut_link['link_title'])));
@@ -527,6 +565,9 @@ function shortcut_admin_add_link($shortcut_link, &$shortcut_set, $limit = NULL) 
     }
   }
 
+  // Normalize the path in case it is an alias.
+  $shortcut_link['link_path'] = drupal_get_normal_path($shortcut_link['link_path']);
+
   // Add the link to the end of the list.
   $shortcut_set->links[] = $shortcut_link;
   shortcut_set_reset_link_weights($shortcut_set);
@@ -547,6 +588,7 @@ function shortcut_admin_add_link($shortcut_link, &$shortcut_set, $limit = NULL) 
  *   An array representing the form definition.
  *
  * @ingroup forms
+ * @see shortcut_set_edit_form_validate()
  * @see shortcut_set_edit_form_submit()
  */
 function shortcut_set_edit_form($form, &$form_state, $shortcut_set) {
@@ -570,6 +612,17 @@ function shortcut_set_edit_form($form, &$form_state, $shortcut_set) {
   );
 
   return $form;
+}
+
+/**
+ * Validation handler for shortcut_set_edit_form().
+ */
+function shortcut_set_edit_form_validate($form, &$form_state) {
+  // Check to prevent a duplicate title, if the title was edited from its
+  // original value.
+  if ($form_state['values']['title'] != $form_state['values']['shortcut_set']->title && shortcut_set_title_exists($form_state['values']['title'])) {
+    form_set_error('title', t('The shortcut set %name already exists. Choose another name.', array('%name' => $form_state['values']['title'])));
+  }
 }
 
 /**

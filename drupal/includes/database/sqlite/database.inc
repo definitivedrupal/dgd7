@@ -1,5 +1,5 @@
 <?php
-// $Id: database.inc,v 1.30 2010/04/06 16:54:15 dries Exp $
+// $Id: database.inc,v 1.39 2010/10/03 01:29:41 dries Exp $
 
 /**
  * @file
@@ -47,6 +47,8 @@ class DatabaseConnection_sqlite extends DatabaseConnection {
     parent::__construct('sqlite:' . $connection_options['database'], '', '', array(
       // Force column names to lower case.
       PDO::ATTR_CASE => PDO::CASE_LOWER,
+      // Convert numeric values to strings when fetching.
+      PDO::ATTR_STRINGIFY_FETCHES => TRUE,
     ));
 
     $this->exec('PRAGMA encoding="UTF-8"');
@@ -80,7 +82,7 @@ class DatabaseConnection_sqlite extends DatabaseConnection {
   public function sqlFunctionGreatest() {
     $args = func_get_args();
     foreach ($args as $k => $v) {
-      if (is_null($v)) {
+      if (!isset($v)) {
         unset($args);
       }
     }
@@ -111,6 +113,10 @@ class DatabaseConnection_sqlite extends DatabaseConnection {
    * SQLite compatibility implementation for the SUBSTRING_INDEX() SQL function.
    */
   public function sqlFunctionSubstringIndex($string, $delimiter, $count) {
+    // If string is empty, simply return an empty string.
+    if (empty($string)) {
+      return '';
+    }
     $end = 0;
     for ($i = 0; $i < $count; $i++) {
       $end = strpos($string, $delimiter, $end + 1);
@@ -159,12 +165,16 @@ class DatabaseConnection_sqlite extends DatabaseConnection {
   }
 
   public function queryRange($query, $from, $count, array $args = array(), array $options = array()) {
-    return $this->query($query . ' LIMIT ' . $from . ', ' . $count, $args, $options);
+    return $this->query($query . ' LIMIT ' . (int) $from . ', ' . (int) $count, $args, $options);
   }
 
   public function queryTemporary($query, array $args = array(), array $options = array()) {
+    // Generate a new temporary table name and protect it from prefixing.
+    // SQLite requires that temporary tables to be non-qualified.
     $tablename = $this->generateTemporaryTableName();
-    $this->query(preg_replace('/^SELECT/i', 'CREATE TEMPORARY TABLE {' . $tablename . '} AS SELECT', $query), $args, $options);
+    $this->prefixes[$tablename] = '';
+
+    $this->query(preg_replace('/^SELECT/i', 'CREATE TEMPORARY TABLE ' . $tablename . ' AS SELECT', $query), $args, $options);
     return $tablename;
   }
 
@@ -207,12 +217,12 @@ class DatabaseConnection_sqlite extends DatabaseConnection {
     }
     // The transaction gets committed when the transaction object gets destroyed
     // because it gets out of scope.
-    return (int) $this->query('SELECT value FROM {sequences}')->fetchField();
+    return $this->query('SELECT value FROM {sequences}')->fetchField();
   }
 
-  public function rollback($savepoint_name = 'drupal_transaction', $type = NULL, $message = NULL, $variables = array(), $severity = NULL, $link = NULL) {
+  public function rollback($savepoint_name = 'drupal_transaction') {
     if ($this->savepointSupport) {
-      return parent::rollBack($savepoint_name, $type, $message, $variables, $severity, $link);
+      return parent::rollBack($savepoint_name);
     }
 
     if (!$this->inTransaction()) {
@@ -222,29 +232,6 @@ class DatabaseConnection_sqlite extends DatabaseConnection {
     // in question has already been rolled back.
     if (!in_array($savepoint_name, $this->transactionLayers)) {
       return;
-    }
-
-    // Set the severity to the configured default if not specified.
-    if (!isset($severity)) {
-      $logging = Database::getLoggingCallback();
-      if (is_array($logging)) {
-        $severity = $logging['default_severity'];
-      }
-    }
-
-    // Record in an array to send to the log after transaction rollback.
-    // Messages written directly to a log (with a database back-end) will roll
-    // back during the following transaction rollback. This is an array because
-    // rollback could be requested multiple times during a transaction, and all
-    // such errors ought to be logged.
-    if (isset($message)) {
-      $this->rollbackLogs[] = array(
-        'type' => $type,
-        'message' => $message,
-        'variables' => $variables,
-        'severity' => $severity,
-        'link' => $link,
-      );
     }
 
     // We need to find the point we're rolling back to, all other savepoints
@@ -265,15 +252,6 @@ class DatabaseConnection_sqlite extends DatabaseConnection {
     if ($this->supportsTransactions()) {
       PDO::rollBack();
     }
-    else {
-      // Log unsupported rollback.
-      $this->rollbackLogs[] = array(
-        'type' => 'database',
-        'message' => t('Explicit rollback failed: not supported on active connection.'),
-        'variables' => array(),
-      );
-    }
-    $this->logRollback();
   }
 
   public function pushTransaction($name) {
@@ -313,7 +291,6 @@ class DatabaseConnection_sqlite extends DatabaseConnection {
         if ($this->willRollback) {
           $this->willRollback = FALSE;
           PDO::rollBack();
-          $this->logRollback();
         }
         elseif (!PDO::commit()) {
           throw new DatabaseTransactionCommitFailedException();

@@ -1,5 +1,5 @@
 <?php
-// $Id: user.pages.inc,v 1.72 2010/05/06 05:59:31 webchick Exp $
+// $Id: user.pages.inc,v 1.75 2010/08/27 11:28:45 webchick Exp $
 
 /**
  * @file
@@ -243,6 +243,18 @@ function template_preprocess_user_profile_category(&$variables) {
 function user_profile_form($form, &$form_state, $account, $category = 'account') {
   global $user;
 
+  // During initial form build, add the entity to the form state for use during
+  // form building and processing. During a rebuild, use what is in the form
+  // state.
+  if (!isset($form_state['user'])) {
+    $form_state['user'] = $account;
+  }
+  else {
+    $account = $form_state['user'];
+  }
+
+  // @todo Legacy support. Modules are encouraged to access the entity using
+  //   $form_state. Remove in Drupal 8.
   $form['#user'] = $account;
   $form['#user_category'] = $category;
 
@@ -278,24 +290,31 @@ function user_profile_form($form, &$form_state, $account, $category = 'account')
  * Validation function for the user account and profile editing form.
  */
 function user_profile_form_validate($form, &$form_state) {
-  $edit = (object) $form_state['values'];
-  field_attach_form_validate('user', $edit, $form, $form_state);
+  entity_form_field_validate('user', $form, $form_state);
 }
 
 /**
  * Submit function for the user account and profile editing form.
  */
 function user_profile_form_submit($form, &$form_state) {
-  $account = $form['#user'];
+  $account = $form_state['user'];
   $category = $form['#user_category'];
   // Remove unneeded values.
   form_state_values_clean($form_state);
 
-  $edit = (object) $form_state['values'];
-  field_attach_submit('user', $edit, $form, $form_state);
-  $edit = (array) $edit;
+  // Before updating the account entity, keep an unchanged copy for use with
+  // user_save() later. This is necessary for modules implementing the user
+  // hooks to be able to react on changes by comparing the values of $account
+  // and $edit.
+  $account_unchanged = clone $account;
 
-  user_save($account, $edit, $category);
+  entity_form_submit_build_entity('user', $account, $form, $form_state);
+
+  // Populate $edit with the properties of $account, which have been edited on
+  // this form by taking over all values, which appear in the form values too.
+  $edit = array_intersect_key((array) $account, $form_state['values']);
+
+  user_save($account_unchanged, $edit, $category);
   $form_state['values']['uid'] = $account->uid;
 
   if ($category == 'account' && !empty($edit['pass'])) {
@@ -478,7 +497,6 @@ function user_cancel_methods() {
       '#return_value' => $name,
       '#default_value' => $default_method,
       '#parents' => array('user_cancel_method'),
-      '#required' => TRUE,
     );
   }
   return $form;

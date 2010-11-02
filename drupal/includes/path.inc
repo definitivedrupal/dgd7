@@ -1,5 +1,5 @@
 <?php
-// $Id: path.inc,v 1.63 2010/05/18 18:26:30 dries Exp $
+// $Id: path.inc,v 1.71 2010/08/09 00:13:06 dries Exp $
 
 /**
  * @file
@@ -44,7 +44,7 @@ function drupal_path_initialize() {
  *   found.
  */
 function drupal_lookup_path($action, $path = '', $path_language = NULL) {
-  global $language_content;
+  global $language_url;
   // Use the advanced drupal_static() pattern, since this is called very often.
   static $drupal_static_fast;
   if (!isset($drupal_static_fast)) {
@@ -71,7 +71,11 @@ function drupal_lookup_path($action, $path = '', $path_language = NULL) {
     }
   }
 
-  $path_language = $path_language ? $path_language : $language_content->language;
+  // If no language is explicitly specified we default to the current URL
+  // language. If we used a language different from the one conveyed by the
+  // requested URL, we might end up being unable to check if there is a path
+  // alias matching the URL path.
+  $path_language = $path_language ? $path_language : $language_url->language;
 
   if ($action == 'wipe') {
     $cache = array();
@@ -112,7 +116,7 @@ function drupal_lookup_path($action, $path = '', $path_language = NULL) {
         return FALSE;
       }
       // For system paths which were not cached, query aliases individually.
-      else if (!isset($cache['no_aliases'][$path_language][$path])) {
+      elseif (!isset($cache['no_aliases'][$path_language][$path])) {
         // Get the most fitting result falling back with alias without language
         $alias = db_query("SELECT alias FROM {url_alias} WHERE source = :source AND language IN (:language, :language_none) ORDER BY language DESC, pid DESC", array(
           ':source' => $path,
@@ -127,7 +131,7 @@ function drupal_lookup_path($action, $path = '', $path_language = NULL) {
     // isn't a path that has this alias
     elseif ($action == 'source' && !isset($cache['no_source'][$path_language][$path])) {
       // Look for the value $path within the cached $map
-      $source = '';
+      $source = FALSE;
       if (!isset($cache['map'][$path_language]) || !($source = array_search($path, $cache['map'][$path_language]))) {
         // Get the most fitting result falling back with alias without language
         if ($source = db_query("SELECT source FROM {url_alias} WHERE alias = :alias AND language IN (:language, :language_none) ORDER BY language DESC, pid DESC", array(
@@ -336,7 +340,7 @@ function drupal_path_alias_whitelist_rebuild($source = NULL) {
   // path it corresponds to. This is the portion of the path before the first
   // '/', if present, otherwise the whole path itself.
   $whitelist = array();
-  $result = db_query("SELECT SUBSTRING_INDEX(source, '/', 1) AS path FROM {url_alias} GROUP BY path");
+  $result = db_query("SELECT DISTINCT SUBSTRING_INDEX(source, '/', 1) AS path FROM {url_alias}");
   foreach ($result as $row) {
     $whitelist[$row->path] = TRUE;
   }
@@ -393,10 +397,10 @@ function path_save(&$path) {
   $path += array('pid' => NULL, 'language' => LANGUAGE_NONE);
 
   // Insert or update the alias.
-  $status = drupal_write_record('url_alias', $path, (!empty($path['pid']) ? 'pid' : NULL));
+  $status = drupal_write_record('url_alias', $path, (!empty($path['pid']) ? 'pid' : array()));
 
   // Verify that a record was written.
-  if (isset($status) && $status) {
+  if ($status) {
     if ($status === SAVED_NEW) {
       module_invoke_all('path_insert', $path);
     }
@@ -437,6 +441,7 @@ function path_delete($criteria) {
  *
  * @param $path
  *   A Drupal path.
+ *
  * @return
  *   TRUE if the path is administrative, FALSE otherwise.
  *

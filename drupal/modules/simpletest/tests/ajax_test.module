@@ -1,5 +1,5 @@
 <?php
-// $Id: ajax_test.module,v 1.3 2010/03/13 06:55:50 dries Exp $
+// $Id: ajax_test.module,v 1.5 2010/10/21 19:31:39 dries Exp $
 
 /**
  * @file
@@ -24,25 +24,24 @@ function ajax_test_menu() {
     'access callback' => TRUE,
     'type' => MENU_CALLBACK,
   );
+  $items['ajax-test/link'] = array(
+    'title' => 'AJAX Link',
+    'page callback' => 'ajax_test_link',
+    'access callback' => TRUE,
+  );
   return $items;
 }
 
 /**
- * Menu callback; Returns $_GET['commands'] suitable for use by ajax_deliver().
+ * Menu callback; Return an element suitable for use by ajax_deliver().
  *
  * Additionally ensures that ajax_render() incorporates JavaScript settings
- * by invoking drupal_add_js() with a dummy setting.
+ * generated during the page request by invoking drupal_add_js() with a dummy
+ * setting.
  */
 function ajax_test_render() {
-  // Prepare AJAX commands.
-  $commands = array();
-  if (!empty($_GET['commands'])) {
-    $commands = $_GET['commands'];
-  }
-  // Add a dummy JS setting.
   drupal_add_js(array('ajax' => 'test'), 'setting');
-
-  return array('#type' => 'ajax', '#commands' => $commands);
+  return array('#type' => 'ajax', '#commands' => array());
 }
 
 /**
@@ -55,3 +54,19 @@ function ajax_test_error() {
   }
   return array('#type' => 'ajax', '#error' => $message);
 }
+
+/**
+ * Menu callback; Renders a #type link with #ajax.
+ */
+function ajax_test_link() {
+  $build['link'] = array(
+    '#type' => 'link',
+    '#title' => 'Show help',
+    '#href' => 'filter/tips',
+    '#ajax' => array(
+      'wrapper' => 'block-system-main',
+    ),
+  );
+  return $build;
+}
+

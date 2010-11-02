@@ -1,5 +1,5 @@
 <?php
-// $Id: book.module,v 1.542 2010/05/06 05:59:31 webchick Exp $
+// $Id: book.module,v 1.554 2010/10/18 05:53:34 webchick Exp $
 
 /**
  * @file
@@ -91,7 +91,7 @@ function book_node_view_link($node, $view_mode) {
   $links = array();
 
   if (isset($node->book['depth'])) {
-    if ($view_mode == 'full') {
+    if ($view_mode == 'full' && node_is_page($node)) {
       $child_type = variable_get('book_child_type', 'book');
       if ((user_access('add content to books') || user_access('administer book outlines')) && node_access('create', $child_type) && $node->status == 1 && $node->book['depth'] < MENU_MAX_DEPTH) {
         $links['book_add_child'] = array(
@@ -112,11 +112,7 @@ function book_node_view_link($node, $view_mode) {
   }
 
   if (!empty($links)) {
-    $node->content['links']['book'] = array(
-      '#theme' => 'links__book_node',
-      '#links' => $links,
-      '#attributes' => array('class' => array('links', 'inline')),
-    );
+    $node->content['links']['#links'] = array_merge($node->content['links']['#links'], $links);
   }
 }
 
@@ -186,14 +182,6 @@ function book_menu() {
     'access callback' => '_book_outline_remove_access',
     'access arguments' => array(1),
     'theme callback' => '_node_custom_theme',
-    'type' => MENU_CALLBACK,
-    'file' => 'book.pages.inc',
-  );
-  $items['book/js/form'] = array(
-    'page callback' => 'book_form_update',
-    'delivery callback' => 'ajax_deliver',
-    'access arguments' => array('access content'),
-    'type' => MENU_CALLBACK,
     'file' => 'book.pages.inc',
   );
 
@@ -226,13 +214,6 @@ function book_admin_paths() {
 }
 
 /**
- * Implements hook_init().
- */
-function book_init() {
-  drupal_add_css(drupal_get_path('module', 'book') . '/book.css');
-}
-
-/**
  * Implements hook_entity_info_alter().
  */
 function book_entity_info_alter(&$info) {
@@ -240,6 +221,7 @@ function book_entity_info_alter(&$info) {
   $info['node']['view modes'] += array(
     'print' => array(
       'label' => t('Print'),
+      'custom settings' => FALSE,
     ),
   );
 }
@@ -282,6 +264,9 @@ function book_block_view($delta = '') {
         // Since we know we will only display a link to the top node, there
         // is no reason to run an additional menu tree query for each book.
         $book['in_active_trail'] = FALSE;
+        // Check whether user can access the book link.
+        $book_node = node_load($book['nid']);
+        $book['access'] = node_access('view', $book_node);
         $pseudo_tree[0]['link'] = $book;
         $book_menus[$book_id] = menu_tree_output($pseudo_tree);
       }
@@ -369,12 +354,12 @@ function book_get_books() {
 
     if ($nids) {
       $query = db_select('book', 'b', array('fetch' => PDO::FETCH_ASSOC));
-      $node_alias = $query->join('node', 'n', 'b.nid = n.nid');
-      $menu_links_alias = $query->join('menu_links', 'ml', 'b.mlid = ml.mlid');
+      $query->join('node', 'n', 'b.nid = n.nid');
+      $query->join('menu_links', 'ml', 'b.mlid = ml.mlid');
       $query->addField('n', 'type', 'type');
       $query->addField('n', 'title', 'title');
       $query->fields('b');
-      $query->fields($menu_links_alias);
+      $query->fields('ml');
       $query->condition('n.nid', $nids, 'IN');
       $query->condition('n.status', 1);
       $query->orderBy('ml.weight');
@@ -393,41 +378,50 @@ function book_get_books() {
 }
 
 /**
- * Implements hook_form_alter().
+ * Implements hook_form_BASE_FORM_ID_alter().
  *
  * Adds the book fieldset to the node form.
  *
- * @see book_pick_book_submit()
- * @see book_submit()
+ * @see book_pick_book_nojs_submit()
  */
-function book_form_alter(&$form, &$form_state, $form_id) {
-  if (!empty($form['#node_edit_form'])) {
-    // Add elements to the node form.
-    $node = $form['#node'];
-
-    $access = user_access('administer book outlines');
-    if (!$access) {
-      if (user_access('add content to books') && ((!empty($node->book['mlid']) && !empty($node->nid)) || book_type_is_allowed($node->type))) {
-        // Already in the book hierarchy, or this node type is allowed.
-        $access = TRUE;
-      }
-    }
-
-    if ($access) {
-      _book_add_form_elements($form, $form_state, $node);
-      $form['book']['pick-book'] = array(
-        '#type' => 'submit',
-        '#value' => t('Change book (update list of parents)'),
-         // Submit the node form so the parent select options get updated.
-         // This is typically only used when JS is disabled. Since the parent options
-         // won't be changed via AJAX, a button is provided in the node form to submit
-         // the form and generate options in the parent select corresponding to the
-         // selected book. This is similar to what happens during a node preview.
-        '#submit' => array('node_form_submit_build_node'),
-        '#weight' => 20,
-      );
+function book_form_node_form_alter(&$form, &$form_state, $form_id) {
+  $node = $form['#node'];
+  $access = user_access('administer book outlines');
+  if (!$access) {
+    if (user_access('add content to books') && ((!empty($node->book['mlid']) && !empty($node->nid)) || book_type_is_allowed($node->type))) {
+      // Already in the book hierarchy, or this node type is allowed.
+      $access = TRUE;
     }
   }
+
+  if ($access) {
+    _book_add_form_elements($form, $form_state, $node);
+    // Since the "Book" dropdown can't trigger a form submission when
+    // JavaScript is disabled, add a submit button to do that. book.css hides
+    // this button when JavaScript is enabled.
+    $form['book']['pick-book'] = array(
+      '#type' => 'submit',
+      '#value' => t('Change book (update list of parents)'),
+      '#submit' => array('book_pick_book_nojs_submit'),
+      '#weight' => 20,
+    );
+  }
+}
+
+/**
+ * Submit handler to change a node's book.
+ *
+ * This handler is run when JavaScript is disabled. It triggers the form to
+ * rebuild so that the "Parent item" options are changed to reflect the newly
+ * selected book. When JavaScript is enabled, the submit button that triggers
+ * this handler is hidden, and the "Book" dropdown directly triggers the
+ * book_form_update() AJAX callback instead.
+ *
+ * @see book_form_update()
+ */
+function book_pick_book_nojs_submit($form, &$form_state) {
+  $form_state['node']->book = $form_state['values']['book'];
+  $form_state['rebuild'] = TRUE;
 }
 
 /**
@@ -469,6 +463,8 @@ function _book_parent_select($book_link) {
       '#description' => t('The parent page in the book. The maximum depth for a book and all child pages is !maxdepth. Some pages in the selected book may not be available as parents if selecting them would exceed this limit.', array('!maxdepth' => MENU_MAX_DEPTH)),
       '#options' => book_toc($book_link['bid'], $book_link['parent_depth_limit'], array($book_link['mlid'])),
       '#attributes' => array('class' => array('book-title-select')),
+      '#prefix' => '<div id="edit-book-plid-wrapper">',
+      '#suffix' => '</div>',
     );
   }
 
@@ -479,8 +475,11 @@ function _book_parent_select($book_link) {
  * Build the common elements of the book form for the node and outline forms.
  */
 function _book_add_form_elements(&$form, &$form_state, $node) {
-  // Need this for AJAX.
-  $form_state['cache'] = TRUE;
+  // If the form is being processed during the AJAX callback of our book bid
+  // dropdown, then $form_state will hold the value that was selected.
+  if (isset($form_state['values']['book'])) {
+    $node->book = $form_state['values']['book'];
+  }
 
   $form['book'] = array(
     '#type' => 'fieldset',
@@ -504,15 +503,11 @@ function _book_add_form_elements(&$form, &$form_state, $node) {
 
   $form['book']['plid'] = _book_parent_select($node->book);
 
-  $tree = book_menu_subtree_data(menu_link_load($node->book['plid']));
-  $tree = array_shift($tree);  // Do not include the book item itself.
-  $delta = book_weight_delta_calculate($tree['below']);
-
   $form['book']['weight'] = array(
     '#type' => 'weight',
     '#title' => t('Weight'),
     '#default_value' => $node->book['weight'],
-    '#delta' => $delta,
+    '#delta' => 15,
     '#weight' => 5,
     '#description' => t('Pages at a given level are ordered first by weight and then by title.'),
   );
@@ -549,7 +544,7 @@ function _book_add_form_elements(&$form, &$form_state, $node) {
     '#weight' => -5,
     '#attributes' => array('class' => array('book-title-select')),
     '#ajax' => array(
-      'path' => 'book/js/form',
+      'callback' => 'book_form_update',
       'wrapper' => 'edit-book-plid-wrapper',
       'effect' => 'fade',
       'speed' => 'fast',
@@ -558,23 +553,16 @@ function _book_add_form_elements(&$form, &$form_state, $node) {
 }
 
 /**
- * Provides the delta required (minimum 15) for weighting nodes in a book. 
+ * Renders a new parent page select element when the book selection changes.
  *
- * Takes a modified book subtree, such as $tree['below'] after getting $tree:
- * $tree = array_shift(book_menu_subtree_data($node->book));
+ * This function is called via AJAX when the selected book is changed on a node
+ * or book outline form.
+ *
+ * @return
+ *   The rendered parent page select element.
  */
-function book_weight_delta_calculate($tree) {
-  // The delta must be big enough to give each node a distinct value.
-  $count = intval(count($tree) / 2) + 1;
-  // The delta must be as large as any existing delta.
-  $high = 0;
-  if ($tree) {
-    foreach ($tree as $value) {
-      $weight = abs($value['link']['weight']);
-      if ($weight > $high)  $high = $weight;
-    }
-  }
-  return max(15, $count, $high + 1);
+function book_form_update($form, $form_state) {
+  return $form['book']['plid'];
 }
 
 /**
@@ -1277,10 +1265,10 @@ function book_menu_subtree_data($link) {
     // If the subtree data was not in the cache, $data will be NULL.
     if (!isset($data)) {
       $query = db_select('menu_links', 'ml', array('fetch' => PDO::FETCH_ASSOC));
-      $menu_router_alias = $query->join('menu_router', 'm', 'm.path = ml.router_path');
-      $book_alias = $query->join('book', 'b', 'ml.mlid = b.mlid');
-      $query->fields($book_alias);
-      $query->fields($menu_router_alias, array('load_functions', 'to_arg_functions', 'access_callback', 'access_arguments', 'page_callback', 'page_arguments', 'delivery_callback', 'title', 'title_callback', 'title_arguments', 'type'));
+      $query->join('menu_router', 'm', 'm.path = ml.router_path');
+      $query->join('book', 'b', 'ml.mlid = b.mlid');
+      $query->fields('b');
+      $query->fields('m', array('load_functions', 'to_arg_functions', 'access_callback', 'access_arguments', 'page_callback', 'page_arguments', 'delivery_callback', 'title', 'title_callback', 'title_arguments', 'type'));
       $query->fields('ml');
       $query->condition('menu_name', $link['menu_name']);
       for ($i = 1; $i <= MENU_MAX_DEPTH && $link["p$i"]; ++$i) {

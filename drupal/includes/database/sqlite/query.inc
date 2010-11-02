@@ -1,5 +1,5 @@
 <?php
-// $Id: query.inc,v 1.10 2010/05/15 07:04:21 dries Exp $
+// $Id: query.inc,v 1.13 2010/09/25 01:41:26 dries Exp $
 
 /**
  * @file
@@ -10,6 +10,16 @@
  * @ingroup database
  * @{
  */
+
+/**
+ * SQLite specific query builder for SELECT statements.
+ */
+class SelectQuery_sqlite extends SelectQuery {
+  public function forUpdate($set = TRUE) {
+    // SQLite does not support FOR UPDATE so nothing to do.
+    return $this;
+  }
+}
 
 /**
  * SQLite specific implementation of InsertQuery.
@@ -63,7 +73,6 @@ class InsertQuery_sqlite extends InsertQuery {
  *   UPDATE test SET name = 'newname' WHERE tid = 1 AND name <> 'newname'
  */
 class UpdateQuery_sqlite extends UpdateQuery {
-
   /**
    * Helper function that removes the fields that are already in a condition.
    *
@@ -84,6 +93,10 @@ class UpdateQuery_sqlite extends UpdateQuery {
   }
 
   public function execute() {
+    if (!empty($this->queryOptions['sqlite_return_matched_rows'])) {
+      return parent::execute();
+    }
+
     // Get the fields used in the update query, and remove those that are already
     // in the condition.
     $fields = $this->expressionFields + $this->fields;
@@ -97,7 +110,7 @@ class UpdateQuery_sqlite extends UpdateQuery {
         $condition->condition($field, $data['expression'], '<>');
         $condition->isNull($field);
       }
-      elseif (is_null($data)) {
+      elseif (!isset($data)) {
         // The field will be set to NULL.
         $condition->isNull($field);
       }

@@ -1,5 +1,5 @@
 <?php
-// $Id: search.admin.inc,v 1.14 2010/01/30 07:59:25 dries Exp $
+// $Id: search.admin.inc,v 1.19 2010/10/20 01:31:07 dries Exp $
 
 /**
  * @file
@@ -31,7 +31,7 @@ function search_reindex_confirm_submit(&$form, &$form_state) {
  */
 function _search_get_module_names() {
 
-  $search_info = search_get_info();
+  $search_info = search_get_info(TRUE);
   $modules = db_select('system', 's')
     ->fields('s', array('name', 'info'))
     ->condition('s.status', 1)
@@ -48,10 +48,11 @@ function _search_get_module_names() {
 }
 
 /**
- * Menu callback; displays the search module settings page.
+ * Menu callback: displays the search module settings page.
  *
  * @ingroup forms
- * @see system_settings_form()
+ *
+ * @see search_admin_settings_validate()
  * @see search_admin_settings_submit()
  * @see search_admin_reindex_submit()
  */
@@ -59,7 +60,7 @@ function search_admin_settings($form) {
   // Collect some stats
   $remaining = 0;
   $total = 0;
-  foreach(variable_get('search_active_modules', array('node', 'user')) as $module) {
+  foreach (variable_get('search_active_modules', array('node', 'user')) as $module) {
     if ($status = module_invoke($module, 'search_status')) {
       $remaining += $status['remaining'];
       $total += $status['total'];
@@ -83,7 +84,7 @@ function search_admin_settings($form) {
   $form['indexing_throttle']['search_cron_limit'] = array(
     '#type' => 'select',
     '#title' => t('Number of items to index per cron run'),
-    '#default_value' => 100,
+    '#default_value' => variable_get('search_cron_limit', 100),
     '#options' => $items,
     '#description' => t('The maximum number of items indexed in each pass of a <a href="@cron">cron maintenance task</a>. If necessary, reduce the number of items to prevent timeouts and memory errors while indexing.', array('@cron' => url('admin/reports/status')))
   );
@@ -98,7 +99,7 @@ function search_admin_settings($form) {
   $form['indexing_settings']['minimum_word_size'] = array(
     '#type' => 'textfield',
     '#title' => t('Minimum word length to index'),
-    '#default_value' => 3,
+    '#default_value' => variable_get('minimum_word_size', 3),
     '#size' => 5,
     '#maxlength' => 3,
     '#description' => t('The number of characters a word has to be to be indexed. A lower setting means better search result ranking, but also a larger database. Each search query must contain at least one keyword that is this size (or longer).')
@@ -106,7 +107,7 @@ function search_admin_settings($form) {
   $form['indexing_settings']['overlap_cjk'] = array(
     '#type' => 'checkbox',
     '#title' => t('Simple CJK handling'),
-    '#default_value' => TRUE,
+    '#default_value' => variable_get('overlap_cjk', TRUE),
     '#description' => t('Whether to apply a simple Chinese/Japanese/Korean tokenizer based on overlapping sequences. Turn this off if you want to use an external preprocessor for this instead. Does not affect other languages.')
   );
 
@@ -116,26 +117,49 @@ function search_admin_settings($form) {
   );
   $form['active']['search_active_modules'] = array(
     '#type' => 'checkboxes',
-    '#default_value' => array('node', 'user'),
+    '#title' => t('Active modules'),
+    '#title_display' => 'invisible',
+    '#default_value' => variable_get('search_active_modules', array('node', 'user')),
     '#options' => _search_get_module_names(),
-    '#description' => t('Determine which search modules are active from the available modules.')
+    '#description' => t('Choose which search modules are active from the available modules.')
   );
-
+  $form['active']['search_default_module'] = array(
+    '#title' => t('Default search module'),
+    '#type' => 'radios',
+    '#default_value' => variable_get('search_default_module', 'node'),
+    '#options' => _search_get_module_names(),
+    '#description' => t('Choose which search module is the default.')
+  );
+  $form['#validate'][] = 'search_admin_settings_validate';
   $form['#submit'][] = 'search_admin_settings_submit';
 
   // Per module settings
-  foreach(variable_get('search_active_modules', array('node', 'user')) as $module) {
+  foreach (variable_get('search_active_modules', array('node', 'user')) as $module) {
     $added_form = module_invoke($module, 'search_admin');
     if (is_array($added_form)) {
       $form = array_merge($form, $added_form);
     }
   }
 
-  return system_settings_form($form, TRUE);
+  return system_settings_form($form);
 }
 
 /**
- * Submit callback.
+ * Form validation handler for search_admin_settings().
+ */
+function search_admin_settings_validate($form, &$form_state) {
+  // Check whether we selected a valid default.
+  if ($form_state['clicked_button']['#value'] != t('Reset to defaults')) {
+    $new_modules = array_filter($form_state['values']['search_active_modules']);
+    $default = $form_state['values']['search_default_module'];
+    if (!in_array($default, $new_modules, TRUE)) {
+      form_set_error('search_default_module', t('Your default search module is not selected as an active module.'));
+    }
+  }
+}
+
+/**
+ * Form submission handler for search_admin_settings().
  */
 function search_admin_settings_submit($form, &$form_state) {
   // If these settings change, the index needs to be rebuilt.
@@ -159,7 +183,7 @@ function search_admin_settings_submit($form, &$form_state) {
 }
 
 /**
- * Submit callback.
+ * Form submission handler for reindex button on search_admin_settings_form().
  */
 function search_admin_reindex_submit($form, &$form_state) {
   // send the user to the confirmation page

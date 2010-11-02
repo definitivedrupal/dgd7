@@ -1,5 +1,5 @@
 <?php
-// $Id: run-tests.sh,v 1.40 2010/01/15 10:51:02 dries Exp $
+// $Id: run-tests.sh,v 1.42 2010/09/28 02:30:32 dries Exp $
 /**
  * @file
  * This script runs Drupal tests from command line.
@@ -41,7 +41,7 @@ if ($args['clean']) {
 
   // Get the status messages and print them.
   $messages = array_pop(drupal_get_messages('status'));
-  foreach($messages as $text) {
+  foreach ($messages as $text) {
     echo " - " . $text . "\n";
   }
   exit;
@@ -302,7 +302,7 @@ function simpletest_script_init($server_software) {
 function simpletest_script_execute_batch() {
   global $args;
 
-  if (is_null($args['test-id'])) {
+  if (!isset($args['test-id'])) {
     simpletest_script_print_error("--execute-batch should not be called interactively.");
     exit;
   }
@@ -431,7 +431,7 @@ function simpletest_script_get_test_list() {
       // Check for valid group names and get all valid classes in group.
       foreach ($args['test_names'] as $group_name) {
         if (isset($groups[$group_name])) {
-          foreach($groups[$group_name] as $class_name => $info) {
+          foreach ($groups[$group_name] as $class_name => $info) {
             $test_list[] = $class_name;
           }
         }

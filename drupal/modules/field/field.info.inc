@@ -1,5 +1,5 @@
 <?php
-// $Id: field.info.inc,v 1.44 2010/03/27 05:52:49 webchick Exp $
+// $Id: field.info.inc,v 1.55 2010/10/23 01:34:02 webchick Exp $
 
 /**
  * @file
@@ -186,47 +186,58 @@ function _field_info_collate_fields($reset = FALSE) {
 
   if (!isset($info)) {
     if ($cached = cache_get('field_info_fields', 'cache_field')) {
-      $definitions = $cached->data;
+      $info = $cached->data;
     }
     else {
       $definitions = array(
         'field_ids' => field_read_fields(array(), array('include_deleted' => 1)),
         'instances' => field_read_instances(),
       );
-      cache_set('field_info_fields', $definitions, 'cache_field');
-    }
 
-    // Populate 'field_ids' with all fields.
-    $info['field_ids'] = array();
-    foreach ($definitions['field_ids'] as $key => $field) {
-      $info['field_ids'][$key] = $definitions['field_ids'][$key] = _field_info_prepare_field($field);
-    }
-
-    // Populate 'fields' only with non-deleted fields.
-    $info['fields'] = array();
-    foreach ($info['field_ids'] as $field) {
-      if (!$field['deleted']) {
-        $info['fields'][$field['field_name']] = $field;
+      // Populate 'fields' with all fields, keyed by ID.
+      $info['fields'] = array();
+      foreach ($definitions['field_ids'] as $key => $field) {
+        $info['fields'][$key] = $definitions['field_ids'][$key] = _field_info_prepare_field($field);
       }
-    }
 
-    // Populate 'instances'. Only non-deleted instances are considered.
-    $info['instances'] = array();
-    foreach (field_info_bundles() as $entity_type => $bundles) {
-      foreach ($bundles as $bundle => $bundle_info) {
-        $info['instances'][$entity_type][$bundle] = array();
+      // Build an array of field IDs for non-deleted fields, keyed by name.
+      $info['field_ids'] = array();
+      foreach ($info['fields'] as $key => $field) {
+        if (!$field['deleted']) {
+          $info['field_ids'][$field['field_name']] = $key;
+        }
       }
-    }
-    foreach ($definitions['instances'] as $instance) {
-      $field = $info['fields'][$instance['field_name']];
-      $instance = _field_info_prepare_instance($instance, $field);
-      $info['instances'][$instance['entity_type']][$instance['bundle']][$instance['field_name']] = $instance;
-      // Enrich field definitions with the list of bundles where they have
-      // instances. NOTE: Deleted fields in $info['field_ids'] are not
-      // enriched because all of their instances are deleted, too, and
-      // are thus not in $definitions['instances'].
-      $info['fields'][$instance['field_name']]['bundles'][$instance['entity_type']][] = $instance['bundle'];
-      $info['field_ids'][$instance['field_id']]['bundles'][$instance['entity_type']][] = $instance['bundle'];
+
+      // Populate 'instances'. Only non-deleted instances are considered.
+      $info['instances'] = array();
+      foreach (field_info_bundles() as $entity_type => $bundles) {
+        foreach ($bundles as $bundle => $bundle_info) {
+          $info['instances'][$entity_type][$bundle] = array();
+        }
+      }
+      foreach ($definitions['instances'] as $instance) {
+        $field = $info['fields'][$instance['field_id']];
+        $instance = _field_info_prepare_instance($instance, $field);
+        $info['instances'][$instance['entity_type']][$instance['bundle']][$instance['field_name']] = $instance;
+        // Enrich field definitions with the list of bundles where they have
+        // instances. NOTE: Deleted fields in $info['field_ids'] are not
+        // enriched because all of their instances are deleted, too, and
+        // are thus not in $definitions['instances'].
+        $info['fields'][$instance['field_id']]['bundles'][$instance['entity_type']][] = $instance['bundle'];
+      }
+
+      // Populate 'extra_fields'.
+      $extra = module_invoke_all('field_extra_fields');
+      drupal_alter('field_extra_fields', $extra);
+      // Merge in saved settings.
+      foreach ($extra as $entity_type => $bundles) {
+        foreach ($bundles as $bundle => $extra_fields) {
+          $extra_fields = _field_info_prepare_extra_fields($extra_fields, $entity_type, $bundle);
+          $info['extra_fields'][$entity_type][$bundle] = $extra_fields;
+        }
+      }
+
+      cache_set('field_info_fields', $info, 'cache_field');
     }
   }
 
@@ -290,11 +301,16 @@ function _field_info_prepare_instance($instance, $field) {
     $instance['display'][$view_mode] = _field_info_prepare_instance_display($field, $display);
   }
 
-  // Fallback to 'full' display settings for unspecified view modes.
+  // Fallback to 'hidden' for unspecified view modes.
   $entity_info = entity_get_info($instance['entity_type']);
   foreach ($entity_info['view modes'] as $view_mode => $info) {
     if (!isset($instance['display'][$view_mode])) {
-      $instance['display'][$view_mode] = $instance['display']['full'];
+      $instance['display'][$view_mode] = array(
+        'type' => 'hidden',
+        'label' => 'above',
+        'settings' => array(),
+        'weight' => 0,
+      );
     }
   }
 
@@ -364,6 +380,54 @@ function _field_info_prepare_instance_widget($field, $widget) {
   $widget['settings'] += field_info_widget_settings($widget['type']);
 
   return $widget;
+}
+
+/**
+ * Prepares 'extra fields' for the current run-time context.
+ *
+ * @param $extra_fields
+ *   The array of extra fields, as collected in hook_field_extra_fields().
+ * @param $entity_type
+ *   The entity type.
+ * @param $bundle
+ *   The bundle name.
+ */
+function _field_info_prepare_extra_fields($extra_fields, $entity_type, $bundle) {
+  $entity_type_info = entity_get_info($entity_type);
+  $bundle_settings = field_bundle_settings($entity_type, $bundle);
+  $extra_fields += array('form' => array(), 'display' => array());
+
+  $result = array();
+  // Extra fields in forms.
+  foreach ($extra_fields['form'] as $name => $field_data) {
+    $settings = isset($bundle_settings['extra_fields']['form'][$name]) ? $bundle_settings['extra_fields']['form'][$name] : array();
+    if (isset($settings['weight'])) {
+      $field_data['weight'] = $settings['weight'];
+    }
+    $result['form'][$name] = $field_data;
+  }
+
+  // Extra fields in displayed entities.
+  $data = $extra_fields['display'];
+  foreach ($extra_fields['display'] as $name => $field_data) {
+    $settings = isset($bundle_settings['extra_fields']['display'][$name]) ? $bundle_settings['extra_fields']['display'][$name] : array();
+    $view_modes = array_merge(array('default'), array_keys($entity_type_info['view modes']));
+    foreach ($view_modes as $view_mode) {
+      if (isset($settings[$view_mode])) {
+        $field_data['display'][$view_mode] = $settings[$view_mode];
+      }
+      else {
+        $field_data['display'][$view_mode] = array(
+          'weight' => $field_data['weight'],
+          'visible' => TRUE,
+        );
+      }
+    }
+    unset($field_data['weight']);
+    $result['display'][$name] = $field_data;
+  }
+
+  return $result;
 }
 
 /**
@@ -516,11 +580,17 @@ function field_info_bundles($entity_type = NULL) {
  * @return
  *   An array of field definitions, keyed by field name. Each field has an
  *   additional property, 'bundles', which is an array of all the bundles to
- *   which this field belongs.
+ *   which this field belongs keyed by entity type.
  */
 function field_info_fields() {
+  $fields = array();
   $info = _field_info_collate_fields();
-  return $info['fields'];
+  foreach ($info['fields'] as $key => $field) {
+    if (!$field['deleted']) {
+      $fields[$field['field_name']] = $field;
+    }
+  }
+  return $fields;
 }
 
 /**
@@ -533,14 +603,14 @@ function field_info_fields() {
  * @return
  *   The field array, as returned by field_read_fields(), with an
  *   additional element 'bundles', whose value is an array of all the bundles
- *   this field belongs to.
+ *   this field belongs to keyed by entity type.
  *
  * @see field_info_field_by_id()
  */
 function field_info_field($field_name) {
   $info = _field_info_collate_fields();
-  if (isset($info['fields'][$field_name])) {
-    return $info['fields'][$field_name];
+  if (isset($info['field_ids'][$field_name])) {
+    return $info['fields'][$info['field_ids'][$field_name]];
   }
 }
 
@@ -560,9 +630,28 @@ function field_info_field($field_name) {
  */
 function field_info_field_by_id($field_id) {
   $info = _field_info_collate_fields();
-  if (isset($info['field_ids'][$field_id])) {
-    return $info['field_ids'][$field_id];
+  if (isset($info['fields'][$field_id])) {
+    return $info['fields'][$field_id];
   }
+}
+
+/**
+ * Returns the same data as field_info_field_by_id() for every field.
+ *
+ * This function is typically used when handling all fields of some entities
+ * to avoid thousands of calls to field_info_field_by_id().
+ *
+ * @return
+ *   An array, each key is a field ID and the values are field arrays as
+ *   returned by field_read_fields(), with an additional element 'bundles',
+ *   whose value is an array of all the bundle this field belongs to.
+ *
+ * @see field_info_field()
+ * @see field_info_field_by_id()
+ */
+function field_info_field_by_ids() {
+  $info = _field_info_collate_fields();
+  return $info['fields'];
 }
 
 /**
@@ -608,6 +697,108 @@ function field_info_instance($entity_type, $field_name, $bundle_name) {
   if (isset($info['instances'][$entity_type][$bundle_name][$field_name])) {
     return $info['instances'][$entity_type][$bundle_name][$field_name];
   }
+}
+
+/**
+ * Returns a list and settings of pseudo-field elements in a given bundle.
+ *
+ * If $context is 'form', an array with the following structure:
+ * @code
+ *   array(
+ *     'name_of_pseudo_field_component' => array(
+ *       'label' => The human readable name of the component,
+ *       'description' => A short description of the component content,
+ *       'weight' => The weight of the component in edit forms,
+ *     ),
+ *     'name_of_other_pseudo_field_component' => array(
+ *       // ...
+ *     ),
+ *   );
+ * @endcode
+ *
+ * If $context is 'display', an array with the following structure:
+ * @code
+ *   array(
+ *     'name_of_pseudo_field_component' => array(
+ *       'label' => The human readable name of the component,
+ *       'description' => A short description of the component content,
+ *       // One entry per view mode, including the 'default' mode:
+ *       'display' => array(
+ *         'default' => array(
+ *           'weight' => The weight of the component in displayed entities in
+ *             this view mode,
+ *           'visibility' => Whether the component is visible or hidden in
+ *             displayed entities in this view mode,
+ *         ),
+ *         'teaser' => array(
+ *           // ...
+ *         ),
+ *       ),
+ *     ),
+ *     'name_of_other_pseudo_field_component' => array(
+ *       // ...
+ *     ),
+ *   );
+ * @endcode
+ *
+ * @param $entity_type
+ *   The type of entity; e.g. 'node' or 'user'.
+ * @param $bundle
+ *   The bundle name.
+ * @param $context
+ *   The context for which the list of pseudo-fields is requested. Either
+ *   'form' or 'display'.
+ *
+ * @return
+ *   The array of pseudo-field elements in the bundle.
+ */
+function field_info_extra_fields($entity_type, $bundle, $context) {
+  $info = _field_info_collate_fields();
+  if (isset($info['extra_fields'][$entity_type][$bundle][$context])) {
+    return $info['extra_fields'][$entity_type][$bundle][$context];
+  }
+  return array();
+}
+
+/**
+ * Returns the maximum weight of all the components in an entity.
+ *
+ * This includes fields, 'extra_fields', and other components added by
+ * third-party modules (e.g. field_group).
+ *
+ * @param $entity_type
+ *   The type of entity; e.g. 'node' or 'user'.
+ * @param $bundle
+ *   The bundle name.
+ * @param $context
+ *   The context for which the maximum weight is requested. Either 'form', or
+ *   the name of a view mode.
+ * @return
+ *   The maximum weight of the entity's components, or NULL if no components
+ *   were found.
+ */
+function field_info_max_weight($entity_type, $bundle, $context) {
+  $weights = array();
+
+  // Collect weights for fields.
+  foreach (field_info_instances($entity_type, $bundle) as $instance) {
+    if ($context == 'form') {
+      $weights[] = $instance['widget']['weight'];
+    }
+    else {
+      $weights[] = $instance['display'][$context]['weight'];
+    }
+  }
+  // Collect weights for extra fields.
+  foreach (field_info_extra_fields($entity_type, $bundle, $context) as $extra) {
+    $weights[] = $extra['weight'];
+  }
+
+  // Let other modules feedback about their own additions.
+  $weights = array_merge($weights, module_invoke_all('field_info_max_weight', $entity_type, $bundle, $context));
+  $max_weight = $weights ? max($weights) : NULL;
+
+  return $max_weight;
 }
 
 /**

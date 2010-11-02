@@ -1,5 +1,5 @@
 <?php
-// $Id: user.admin.inc,v 1.109 2010/05/06 05:59:31 webchick Exp $
+// $Id: user.admin.inc,v 1.120 2010/10/20 01:31:07 dries Exp $
 
 /**
  * @file
@@ -40,7 +40,7 @@ function user_filter_form() {
   $form['filters'] = array(
     '#type' => 'fieldset',
     '#title' => t('Show only users where'),
-    '#theme' => 'user_filters',
+    '#theme' => 'exposed_filters__user',
   );
   foreach ($session as $filter) {
     list($type, $value) = $filter;
@@ -53,18 +53,26 @@ function user_filter_form() {
     else {
       $value = $filters[$type]['options'][$value];
     }
-    $params = array('%property' => $filters[$type]['title'] , '%value' => $value);
+    $t_args = array('%property' => $filters[$type]['title'], '%value' => $value);
     if ($i++) {
-      $form['filters']['current'][] = array('#markup' => t('<em>and</em> where <strong>%property</strong> is <strong>%value</strong>', $params));
+      $form['filters']['current'][] = array('#markup' => t('and where %property is %value', $t_args));
     }
     else {
-      $form['filters']['current'][] = array('#markup' => t('<strong>%property</strong> is <strong>%value</strong>', $params));
+      $form['filters']['current'][] = array('#markup' => t('%property is %value', $t_args));
     }
   }
 
+  $form['filters']['status'] = array(
+    '#type' => 'container',
+    '#attributes' => array('class' => array('clearfix')),
+    '#prefix' => ($i ? '<div class="additional-filters">' . t('and where') . '</div>' : ''),
+  );
+  $form['filters']['status']['filters'] = array(
+    '#type' => 'container',
+    '#attributes' => array('class' => array('filters')),
+  );
   foreach ($filters as $key => $filter) {
-    $names[$key] = $filter['title'];
-    $form['filters']['status'][$key] = array(
+    $form['filters']['status']['filters'][$key] = array(
       '#type' => 'select',
       '#options' => $filter['options'],
       '#title' => $filter['title'],
@@ -72,21 +80,20 @@ function user_filter_form() {
     );
   }
 
-  $form['filters']['actions'] = array(
+  $form['filters']['status']['actions'] = array(
     '#type' => 'actions',
-    '#id' => 'user-admin-buttons',
     '#attributes' => array('class' => array('container-inline')),
   );
-  $form['filters']['actions']['submit'] = array(
+  $form['filters']['status']['actions']['submit'] = array(
     '#type' => 'submit',
     '#value' => (count($session) ? t('Refine') : t('Filter')),
   );
   if (count($session)) {
-    $form['filters']['actions']['undo'] = array(
+    $form['filters']['status']['actions']['undo'] = array(
       '#type' => 'submit',
       '#value' => t('Undo'),
     );
-    $form['filters']['actions']['reset'] = array(
+    $form['filters']['status']['actions']['reset'] = array(
       '#type' => 'submit',
       '#value' => t('Reset'),
     );
@@ -176,6 +183,8 @@ function user_admin_account() {
   }
   $form['options']['operation'] = array(
     '#type' => 'select',
+    '#title' => t('Operation'),
+    '#title_display' => 'invisible',
     '#options' => $options,
     '#default_value' => 'unblock',
   );
@@ -214,7 +223,7 @@ function user_admin_account() {
     '#options' => $options,
     '#empty' => t('No people available.'),
   );
-  $form['pager'] = array('#markup' => theme('pager', array('tags' => NULL)));
+  $form['pager'] = array('#markup' => theme('pager'));
 
   return $form;
 }
@@ -297,11 +306,11 @@ function user_admin_settings() {
   $form['registration_cancellation']['user_register'] = array(
     '#type' => 'radios',
     '#title' => t('Who can register accounts?'),
-    '#default_value' => variable_get('user_register', 1),
+    '#default_value' => variable_get('user_register', USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL),
     '#options' => array(
-      t('Administrators only'),
-      t('Visitors'),
-      t('Visitors, but administrator approval is required'),
+      USER_REGISTER_ADMINISTRATORS_ONLY => t('Administrators only'),
+      USER_REGISTER_VISITORS => t('Visitors'),
+      USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL => t('Visitors, but administrator approval is required'),
     )
   );
   $form['registration_cancellation']['user_email_verification'] = array(
@@ -341,7 +350,7 @@ function user_admin_settings() {
   );
   // If picture support is enabled, check whether the picture directory exists.
   if (variable_get('user_pictures', 0)) {
-    $picture_path =  variable_get('file_default_scheme', 'public') . '://' . variable_get('user_picture_path', 'pictures');
+    $picture_path =  file_default_scheme() . '://' . variable_get('user_picture_path', 'pictures');
     if (!file_prepare_directory($picture_path, FILE_CREATE_DIRECTORY)) {
       form_set_error('user_picture_path', t('The directory %directory does not exist or is not writable.', array('%directory' => $picture_path)));
       watchdog('file system', 'The directory %directory does not exist or is not writable.', array('%directory' => $picture_path), WATCHDOG_ERROR);
@@ -369,7 +378,7 @@ function user_admin_settings() {
     '#default_value' => variable_get('user_picture_path', 'pictures'),
     '#size' => 30,
     '#maxlength' => 255,
-    '#description' => t('Subdirectory in the directory %dir where pictures will be stored.', array('%dir' => file_directory_path() . '/')),
+    '#description' => t('Subdirectory in the file upload directory where pictures will be stored.'),
   );
   $form['personalization']['pictures']['user_picture_default'] = array(
     '#type' => 'textfield',
@@ -395,7 +404,7 @@ function user_admin_settings() {
     '#size' => 10,
     '#maxlength' => 10,
     '#field_suffix' => ' ' . t('pixels'),
-    '#description' => t('Maximum allowed dimensions for uploaded pictures.'),
+    '#description' => t('Pictures larger than this will be scaled down to this size.'),
   );
   $form['personalization']['pictures']['user_picture_file_size'] = array(
     '#type' => 'textfield',
@@ -404,7 +413,7 @@ function user_admin_settings() {
     '#size' => 10,
     '#maxlength' => 10,
     '#field_suffix' => ' ' . t('KB'),
-    '#description' => t('Maximum allowed file size for uploaded pictures.'),
+    '#description' => t('Maximum allowed file size for uploaded pictures. Upload size is normally limited only by the PHP maximum post and file upload settings, and images are automatically scaled down to the dimensions specified above.'),
   );
   $form['personalization']['pictures']['user_picture_guidelines'] = array(
     '#type' => 'textarea',
@@ -422,13 +431,13 @@ function user_admin_settings() {
   );
   // These email tokens are shared for all settings, so just define
   // the list once to help ensure they stay in sync.
-  $email_token_help = t('You can use the following tokens in your e-mail message text: !site-name-token, !site-url-token, !user-name-token, !user-mail-token, !site-login-url-token, !user-edit-url-token, !user-one-time-login-url-token, !user-cancel-url-token', array('!site-name-token' => '[site:name]', '!site-url-token' => '[site:url]', '!user-name-token' => '[user:name]', '!user-mail-token' => '[user:mail]', '!site-login-url-token' => '[site:login-url]', '!user-edit-url-token' => '[user:edit-url]', '!user-one-time-login-url-token' => '[user:one-time-login-url]', '!user-cancel-url-token' => '[user:cancel-url]'));
+  $email_token_help = t('Available variables are: [site:name], [site:url], [user:name], [user:mail], [site:login-url], [site:url-brief], [user:edit-url], [user:one-time-login-url], [user:cancel-url].');
 
   $form['email_admin_created'] = array(
     '#type' => 'fieldset',
     '#title' => t('Welcome (new user created by administrator)'),
     '#collapsible' => TRUE,
-    '#collapsed' => (variable_get('user_register', 1) != 0),
+    '#collapsed' => (variable_get('user_register', USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL) != USER_REGISTER_ADMINISTRATORS_ONLY),
     '#description' => t('Edit the welcome e-mail messages sent to new member accounts created by an administrator.') . ' ' . $email_token_help,
     '#group' => 'email',
   );
@@ -449,7 +458,7 @@ function user_admin_settings() {
     '#type' => 'fieldset',
     '#title' => t('Welcome (awaiting approval)'),
     '#collapsible' => TRUE,
-    '#collapsed' => (variable_get('user_register', 1) != 2),
+    '#collapsed' => (variable_get('user_register', USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL) != USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL),
     '#description' => t('Edit the welcome e-mail messages sent to new members upon registering, when administrative approval is required.') . ' ' . $email_token_help,
     '#group' => 'email',
   );
@@ -470,7 +479,7 @@ function user_admin_settings() {
     '#type' => 'fieldset',
     '#title' => t('Welcome (no approval required)'),
     '#collapsible' => TRUE,
-    '#collapsed' => (variable_get('user_register', 1) != 1),
+    '#collapsed' => (variable_get('user_register', USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL) != USER_REGISTER_VISITORS),
     '#description' => t('Edit the welcome e-mail messages sent to new members upon registering, when no administrator approval is required.') . ' ' . $email_token_help,
     '#group' => 'email',
   );
@@ -635,7 +644,7 @@ function user_admin_settings() {
     '#rows' => 3,
   );
 
-  return system_settings_form($form, FALSE);
+  return system_settings_form($form);
 }
 
 /**
@@ -758,7 +767,9 @@ function theme_user_admin_permissions($variables) {
         'class' => array('permission'),
       );
       foreach (element_children($form['checkboxes']) as $rid) {
-        $row[] = array('data' => drupal_render($form['checkboxes'][$rid][$key]), 'class' => array('checkbox'), 'title' => $roles[$rid] . ' : ' . t($key));
+        $form['checkboxes'][$rid][$key]['#title'] = $roles[$rid] . ': ' . t($key);
+        $form['checkboxes'][$rid][$key]['#title_display'] = 'invisible';
+        $row[] = array('data' => drupal_render($form['checkboxes'][$rid][$key]), 'class' => array('checkbox'));
       }
     }
     $rows[] = $row;
@@ -826,6 +837,8 @@ function user_admin_roles($form, $form_state) {
     $form['roles'][$rid]['#weight'] = $order;
     $form['roles'][$rid]['weight'] = array(
       '#type' => 'textfield',
+      '#title' => t('Weight for @title', array('@title' => $name['label'])),
+      '#title_display' => 'invisible',
       '#size' => 4,
       '#default_value' => $order,
       '#attributes' => array('class' => array('role-weight')),
@@ -835,6 +848,8 @@ function user_admin_roles($form, $form_state) {
 
   $form['name'] = array(
     '#type' => 'textfield',
+    '#title' => t('Name'),
+    '#title_display' => 'invisible',
     '#size' => 32,
     '#maxlength' => 64,
   );
@@ -1015,41 +1030,3 @@ function user_admin_role_delete_confirm_submit($form, &$form_state) {
   $form_state['redirect'] = 'admin/people/permissions/roles';
 }
 
-/**
- * Returns HTML for the user administration filter selector.
- *
- * @param $variables
- *   An associative array containing:
- *   - form: A render element representing the form.
- *
- * @ingroup themeable
- */
-function theme_user_filters($variables) {
-  $form = $variables['form'];
-
-  $output = '<ul class="clearfix">';
-  if (!empty($form['current'])) {
-    foreach (element_children($form['current']) as $key) {
-      $output .= '<li>' . drupal_render($form['current'][$key]) . '</li>';
-    }
-  }
-  $output .= '</ul>';
-
-  $output .= '<div class="clearfix">';
-
-  $output .= '<dl class="multiselect">' . (!empty($form['current']) ? '<dt><em>' . t('and') . '</em> ' . t('where') . '</dt>' : '');
-
-  $output .= '<dd>';
-
-  foreach (element_children($form['status']) as $key) {
-    $output .= drupal_render($form['status'][$key]);
-  }
-  $output .= '</dd>';
-
-  $output .= '</dl>';
-  $output .= drupal_render($form['actions']);
-
-  $output .= '</div>';
-
-  return $output;
-}

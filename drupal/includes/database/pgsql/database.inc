@@ -1,5 +1,5 @@
 <?php
-// $Id: database.inc,v 1.37 2010/04/29 03:48:16 webchick Exp $
+// $Id: database.inc,v 1.43 2010/10/03 01:29:41 dries Exp $
 
 /**
  * @file
@@ -33,13 +33,20 @@ class DatabaseConnection_pgsql extends DatabaseConnection {
 
     // PostgreSQL in trust mode doesn't require a password to be supplied.
     if (empty($connection_options['password'])) {
-      $connection_options['password'] = null;
+      $connection_options['password'] = NULL;
     }
 
     $this->connectionOptions = $connection_options;
 
     $dsn = 'pgsql:host=' . $connection_options['host'] . ' dbname=' . $connection_options['database'] . ' port=' . $connection_options['port'];
     parent::__construct($dsn, $connection_options['username'], $connection_options['password'], array(
+      // Prepared statements are most effective for performance when queries
+      // are recycled (used several times). However, if they are not re-used,
+      // prepared statements become ineffecient. Since most of Drupal's
+      // prepared queries are not re-used, it should be faster to emulate
+      // the preparation than to actually ready statements for re-use. If in
+      // doubt, reset to FALSE and measure performance.
+      PDO::ATTR_EMULATE_PREPARES => TRUE,
       // Convert numeric values to strings when fetching.
       PDO::ATTR_STRINGIFY_FETCHES => TRUE,
       // Force column names to lower case.
@@ -106,7 +113,7 @@ class DatabaseConnection_pgsql extends DatabaseConnection {
   }
 
   public function queryRange($query, $from, $count, array $args = array(), array $options = array()) {
-    return $this->query($query . ' LIMIT ' . $count . ' OFFSET ' . $from, $args, $options);
+    return $this->query($query . ' LIMIT ' . (int) $count . ' OFFSET ' . (int) $from, $args, $options);
   }
 
   public function queryTemporary($query, array $args = array(), array $options = array()) {
@@ -124,13 +131,18 @@ class DatabaseConnection_pgsql extends DatabaseConnection {
   }
 
   public function mapConditionOperator($operator) {
-    static $specials = array(
-      // In PostgreSQL, 'LIKE' is case-sensitive. For case-insensitive LIKE
-      // statements, we need to use ILIKE instead. Use backslash for escaping
-      // wildcard characters.
-      'LIKE' => array('operator' => 'ILIKE', 'postfix' => " ESCAPE '\\\\'"),
-      'NOT LIKE' => array('operator' => 'NOT ILIKE', 'postfix' => " ESCAPE '\\\\'"),
-    );
+    static $specials;
+
+    // Function calls not allowed in static declarations, thus this method.
+    if (!isset($specials)) {
+      $specials = array(
+        // In PostgreSQL, 'LIKE' is case-sensitive. For case-insensitive LIKE
+        // statements, we need to use ILIKE instead. Use backslash for escaping
+        // wildcard characters.
+        'LIKE' => array('operator' => 'ILIKE', 'postfix' => ' ESCAPE ' . $this->quote("\\")),
+        'NOT LIKE' => array('operator' => 'NOT ILIKE', 'postfix' => ' ESCAPE ' . $this->quote("\\")),
+      );
+    }
 
     return isset($specials[$operator]) ? $specials[$operator] : NULL;
   }

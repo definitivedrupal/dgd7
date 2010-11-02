@@ -1,5 +1,5 @@
 <?php
-// $Id: statistics.module,v 1.335 2010/05/18 18:26:30 dries Exp $
+// $Id: statistics.module,v 1.339 2010/09/24 00:37:44 dries Exp $
 
 /**
  * @file
@@ -60,7 +60,7 @@ function statistics_exit() {
 
   if (variable_get('statistics_count_content_views', 0)) {
     // We are counting content views.
-    if ((arg(0) == 'node') && is_numeric(arg(1)) && arg(2) == '') {
+    if (arg(0) == 'node' && is_numeric(arg(1)) && arg(2) == NULL) {
       // A node has been viewed, so update the node's counters.
       db_merge('node_counter')
         ->key(array('nid' => arg(1)))
@@ -114,19 +114,12 @@ function statistics_permission() {
  */
 function statistics_node_view($node, $view_mode) {
   if ($view_mode != 'rss') {
-    $links = array();
     if (user_access('view post access counter')) {
       $statistics = statistics_get($node->nid);
       if ($statistics) {
-        $links['statistics_counter']['title'] = format_plural($statistics['totalcount'], '1 read', '@count reads');
+        $node->content['links']['#links']['statistics_counter']['title'] = format_plural($statistics['totalcount'], '1 read', '@count reads');
       }
     }
-
-    $node->content['links']['statistics'] = array(
-      '#theme' => 'links__statistics_node',
-      '#links' => $links,
-      '#attributes' => array('class' => array('links', 'inline')),
-    );
   }
 }
 
@@ -170,7 +163,6 @@ function statistics_menu() {
     'page callback' => 'statistics_access_log',
     'page arguments' => array(3),
     'access arguments' => array('access statistics'),
-    'type' => MENU_CALLBACK,
     'file' => 'statistics.admin.inc',
   );
   $items['admin/config/system/statistics'] = array(
@@ -350,21 +342,24 @@ function statistics_block_view($delta = '') {
 
     $daytop = variable_get('statistics_block_top_day_num', 0);
     if ($daytop && ($result = statistics_title_list('daycount', $daytop)) && ($node_title_list = node_title_list($result, t("Today's:")))) {
-      $content[] = $node_title_list;
+      $content['top_day'] = $node_title_list;
+      $content['top_day']['#suffix'] = '<br />';
     }
 
     $alltimetop = variable_get('statistics_block_top_all_num', 0);
     if ($alltimetop && ($result = statistics_title_list('totalcount', $alltimetop)) && ($node_title_list = node_title_list($result, t('All time:')))) {
-      $content[] = $node_title_list;
+      $content['top_all'] = $node_title_list;
+      $content['top_all']['#suffix'] = '<br />';
     }
 
     $lasttop = variable_get('statistics_block_top_last_num', 0);
     if ($lasttop && ($result = statistics_title_list('timestamp', $lasttop)) && ($node_title_list = node_title_list($result, t('Last viewed:')))) {
-      $content[] = $node_title_list;
+      $content['top_last'] = $node_title_list;
+      $content['top_last']['#suffix'] = '<br />';
     }
 
     if (count($content)) {
-      $block['content'] = implode('<br />', $content);
+      $block['content'] = $content;
       $block['subject'] = t('Popular content');
       return $block;
     }

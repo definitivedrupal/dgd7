@@ -1,5 +1,5 @@
 <?php
-// $Id: search.api.php,v 1.26 2010/05/12 15:53:43 dries Exp $
+// $Id: search.api.php,v 1.30 2010/09/27 01:08:40 dries Exp $
 
 /**
  * @file
@@ -25,14 +25,23 @@
  * hook_update_index(). If your search type has settings, you can implement
  * hook_search_admin() to add them to the search settings page. You can also
  * alter the display of your module's search results by implementing
- * hook_search_page(). And you can use hook_form_FORM_ID_alter(), with
- * FORM_ID set to 'search', to add fields to the search form. See
- * node_form_search_form_alter() for an example.
+ * hook_search_page(). You can use hook_form_FORM_ID_alter(), with
+ * FORM_ID set to 'search', to add fields to the search form (see
+ * node_form_search_form_alter() for an example). You can use
+ * hook_search_access() to limit access to searching, and hook_search_page() to
+ * override how search results are displayed.
  *
  * @return
- *   Array with the optional keys 'title' for the tab title and 'path' for
- *   the path component after 'search/'.  Both will default to the module
- *   name.
+ *   Array with optional keys:
+ *   - 'title': Title for the tab on the search page for this module. Defaults
+ *     to the module name if not given.
+ *   - 'path': Path component after 'search/' for searching with this module.
+ *     Defaults to the module name if not given.
+ *   - 'conditions_callback': Name of a callback function that is invoked by
+ *     search_view() to get an array of additional search conditions to pass to
+ *     search_data(). For example, a search module may get additional keywords,
+ *     filters, or modifiers for the search from the query string. Sample
+ *     callback function: sample_search_conditions_callback().
  *
  * @ingroup search
  */
@@ -40,7 +49,33 @@ function hook_search_info() {
   return array(
     'title' => 'Content',
     'path' => 'node',
+    'conditions_callback' => 'sample_search_conditions_callback',
   );
+}
+
+/**
+ * An example conditions callback function for search.
+ *
+ * This example pulls additional search keywords out of the $_REQUEST variable,
+ * (i.e. from the query string of the request). The conditions may also be
+ * generated internally - for example based on a module's settings.
+ *
+ * @see hook_search_info()
+ * @ingroup search
+ */
+function sample_search_conditions_callback($keys) {
+  $conditions = array();
+
+  if (!empty($_REQUEST['keys'])) {
+    $conditions['keys'] = $_REQUEST['keys'];
+  }
+  if (!empty($_REQUEST['sample_search_keys'])) {
+    $conditions['sample_search_keys'] = $_REQUEST['sample_search_keys'];
+  }
+  if ($force_keys = variable_get('sample_search_force_keywords', '')) {
+    $conditions['sample_search_force_keywords'] = $force_keys;
+  }
+  return $conditions;
 }
 
 /**
@@ -133,12 +168,14 @@ function hook_search_admin() {
  * search_expression_insert() may also be helpful for adding custom search
  * parameters to the search expression.
  *
- * See node_execute_search() for an example of a module that uses the search
+ * See node_search_execute() for an example of a module that uses the search
  * index, and user_execute_search() for an example that doesn't ues the search
  * index.
  *
  * @param $keys
  *   The search keywords as entered by the user.
+ * @param $conditions
+ *   An optional array of additional conditions, such as filters.
  *
  * @return
  *   An array of search results. To use the default search result
@@ -154,7 +191,7 @@ function hook_search_admin() {
  *
  * @ingroup search
  */
-function hook_search_execute($keys = NULL) {
+function hook_search_execute($keys = NULL, $conditions = NULL) {
   // Build matching conditions
   $query = db_select('search_index', 'i', array('target' => 'slave'))->extend('SearchQuery')->extend('PagerDefault');
   $query->join('node', 'n', 'n.nid = i.sid');
@@ -213,12 +250,12 @@ function hook_search_execute($keys = NULL) {
 /**
  * Override the rendering of search results.
  *
- * A module that implements hook_search() to define a type of search
+ * A module that implements hook_search_info() to define a type of search
  * may implement this hook in order to override the default theming of
  * its search results, which is otherwise themed using theme('search_results').
  *
  * Note that by default, theme('search_results') and theme('search_result')
- * work together to create a definition list (DL). So your hook_search_page()
+ * work together to create an ordered list (OL). So your hook_search_page()
  * implementation should probably do this as well.
  *
  * @see search-result.tpl.php, search-results.tpl.php
@@ -227,17 +264,20 @@ function hook_search_execute($keys = NULL) {
  *   An array of search results.
  *
  * @return
- *   An HTML string containing the formatted search results, with
+ *   A renderable array, which will render the formatted search results with
  *   a pager included.
  */
 function hook_search_page($results) {
-  $output = '<dl class="search-results">';
+  $output['prefix']['#markup'] = '<ol class="search-results">';
 
   foreach ($results as $entry) {
-    $output .= theme('search_result', $entry, $type);
+    $output[] = array(
+      '#theme' => 'search_result', 
+      '#result' => $entry, 
+      '#module' => 'my_module_name',
+    );
   }
-  $output .= '</dl>';
-  $output .= theme('pager', NULL);
+  $output['suffix']['#markup'] = '</ol>' . theme('pager');
 
   return $output;
 }

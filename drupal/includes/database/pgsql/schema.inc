@@ -1,5 +1,5 @@
 <?php
-// $Id: schema.inc,v 1.34 2010/04/07 15:07:59 dries Exp $
+// $Id: schema.inc,v 1.39 2010/10/22 15:18:56 webchick Exp $
 
 /**
  * @file
@@ -66,6 +66,7 @@ class DatabaseSchema_pgsql extends DatabaseSchema {
           // return the last insert id. If there is more than 1 sequences the
           // first one (index 0 of the sequences array) will be used.
           $table_information->sequences[] = $matches[1];
+          $table_information->serial_fields[] = $column->column_name;
         }
       }
       $this->tableInformation[$key] = $table_information;
@@ -144,11 +145,11 @@ class DatabaseSchema_pgsql extends DatabaseSchema {
   protected function createFieldSql($name, $spec) {
     $sql = $name . ' ' . $spec['pgsql_type'];
 
-    if ($spec['type'] == 'serial') {
+    if (isset($spec['type']) && $spec['type'] == 'serial') {
       unset($spec['not null']);
     }
 
-    if (in_array($spec['type'], array('varchar', 'char', 'text')) && isset($spec['length'])) {
+    if (in_array($spec['pgsql_type'], array('varchar', 'character', 'text')) && isset($spec['length'])) {
       $sql .= '(' . $spec['length'] . ')';
     }
     elseif (isset($spec['precision']) && isset($spec['scale'])) {
@@ -159,8 +160,13 @@ class DatabaseSchema_pgsql extends DatabaseSchema {
       $sql .= " CHECK ($name >= 0)";
     }
 
-    if (isset($spec['not null']) && $spec['not null']) {
-      $sql .= ' NOT NULL';
+    if (isset($spec['not null'])) {
+      if ($spec['not null']) {
+        $sql .= ' NOT NULL';
+      }
+      else {
+        $sql .= ' NULL';
+      }
     }
     if (isset($spec['default'])) {
       $default = is_string($spec['default']) ? "'" . $spec['default'] . "'" : $spec['default'];
@@ -180,11 +186,17 @@ class DatabaseSchema_pgsql extends DatabaseSchema {
     if (!isset($field['size'])) {
       $field['size'] = 'normal';
     }
+
     // Set the correct database-engine specific datatype.
-    if (!isset($field['pgsql_type'])) {
+    // In case one is already provided, force it to lowercase.
+    if (isset($field['pgsql_type'])) {
+      $field['pgsql_type'] = drupal_strtolower($field['pgsql_type']);
+    }
+    else {
       $map = $this->getFieldTypeMap();
       $field['pgsql_type'] = $map[$field['type'] . ':' . $field['size']];
     }
+
     if (!empty($field['unsigned'])) {
       // Unsigned datatypes are not supported in PostgreSQL 8.3. In MySQL,
       // they are used to ensure a positive number is inserted and it also
@@ -204,7 +216,7 @@ class DatabaseSchema_pgsql extends DatabaseSchema {
           break;
       }
     }
-    if ($field['type'] == 'serial') {
+    if (isset($field['type']) && $field['type'] == 'serial') {
       unset($field['not null']);
     }
     return $field;
@@ -245,12 +257,6 @@ class DatabaseSchema_pgsql extends DatabaseSchema {
 
       'blob:big' => 'bytea',
       'blob:normal' => 'bytea',
-
-      'date:normal' => 'date',
-
-      'datetime:normal' => 'timestamp without time zone',
-
-      'time:normal'     => 'time without time zone',
 
       'serial:tiny' => 'serial',
       'serial:small' => 'serial',
@@ -358,7 +364,7 @@ class DatabaseSchema_pgsql extends DatabaseSchema {
       throw new DatabaseSchemaObjectDoesNotExistException(t("Cannot set default value of field %table.%field: field doesn't exist.", array('%table' => $table, '%field' => $field)));
     }
 
-    if (is_null($default)) {
+    if (!isset($default)) {
       $default = 'NULL';
     }
     else {
@@ -467,25 +473,44 @@ class DatabaseSchema_pgsql extends DatabaseSchema {
       $spec['size'] = 'normal';
     }
 
+    // Map type definition to the PostgreSQL type.
+    if (!isset($spec['pgsql_type'])) {
+      $map = $this->getFieldTypeMap();
+      $spec['pgsql_type'] = $map[$spec['type'] . ':' . $spec['size']];
+    }
+
     // We need to typecast the new column to best be able to transfer the data
     // Schema_pgsql::getFieldTypeMap() will return possibilities that are not
     // 'cast-able' such as 'serial' - so they need to be casted int instead.
-    $map = $this->getFieldTypeMap();
-    $typecast = $map[$spec['type'] . ':' . $spec['size']];
-    if (in_array($typecast, array('serial', 'bigserial', 'numeric'))) {
+    if (in_array($spec['pgsql_type'], array('serial', 'bigserial', 'numeric'))) {
       $typecast = 'int';
     }
+    else {
+      $typecast = $spec['pgsql_type'];
+    }
 
+    $this->connection->query('ALTER TABLE {' . $table . '} ALTER "' . $field . '" TYPE ' . $typecast . ' USING "' . $field . '"::' . $typecast);
 
-    $this->connection->query("ALTER TABLE {" . $table . "} ALTER $field SET $field_new = CAST(" . $field . "_old as " . $typecast . ")");
-
-    $this->addField($table, "$field_new", $spec);
-
-    $this->dropField($table, $field . '_old');
+    if (in_array($spec['pgsql_type'], array('serial', 'bigserial'))) {
+      // Type "serial" is known to PostgreSQL, but *only* during table creation,
+      // not when altering. Because of that, the sequence needs to be created
+      // and initialized by hand.
+      $seq = "{" . $table . "}_" . $field_new . "_seq";
+      $this->connection->query("CREATE SEQUENCE " . $seq);
+      // Set sequence to maximal field value to not conflict with existing
+      // entries.
+      $this->connection->query("SELECT setval('" . $seq . "', MAX(\"" . $field . '")) FROM {' . $table . "}");
+      $this->connection->query('ALTER TABLE {' . $table . '} ALTER "' . $field . '" SET DEFAULT nextval(\'' . $seq . '\')');
+    }
 
     // Rename the column if necessary.
     if ($field != $field_new) {
-      $this->connection->query('ALTER TABLE {' . $table . '} RENAME "' . $field . '" TO "' . $field_new . '_old"');
+      $this->connection->query('ALTER TABLE {' . $table . '} RENAME "' . $field . '" TO "' . $field_new . '"');
+    }
+
+    // Change description if necessary.
+    if (!empty($spec['description'])) {
+      $this->connection->query('COMMENT ON COLUMN {' . $table . '}."' . $field_new . '" IS ' . $this->prepareComment($spec['description']));
     }
 
     if (isset($new_keys)) {

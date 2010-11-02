@@ -1,10 +1,36 @@
 <?php
-// $Id: locale.inc,v 1.254 2010/05/01 08:12:22 dries Exp $
+// $Id: locale.inc,v 1.260 2010/10/06 13:38:39 dries Exp $
 
 /**
  * @file
  * Administration functions for locale.module.
  */
+
+/**
+ * The language is determined using a URL language indicator:
+ * path prefix or domain according to the configuration.
+ */
+define('LOCALE_LANGUAGE_NEGOTIATION_URL', 'locale-url');
+
+/**
+ * The language is set based on the browser language settings.
+ */
+define('LOCALE_LANGUAGE_NEGOTIATION_BROWSER', 'locale-browser');
+
+/**
+ * The language is determined using the current interface language.
+ */
+define('LOCALE_LANGUAGE_NEGOTIATION_INTERFACE', 'locale-interface');
+
+/**
+ * The language is set based on the user language settings.
+ */
+define('LOCALE_LANGUAGE_NEGOTIATION_USER', 'locale-user');
+
+/**
+ * The language is set based on the request/session parameters.
+ */
+define('LOCALE_LANGUAGE_NEGOTIATION_SESSION', 'locale-session');
 
 /**
  * Regular expression pattern used to localize JavaScript strings.
@@ -126,9 +152,14 @@ function locale_language_from_user($languages) {
 function locale_language_from_session($languages) {
   $param = variable_get('locale_language_negotiation_session_param', 'language');
 
-  // Request parameter.
+  // Request parameter: we need to update the session parameter only if we have
+  // an authenticated user.
   if (isset($_GET[$param]) && isset($languages[$langcode = $_GET[$param]])) {
-    return $_SESSION[$param] = $langcode;
+    global $user;
+    if ($user->uid) {
+      $_SESSION[$param] = $langcode;
+    }
+    return $langcode;
   }
 
   // Session parameter.
@@ -150,6 +181,10 @@ function locale_language_from_session($languages) {
  */
 function locale_language_from_url($languages) {
   $language_url = FALSE;
+
+  if (!language_negotiation_get_any(LOCALE_LANGUAGE_NEGOTIATION_URL)) {
+    return $language_url;
+  }
 
   switch (variable_get('locale_language_negotiation_url_part', LOCALE_LANGUAGE_NEGOTIATION_URL_PREFIX)) {
     case LOCALE_LANGUAGE_NEGOTIATION_URL_PREFIX:
@@ -402,13 +437,15 @@ function locale_add_language($langcode, $name = NULL, $native = NULL, $direction
  * Parses Gettext Portable Object file information and inserts into database
  *
  * @param $file
- *   Drupal file object corresponding to the PO file to import
+ *   Drupal file object corresponding to the PO file to import.
  * @param $langcode
- *   Language code
+ *   Language code.
  * @param $mode
- *   Should existing translations be replaced LOCALE_IMPORT_KEEP or LOCALE_IMPORT_OVERWRITE
+ *   Should existing translations be replaced LOCALE_IMPORT_KEEP or
+ *   LOCALE_IMPORT_OVERWRITE.
  * @param $group
- *   Text group to import PO file into (eg. 'default' for interface translations)
+ *   Text group to import PO file into (eg. 'default' for interface
+ *   translations).
  */
 function _locale_import_po($file, $langcode, $mode, $group = NULL) {
   // Try to allocate enough time to parse and import the data.
@@ -455,15 +492,17 @@ function _locale_import_po($file, $langcode, $mode, $group = NULL) {
  * Parses Gettext Portable Object file into an array
  *
  * @param $op
- *   Storage operation type: db-store or mem-store
+ *   Storage operation type: db-store or mem-store.
  * @param $file
- *   Drupal file object corresponding to the PO file to import
+ *   Drupal file object corresponding to the PO file to import.
  * @param $mode
- *   Should existing translations be replaced LOCALE_IMPORT_KEEP or LOCALE_IMPORT_OVERWRITE
+ *   Should existing translations be replaced LOCALE_IMPORT_KEEP or
+ *   LOCALE_IMPORT_OVERWRITE.
  * @param $lang
- *   Language code
+ *   Language code.
  * @param $group
- *   Text group to import PO file into (eg. 'default' for interface translations)
+ *   Text group to import PO file into (eg. 'default' for interface
+ *   translations).
  */
 function _locale_import_read_po($op, $file, $mode = NULL, $lang = NULL, $group = 'default') {
 
@@ -626,11 +665,11 @@ function _locale_import_read_po($op, $file, $mode = NULL, $lang = NULL, $group =
  * Sets an error message occurred during locale file parsing.
  *
  * @param $message
- *   The message to be translated
+ *   The message to be translated.
  * @param $file
- *   Drupal file object corresponding to the PO file to import
+ *   Drupal file object corresponding to the PO file to import.
  * @param $lineno
- *   An optional line number argument
+ *   An optional line number argument.
  */
 function _locale_import_message($message, $file, $lineno = NULL) {
   $vars = array('%filename' => $file->filename);
@@ -645,17 +684,20 @@ function _locale_import_message($message, $file, $lineno = NULL) {
  * Imports a string into the database
  *
  * @param $op
- *   Operation to perform: 'db-store', 'db-report', 'mem-store' or 'mem-report'
+ *   Operation to perform: 'db-store', 'db-report', 'mem-store' or 'mem-report'.
  * @param $value
- *   Details of the string stored
+ *   Details of the string stored.
  * @param $mode
- *   Should existing translations be replaced LOCALE_IMPORT_KEEP or LOCALE_IMPORT_OVERWRITE
+ *   Should existing translations be replaced LOCALE_IMPORT_KEEP or
+ *   LOCALE_IMPORT_OVERWRITE.
  * @param $lang
- *   Language to store the string in
+ *   Language to store the string in.
  * @param $file
- *   Object representation of file being imported, only required when op is 'db-store'
+ *   Object representation of file being imported, only required when op is
+ *   'db-store'.
  * @param $group
- *   Text group to import PO file into (eg. 'default' for interface translations)
+ *   Text group to import PO file into (eg. 'default' for interface
+ *   translations).
  */
 function _locale_import_one_string($op, $value = NULL, $mode = NULL, $lang = NULL, $file = NULL, $group = 'default') {
   $report = &drupal_static(__FUNCTION__, array('additions' => 0, 'updates' => 0, 'deletes' => 0, 'skips' => 0));
@@ -766,6 +808,7 @@ function _locale_import_one_string($op, $value = NULL, $mode = NULL, $lang = NUL
  *   Optional plural ID to use.
  * @param $plural
  *   Optional plural value to use.
+ *
  * @return
  *   The string ID of the existing string modified or the new string added.
  */
@@ -863,9 +906,10 @@ function _locale_import_one_string_db(&$report, $langcode, $context, $source, $t
  * Parses a Gettext Portable Object file header
  *
  * @param $header
- *   A string containing the complete header
+ *   A string containing the complete header.
+ *
  * @return
- *   An associative array of key-value pairs
+ *   An associative array of key-value pairs.
  */
 function _locale_import_parse_header($header) {
   $header_parsed = array();
@@ -883,12 +927,13 @@ function _locale_import_parse_header($header) {
  * Parses a Plural-Forms entry from a Gettext Portable Object file header
  *
  * @param $pluralforms
- *   A string containing the Plural-Forms entry
+ *   A string containing the Plural-Forms entry.
  * @param $filepath
- *   A string containing the filepath
+ *   A string containing the filepath.
+ *
  * @return
  *   An array containing the number of plurals and a
- *   formula in PHP for computing the plural form
+ *   formula in PHP for computing the plural form.
  */
 function _locale_import_parse_plural_forms($pluralforms, $filepath) {
   // First, delete all whitespace
@@ -929,9 +974,10 @@ function _locale_import_parse_plural_forms($pluralforms, $filepath) {
  * precedence and associativity.
  *
  * @param $string
- *   A string containing the arithmetic formula
+ *   A string containing the arithmetic formula.
+ *
  * @return
- *   The PHP version of the formula
+ *   The PHP version of the formula.
  */
 function _locale_import_parse_arithmetic($string) {
   // Operator precedence table
@@ -1028,9 +1074,10 @@ function _locale_import_parse_arithmetic($string) {
  * Backward compatible implementation of token_get_all() for formula parsing
  *
  * @param $string
- *   A string containing the arithmetic formula
+ *   A string containing the arithmetic formula.
+ *
  * @return
- *   The PHP version of the formula
+ *   The PHP version of the formula.
  */
 function _locale_import_tokenize_formula($formula) {
   $formula = str_replace(" ", "", $formula);
@@ -1094,9 +1141,9 @@ function _locale_import_tokenize_formula($formula) {
  * This is a callback function used via array_map()
  *
  * @param $entry
- *   An array element
+ *   An array element.
  * @param $key
- *   Index of the array element
+ *   Index of the array element.
  */
 function _locale_import_append_plural($entry, $key) {
   // No modifications for 0, 1
@@ -1113,9 +1160,10 @@ function _locale_import_append_plural($entry, $key) {
  * Generate a short, one string version of the passed comment array
  *
  * @param $comment
- *   An array of strings containing a comment
+ *   An array of strings containing a comment.
+ *
  * @return
- *   Short one string version of the comment
+ *   Short one string version of the comment.
  */
 function _locale_import_shorten_comments($comment) {
   $comm = '';
@@ -1135,9 +1183,10 @@ function _locale_import_shorten_comments($comment) {
  * Parses a string in quotes
  *
  * @param $string
- *   A string specified with enclosing quotes
+ *   A string specified with enclosing quotes.
+ *
  * @return
- *   The string parsed from inside the quotes
+ *   The string parsed from inside the quotes.
  */
 function _locale_import_parse_quoted($string) {
   if (substr($string, 0, 1) != substr($string, -1, 1)) {
@@ -1242,7 +1291,8 @@ function _locale_parse_js_file($filepath) {
  *   Language object to generate the output for, or NULL if generating
  *   translation template.
  * @param $group
- *   Text group to export PO file from (eg. 'default' for interface translations)
+ *   Text group to export PO file from (eg. 'default' for interface
+ *   translations).
  */
 function _locale_export_get_strings($language = NULL, $group = 'default') {
   if (isset($language)) {
@@ -1565,7 +1615,7 @@ function _locale_translate_seek() {
   }
 
   $output .= theme('table', array('header' => $header, 'rows' => $rows, 'empty' => t('No strings available.')));
-  $output .= theme('pager', array('tags' => NULL));
+  $output .= theme('pager');
 
   return $output;
 }
@@ -1597,6 +1647,7 @@ function _locale_translate_seek_query() {
  *
  * @param $langcode
  *   The language code for which the file needs to be refreshed.
+ *
  * @return
  *   New content of the 'javascript_parsed' variable.
  */
@@ -1637,35 +1688,12 @@ function _locale_rebuild_js($langcode = NULL) {
   }
 
   // Construct the array for JavaScript translations.
-  // We sort on plural so that we have all plural forms before singular forms.
-  $result = db_query("SELECT s.lid, s.source, t.plid, t.plural, t.translation FROM {locales_source} s LEFT JOIN {locales_target} t ON s.lid = t.lid AND t.language = :language WHERE s.location LIKE '%.js%' AND s.textgroup = :textgroup ORDER BY t.plural DESC", array(':language' => $language->language, ':textgroup' => 'default'));
+  // Only add strings with a translation to the translations array.
+  $result = db_query("SELECT s.lid, s.source, t.translation FROM {locales_source} s INNER JOIN {locales_target} t ON s.lid = t.lid AND t.language = :language WHERE s.location LIKE '%.js%' AND s.textgroup = :textgroup AND t.translation IS NOT NULL", array(':language' => $language->language, ':textgroup' => 'default'));
 
-  $translations = $plurals = array();
+  $translations = array();
   foreach ($result as $data) {
-    // Only add this to the translations array when there is actually a translation.
-    if (!empty($data->translation)) {
-      if ($data->plural) {
-        // When the translation is a plural form, first add it to another array and
-        // wait for the singular (parent) translation.
-        if (!isset($plurals[$data->plid])) {
-          $plurals[$data->plid] = array($data->plural => $data->translation);
-        }
-        else {
-          $plurals[$data->plid] += array($data->plural => $data->translation);
-        }
-      }
-      elseif (isset($plurals[$data->lid])) {
-        // There are plural translations for this translation, so get them from
-        // the plurals array and add them to the final translations array.
-        $translations[$data->source] = array($data->plural => $data->translation) + $plurals[$data->lid];
-        unset($plurals[$data->lid]);
-      }
-      else {
-        // There are no plural forms for this translation, so just add it to
-        // the translations array.
-        $translations[$data->source] = $data->translation;
-      }
-    }
+    $translations[$data->source] = $data->translation;
   }
 
   // Construct the JavaScript file, if there are translations.
@@ -1777,7 +1805,7 @@ function _locale_rebuild_js($langcode = NULL) {
  */
 function _locale_translate_language_list($translation, $limit_language) {
   // Add CSS.
-  drupal_add_css(drupal_get_path('module', 'locale') . '/locale.css', array('preprocess' => FALSE));
+  drupal_add_css(drupal_get_path('module', 'locale') . '/locale.css');
 
   $languages = language_list();
   unset($languages['en']);
@@ -1844,6 +1872,7 @@ function _locale_prepare_predefined_list() {
  * @param $skip
  *   Array of component names to skip. Used in the installer for the
  *   second pass import, when most components are already imported.
+ *
  * @return
  *   A batch structure or FALSE if no files found.
  */
@@ -1872,6 +1901,7 @@ function locale_batch_by_language($langcode, $finished = NULL, $skip = array()) 
 
 /**
  * Prepare a batch to run when installing modules or enabling themes.
+ *
  * This batch will import translations for the newly added components
  * in all the languages already set up on the site.
  *
@@ -1907,13 +1937,14 @@ function locale_batch_by_component($components, $finished = '_locale_batch_syste
  * Build a locale batch from an array of files.
  *
  * @param $files
- *   Array of files to import
+ *   Array of files to import.
  * @param $finished
  *   Optional finished callback for the batch.
  * @param $components
  *   Optional list of component names the batch covers. Used in the installer.
+ *
  * @return
- *   A batch structure
+ *   A batch structure.
  */
 function _locale_batch_build($files, $finished = NULL, $components = array()) {
   $t = get_t();
@@ -2029,6 +2060,7 @@ function locale_date_format_save($langcode, $type, $format) {
  *
  * @param $languages
  *   An array of language codes.
+ *
  * @return
  *   An array of date formats.
  */

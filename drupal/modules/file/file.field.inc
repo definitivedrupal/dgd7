@@ -1,5 +1,5 @@
 <?php
-// $Id: file.field.inc,v 1.26 2010/04/13 15:23:03 dries Exp $
+// $Id: file.field.inc,v 1.37 2010/10/20 15:22:53 dries Exp $
 
 /**
  * @file
@@ -17,7 +17,7 @@ function file_field_info() {
       'settings' => array(
         'display_field' => 0,
         'display_default' => 0,
-        'uri_scheme' => 'public',
+        'uri_scheme' => variable_get('file_default_scheme', 'public'),
       ),
       'instance_settings' => array(
         'file_extensions' => 'txt',
@@ -27,38 +27,6 @@ function file_field_info() {
       ),
       'default_widget' => 'file_generic',
       'default_formatter' => 'file_default',
-    ),
-  );
-}
-
-/**
- * Implements hook_field_schema().
- */
-function file_field_schema($field) {
-  return array(
-    'columns' => array(
-      'fid' => array(
-        'description' => 'The {files}.fid being referenced in this field.',
-        'type' => 'int',
-        'not null' => FALSE,
-        'unsigned' => TRUE,
-      ),
-      'display' => array(
-        'description' => 'Flag to control whether this file should be displayed when viewing content.',
-        'type' => 'int',
-        'size' => 'tiny',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-        'default' => 1,
-      ),
-      'description' => array(
-        'description' => 'A description of the file.',
-        'type' => 'text',
-        'not null' => FALSE,
-      ),
-    ),
-    'indexes' => array(
-      'fid' => array('fid'),
     ),
   );
 }
@@ -122,9 +90,12 @@ function file_field_instance_settings_form($field, $instance) {
     '#type' => 'textfield',
     '#title' => t('Allowed file extensions'),
     '#default_value' => $extensions,
-    '#description' => t('Separate extensions with a space or comma and do not include the leading dot. Leaving this blank will allow users to upload a file with any extension.'),
+    '#description' => t('Separate extensions with a space or comma and do not include the leading dot.'),
     '#element_validate' => array('_file_generic_settings_extensions'),
     '#weight' => 1,
+    // By making this field required, we prevent a potential security issue
+    // that would allow files of any type to be uploaded.
+    '#required' => TRUE,
   );
 
   $form['max_filesize'] = array(
@@ -190,31 +161,26 @@ function _file_generic_settings_extensions($element, &$form_state) {
 function _file_generic_settings_file_directory_validate($element, &$form_state) {
   // Strip slashes from the beginning and end of $widget['file_directory'].
   $value = trim($element['#value'], '\\/');
-
-  // Do not allow the file path to be the same as the file_directory_path().
-  // This causes all sorts of problems with things like file_create_url().
-  if (strpos($value, file_directory_path()) === 0) {
-    form_error($element, t('The file directory (@file_directory) cannot start with the system files directory (@files_directory), as this may cause conflicts when building file URLs.', array('@file_directory' => $form_state['values']['file_directory'], '@files_directory' => file_directory_path())));
-  }
-  else {
-    form_set_value($element, $value, $form_state);
-  }
+  form_set_value($element, $value, $form_state);
 }
 
 /**
  * Implements hook_field_load().
  */
 function file_field_load($entity_type, $entities, $field, $instances, $langcode, &$items, $age) {
+
+  $fids = array();
   foreach ($entities as $id => $entity) {
     // Load the files from the files table.
-    $fids = array();
     foreach ($items[$id] as $delta => $item) {
       if (!empty($item['fid'])) {
         $fids[] = $item['fid'];
       }
     }
-    $files = file_load_multiple($fids);
+  }
+  $files = file_load_multiple($fids);
 
+  foreach ($entities as $id => $entity) {
     foreach ($items[$id] as $delta => $item) {
       // If the file does not exist, mark the entire item as empty.
       if (empty($item['fid']) || !isset($files[$item['fid']])) {
@@ -252,43 +218,71 @@ function file_field_presave($entity_type, $entity, $field, $instance, $langcode,
   // cleaned up.
   foreach ($items as $item) {
     $file = file_load($item['fid']);
-    if (($file->status & FILE_STATUS_PERMANENT) == 0) {
-      $file->status |= FILE_STATUS_PERMANENT;
+    if (!$file->status) {
+      $file->status = FILE_STATUS_PERMANENT;
       file_save($file);
     }
   }
 }
 
 /**
+ * Implements hook_field_insert().
+ */
+function file_field_insert($entity_type, $entity, $field, $instance, $langcode, &$items) {
+  list($id, $vid, $bundle) = entity_extract_ids($entity_type, $entity);
+
+  // Add a new usage of each uploaded file.
+  foreach ($items as $item) {
+    $file = (object) $item;
+    file_usage_add($file, 'file', $entity_type, $id);
+  }
+}
+
+/**
  * Implements hook_field_update().
  *
- * Check for files that have been removed from the object.
+ * Checks for files that have been removed from the object.
  */
 function file_field_update($entity_type, $entity, $field, $instance, $langcode, &$items) {
-  // On new revisions, old files are always maintained in the previous revision.
+  list($id, $vid, $bundle) = entity_extract_ids($entity_type, $entity);
+
+  // On new revisions, all files are considered to be a new usage and no
+  // deletion of previous file usages are necessary.
   if (!empty($entity->revision)) {
+    foreach ($items as $item) {
+      $file = (object) $item;
+      file_usage_add($file, 'file', $entity_type, $id);
+    }
     return;
   }
 
   // Build a display of the current FIDs.
-  $fids = array();
+  $current_fids = array();
   foreach ($items as $item) {
-    $fids[] = $item['fid'];
+    $current_fids[] = $item['fid'];
   }
 
-  // Get the current values in the entity, and delete files for removed items.
-  list($id) = entity_extract_ids($entity_type, $entity);
-  $original = clone $entity;
+  // Create a bare-bones entity so that we can load its previous values.
+  $original = entity_create_stub_entity($entity_type, array($id, $vid, $bundle));
   field_attach_load($entity_type, array($id => $original), FIELD_LOAD_CURRENT, array('field_id' => $field['id']));
 
+  // Compare the original field values with the ones that are being saved.
+  $original_fids = array();
   if (!empty($original->{$field['field_name']}[$langcode])) {
     foreach ($original->{$field['field_name']}[$langcode] as $original_item) {
-      if (isset($original_item['fid']) && !in_array($original_item['fid'], $fids)) {
-        // For hook_file_references, remember that this is being deleted.
-        $original_item['file_field_name'] = $field['field_name'];
-        // Delete the file if possible.
-        file_field_delete_file($original_item, $field);
+      $original_fids[] = $original_item['fid'];
+      if (isset($original_item['fid']) && !in_array($original_item['fid'], $current_fids)) {
+        // Decrement the file usage count by 1 and delete the file if possible.
+        file_field_delete_file($original_item, $field, $entity_type, $id);
       }
+    }
+  }
+
+  // Add new usage entries for newly added files.
+  foreach ($items as $item) {
+    if (!in_array($item['fid'], $original_fids)) {
+      $file = (object) $item;
+      file_usage_add($file, 'file', $entity_type, $id);
     }
   }
 }
@@ -298,14 +292,10 @@ function file_field_update($entity_type, $entity, $field, $instance, $langcode, 
  */
 function file_field_delete($entity_type, $entity, $field, $instance, $langcode, &$items) {
   list($id, $vid, $bundle) = entity_extract_ids($entity_type, $entity);
+
+  // Delete all file usages within this entity.
   foreach ($items as $delta => $item) {
-    // For hook_file_references(), remember that this is being deleted.
-    $item['file_field_name'] = $field['field_name'];
-    // Pass in the ID of the object that is being removed so all references can
-    // be counted in hook_file_references().
-    $item['file_field_type'] = $entity_type;
-    $item['file_field_id'] = $id;
-    file_field_delete_file($item, $field);
+    file_field_delete_file($item, $field, $entity_type, $id, 0);
   }
 }
 
@@ -313,32 +303,46 @@ function file_field_delete($entity_type, $entity, $field, $instance, $langcode, 
  * Implements hook_field_delete_revision().
  */
 function file_field_delete_revision($entity_type, $entity, $field, $instance, $langcode, &$items) {
+  list($id, $vid, $bundle) = entity_extract_ids($entity_type, $entity);
   foreach ($items as $delta => $item) {
-    // For hook_file_references, remember that this file is being deleted.
-    $item['file_field_name'] = $field['field_name'];
-    if (file_field_delete_file($item, $field)) {
+    // Decrement the file usage count by 1 and delete the file if possible.
+    if (file_field_delete_file($item, $field, $entity_type, $id)) {
       $items[$delta] = NULL;
     }
   }
 }
 
 /**
- * Check that File controls a file before attempting to delete it.
+ * Decrements a file usage count and attempts to delete it.
+ *
+ * This function only has an effect if the file being deleted is used only by
+ * File module.
+ *
+ * @param $item
+ *   The field item that contains a file array.
+ * @param $field
+ *   The field structure for the operation.
+ * @param $entity_type
+ *   The type of $entity.
+ * @param $id
+ *   The entity ID which contains the file being deleted.
+ * @param $count
+ *   (optional) The number of references to decrement from the object
+ *   containing the file. Defaults to 1.
+ *
+ * @return
+ *   Boolean TRUE if the file was deleted, or an array of remaining references
+ *   if the file is still in use by other modules. Boolean FALSE if an error
+ *   was encountered.
  */
-function file_field_delete_file($item, $field) {
-  // Remove the file_field_name and file_field_id properties so that references
-  // can be counted including the files to be deleted.
-  $field_name = isset($item['file_field_name']) ? $item['file_field_name'] : NULL;
-  $field_id = isset($item['file_field_id']) ? $item['file_field_id'] : NULL;
-  unset($item['file_field_name'], $item['file_field_id']);
-
+function file_field_delete_file($item, $field, $entity_type, $id, $count = 1) {
   // To prevent the file field from deleting files it doesn't know about, check
   // the file reference count. Temporary files can be deleted because they
   // are not yet associated with any content at all.
   $file = (object) $item;
-  if ($file->status == 0 || file_get_file_reference_count($file, $field) > 0) {
-    $file->file_field_name = $field_name;
-    $file->file_field_id = $field_id;
+  $file_usage = file_usage_list($file);
+  if ($file->status == 0 || !empty($file_usage['file'])) {
+    file_usage_delete($file, 'file', $entity_type, $id, $count);
     return file_delete($file);
   }
 
@@ -437,7 +441,6 @@ function file_field_widget_settings_form($field, $instance) {
  * Implements hook_field_widget_form().
  */
 function file_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
-  $form['#attributes'] = array('enctype' => 'multipart/form-data');
 
   $defaults = array(
     'fid' => 0,
@@ -646,7 +649,8 @@ function file_field_widget_process($element, &$form_state, $form) {
   // file, the entire group of file fields is updated together.
   if ($field['cardinality'] != 1) {
     $new_path = preg_replace('/\/\d+\//', '/', $element['remove_button']['#ajax']['path'], 1);
-    $new_wrapper = preg_replace('/-\d+-/', '-', $element['remove_button']['#ajax']['wrapper'], 1);
+    $field_element = drupal_array_get_nested_value($form, array_slice($element['#array_parents'], 0, -1));
+    $new_wrapper = $field_element['#id'] . '-ajax-wrapper';
     foreach (element_children($element) as $key) {
       if (isset($element[$key]['#ajax'])) {
         $element[$key]['#ajax']['path'] = $new_path;
@@ -654,6 +658,15 @@ function file_field_widget_process($element, &$form_state, $form) {
       }
     }
     unset($element['#prefix'], $element['#suffix']);
+  }
+
+  // Add another submit handler to the upload and remove buttons, to implement
+  // functionality needed by the field widget. This submit handler, along with
+  // the rebuild logic in file_field_widget_form() requires the entire field,
+  // not just the individual item, to be valid.
+  foreach (array('upload_button', 'remove_button') as $key) {
+    $element[$key]['#submit'][] = 'file_field_widget_submit';
+    $element[$key]['#limit_validation_errors'] = array(array_slice($element['#parents'], 0, -1));
   }
 
   return $element;
@@ -671,8 +684,11 @@ function file_field_widget_process_multiple($element, &$form_state, $form) {
 
   foreach ($element_children as $delta => $key) {
     if ($key != $element['#file_upload_delta']) {
+      $description = _file_field_get_description_from_element($element[$key]);
       $element[$key]['_weight'] = array(
         '#type' => 'weight',
+        '#title' => $description ? t('Weight for @title', array('@title' => $description)) : t('Weight for new file'),
+        '#title_display' => 'invisible',
         '#delta' => $count,
         '#default_value' => $delta,
       );
@@ -693,6 +709,46 @@ function file_field_widget_process_multiple($element, &$form_state, $form) {
   $element['#suffix'] = '</div>';
 
   return $element;
+}
+
+/**
+ * Helper function for file_field_widget_process_multiple().
+ *
+ * @param $element
+ *   The element being processed.
+ * @return
+ *   A description of the file suitable for use in the administrative interface.
+ */
+function _file_field_get_description_from_element($element) {
+  // Use the actual file description, if it's available.
+  if (!empty($element['#default_value']['description'])) {
+    return $element['#default_value']['description'];
+  }
+  // Otherwise, fall back to the filename.
+  if (!empty($element['#default_value']['filename'])) {
+    return $element['#default_value']['filename'];
+  }
+  // This is probably a newly uploaded file; no description is available.
+  return FALSE;
+}
+
+/**
+ * Submit handler for upload and remove buttons of file_generic fields.
+ *
+ * This runs in addition to and after file_managed_file_submit().
+ *
+ * @see file_managed_file_submit()
+ * @see file_field_widget_form()
+ * @see file_field_widget_process()
+ */
+function file_field_widget_submit($form, &$form_state) {
+  // During the form rebuild, file_field_widget_form() will create field item
+  // widget elements using re-indexed deltas, so clear out $form_state['input']
+  // to avoid a mismatch between old and new deltas. The rebuilt elements will
+  // have #default_value set appropriately for the current state of the field,
+  // so nothing is lost in doing this.
+  list($field_name, $langcode) = $form_state['triggering_element']['#parents'];
+  unset($form_state['input'][$field_name][$langcode]);
 }
 
 /**
@@ -764,32 +820,45 @@ function theme_file_widget_multiple($variables) {
       continue;
     }
 
-    // Render all the buttons in the field as an "operation".
-    $operations = '';
+    // Delay rendering of the buttons, so that they can be rendered later in the
+    // "operations" column.
+    $operations_elements = array();
     foreach (element_children($element[$key]) as $sub_key) {
       if (isset($element[$key][$sub_key]['#type']) && $element[$key][$sub_key]['#type'] == 'submit') {
-        $operations .= drupal_render($element[$key][$sub_key]);
+        hide($element[$key][$sub_key]);
+        $operations_elements[] = &$element[$key][$sub_key];
       }
     }
 
-    // Render the "Display" option in its own own column.
-    $display = '';
+    // Delay rendering of the "Display" option and the weight selector, so that
+    // each can be rendered later in its own column.
     if ($element['#display_field']) {
-      unset($element[$key]['display']['#title']);
-      $display = array(
-        'data' => drupal_render($element[$key]['display']),
-        'class' => array('checkbox'),
-      );
+      hide($element[$key]['display']);
     }
-
-    // Render the weight in its own column.
-    $element[$key]['_weight']['#attributes']['class'] = array($weight_class);
-    $weight = drupal_render($element[$key]['_weight']);
+    hide($element[$key]['_weight']);
 
     // Render everything else together in a column, without the normal wrappers.
     $element[$key]['#theme_wrappers'] = array();
     $information = drupal_render($element[$key]);
 
+    // Render the previously hidden elements, using render() instead of
+    // drupal_render(), to undo the earlier hide().
+    $operations = '';
+    foreach ($operations_elements as $operation_element) {
+      $operations .= render($operation_element);
+    }
+    $display = '';
+    if ($element['#display_field']) {
+      unset($element[$key]['display']['#title']);
+      $display = array(
+        'data' => render($element[$key]['display']),
+        'class' => array('checkbox'),
+      );
+    }
+    $element[$key]['_weight']['#attributes']['class'] = array($weight_class);
+    $weight = render($element[$key]['_weight']);
+
+    // Arrange the row with all of the rendered columns.
     $row = array();
     $row[] = $information;
     if ($element['#display_field']) {

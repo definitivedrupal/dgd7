@@ -1,5 +1,5 @@
 <?php
-// $Id: schema.inc,v 1.36 2010/04/07 15:07:59 dries Exp $
+// $Id: schema.inc,v 1.43 2010/10/22 15:18:56 webchick Exp $
 
 /**
  * @file
@@ -25,21 +25,24 @@ class DatabaseSchema_mysql extends DatabaseSchema {
   const COMMENT_MAX_COLUMN = 255;
 
   /**
-   * Get information about the table and database name from the db_prefix.
+   * Get information about the table and database name from the prefix.
    *
    * @return
    *   A keyed array with information about the database, table name and prefix.
    */
-  protected function getPrefixInfo($table = 'default') {
+  protected function getPrefixInfo($table = 'default', $add_prefix = TRUE) {
     $info = array('prefix' => $this->connection->tablePrefix($table));
-    if (($pos = strpos($info['prefix'], '.')) !== FALSE) {
-      $info['database'] = substr($info['prefix'], 0, $pos);
-      $info['table'] = substr($info['prefix'], ++$pos) . $table;
+    if ($add_prefix) {
+      $table = $info['prefix'] . $table;
+    }
+    if (($pos = strpos($table, '.')) !== FALSE) {
+      $info['database'] = substr($table, 0, $pos);
+      $info['table'] = substr($table, ++$pos);
     }
     else {
       $db_info = Database::getConnectionInfo();
       $info['database'] = $db_info['default']['database'];
-      $info['table'] = $info['prefix'] . $table;
+      $info['table'] = $table;
     }
     return $info;
   }
@@ -52,10 +55,10 @@ class DatabaseSchema_mysql extends DatabaseSchema {
    * database as the schema unless specified otherwise, and exclude table_catalog
    * from the condition criteria.
    */
-  protected function buildTableNameCondition($table_name, $operator = '=') {
+  protected function buildTableNameCondition($table_name, $operator = '=', $add_prefix = TRUE) {
     $info = $this->connection->getConnectionOptions();
 
-    $table_info = $this->getPrefixInfo($table_name);
+    $table_info = $this->getPrefixInfo($table_name, $add_prefix);
 
     $condition = new DatabaseCondition('AND');
     $condition->condition('table_schema', $table_info['database']);
@@ -74,10 +77,12 @@ class DatabaseSchema_mysql extends DatabaseSchema {
    *   An array of SQL statements to create the table.
    */
   protected function createTableSql($name, $table) {
-    // Provide some defaults if needed
+    $info = $this->connection->getConnectionOptions();
+
+    // Provide defaults if needed.
     $table += array(
       'mysql_engine' => 'InnoDB',
-      'mysql_character_set' => 'UTF8',
+      'mysql_character_set' => 'utf8',
     );
 
     $sql = "CREATE TABLE {" . $name . "} (\n";
@@ -97,6 +102,13 @@ class DatabaseSchema_mysql extends DatabaseSchema {
     $sql = substr($sql, 0, -3) . "\n) ";
 
     $sql .= 'ENGINE = ' . $table['mysql_engine'] . ' DEFAULT CHARACTER SET ' . $table['mysql_character_set'];
+    // By default, MySQL uses the default collation for new tables, which is
+    // 'utf8_general_ci' for utf8. If an alternate collation has been set, it
+    // needs to be explicitly specified.
+    // @see DatabaseConnection_mysql
+    if (!empty($info['collation'])) {
+      $sql .= ' COLLATE ' . $info['collation'];
+    }
 
     // Add table comment.
     if (!empty($table['description'])) {
@@ -120,7 +132,7 @@ class DatabaseSchema_mysql extends DatabaseSchema {
   protected function createFieldSql($name, $spec) {
     $sql = "`" . $name . "` " . $spec['mysql_type'];
 
-    if (in_array($spec['type'], array('varchar', 'char', 'text')) && isset($spec['length'])) {
+    if (in_array($spec['mysql_type'], array('VARCHAR', 'CHAR', 'TINYTEXT', 'MEDIUMTEXT', 'LONGTEXT', 'TEXT')) && isset($spec['length'])) {
       $sql .= '(' . $spec['length'] . ')';
     }
     elseif (isset($spec['precision']) && isset($spec['scale'])) {
@@ -131,8 +143,13 @@ class DatabaseSchema_mysql extends DatabaseSchema {
       $sql .= ' unsigned';
     }
 
-    if (!empty($spec['not null'])) {
-      $sql .= ' NOT NULL';
+    if (isset($spec['not null'])) {
+      if ($spec['not null']) {
+        $sql .= ' NOT NULL';
+      }
+      else {
+        $sql .= ' NULL';
+      }
     }
 
     if (!empty($spec['auto_increment'])) {
@@ -144,7 +161,7 @@ class DatabaseSchema_mysql extends DatabaseSchema {
       if (is_string($spec['default'])) {
         $spec['default'] = "'" . $spec['default'] . "'";
       }
-      elseif (is_null($spec['default'])) {
+      elseif (!isset($spec['default'])) {
         $spec['default'] = 'NULL';
       }
       $sql .= ' DEFAULT ' . $spec['default'];
@@ -175,12 +192,16 @@ class DatabaseSchema_mysql extends DatabaseSchema {
     }
 
     // Set the correct database-engine specific datatype.
-    if (!isset($field['mysql_type'])) {
+    // In case one is already provided, force it to uppercase.
+    if (isset($field['mysql_type'])) {
+      $field['mysql_type'] = drupal_strtoupper($field['mysql_type']);
+    }
+    else {
       $map = $this->getFieldTypeMap();
       $field['mysql_type'] = $map[$field['type'] . ':' . $field['size']];
     }
 
-    if ($field['type'] == 'serial') {
+    if (isset($field['type']) && $field['type'] == 'serial') {
       $field['auto_increment'] = TRUE;
     }
 
@@ -224,12 +245,6 @@ class DatabaseSchema_mysql extends DatabaseSchema {
 
       'blob:big'        => 'LONGBLOB',
       'blob:normal'     => 'BLOB',
-
-      'date:normal'     => 'DATE',
-
-      'datetime:normal' => 'DATETIME',
-
-      'time:normal'     => 'TIME',
     );
     return $map;
   }
@@ -316,8 +331,8 @@ class DatabaseSchema_mysql extends DatabaseSchema {
     }
     $query = 'ALTER TABLE {' . $table . '} ADD ';
     $query .= $this->createFieldSql($field, $this->processField($spec));
-    if (count($keys_new)) {
-      $query .= ', ADD ' . implode(', ADD ', $this->createKeysSql($keys_new));
+    if ($keys_sql = $this->createKeysSql($keys_new)) {
+      $query .= ', ADD ' . implode(', ADD ', $keys_sql);
     }
     $this->connection->query($query);
     if (isset($spec['initial'])) {
@@ -345,7 +360,7 @@ class DatabaseSchema_mysql extends DatabaseSchema {
       throw new DatabaseSchemaObjectDoesNotExistException(t("Cannot set default value of field %table.%field: field doesn't exist.", array('%table' => $table, '%field' => $field)));
     }
 
-    if (is_null($default)) {
+    if (!isset($default)) {
       $default = 'NULL';
     }
     else {
@@ -439,8 +454,8 @@ class DatabaseSchema_mysql extends DatabaseSchema {
     }
 
     $sql = 'ALTER TABLE {' . $table . '} CHANGE `' . $field . '` ' . $this->createFieldSql($field_new, $this->processField($spec));
-    if (count($keys_new)) {
-      $sql .= ', ADD ' . implode(', ADD ', $this->createKeysSql($keys_new));
+    if ($keys_sql = $this->createKeysSql($keys_new)) {
+      $sql .= ', ADD ' . implode(', ADD ', $keys_sql);
     }
     $this->connection->query($sql);
   }

@@ -1,5 +1,5 @@
 <?php
-// $Id: rdf.api.php,v 1.4 2010/03/06 06:40:35 dries Exp $
+// $Id: rdf.api.php,v 1.6 2010/10/01 01:44:39 webchick Exp $
 
 /**
  * @file
@@ -20,19 +20,19 @@
  *
  * @return
  *   A list of mapping structures, where each mapping is an associative array:
- *   - type: The name of an entity type, e.g. 'node' or 'comment'.
- *   - bundle: The name of the bundle, e.g. 'blog', or RDF_DEFAULT_BUNDLE for
- *     default mappings.
+ *   - type: The name of an entity type (e.g., 'node', 'comment', and so on.)
+ *   - bundle: The name of the bundle (e.g., 'page', 'blog', or
+ *     RDF_DEFAULT_BUNDLE for default mappings.)
  *   - mapping: The mapping structure which applies to the entity type and
  *     bundle. A mapping structure is an array with keys corresponding to
  *     existing field instances in the bundle. Each field is then described in
- *     terms of RDF mapping:
+ *     terms of the RDF mapping:
  *     - predicates: An array of RDF predicates which describe the relation
  *       between the bundle (RDF subject) and the value of the field (RDF
- *       object). This value is either some text, another bundle or a URL in
+ *       object). This value is either some text, another bundle, or a URI in
  *       general.
  *     - datatype: Is used along with 'callback' to format data so that it is
- *       readable by machine. A typical example is a date which can be written
+ *       readable by machines. A typical example is a date which can be written
  *       in many different formats but should be translated into a uniform
  *       format for machine consumption.
  *     - callback: A function name to invoke for 'datatype'.
@@ -90,18 +90,13 @@ function hook_rdf_mapping() {
  */
 function hook_rdf_namespaces() {
   return array(
-    'admin'    => 'http://webns.net/mvcb/',
     'content'  => 'http://purl.org/rss/1.0/modules/content/',
     'dc'       => 'http://purl.org/dc/terms/',
     'foaf'     => 'http://xmlns.com/foaf/0.1/',
-    'owl'      => 'http://www.w3.org/2002/07/owl#',
-    'rdf'      => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+    'og'       => 'http://ogp.me/ns#',
     'rdfs'     => 'http://www.w3.org/2000/01/rdf-schema#',
-    'rss'      => 'http://purl.org/rss/1.0/',
-    'tags'     => 'http://www.holygoat.co.uk/owl/redwood/0.1/tags/',
     'sioc'     => 'http://rdfs.org/sioc/ns#',
     'sioct'    => 'http://rdfs.org/sioc/types#',
-    'ctag'     => 'http://commontag.org/ns#',
     'skos'     => 'http://www.w3.org/2004/02/skos/core#',
     'xsd'      => 'http://www.w3.org/2001/XMLSchema#',
   );

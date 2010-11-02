@@ -1,5 +1,5 @@
 <?php
-// $Id: bootstrap.inc,v 1.391 2010/05/23 15:26:38 webchick Exp $
+// $Id: bootstrap.inc,v 1.430 2010/10/23 05:30:57 webchick Exp $
 
 /**
  * @file
@@ -9,7 +9,7 @@
 /**
  * The current system version.
  */
-define('VERSION', '7.0-alpha5');
+define('VERSION', '7.0-beta2');
 
 /**
  * Core API compatibility.
@@ -19,12 +19,12 @@ define('DRUPAL_CORE_COMPATIBILITY', '7.x');
 /**
  * Minimum supported version of PHP.
  */
-define('DRUPAL_MINIMUM_PHP',    '5.2.1');
+define('DRUPAL_MINIMUM_PHP',    '5.2.4');
 
 /**
  * Minimum recommended value of PHP memory_limit.
  */
-define('DRUPAL_MINIMUM_PHP_MEMORY_LIMIT',    '40M');
+define('DRUPAL_MINIMUM_PHP_MEMORY_LIMIT',    '32M');
 
 /**
  * Minimum supported version of MySQL, if it is used.
@@ -231,12 +231,6 @@ define('LANGUAGE_RTL', 1);
 define('REQUEST_TIME', $_SERVER['REQUEST_TIME']);
 
 /**
- * @name Title text filtering flags
- * @{
- * Flags for use in drupal_set_title().
- */
-
-/**
  * Flag for drupal_set_title(); text is not sanitized, so run check_plain().
  */
 define('CHECK_PLAIN', 0);
@@ -245,10 +239,6 @@ define('CHECK_PLAIN', 0);
  * Flag for drupal_set_title(); text has already been sanitized.
  */
 define('PASS_THROUGH', -1);
-
-/**
- * @} End of "Title text filtering flags".
- */
 
 /**
  * Signals that the registry lookup cache should be reset.
@@ -560,12 +550,13 @@ function drupal_settings_initialize() {
   global $base_url, $base_path, $base_root;
 
   // Export the following settings.php variables to the global namespace
-  global $databases, $db_prefix, $cookie_domain, $conf, $installed_profile, $update_free_access, $db_url, $drupal_hash_salt, $is_https, $base_secure_url, $base_insecure_url;
+  global $databases, $cookie_domain, $conf, $installed_profile, $update_free_access, $db_url, $db_prefix, $drupal_hash_salt, $is_https, $base_secure_url, $base_insecure_url;
   $conf = array();
 
   if (file_exists(DRUPAL_ROOT . '/' . conf_path() . '/settings.php')) {
     include_once DRUPAL_ROOT . '/' . conf_path() . '/settings.php';
   }
+  $is_https = isset($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) == 'on';
 
   if (isset($base_url)) {
     // Parse fixed base URL from settings.php.
@@ -580,7 +571,7 @@ function drupal_settings_initialize() {
   }
   else {
     // Create base URL
-    $http_protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on') ? 'https' : 'http';
+    $http_protocol = $is_https ? 'https' : 'http';
     $base_root = $http_protocol . '://' . $_SERVER['HTTP_HOST'];
 
     $base_url = $base_root;
@@ -596,7 +587,6 @@ function drupal_settings_initialize() {
       $base_path = '/';
     }
   }
-  $is_https = $http_protocol == 'https';
   $base_secure_url = str_replace('http://', 'https://', $base_url);
   $base_insecure_url = str_replace('https://', 'http://', $base_url);
 
@@ -690,7 +680,7 @@ function drupal_get_filename($type, $name, $filename = NULL) {
     try {
       if (function_exists('db_query')) {
         $file = db_query("SELECT filename FROM {system} WHERE name = :name AND type = :type", array(':name' => $name, ':type' => $type))->fetchField();
-        if (file_exists($file)) {
+        if (file_exists(DRUPAL_ROOT . '/' . $file)) {
           $files[$type][$name] = $file;
         }
       }
@@ -743,13 +733,26 @@ function drupal_get_filename($type, $name, $filename = NULL) {
  * file.
  */
 function variable_initialize($conf = array()) {
-  // NOTE: caching the variables improves performance by 20% when serving cached pages.
+  // NOTE: caching the variables improves performance by 20% when serving
+  // cached pages.
   if ($cached = cache_get('variables', 'cache_bootstrap')) {
     $variables = $cached->data;
   }
   else {
-    $variables = array_map('unserialize', db_query('SELECT name, value FROM {variable}')->fetchAllKeyed());
-    cache_set('variables', $variables, 'cache_bootstrap');
+    // Cache miss. Avoid a stampede.
+    $name = 'variable_init';
+    if (!lock_acquire($name, 1)) {
+      // Another request is building the variable cache.
+      // Wait, then re-run this function.
+      lock_wait($name);
+      return variable_initialize($conf);
+    }
+    else {
+      // Proceed with variable rebuild.
+      $variables = array_map('unserialize', db_query('SELECT name, value FROM {variable}')->fetchAllKeyed());
+      cache_set('variables', $variables, 'cache_bootstrap');
+      lock_release($name);
+    }
   }
 
   foreach ($conf as $name => $value) {
@@ -760,7 +763,11 @@ function variable_initialize($conf = array()) {
 }
 
 /**
- * Return a persistent variable.
+ * Returns a persistent variable.
+ *
+ * Case-sensitivity of the variable_* functions depends on the database
+ * collation used. To avoid problems, always use lower case for persistent
+ * variable names.
  *
  * @param $name
  *   The name of the variable to return.
@@ -780,7 +787,11 @@ function variable_get($name, $default = NULL) {
 }
 
 /**
- * Set a persistent variable.
+ * Sets a persistent variable.
+ *
+ * Case-sensitivity of the variable_* functions depends on the database
+ * collation used. To avoid problems, always use lower case for persistent
+ * variable names.
  *
  * @param $name
  *   The name of the variable to set.
@@ -802,7 +813,11 @@ function variable_set($name, $value) {
 }
 
 /**
- * Unset a persistent variable.
+ * Unsets a persistent variable.
+ *
+ * Case-sensitivity of the variable_* functions depends on the database
+ * collation used. To avoid problems, always use lower case for persistent
+ * variable names.
  *
  * @param $name
  *   The name of the variable to undefine.
@@ -877,10 +892,12 @@ function drupal_page_is_cacheable($allow_caching = NULL) {
  *
  * @param $hook
  *   The name of the bootstrap hook to invoke.
+ *
+ * @see bootstrap_hooks()
  */
 function bootstrap_invoke_all($hook) {
-  // _drupal_bootstrap_page_cache() already loaded the bootstrap modules, so we
-  // don't need to tell module_list() to reset its bootstrap list.
+  // Bootstrap modules should have been loaded when this function is called, so
+  // we don't need to tell module_list() to reset its bootstrap list.
   foreach (module_list(FALSE, TRUE) as $module) {
     drupal_load('module', $module);
     module_invoke($module, $hook);
@@ -1426,7 +1443,7 @@ function t($string, array $args = array(), array $options = array()) {
         case '%':
         default:
           // Escaped and placeholder.
-          $args[$key] = drupal_placeholder(array('text' => $value));
+          $args[$key] = drupal_placeholder($value);
           break;
 
         case '!':
@@ -1454,25 +1471,7 @@ function t($string, array $args = array(), array $options = array()) {
  * @ingroup sanitization
  */
 function check_plain($text) {
-  // We do not want to use drupal_static() since PHP version will never change
-  // during a request.
-  static $php525;
-
-  if (!isset($php525)) {
-    $php525 = version_compare(PHP_VERSION, '5.2.5', '>=');
-  }
-  // We duplicate the preg_match() to validate strings as UTF-8 from
-  // drupal_validate_utf8() here. This avoids the overhead of an additional
-  // function call, since check_plain() may be called hundreds of times during
-  // a request. For PHP 5.2.5+, this check for valid UTF-8 should be handled
-  // internally by PHP in htmlspecialchars().
-  // See http://www.php.net/releases/5_2_5.php.
-  // @todo remove this when support for either IE6 or PHP < 5.2.5 is dropped.
-
-  if ($php525) {
-    return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
-  }
-  return (preg_match('/^./us', $text) == 1) ? htmlspecialchars($text, ENT_QUOTES, 'UTF-8') : '';
+  return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
 }
 
 /**
@@ -1535,10 +1534,51 @@ function request_uri() {
 }
 
 /**
- * Log a system message.
+ * Log an exception.
+ *
+ * This is a wrapper function for watchdog() which automatically decodes an
+ * exception.
  *
  * @param $type
  *   The category to which this message belongs.
+ * @param $exception
+ *   The exception that is going to be logged.
+ * @param $message
+ *   The message to store in the log. If empty, a text that contains all useful
+ *   information about the passed in exception is used.
+ * @param $variables
+ *   Array of variables to replace in the message on display. Defaults to the
+ *   return value of drupal_decode_exception().
+ * @param $severity
+ *   The severity of the message, as per RFC 3164.
+ * @param $link
+ *   A link to associate with the message.
+ *
+ * @see watchdog()
+ * @see drupal_decode_exception()
+ */
+function watchdog_exception($type, Exception $exception, $message = NULL, $variables = array(), $severity = WATCHDOG_ERROR, $link = NULL) {
+
+   // Use a default value if $message is not set.
+   if (empty($message)) {
+     $message = '%type: %message in %function (line %line of %file).';
+   }
+   // $variables must be an array so that we can add the exception information.
+   if (!is_array($variables)) {
+     $variables = array();
+   }
+
+   require_once DRUPAL_ROOT . '/includes/errors.inc';
+   $variables += _drupal_decode_exception($exception);
+   watchdog($type, $message, $variables, $severity, $link);
+}
+
+/**
+ * Log a system message.
+ *
+ * @param $type
+ *   The category to which this message belongs. Can be any string, but the
+ *   general practice is to use the name of the module calling watchdog().
  * @param $message
  *   The message to store in the log. Keep $message translatable
  *   by not concatenating dynamic values into it! Variables in the
@@ -1550,14 +1590,13 @@ function request_uri() {
  *   NULL if message is already translated or not possible to
  *   translate.
  * @param $severity
- *   The severity of the message, as per RFC 3164.
+ *   The severity of the message, as per RFC 3164. Possible values are
+ *   WATCHDOG_ERROR, WATCHDOG_WARNING, etc.
  * @param $link
  *   A link to associate with the message.
  *
  * @see watchdog_severity_levels()
  * @see hook_watchdog()
- * @see DatabaseConnection::rollback()
- * @see DatabaseTransaction::rollback()
  */
 function watchdog($type, $message, $variables = array(), $severity = WATCHDOG_NOTICE, $link = NULL) {
   global $user, $base_root;
@@ -1578,13 +1617,13 @@ function watchdog($type, $message, $variables = array(), $severity = WATCHDOG_NO
       'link'        => $link,
       'user'        => $user,
       'request_uri' => $base_root . request_uri(),
-      'referer'     => $_SERVER['HTTP_REFERER'],
+      'referer'     => isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '',
       'ip'          => ip_address(),
       'timestamp'   => REQUEST_TIME,
     );
 
     // Call the logging hooks to log/process the message
-    foreach (module_implements('watchdog', TRUE) as $module) {
+    foreach (module_implements('watchdog') as $module) {
       module_invoke($module, 'watchdog', $log_entry);
     }
 
@@ -1622,7 +1661,7 @@ function drupal_set_message($message = NULL, $type = 'status', $repeat = TRUE) {
       $_SESSION['messages'][$type][] = $message;
     }
 
-    // Mark this page has being not cacheable.
+    // Mark this page as being uncacheable.
     drupal_page_is_cacheable(FALSE);
   }
 
@@ -1844,13 +1883,12 @@ function drupal_hash_base64($data) {
  *
  * @return Object - the user object.
  */
-function drupal_anonymous_user($session = '') {
+function drupal_anonymous_user() {
   $user = new stdClass();
   $user->uid = 0;
   $user->hostname = ip_address();
   $user->roles = array();
   $user->roles[DRUPAL_ANONYMOUS_RID] = 'anonymous user';
-  $user->session = $session;
   $user->cache = 0;
   return $user;
 }
@@ -2001,11 +2039,10 @@ function _drupal_exception_handler($exception) {
   catch (Exception $exception2) {
     // Another uncaught exception was thrown while handling the first one.
     // If we are displaying errors, then do so with no possibility of a further uncaught exception being thrown.
-    $error_level = variable_get('error_level', ERROR_REPORTING_DISPLAY_ALL);
-    if ($error_level == ERROR_REPORTING_DISPLAY_ALL || (defined('MAINTENANCE_MODE') && MAINTENANCE_MODE == 'update')) {
-      print 'Additional uncaught exception thrown while handling exception.<br /><br />';
-      print '<b>Original</b><br />' . _drupal_render_exception_safe($exception) . '<br /><br />';
-      print '<b>Additional</b><br />' . _drupal_render_exception_safe($exception2) . '<br /><br />';
+    if (error_displayable()) {
+      print '<h1>Additional uncaught exception thrown while handling exception.</h1>';
+      print '<h2>Original</h2><p>' . _drupal_render_exception_safe($exception) . '</p>';
+      print '<h2>Additional</h2><p>' . _drupal_render_exception_safe($exception2) . '</p><hr />';
     }
   }
 }
@@ -2049,7 +2086,7 @@ function _drupal_bootstrap_page_cache() {
   // If there is no session cookie and cache is enabled (or forced), try
   // to serve a cached page.
   if (!isset($_COOKIE[session_name()]) && $cache_enabled) {
-    // Make sure there is a user object because it's timestamp will be
+    // Make sure there is a user object because its timestamp will be
     // checked, hook_boot might check for anonymous user etc.
     $user = drupal_anonymous_user();
     // Get the page from the cache.
@@ -2085,14 +2122,6 @@ function _drupal_bootstrap_page_cache() {
  * Bootstrap database: Initialize database system and register autoload functions.
  */
 function _drupal_bootstrap_database() {
-  // The user agent header is used to pass a database prefix in the request when
-  // running tests. However, for security reasons, it is imperative that we
-  // validate we ourselves made the request.
-  if (isset($_SERVER['HTTP_USER_AGENT']) && (strpos($_SERVER['HTTP_USER_AGENT'], "simpletest") !== FALSE) && !drupal_valid_test_ua($_SERVER['HTTP_USER_AGENT'])) {
-    header($_SERVER['SERVER_PROTOCOL'] . ' 403 Forbidden');
-    exit;
-  }
-
   // Redirect the user to the installation script if Drupal has not been
   // installed yet (i.e., if no $databases array has been defined in the
   // settings.php file) and we are not already installing.
@@ -2101,12 +2130,45 @@ function _drupal_bootstrap_database() {
     install_goto('install.php');
   }
 
+  // The user agent header is used to pass a database prefix in the request when
+  // running tests. However, for security reasons, it is imperative that we
+  // validate we ourselves made the request.
+  if (isset($_SERVER['HTTP_USER_AGENT']) && preg_match("/^(simpletest\d+);/", $_SERVER['HTTP_USER_AGENT'], $matches)) {
+    if (!drupal_valid_test_ua($_SERVER['HTTP_USER_AGENT'])) {
+      header($_SERVER['SERVER_PROTOCOL'] . ' 403 Forbidden');
+      exit;
+    }
+
+    // The first part of the user agent is the prefix itself.
+    $test_prefix = $matches[1];
+
+    // Set the test run id for use in other parts of Drupal.
+    $test_info = &$GLOBALS['drupal_test_info'];
+    $test_info['test_run_id'] = $test_prefix;
+    $test_info['in_child_site'] = TRUE;
+
+    foreach ($GLOBALS['databases']['default'] as &$value) {
+      // Extract the current default database prefix.
+      if (!isset($value['prefix'])) {
+        $current_prefix = '';
+      }
+      elseif (is_array($value['prefix'])) {
+        $current_prefix = $value['prefix']['default'];
+      }
+      else {
+        $current_prefix = $value['prefix'];
+      }
+
+      // Remove the current database prefix and replace it by our own.
+      $value['prefix'] = array(
+        'default' => $current_prefix . $test_prefix,
+      );
+    }
+  }
+
   // Initialize the database system. Note that the connection
   // won't be initialized until it is actually requested.
   require_once DRUPAL_ROOT . '/includes/database/database.inc';
-
-  // Set Drupal's watchdog as the logging callback.
-  Database::setLoggingCallback('watchdog', WATCHDOG_NOTICE, WATCHDOG_ERROR);
 
   // Register autoload functions so that we can access classes and interfaces.
   // The database autoload routine comes first so that we can load the database
@@ -2123,6 +2185,10 @@ function _drupal_bootstrap_database() {
 function _drupal_bootstrap_variables() {
   global $conf;
 
+  // Initialize the lock system.
+  require_once DRUPAL_ROOT . '/' . variable_get('lock_inc', 'includes/lock.inc');
+  lock_initialize();
+
   // Load variables from the database, but do not overwrite variables set in settings.php.
   $conf = variable_initialize(isset($conf) ? $conf : array());
   // Load bootstrap modules.
@@ -2135,10 +2201,6 @@ function _drupal_bootstrap_variables() {
  */
 function _drupal_bootstrap_page_header() {
   bootstrap_invoke_all('boot');
-
-  // Prepare for non-cached page workflow.
-  require_once DRUPAL_ROOT . '/' . variable_get('lock_inc', 'includes/lock.inc');
-  lock_initialize();
 
   if (!drupal_is_cli()) {
     ob_start();
@@ -2161,32 +2223,34 @@ function drupal_get_bootstrap_phase() {
  * Validate the HMAC and timestamp of a user agent header from simpletest.
  */
 function drupal_valid_test_ua($user_agent) {
-  global $databases;
+  global $drupal_hash_salt;
 
   list($prefix, $time, $salt, $hmac) = explode(';', $user_agent);
   $check_string =  $prefix . ';' . $time . ';' . $salt;
-  // We use the database credentials from settings.php to make the HMAC key, since
+  // We use the salt from settings.php to make the HMAC key, since
   // the database is not yet initialized and we can't access any Drupal variables.
   // The file properties add more entropy not easily accessible to others.
   $filepath = DRUPAL_ROOT . '/includes/bootstrap.inc';
-  $key = serialize($databases) . filectime($filepath) . fileinode($filepath);
-  // The HMAC must match.
-  return $hmac == drupal_hmac_base64($check_string, $key);
+  $key = $drupal_hash_salt . filectime($filepath) . fileinode($filepath);
+  $time_diff = REQUEST_TIME - $time;
+  // Since we are making a local request a 5 second time window is allowed,
+  // and the HMAC must match.
+  return ($time_diff >= 0) && ($time_diff <= 5) && ($hmac == drupal_hmac_base64($check_string, $key));
 }
 
 /**
  * Generate a user agent string with a HMAC and timestamp for simpletest.
  */
 function drupal_generate_test_ua($prefix) {
-  global $databases;
+  global $drupal_hash_salt;
   static $key;
 
   if (!isset($key)) {
-    // We use the database credentials to make the HMAC key, since we
-    // check the HMAC before the database is initialized. filectime()
-    // and fileinode() are not easily determined from remote.
+    // We use the salt from settings.php to make the HMAC key, since
+    // the database is not yet initialized and we can't access any Drupal variables.
+    // The file properties add more entropy not easily accessible to others.
     $filepath = DRUPAL_ROOT . '/includes/bootstrap.inc';
-    $key = serialize($databases) . filectime($filepath) . fileinode($filepath);
+    $key = $drupal_hash_salt . filectime($filepath) . fileinode($filepath);
   }
    // Generate a moderately secure HMAC based on the database credentials.
    $salt = uniqid('', TRUE);
@@ -2234,15 +2298,15 @@ function get_t() {
 function drupal_language_initialize() {
   $types = language_types();
 
-  // Ensure the language is correctly returned, even without multilanguage support.
+  // Ensure the language is correctly returned, even without multilanguage
+  // support. Also make sure we have a $language fallback, in case a language
+  // negotiation callback needs to do a full bootstrap.
   // Useful for eg. XML/HTML 'lang' attributes.
-  if (!drupal_multilingual()) {
-    $default = language_default();
-    foreach ($types as $type) {
-      $GLOBALS[$type] = $default;
-    }
+  $default = language_default();
+  foreach ($types as $type) {
+    $GLOBALS[$type] = $default;
   }
-  else {
+  if (drupal_multilingual()) {
     include_once DRUPAL_ROOT . '/includes/language.inc';
     foreach ($types as $type) {
       $GLOBALS[$type] = language_initialize($type);
@@ -2293,6 +2357,12 @@ function language_list($field = 'language') {
   if (!isset($languages)) {
     if (drupal_multilingual() || module_exists('locale')) {
       $languages['language'] = db_query('SELECT * FROM {languages} ORDER BY weight ASC, name ASC')->fetchAllAssoc('language');
+      // Users cannot uninstall the native English language. However, we allow
+      // it to be hidden from the installed languages. Therefore, at least one
+      // other language must be enabled then.
+      if (!$languages['language']['en']->enabled && !variable_get('language_native_enabled', TRUE)) {
+        unset($languages['language']['en']);
+      }
     }
     else {
       // No locale module, so use the default language only.
@@ -2447,13 +2517,21 @@ function ip_address() {
         // If an array of known reverse proxy IPs is provided, then trust
         // the XFF header if request really comes from one of them.
         $reverse_proxy_addresses = variable_get('reverse_proxy_addresses', array());
-        if (!empty($reverse_proxy_addresses) && in_array($ip_address, $reverse_proxy_addresses, TRUE)) {
-          // The "X-Forwarded-For" header is a comma+space separated list of IP addresses,
-          // the left-most being the farthest downstream client. If there is more than
-          // one proxy, we are interested in the most recent one (i.e. last one in the list).
-          $ip_address_parts = explode(',', $_SERVER[$reverse_proxy_header]);
-          $ip_address = trim(array_pop($ip_address_parts));
-        }
+
+        // Turn XFF header into an array.
+        $forwarded = explode(',', $_SERVER[$reverse_proxy_header]);
+
+        // Trim the forwarded IPs; they may have been delimited by commas and spaces.
+        $forwarded = array_map('trim', $forwarded);
+
+        // Tack direct client IP onto end of forwarded array.
+        $forwarded[] = $ip_address;
+
+        // Eliminate all trusted IPs.
+        $untrusted = array_diff($forwarded, $reverse_proxy_addresses);
+
+        // The right-most IP is the most specific we can trust.
+        $ip_address = array_pop($untrusted);
       }
     }
   }
@@ -2492,7 +2570,6 @@ function drupal_get_schema($table = NULL, $rebuild = FALSE) {
       // On some databases this function may be called before bootstrap has
       // been completed, so we force the functions we need to load just in case.
       if (function_exists('module_load_all_includes')) {
-
         // There is currently a bug in module_list() where it caches what it
         // was last called with, which is not always what you want.
         // module_load_all_includes() calls module_list(), but if this function
@@ -2500,7 +2577,7 @@ function drupal_get_schema($table = NULL, $rebuild = FALSE) {
         // uninitialized and therefore return no modules. Instead, we have to
         // "prime" module_list() here to to values we want, specifically
         // "yes rebuild the list and don't limit to bootstrap".
-        // TODO: Remove this call after http://drupal.org/node/222109 is fixed.
+        // @todo Remove this call after http://drupal.org/node/222109 is fixed.
         module_list(TRUE, FALSE);
         module_load_all_includes('install');
       }
@@ -2512,7 +2589,9 @@ function drupal_get_schema($table = NULL, $rebuild = FALSE) {
         // would cause array_merge() to set the $schema variable to NULL as well.
         // That would break modules which use $schema further down the line.
         $current = (array) module_invoke($module, 'schema');
-        _drupal_schema_initialize($module, $current);
+        // Set 'module' and 'name' keys for each table, and remove descriptions,
+        // as they needlessly slow down cache_get() for every single request.
+        _drupal_schema_initialize($current, $module);
         $schema = array_merge($schema, $current);
       }
 
@@ -2626,7 +2705,7 @@ function _registry_check_code($type, $name = NULL) {
   $cache_key = $type[0] . $name;
   if (isset($lookup_cache[$cache_key])) {
     if ($lookup_cache[$cache_key]) {
-      require DRUPAL_ROOT . '/' . $lookup_cache[$cache_key];
+      require_once DRUPAL_ROOT . '/' . $lookup_cache[$cache_key];
     }
     return (bool) $lookup_cache[$cache_key];
   }
@@ -2648,7 +2727,7 @@ function _registry_check_code($type, $name = NULL) {
   $lookup_cache[$cache_key] = $file;
 
   if ($file) {
-    require DRUPAL_ROOT . '/' . $file;
+    require_once DRUPAL_ROOT . '/' . $file;
     return TRUE;
   }
   else {
@@ -2805,34 +2884,35 @@ function registry_update() {
  */
 function &drupal_static($name, $default_value = NULL, $reset = FALSE) {
   static $data = array(), $default = array();
-  if (!isset($name)) {
-    // All variables are reset. This needs to be done one at a time so that
-    // references returned by earlier invocations of drupal_static() also get
-    // reset.
-    foreach ($default as $name => $value) {
-      $data[$name] = $value;
-    }
-    // As the function returns a reference, the return should always be a
-    // variable.
-    return $data;
-  }
-  if ($reset) {
-    // The reset means the default is loaded.
-    if (array_key_exists($name, $default)) {
+  // First check if dealing with a previously defined static variable.
+  if (isset($data[$name]) || array_key_exists($name, $data)) {
+    // Non-NULL $name and both $data[$name] and $default[$name] statics exist.
+    if ($reset) {
+      // Reset pre-existing static variable to its default value.
       $data[$name] = $default[$name];
     }
-    else {
+    return $data[$name];
+  }
+  // Neither $data[$name] nor $default[$name] static variables exist.
+  if (isset($name)) {
+    if ($reset) {
       // Reset was called before a default is set and yet a variable must be
       // returned.
       return $data;
     }
-  }
-  elseif (!array_key_exists($name, $data)) {
-    // Store the default value internally and also copy it to the reference to
-    // be returned.
+    // First call with new non-NULL $name. Initialize a new static variable.
     $default[$name] = $data[$name] = $default_value;
+    return $data[$name];
   }
-  return $data[$name];
+  // Reset all: ($name == NULL). This needs to be done one at a time so that
+  // references returned by earlier invocations of drupal_static() also get
+  // reset.
+  foreach ($default as $name => $value) {
+    $data[$name] = $value;
+  }
+  // As the function returns a reference, the return should always be a
+  // variable.
+  return $data;
 }
 
 /**
@@ -2856,37 +2936,36 @@ function drupal_is_cli() {
  * Formats text for emphasized display in a placeholder inside a sentence.
  * Used automatically by t().
  *
- * @param $variables
- *   An associative array containing:
- *   - text: The text to format (plain-text).
+ * @param $text
+ *   The text to format (plain-text).
  *
  * @return
  *   The formatted text (html).
  */
-function drupal_placeholder($variables) {
-  return '<em class="placeholder">' . check_plain($variables['text']) . '</em>';
+function drupal_placeholder($text) {
+  return '<em class="placeholder">' . check_plain($text) . '</em>';
 }
 
 /**
- *
  * Register a function for execution on shutdown.
  *
- * Wrapper for register_shutdown_function() which catches thrown exceptions
- * to avoid "Exception thrown without a stack frame in Unknown".
+ * Wrapper for register_shutdown_function() that catches thrown exceptions to
+ * avoid "Exception thrown without a stack frame in Unknown".
  *
  * @param $callback
  *   The shutdown function to register.
- * @param $parameters
- *   It is possible to pass parameters to the shutdown function by passing
- *   additional parameters.
+ * @param ...
+ *   Additional arguments to pass to the shutdown function.
+ *
  * @return
  *   Array of shutdown functions to be executed.
  *
  * @see register_shutdown_function()
+ * @ingroup php_wrappers
  */
-function &drupal_register_shutdown_function($callback = NULL, $parameters = NULL) {
-  // We cannot use drupal_static() here because the static cache is reset
-  // during batch processing, which breaks batch handling.
+function &drupal_register_shutdown_function($callback = NULL) {
+  // We cannot use drupal_static() here because the static cache is reset during
+  // batch processing, which breaks batch handling.
   static $callbacks = array();
 
   if (isset($callback)) {
@@ -2916,11 +2995,10 @@ function _drupal_shutdown_function() {
   }
   catch (Exception $exception) {
     // If we are displaying errors, then do so with no possibility of a further uncaught exception being thrown.
-    $error_level = variable_get('error_level', ERROR_REPORTING_DISPLAY_ALL);
-    if ($error_level == ERROR_REPORTING_DISPLAY_ALL || (defined('MAINTENANCE_MODE') && MAINTENANCE_MODE == 'update')) {
-      require_once DRUPAL_ROOT . '/includes/errors.inc';
-      print 'Uncaught exception thrown in shutdown function.<br /><br />';
-      print _drupal_render_exception_safe($exception) . '<br /><br />';
+   require_once DRUPAL_ROOT . '/includes/errors.inc';
+   if (error_displayable()) {
+      print '<h1>Uncaught exception thrown in shutdown function.</h1>';
+      print '<p>' . _drupal_render_exception_safe($exception) . '</p><hr />';
     }
   }
 }

@@ -1,30 +1,35 @@
-/* $Id$ */
+/* $Id: colors.css,v 1.7 2010/10/05 01:48:11 dries Exp $ */
 
 /* ---------- Color Module Styles ----------- */
 
 body {
-  background-color: #161617;
+  background-color: #292929;
   color: #ffffff;
 }
-html,
 #page-wrapper,
+#main,
 body.overlay {
   background-color: #ffffff;
   color: #3b3b3b;
 }
-#navigation ul.links li.active-trail a {
+#main-menu-links li a.active,
+#main-menu-links li.active-trail a {
   background: #ffffff;
 }
 .tabs ul.primary li a.active {
   background-color: #ffffff;
 }
+.tabs ul.primary li.active a {
+  background-color: #ffffff;
+  border-bottom: 1px solid #ffffff;
+}
 #header {
-  background-color: #4e4e4e;
-  background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, from(#4a4a4a), to(#4e4e4e));
-  background-image: -moz-linear-gradient(-90deg, #4a4a4a, #4e4e4e);
+  background-color: #48a9e4;
+  background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, from(#0779bf), to(#48a9e4));
+  background-image: -moz-linear-gradient(-90deg, #0779bf, #48a9e4);
 }
 a {
-  color: #0073b6;
+  color: #0071B3;
 }
 a:hover,
 a:focus {
@@ -34,13 +39,17 @@ a:active {
   color: #23aeff;
 }
 .sidebar .block {
-  background-color: #feffff;
-  border-color: #d0d0d0;
+  background-color: #f6f6f2;
+  border-color: #f9f9f9;
 }
 #footer-wrapper {
-  background: #161617;
+  background: #292929;
 }
+.region-header,
+.region-header a,
+.region-header li a.active,
 #header #name-and-slogan,
-#header #name-and-slogan a {
+#header #name-and-slogan a,
+#secondary-menu-links li a {
   color: #fffeff;
 }

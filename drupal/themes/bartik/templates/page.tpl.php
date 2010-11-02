@@ -1,5 +1,5 @@
 <?php
-// $Id$
+// $Id: page.tpl.php,v 1.7 2010/10/05 01:48:11 dries Exp $
 
 /**
  * @file
@@ -15,7 +15,7 @@
  * - $base_path: The base URL path of the Drupal installation. At the very
  *   least, this will always default to /.
  * - $directory: The directory the template is located in, e.g. modules/system
- *   or themes/garland.
+ *   or themes/bartik.
  * - $is_front: TRUE if the current page is the front page.
  * - $logged_in: TRUE if the user is registered and signed in.
  * - $is_admin: TRUE if the user has permission to access administration pages.
@@ -66,7 +66,7 @@
  * Regions:
  * - $page['header']: Items for the header region.
  * - $page['featured']: Items for the featured region.
- * - $page['highlight']: Items for the highlighted content region.
+ * - $page['highlighted']: Items for the highlighted content region.
  * - $page['help']: Dynamic help text, mostly for admin pages.
  * - $page['content']: The main content of the current page.
  * - $page['sidebar_first']: Items for the first sidebar.
@@ -87,7 +87,7 @@
 ?>
 <div id="page-wrapper"><div id="page">
 
-  <div id="header"><div class="section clearfix">
+  <div id="header" class="<?php print $secondary_menu ? 'with-secondary-menu': 'without-secondary-menu'; ?>"><div class="section clearfix">
 
     <?php if ($logo): ?>
       <a href="<?php print $front_page; ?>" title="<?php print t('Home'); ?>" rel="home" id="logo">
@@ -124,11 +124,11 @@
     <?php print render($page['header']); ?>
 
     <?php if ($main_menu): ?>
-      <div id="navigation"><div class="section clearfix">
+      <div id="main-menu" class="navigation">
         <?php print theme('links__system_main_menu', array(
           'links' => $main_menu,
           'attributes' => array(
-            'id' => 'main-menu',
+            'id' => 'main-menu-links',
             'class' => array('links', 'clearfix'),
           ),
           'heading' => array(
@@ -137,7 +137,24 @@
             'class' => array('element-invisible'),
           ),
         )); ?>
-      </div></div> <!-- /.section, /#navigation -->
+      </div> <!-- /#main-menu -->
+    <?php endif; ?>
+
+    <?php if ($secondary_menu): ?>
+      <div id="secondary-menu" class="navigation">
+        <?php print theme('links__system_secondary_menu', array(
+          'links' => $secondary_menu,
+          'attributes' => array(
+            'id' => 'secondary-menu-links',
+            'class' => array('links', 'clearfix'),
+          ),
+          'heading' => array(
+            'text' => t('Secondary menu'),
+            'level' => 'h2',
+            'class' => array('element-invisible'),
+          ),
+        )); ?>
+      </div> <!-- /#secondary-menu -->
     <?php endif; ?>
 
   </div></div> <!-- /.section, /#header -->
@@ -149,7 +166,7 @@
   <?php endif; ?>
 
   <?php if ($page['featured']): ?>
-    <div id="featured" class="region"><div class="section clearfix">
+    <div id="featured"><div class="section clearfix">
       <?php print render($page['featured']); ?>
     </div></div> <!-- /.section, /#featured -->
   <?php endif; ?>
@@ -166,9 +183,8 @@
       </div></div> <!-- /.section, /#sidebar-first -->
     <?php endif; ?>
 
-
     <div id="content" class="column"><div class="section">
-      <?php if ($page['highlight']): ?><div id="highlight"><?php print render($page['highlight']); ?></div><?php endif; ?>
+      <?php if ($page['highlighted']): ?><div id="highlighted"><?php print render($page['highlighted']); ?></div><?php endif; ?>
       <a id="main-content"></a>
       <?php print render($title_prefix); ?>
       <?php if ($title): ?>
@@ -203,25 +219,9 @@
 
   <?php if ($page['triptych_first'] || $page['triptych_middle'] || $page['triptych_last']): ?>
     <div id="triptych-wrapper"><div id="triptych" class="clearfix">
-
-      <?php if ($page['triptych_first']): ?>
-        <div id="triptych-first" class="region triptych"><div class="section">
-          <?php print render($page['triptych_first']); ?>
-        </div></div> <!-- /.section, /#triptych-first -->
-      <?php endif; ?>
-
-      <?php if ($page['triptych_middle']): ?>
-        <div id="triptych-middle" class="region triptych"><div class="section">
-          <?php print render($page['triptych_middle']); ?>
-        </div></div> <!-- /.section, /#triptych-middle -->
-      <?php endif; ?>
-
-      <?php if ($page['triptych_last']): ?>
-        <div id="triptych-last" class="region triptych"><div class="section">
-          <?php print render($page['triptych_last']); ?>
-        </div></div> <!-- /.section, /#triptych-last -->
-      <?php endif; ?>
-
+      <?php print render($page['triptych_first']); ?>
+      <?php print render($page['triptych_middle']); ?>
+      <?php print render($page['triptych_last']); ?>
     </div></div> <!-- /#triptych, /#triptych-wrapper -->
   <?php endif; ?>
 
@@ -229,50 +229,17 @@
 
     <?php if ($page['footer_firstcolumn'] || $page['footer_secondcolumn'] || $page['footer_thirdcolumn'] || $page['footer_fourthcolumn']): ?>
       <div id="footer-columns" class="clearfix">
-
-        <?php if ($page['footer_firstcolumn']): ?>
-          <div id="footer-firstcolumn" class="region sitemap"><div class="section">
-            <?php print render($page['footer_firstcolumn']); ?>
-          </div></div> <!-- /.section, /#footer-firstcolumn -->
-        <?php endif; ?>
-
-        <?php if ($page['footer_secondcolumn']): ?>
-          <div id="footer-secondcolumn" class="region sitemap"><div class="section">
-            <?php print render($page['footer_secondcolumn']); ?>
-          </div></div> <!-- /.section, /#footer-secondcolumn -->
-        <?php endif; ?>
-
-        <?php if ($page['footer_thirdcolumn']): ?>
-          <div id="footer-thirdcolumn" class="region sitemap"><div class="section">
-            <?php print render($page['footer_thirdcolumn']); ?>
-          </div></div> <!-- /.section, /#footer-thirdcolumn -->
-        <?php endif; ?>
-
-        <?php if ($page['footer_fourthcolumn']): ?>
-          <div id="footer-fourthcolumn" class="region sitemap"><div class="section">
-            <?php print render($page['footer_fourthcolumn']); ?>
-          </div></div> <!-- /.section, /#footer-fourthcolumn -->
-        <?php endif; ?>
-
-      </div><!-- /#footer-columns -->
+        <?php print render($page['footer_firstcolumn']); ?>
+        <?php print render($page['footer_secondcolumn']); ?>
+        <?php print render($page['footer_thirdcolumn']); ?>
+        <?php print render($page['footer_fourthcolumn']); ?>
+      </div> <!-- /#footer-columns -->
     <?php endif; ?>
 
-    <?php if ($page['footer'] || $secondary_menu): ?>
+    <?php if ($page['footer']): ?>
       <div id="footer" class="clearfix">
-        <?php print theme('links__system_secondary_menu', array(
-          'links' => $secondary_menu,
-          'attributes' => array(
-            'id' => 'secondary-menu',
-            'class' => array('links', 'clearfix'),
-          ),
-          'heading' => array(
-            'text' => t('Secondary menu'),
-            'level' => 'h2',
-            'class' => array('element-invisible'),
-          ),
-        )); ?>
         <?php print render($page['footer']); ?>
-    </div><!-- /#footer -->
+      </div> <!-- /#footer -->
     <?php endif; ?>
 
   </div></div> <!-- /.section, /#footer-wrapper -->

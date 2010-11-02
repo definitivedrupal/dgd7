@@ -1,5 +1,5 @@
 <?php
-// $Id: help.module,v 1.96 2010/01/12 23:04:47 webchick Exp $
+// $Id: help.module,v 1.99 2010/10/04 14:54:10 webchick Exp $
 
 /**
  * @file
@@ -12,7 +12,7 @@
 function help_menu() {
   $items['admin/help'] = array(
     'title' => 'Help',
-    'description' => 'Reference for usage, configuration, and modules',
+    'description' => 'Reference for usage, configuration, and modules.',
     'page callback' => 'help_main',
     'access arguments' => array('access administration pages'),
     'weight' => 9,
@@ -25,7 +25,7 @@ function help_menu() {
       'page callback' => 'help_page',
       'page arguments' => array(2),
       'access arguments' => array('access administration pages'),
-      'type' => MENU_CALLBACK,
+      'type' => MENU_VISIBLE_IN_BREADCRUMB,
       'file' => 'help.admin.inc',
     );
   }

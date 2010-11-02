@@ -1,5 +1,5 @@
 <?php
-// $Id: default.settings.php,v 1.44 2010/04/07 15:07:59 dries Exp $
+// $Id: default.settings.php,v 1.51 2010/10/11 23:49:48 dries Exp $
 
 /**
  * @file
@@ -53,7 +53,7 @@
  *
  * Each database connection is specified as an array of settings,
  * similar to the following:
- *
+ * @code
  * array(
  *   'driver' => 'mysql',
  *   'database' => 'databasename',
@@ -61,7 +61,10 @@
  *   'password' => 'password',
  *   'host' => 'localhost',
  *   'port' => 3306,
+ *   'prefix' => 'myprefix_',
+ *   'collation' => 'utf8_general_ci',
  * );
+ * @endcode
  *
  * The "driver" property indicates what Drupal database driver the
  * connection should use.  This is usually the same as the name of the
@@ -85,11 +88,12 @@
  * fall back to the single master server.
  *
  * The general format for the $databases array is as follows:
- *
+ * @code
  * $databases['default']['default'] = $info_array;
  * $databases['default']['slave'][] = $info_array;
  * $databases['default']['slave'][] = $info_array;
  * $databases['extra']['default'] = $info_array;
+ * @endcode
  *
  * In the above example, $info_array is an array of settings described above.
  * The first line sets a "default" database that has one master database
@@ -99,61 +103,66 @@
  * "extra".
  *
  * For a single database configuration, the following is sufficient:
- *
+ * @code
  * $databases['default']['default'] = array(
  *   'driver' => 'mysql',
  *   'database' => 'databasename',
  *   'username' => 'username',
  *   'password' => 'password',
  *   'host' => 'localhost',
+ *   'prefix' => 'main_',
+ *   'collation' => 'utf8_general_ci',
  * );
+ * @endcode
  *
  * You can optionally set prefixes for some or all database table names
- * by using the $db_prefix setting. If a prefix is specified, the table
+ * by using the 'prefix' setting. If a prefix is specified, the table
  * name will be prepended with its value. Be sure to use valid database
  * characters only, usually alphanumeric and underscore. If no prefixes
  * are desired, leave it as an empty string ''.
  *
- * To have all database names prefixed, set $db_prefix as a string:
- *
- *   $db_prefix = 'main_';
- *
- * To provide prefixes for specific tables, set $db_prefix as an array.
+ * To have all database names prefixed, set 'prefix' as a string:
+ * @code
+ *   'prefix' => 'main_',
+ * @endcode
+ * To provide prefixes for specific tables, set 'prefix' as an array.
  * The array's keys are the table names and the values are the prefixes.
- * The 'default' element holds the prefix for any tables not specified
- * elsewhere in the array. Example:
- *
- *   $db_prefix = array(
+ * The 'default' element is mandatory and holds the prefix for any tables
+ * not specified elsewhere in the array. Example:
+ * @code
+ *   'prefix' => array(
  *     'default'   => 'main_',
- *     'users'      => 'shared_',
+ *     'users'     => 'shared_',
  *     'sessions'  => 'shared_',
  *     'role'      => 'shared_',
  *     'authmap'   => 'shared_',
- *   );
- *
- * You can also use db_prefix as a reference to a schema/database. This maybe
+ *   ),
+ * @endcode
+ * You can also use a reference to a schema/database as a prefix. This maybe
  * useful if your Drupal installation exists in a schema that is not the default
- * or you want to access several databases from the same code base at the same 
+ * or you want to access several databases from the same code base at the same
  * time.
  * Example:
- *
- *  $db_prefix = array(
- *    'default' => 'main.',
- *     'users'      => 'shared.',
+ * @code
+ *   'prefix' => array(
+ *     'default'   => 'main.',
+ *     'users'     => 'shared.',
  *     'sessions'  => 'shared.',
  *     'role'      => 'shared.',
  *     'authmap'   => 'shared.',
- *  );
- *
+ *   );
+ * @endcode
  * NOTE: MySQL and SQLite's definition of a schema is a database.
  *
  * Database configuration format:
+ * @code
  *   $databases['default']['default'] = array(
  *     'driver' => 'mysql',
  *     'database' => 'databasename',
  *     'username' => 'username',
  *     'password' => 'password',
  *     'host' => 'localhost',
+ *     'prefix' => '',
  *   );
  *   $databases['default']['default'] = array(
  *     'driver' => 'pgsql',
@@ -161,14 +170,15 @@
  *     'username' => 'username',
  *     'password' => 'password',
  *     'host' => 'localhost',
+ *     'prefix' => '',
  *   );
  *   $databases['default']['default'] = array(
  *     'driver' => 'sqlite',
  *     'database' => '/path/to/databasefilename',
  *   );
+ * @endcode
  */
 $databases = array();
-$db_prefix = '';
 
 /**
  * Access control for update.php script.
@@ -205,9 +215,10 @@ $drupal_hash_salt = '';
 /**
  * Base URL (optional).
  *
- * If you are experiencing issues with different site domains,
- * uncomment the Base URL statement below (remove the leading hash sign)
- * and fill in the absolute URL to your Drupal installation.
+ * If Drupal is generating incorrect URLs on your site, which could
+ * be in HTML headers (links to CSS and JS files) or visible links on pages
+ * (such as in menus), uncomment the Base URL statement below (remove the
+ * leading hash sign) and fill in the absolute URL to your Drupal installation.
  *
  * You might also want to force users to use a given domain.
  * See the .htaccess file for more information.
@@ -259,6 +270,17 @@ ini_set('session.gc_maxlifetime', 200000);
 ini_set('session.cookie_lifetime', 2000000);
 
 /**
+ * If you encounter a situation where users post a large amount of text, and
+ * the result is stripped out upon viewing but can still be edited, Drupal's
+ * output filter may not have sufficient memory to process it.  If you
+ * experience this issue, you may wish to uncomment the following two lines
+ * and increase the limits of these variables.  For more information, see
+ * http://php.net/manual/en/pcre.configuration.php.
+ */
+# ini_set('pcre.backtrack_limit', 200000);
+# ini_set('pcre.recursion_limit', 200000);
+
+/**
  * Drupal automatically generates a unique session cookie name for each site
  * based on on its full domain name. If you have multiple domains pointing at
  * the same Drupal site, you can either redirect them all to a single domain
@@ -297,7 +319,7 @@ ini_set('session.cookie_lifetime', 2000000);
  * theme. It is located inside 'modules/system/maintenance-page.tpl.php'.
  * Note: This setting does not apply to installation and update pages.
  */
-# $conf['maintenance_theme'] = 'garland';
+# $conf['maintenance_theme'] = 'bartik';
 
 /**
  * Enable this setting to determine the correct IP address of the remote
@@ -354,6 +376,21 @@ ini_set('session.cookie_lifetime', 2000000);
  * getting cached pages from the proxy.
  */
 # $conf['omit_vary_cookie'] = TRUE;
+
+/**
+ * CSS/JS aggregated file gzip compression:
+ *
+ * By default, when CSS or JS aggregation and clean URLs are enabled Drupal will
+ * store a gzip compressed (.gz) copy of the aggregated files. If this file is
+ * available then rewrite rules in the default .htaccess file will serve these
+ * files to browsers that accept gzip encoded content. This allows pages to load
+ * faster for these users and has minimal impact on server load. If you are
+ * using a webserver other than Apache httpd, or a caching reverse proxy that is
+ * configured to cache and compress these files itself you may want to uncomment
+ * one or both of the below lines, which will prevent gzip files being stored.
+ */
+# $conf['css_gzip_compression'] = FALSE;
+# $conf['js_gzip_compression'] = FALSE;
 
 /**
  * String overrides:

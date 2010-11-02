@@ -1,5 +1,5 @@
 <?php
-// $Id: locale.admin.inc,v 1.13 2010/05/11 10:49:37 dries Exp $
+// $Id: locale.admin.inc,v 1.20 2010/10/20 01:31:07 dries Exp $
 
 /**
  * @file
@@ -28,6 +28,8 @@ function locale_languages_overview_form() {
     }
     $form['weight'][$langcode] = array(
       '#type' => 'weight',
+      '#title' => t('Weight for @title', array('@title' => $language->name)),
+      '#title_display' => 'invisible',
       '#default_value' => $language->weight,
       '#attributes' => array('class' => array('language-order-weight')),
     );
@@ -35,11 +37,17 @@ function locale_languages_overview_form() {
     $form['native'][$langcode] = array('#markup' => check_plain($language->native));
     $form['direction'][$langcode] = array('#markup' => ($language->direction == LANGUAGE_RTL ? t('Right to left') : t('Left to right')));
   }
-  $form['enabled'] = array('#type' => 'checkboxes',
+  $form['enabled'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t('Enabled languages'),
+    '#title_display' => 'invisible',
     '#options' => $options,
     '#default_value' => $enabled,
   );
-  $form['site_default'] = array('#type' => 'radios',
+  $form['site_default'] = array(
+    '#type' => 'radios',
+    '#title' => t('Default language'),
+    '#title_display' => 'invisible',
     '#options' => $options,
     '#default_value' => language_default('language'),
   );
@@ -519,7 +527,7 @@ function _locale_languages_configure_form_language_table(&$form, $type) {
   );
 
   $language_providers = $form['#language_providers'];
-  $enabled_providers = variable_get("locale_language_providers_enabled_$type", array());
+  $enabled_providers = variable_get("language_negotiation_$type", array());
   $providers_weight = variable_get("locale_language_providers_weight_$type", array());
 
   // Add missing data to the providers lists.
@@ -527,16 +535,13 @@ function _locale_languages_configure_form_language_table(&$form, $type) {
     if (!isset($providers_weight[$id])) {
       $providers_weight[$id] = language_provider_weight($provider);
     }
-    if (!isset($enabled_providers[$id])) {
-      $enabled_providers[$id] = FALSE;
-    }
   }
 
   // Order providers list by weight.
   asort($providers_weight);
 
   foreach ($providers_weight as $id => $weight) {
-    $enabled = $enabled_providers[$id];
+    $enabled = isset($enabled_providers[$id]);
     $provider = $language_providers[$id];
 
     // List the provider only if the current type is defined in its 'types' key.
@@ -548,13 +553,20 @@ function _locale_languages_configure_form_language_table(&$form, $type) {
 
       $table_form['weight'][$id] = array(
         '#type' => 'weight',
+        '#title' => t('Weight for @title', array('@title' => $provider['name'])),
+        '#title_display' => 'invisible',
         '#default_value' => $weight,
         '#attributes' => array('class' => array("language-provider-weight-$type")),
       );
 
       $table_form['title'][$id] = array('#markup' => check_plain($provider['name']));
 
-      $table_form['enabled'][$id] = array('#type' => 'checkbox', '#default_value' => $enabled);
+      $table_form['enabled'][$id] = array(
+        '#type' => 'checkbox',
+        '#title' => t('@title language provider', array('@title' => $provider['name'])),
+        '#title_display' => 'invisible',
+        '#default_value' => $enabled,
+      );
       if ($id === LANGUAGE_NEGOTIATION_DEFAULT) {
         $table_form['enabled'][$id]['#default_value'] = TRUE;
         $table_form['enabled'][$id]['#attributes'] = array('disabled' => 'disabled');
@@ -665,7 +677,6 @@ function locale_languages_configure_form_submit($form, &$form_state) {
     }
 
     language_negotiation_set($type, $negotiation);
-    variable_set("locale_language_providers_enabled_$type", $enabled_providers);
     variable_set("locale_language_providers_weight_$type", $providers_weight);
   }
 
@@ -697,8 +708,6 @@ function locale_languages_configure_form_submit($form, &$form_state) {
  * The URL language provider configuration form.
  */
 function locale_language_providers_url_form($form, &$form_state) {
-  $form = array();
-
   $form['locale_language_negotiation_url_part'] = array(
     '#title' => t('Part of the URL that determines language'),
     '#type' => 'radios',
@@ -719,8 +728,6 @@ function locale_language_providers_url_form($form, &$form_state) {
  * The URL language provider configuration form.
  */
 function locale_language_providers_session_form($form, &$form_state) {
-  $form = array();
-
   $form['locale_language_negotiation_session_param'] = array(
     '#title' => t('Request/session parameter'),
     '#type' => 'textfield',
@@ -792,7 +799,7 @@ function locale_translate_overview_screen() {
  */
 function locale_translate_seek_screen() {
   // Add CSS.
-  drupal_add_css(drupal_get_path('module', 'locale') . '/locale.css', array('preprocess' => FALSE));
+  drupal_add_css(drupal_get_path('module', 'locale') . '/locale.css');
 
   $elements = drupal_get_form('locale_translation_filter_form');
   $output = drupal_render($elements);
@@ -862,7 +869,8 @@ function locale_translation_filter_form() {
       $form['filters']['status'][$key] = array(
         '#title' => $filter['title'],
         '#type' => 'select',
-        '#multiple' => FALSE,
+        '#empty_value' => 'all',
+        '#empty_option' => $filter['options']['all'],
         '#size' => 0,
         '#options' => $filter['options'],
       );
@@ -988,8 +996,9 @@ function locale_translate_import_form($form) {
  * Process the locale import form submission.
  */
 function locale_translate_import_form_submit($form, &$form_state) {
+  $validators = array('file_validate_extensions' => array('po'));
   // Ensure we have the file uploaded
-  if ($file = file_save_upload('file')) {
+  if ($file = file_save_upload('file', $validators)) {
 
     // Add language, if not yet supported
     drupal_static_reset('language_list');

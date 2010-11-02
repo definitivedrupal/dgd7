@@ -1,4 +1,4 @@
-/* $Id: style.css,v 1.82 2010/05/18 11:56:59 dries Exp $ */
+/* $Id: style.css,v 1.86 2010/09/27 01:12:45 dries Exp $ */
 
 /**
  * Generic elements
@@ -290,20 +290,6 @@ span.form-required {
   padding: .5em 1em;
 }
 
-div.messages {
-  margin: .75em 0 .75em;
-  padding: .1em .5em .15em;
-}
-
-.messages ul {
-  margin: 0;
-}
-
-.messages li {
-  margin: 0;
-  padding: 0 0 0 1.3em; /* LTR */
-}
-
 .form-checkboxes,
 .form-radios,
 .form-checkboxes .form-item,
@@ -315,22 +301,12 @@ div.messages {
   margin-bottom: 2em;
 }
 
+.form-actions {
+  margin: 2em 0 1em;
+}
 .form-button,
 .form-submit {
-  margin: 2em 0.5em 1em 0; /* LTR */
-}
-
-#dblog-form-overview .form-submit,
-.confirmation .form-submit,
-.search-form .form-submit,
-.poll .form-submit,
-fieldset .form-button,
-fieldset .form-submit,
-.sidebar .form-button,
-.sidebar .form-submit,
-table .form-button,
-table .form-submit {
-  margin: 0;
+  margin: 0 0.5em 0 0; /* LTR */
 }
 
 /**
@@ -622,22 +598,38 @@ div#branding strong {
   color: #529ad6;
 }
 
-#highlight {
+#highlighted {
   padding: 1em;
   background-color: #fff;
   border: 1px solid #e0e5fb;
   margin-bottom: 2em;
 }
 
-/* Don't display any header elements when within the overlay, and adjust the
-   page height accordingly. */
-body.overlay #header * {
+/**
+ * Overlay
+ */
+#overlay #overlay-tabs li a {
+  background: #d9eaf5;
+  color: #000;
+}
+#overlay #overlay-tabs li a:hover,
+#overlay #overlay-tabs li a:focus {
+  background: #fff;
+}
+#overlay #overlay-tabs li.active a {
+  background: url("images/body.png") repeat-x scroll 50% -58px #edf5fa;
+  color: #fff;
+}
+#overlay-content {
+  padding: 1px;
+}
+#overlay-content #header {
   display: none;
 }
-
-body.overlay {
-  margin-top: -80px;
+#overlay-content #wrapper {
+  background-position: 50% -80px;
 }
+
 
 /**
  * Primary navigation
@@ -1180,36 +1172,9 @@ tr.taxonomy-term-divider-bottom {
 /**
  * Generic elements.
  */
-div.messages {
-  background-color: #fff;
-  border: 1px solid #b8d3e5;
-}
-
 .preview {
   background-color: #fcfce8;
   border: 1px solid #e5e58f;
-}
-
-div.status {
-  background-color: #fff;
-  border-color: #c7f2c8;
-  color: #33a333;
-}
-
-div.error {
-  border: 1px solid #d77;
-}
-
-div.error,
-tr.error {
-  color: #a30000;
-  background-color: #FFCCCC;
-}
-
-div.warning {
-  background-color: #ffd;
-  border: 1px solid #f0c020;
-  color: #220;
 }
 
 .form-item input.error,

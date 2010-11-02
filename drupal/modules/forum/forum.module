@@ -1,5 +1,5 @@
 <?php
-// $Id: forum.module,v 1.565 2010/04/28 05:54:55 webchick Exp $
+// $Id: forum.module,v 1.579 2010/10/06 13:38:40 dries Exp $
 
 /**
  * @file
@@ -41,7 +41,7 @@ function forum_help($path, $arg) {
       return $output;
     case 'admin/structure/forum':
       $output = '<p>' . t('Forums contain forum topics. Use containers to group related forums.') . '</p>';
-      $output .= theme('more_help_link', array('url' => url('admin/help/forum')));
+      $output .= theme('more_help_link', array('url' => 'admin/help/forum'));
       return $output;
     case 'admin/structure/forum/add/container':
       return '<p>' . t('Use containers to group related forums.') . '</p>';
@@ -147,7 +147,6 @@ function forum_menu() {
     'page callback' => 'forum_form_main',
     'page arguments' => array('container', 5),
     'access arguments' => array('administer forums'),
-    'type' => MENU_CALLBACK,
     'file' => 'forum.admin.inc',
   );
   $items['admin/structure/forum/edit/forum/%taxonomy_term'] = array(
@@ -155,7 +154,6 @@ function forum_menu() {
     'page callback' => 'forum_form_main',
     'page arguments' => array('forum', 5),
     'access arguments' => array('administer forums'),
-    'type' => MENU_CALLBACK,
     'file' => 'forum.admin.inc',
   );
   return $items;
@@ -167,9 +165,9 @@ function forum_menu() {
 function forum_menu_local_tasks_alter(&$data, $router_item, $root_path) {
   global $user;
 
-  // Add action link to 'node/add/forum' on 'forum' page.
-  if ($root_path == 'forum') {
-    $tid = (isset($router_item['page_arguments'][0]) ? $router_item['page_arguments'][0] : 0);
+  // Add action link to 'node/add/forum' on 'forum' sub-pages.
+  if ($root_path == 'forum' || $root_path == 'forum/%') {
+    $tid = (isset($router_item['page_arguments'][0]) ? $router_item['page_arguments'][0]->tid : 0);
     $forum_term = forum_forum_load($tid);
     if ($forum_term) {
       $vid = variable_get('forum_nav_vocabulary', 0);
@@ -215,13 +213,6 @@ function forum_menu_local_tasks_alter(&$data, $router_item, $root_path) {
       $data['actions']['output'] = array_merge($data['actions']['output'], $links);
     }
   }
-}
-
-/**
- * Implements hook_init().
- */
-function forum_init() {
-  drupal_add_css(drupal_get_path('module', 'forum') . '/forum.css');
 }
 
 /**
@@ -277,7 +268,7 @@ function forum_node_view($node, $view_mode) {
   $vid = variable_get('forum_nav_vocabulary', 0);
   $vocabulary = taxonomy_vocabulary_load($vid);
   if (_forum_node_check_node_type($node)) {
-    if (node_is_page($node)) {
+    if ($view_mode == 'full' && node_is_page($node)) {
       // Breadcrumb navigation
       $breadcrumb[] = l(t('Home'), NULL);
       $breadcrumb[] = l($vocabulary->name, 'forum');
@@ -610,7 +601,7 @@ function forum_form_alter(&$form, $form_state, $form_id) {
       $form['advanced']['parent']['#access'] = FALSE;
     }
   }
-  if ($form_id == 'forum_node_form') {
+  if (!empty($form['#node_edit_form']) && isset($form['taxonomy_forums'])) {
     $langcode = $form['taxonomy_forums']['#language'];
     // Make the vocabulary required for 'real' forum-nodes.
     $form['taxonomy_forums'][$langcode]['#required'] = TRUE;
@@ -699,8 +690,8 @@ function forum_block_view($delta = '') {
 function forum_block_view_pre_render($elements) {
   $result = $elements['#query']->execute();
   if ($node_title_list = node_title_list($result)) {
-    $elements['forum_list'] = array('#markup' => $node_title_list);
-    $elements['forum_more'] = array('#markup' => theme('more_link', array('url' => url('forum'), 'title' => t('Read the latest forum topics.'))));
+    $elements['forum_list'] = $node_title_list;
+    $elements['forum_more'] = array('#theme' => 'more_link', '#url' => 'forum', '#title' => t('Read the latest forum topics.'));
   }
   return $elements;
 }
@@ -761,7 +752,7 @@ function forum_forum_load($tid = NULL) {
     }
   }
   // If $tid is 0, create an empty object to hold the child terms.
-  else if ($tid === 0) {
+  elseif ($tid === 0) {
     $forum_term = (object) array(
       'tid' => 0,
     );
@@ -816,7 +807,7 @@ function forum_forum_load($tid = NULL) {
     $query->join('forum', 'f', 'n.vid = f.vid AND f.tid = :tid', array(':tid' => $forum->tid));
     $query->join('node_comment_statistics', 'ncs', 'n.nid = ncs.nid');
     $query->join('users', 'u2', 'ncs.last_comment_uid = u2.uid');
-    $query->addExpression('IF (ncs.last_comment_uid != 0, u2.name, ncs.last_comment_name)', 'last_comment_name');
+    $query->addExpression('CASE ncs.last_comment_uid WHEN 0 THEN ncs.last_comment_name ELSE u2.name END', 'last_comment_name');
 
     $topic = $query
       ->fields('ncs', array('last_comment_timestamp', 'last_comment_uid'))
@@ -852,7 +843,7 @@ function forum_forum_load($tid = NULL) {
 function _forum_topics_unread($term, $uid) {
   $query = db_select('node', 'n');
   $query->join('forum', 'f', 'n.vid = f.vid AND f.tid = :tid', array(':tid' => $term));
-  $query->join('history', 'h', 'n.nid = h.nid AND h.uid = :uid', array(':uid' => $uid));
+  $query->leftJoin('history', 'h', 'n.nid = h.nid AND h.uid = :uid', array(':uid' => $uid));
   $query->addExpression('COUNT(n.nid)', 'count');
   return $query
     ->condition('status', 1)
@@ -902,7 +893,7 @@ function forum_get_topics($tid, $sortby, $forum_per_page) {
     $nids[] = $record->nid;
   }
   if ($nids) {
-    $result = db_query("SELECT n.title, n.nid, n.type, n.sticky, n.created, n.uid, n.comment AS comment_mode, ncs.*, f.tid AS forum_tid, u.name, IF (ncs.last_comment_uid != 0, u2.name, ncs.last_comment_name) AS last_comment_name FROM {node} n INNER JOIN {node_comment_statistics} ncs ON n.nid = ncs.nid INNER JOIN {forum} f ON n.vid = f.vid INNER JOIN {users} u ON n.uid = u.uid INNER JOIN {users} u2 ON ncs.last_comment_uid = u2.uid WHERE n.nid IN (:nids)", array(':nids' => $nids));
+    $result = db_query("SELECT n.title, n.nid, n.type, n.sticky, n.created, n.uid, n.comment AS comment_mode, ncs.*, f.tid AS forum_tid, u.name, CASE ncs.last_comment_uid WHEN 0 THEN ncs.last_comment_name ELSE u2.name END AS last_comment_name FROM {node} n INNER JOIN {node_comment_statistics} ncs ON n.nid = ncs.nid INNER JOIN {forum} f ON n.vid = f.vid INNER JOIN {users} u ON n.uid = u.uid INNER JOIN {users} u2 ON ncs.last_comment_uid = u2.uid WHERE n.nid IN (:nids)", array(':nids' => $nids));
   }
   else {
     $result = array();
@@ -989,7 +980,7 @@ function template_preprocess_forums(&$variables) {
 
     if ($variables['tid'] && !in_array($variables['tid'], variable_get('forum_containers', array()))) {
       $variables['topics'] = theme('forum_topic_list', $variables);
-      drupal_add_feed(url('taxonomy/term/' . $variables['tid'] . '/0/feed'), 'RSS - ' . $title);
+      drupal_add_feed('taxonomy/term/' . $variables['tid'] . '/0/feed', 'RSS - ' . $title);
     }
     else {
       $variables['topics'] = '';
@@ -1126,7 +1117,7 @@ function template_preprocess_forum_topic_list(&$variables) {
   $variables['topic_id'] = $variables['tid'];
   unset($variables['tid']);
 
-  $variables['pager'] = theme('pager', array('tags' => NULL));
+  $variables['pager'] = theme('pager');
 }
 
 /**
@@ -1144,18 +1135,22 @@ function template_preprocess_forum_topic_list(&$variables) {
 function template_preprocess_forum_icon(&$variables) {
   $variables['hot_threshold'] = variable_get('forum_hot_topic', 15);
   if ($variables['num_posts'] > $variables['hot_threshold']) {
-    $variables['icon'] = $variables['new_posts'] ? 'hot-new' : 'hot';
+    $variables['icon_class'] = $variables['new_posts'] ? 'hot-new' : 'hot';
+    $variables['icon_title'] = $variables['new_posts'] ? t('Hot topic, new comments') : t('Hot topic');
   }
   else {
-    $variables['icon'] = $variables['new_posts'] ? 'new' : 'default';
+    $variables['icon_class'] = $variables['new_posts'] ? 'new' : 'default';
+    $variables['icon_title'] = $variables['new_posts'] ? t('New comments') : t('Normal topic');
   }
 
   if ($variables['comment_mode'] == COMMENT_NODE_CLOSED || $variables['comment_mode'] == COMMENT_NODE_HIDDEN) {
-    $variables['icon'] = 'closed';
+    $variables['icon_class'] = 'closed';
+    $variables['icon_title'] = t('Closed topic');
   }
 
   if ($variables['sticky'] == 1) {
-    $variables['icon'] = 'sticky';
+    $variables['icon_class'] = 'sticky';
+    $variables['icon_title'] = t('Sticky topic');
   }
 }
 

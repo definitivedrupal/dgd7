@@ -1,5 +1,5 @@
 <?php
-// $Id: install.inc,v 1.135 2010/05/18 18:11:13 dries Exp $
+// $Id: install.inc,v 1.142 2010/08/22 15:31:18 dries Exp $
 
 /**
  * Indicates that a module has not been installed yet.
@@ -187,8 +187,18 @@ function drupal_set_installed_schema_version($module, $version) {
  * @see install_profile_info()
  */
 function drupal_install_profile_distribution_name() {
-  global $install_state;
-  return $install_state['profile_info']['distribution_name'];
+  // During installation, the profile information is stored in the global
+  // installation state (it might not be saved anywhere yet).
+  if (drupal_installation_attempted()) {
+    global $install_state;
+    return $install_state['profile_info']['distribution_name'];
+  }
+  // At all other times, we load the profile via standard methods.
+  else {
+    $profile = drupal_get_profile();
+    $info = install_profile_info($profile);
+    return $info['distribution_name'];
+  }
 }
 
 /**
@@ -227,7 +237,9 @@ function drupal_detect_database_types() {
   require_once DRUPAL_ROOT . '/includes/database/database.inc';
   spl_autoload_register('db_autoload');
   foreach (file_scan_directory(DRUPAL_ROOT . '/includes/database', '/^[a-z]*$/i', array('recurse' => FALSE)) as $file) {
-    $drivers[$file->filename] = $file->uri;
+    if (file_exists($file->uri . '/database.inc') && file_exists($file->uri . '/install.inc')) {
+      $drivers[$file->filename] = $file->uri;
+    }
   }
 
   foreach ($drivers as $driver => $file) {
@@ -268,7 +280,7 @@ abstract class DatabaseTasks {
       'arguments'   => array(
         'CREATE TABLE drupal_install_test (id int NULL)',
         'Drupal can use CREATE TABLE database commands.',
-        'Failed to <strong>CREATE</strong> a test table on your %name database server with the command %query. %name reports the following message: %error.<p>Are you sure the configured username has the necessary %name permissions to create tables in the database?</p>',
+        'Failed to <strong>CREATE</strong> a test table on your database server with the command %query. The server reports the following message: %error.<p>Are you sure the configured username has the necessary permissions to create tables in the database?</p>',
         TRUE,
       ),
     ),
@@ -276,28 +288,28 @@ abstract class DatabaseTasks {
       'arguments'   => array(
         'INSERT INTO drupal_install_test (id) VALUES (1)',
         'Drupal can use INSERT database commands.',
-        'Failed to <strong>INSERT</strong> a value into a test table on your %name database server. We tried inserting a value with the command %query and %name reported the following error: %error.',
+        'Failed to <strong>INSERT</strong> a value into a test table on your database server. We tried inserting a value with the command %query and the server reported the following error: %error.',
       ),
     ),
     array(
       'arguments'   => array(
         'UPDATE drupal_install_test SET id = 2',
         'Drupal can use UPDATE database commands.',
-        'Failed to <strong>UPDATE</strong> a value in a test table on your %name database server. We tried updating a value with the command %query and %name reported the following error: %error.',
+        'Failed to <strong>UPDATE</strong> a value in a test table on your database server. We tried updating a value with the command %query and the server reported the following error: %error.',
       ),
     ),
     array(
       'arguments'   => array(
         'DELETE FROM drupal_install_test',
         'Drupal can use DELETE database commands.',
-        'Failed to <strong>DELETE</strong> a value from a test table on your %name database server. We tried deleting a value with the command %query and %name reported the following error: %error.',
+        'Failed to <strong>DELETE</strong> a value from a test table on your database server. We tried deleting a value with the command %query and the server reported the following error: %error.',
       ),
     ),
     array(
       'arguments'   => array(
         'DROP TABLE drupal_install_test',
         'Drupal can use DROP TABLE database commands.',
-        'Failed to <strong>DROP</strong> a test table from your %name database server. We tried dropping a table with the command %query and %name reported the following error %error.',
+        'Failed to <strong>DROP</strong> a test table from your database server. We tried dropping a table with the command %query and the server reported the following error %error.',
       ),
     ),
   );
@@ -384,7 +396,7 @@ abstract class DatabaseTasks {
       $this->pass('Drupal can CONNECT to the database ok.');
     }
     catch (Exception $e) {
-      $this->fail(st('Failed to connect to your %name database server. %name reports the following message: %error.<ul><li>Are you sure you have the correct username and password?</li><li>Are you sure that you have typed the correct database hostname?</li><li>Are you sure that the database server is running?</li></ul>For more help, see the <a href="http://drupal.org/getting-started/install">installation handbook</a>. If you are unsure what these terms mean you should probably contact your hosting provider.', array('%error' => $e->getMessage(), '%name' => $this->name())));
+      $this->fail(st('Failed to connect to your database server. The server reports the following message: %error.<ul><li>Is the database server running?</li><li>Does the database exist, and have you entered the correct database name?</li><li>Have you entered the correct username and password?</li><li>Have you entered the correct database hostname?</li></ul>', array('%error' => $e->getMessage())));
       return FALSE;
     }
     return TRUE;
@@ -721,19 +733,19 @@ function drupal_install_mkdir($file, $mask, $message = TRUE) {
     if ($mask & $m) {
       switch ($m) {
         case FILE_READABLE:
-          $mod += 444;
+          $mod |= 0444;
           break;
         case FILE_WRITABLE:
-          $mod += 222;
+          $mod |= 0222;
           break;
         case FILE_EXECUTABLE:
-          $mod += 111;
+          $mod |= 0111;
           break;
       }
     }
   }
 
-  if (@drupal_mkdir($file, intval("0$mod", 8))) {
+  if (@drupal_mkdir($file, $mod)) {
     return TRUE;
   }
   else {
@@ -1010,6 +1022,7 @@ function install_profile_info($profile, $locale = 'en') {
       'description' => '',
       'distribution_name' => 'Drupal',
       'version' => NULL,
+      'hidden' => FALSE,
       'php' => DRUPAL_MINIMUM_PHP,
     );
     $info = drupal_parse_info_file("profiles/$profile/$profile.info") + $defaults;
@@ -1040,5 +1053,5 @@ function db_run_tasks($driver) {
   $task_class = 'DatabaseTasks_' . $driver;
   $DatabaseTasks = new $task_class();
   $DatabaseTasks->runTasks();
-  return true;
+  return TRUE;
 }

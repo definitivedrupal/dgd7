@@ -1,5 +1,5 @@
 <?php
-// $Id: theme.inc,v 1.598 2010/05/19 19:22:24 dries Exp $
+// $Id: theme.inc,v 1.620 2010/10/21 19:31:39 dries Exp $
 
 /**
  * @file
@@ -10,7 +10,7 @@
  */
 
 /**
- * @name Content markers
+ * @defgroup content_flags Content markers
  * @{
  * Markers used by theme_mark() and node_mark() to designate content.
  * @see theme_mark(), node_mark()
@@ -81,7 +81,7 @@ function drupal_theme_initialize() {
 
   // Only select the user selected theme if it is available in the
   // list of themes that can be accessed.
-  $theme = !empty($user->theme) && drupal_theme_access($user->theme) ? $user->theme : variable_get('theme_default', 'garland');
+  $theme = !empty($user->theme) && drupal_theme_access($user->theme) ? $user->theme : variable_get('theme_default', 'bartik');
 
   // Allow modules to override the theme. Validation has already been performed
   // inside menu_get_custom_theme(), so we do not need to check it again here.
@@ -95,13 +95,22 @@ function drupal_theme_initialize() {
   $base_theme = array();
   $ancestor = $theme;
   while ($ancestor && isset($themes[$ancestor]->base_theme)) {
-    $base_theme[] = $new_base_theme = $themes[$themes[$ancestor]->base_theme];
     $ancestor = $themes[$ancestor]->base_theme;
+    $base_theme[] = $themes[$ancestor];
   }
   _drupal_theme_initialize($themes[$theme], array_reverse($base_theme));
 
   // Themes can have alter functions, so reset the drupal_alter() cache.
   drupal_static_reset('drupal_alter');
+
+  // Provide the page with information about the theme that's used, so that a
+  // later AJAX request can be rendered using the same theme.
+  // @see ajax_base_page_theme()
+  $setting['ajaxPageState'] = array(
+    'theme' => $theme_key,
+    'theme_token' => drupal_get_token($theme_key),
+  );
+  drupal_add_js($setting, 'setting');
 }
 
 /**
@@ -164,7 +173,7 @@ function _drupal_theme_initialize($theme, $base_theme = array(), $registry_callb
   // And now add the stylesheets properly
   foreach ($final_stylesheets as $media => $stylesheets) {
     foreach ($stylesheets as $stylesheet) {
-      drupal_add_css($stylesheet, array('weight' => CSS_THEME, 'media' => $media));
+      drupal_add_css($stylesheet, array('group' => CSS_THEME, 'every_page' => TRUE, 'media' => $media));
     }
   }
 
@@ -189,7 +198,7 @@ function _drupal_theme_initialize($theme, $base_theme = array(), $registry_callb
 
   // Add scripts used by this theme.
   foreach ($final_scripts as $script) {
-    drupal_add_js($script, array('weight' => JS_THEME));
+    drupal_add_js($script, array('group' => JS_THEME, 'every_page' => TRUE));
   }
 
   $theme_engine = NULL;
@@ -221,35 +230,42 @@ function _drupal_theme_initialize($theme, $base_theme = array(), $registry_callb
     }
   }
 
-  if (function_exists($registry_callback)) {
-    $registry_callback($theme, $base_theme, $theme_engine);
+  if (isset($registry_callback)) {
+    _theme_registry_callback($registry_callback, array($theme, $base_theme, $theme_engine));
   }
 }
 
 /**
  * Get the theme registry.
+ *
  * @return
  *   The theme registry array if it has been stored in memory, NULL otherwise.
  */
 function theme_get_registry() {
-  return _theme_set_registry();
-}
-
-/**
- * Store the theme registry in memory.
- * @param $registry
- *   A registry array as returned by _theme_build_registry()
- * @return
- *   The theme registry array stored in memory
- */
-function _theme_set_registry($registry = NULL) {
   static $theme_registry = NULL;
 
-  if (isset($registry)) {
-    $theme_registry = $registry;
+  if (!isset($theme_registry)) {
+    list($callback, $arguments) = _theme_registry_callback();
+    $theme_registry = call_user_func_array($callback, $arguments);
   }
 
   return $theme_registry;
+}
+
+/**
+ * Set the callback that will be used by theme_get_registry() to fetch the registry.
+ *
+ * @param $callback
+ *   The name of the callback function.
+ * @param $arguments
+ *   The arguments to pass to the function.
+ */
+function _theme_registry_callback($callback = NULL, array $arguments = array()) {
+  static $stored;
+  if (isset($callback)) {
+    $stored = array($callback, $arguments);
+  }
+  return $stored;
 }
 
 /**
@@ -268,7 +284,6 @@ function _theme_load_registry($theme, $base_theme = NULL, $theme_engine = NULL) 
   $cache = cache_get("theme_registry:$theme->name", 'cache');
   if (isset($cache->data)) {
     $registry = $cache->data;
-    _theme_set_registry($registry);
   }
   else {
     // If not, build one and cache it.
@@ -277,9 +292,9 @@ function _theme_load_registry($theme, $base_theme = NULL, $theme_engine = NULL) 
    // complete set of theme hooks.
     if (module_load_all(NULL)) {
       _theme_save_registry($theme, $registry);
-      _theme_set_registry($registry);
     }
   }
+  return $registry;
 }
 
 /**
@@ -339,7 +354,7 @@ function drupal_theme_rebuild() {
  *   The loaded $theme object as returned from list_themes().
  * @param $path
  *   The directory where $name is. For example, modules/system or
- *   themes/garland.
+ *   themes/bartik.
  *
  * @see theme()
  * @see _theme_process_registry()
@@ -542,6 +557,7 @@ function _theme_build_registry($theme, $base_theme, $theme_engine) {
  *
  * @param $refresh
  *   Whether to reload the list of themes from the database. Defaults to FALSE.
+ *
  * @return
  *   An associative array of the currently available themes. The keys are the
  *   names of the themes and the values are objects having the following
@@ -553,7 +569,7 @@ function _theme_build_registry($theme, $base_theme, $theme_engine) {
  *   - 'stylesheets': A two dimensional array, using the first key for the
  *     'media' attribute (e.g. 'all'), the second for the name of the file
  *     (e.g. style.css). The value is a complete filepath
- *     (e.g. themes/garland/style.css).
+ *     (e.g. themes/bartik/style.css).
  *   - 'scripts': An associative array of JavaScripts, using the filename as key
  *     and the complete filepath as value.
  *   - 'engine': The name of the theme engine.
@@ -574,12 +590,7 @@ function list_themes($refresh = FALSE) {
     // Also check that the site is not in the middle of an install or update.
     if (!defined('MAINTENANCE_MODE')) {
       try {
-        foreach (system_list('theme') as $theme) {
-          if (file_exists($theme->filename)) {
-            $theme->info = unserialize($theme->info);
-            $themes[] = $theme;
-          }
-        }
+        $themes = system_list('theme');
       }
       catch (Exception $e) {
         // If the database is not available, rebuild the theme data.
@@ -598,9 +609,7 @@ function list_themes($refresh = FALSE) {
         }
       }
       foreach ($theme->info['scripts'] as $script => $path) {
-        if (file_exists($path)) {
-          $theme->scripts[$script] = $path;
-        }
+        $theme->scripts[$script] = $path;
       }
       if (isset($theme->info['engine'])) {
         $theme->engine = $theme->info['engine'];
@@ -764,7 +773,11 @@ function theme($hook, $variables = array()) {
       }
     }
     if (!isset($hooks[$hook])) {
-      watchdog('theme', 'Theme key "@key" not found.', array('@key' => $hook), WATCHDOG_WARNING);
+      // Only log a message when not trying theme suggestions ($hook being an
+      // array).
+      if (!isset($candidate)) {
+        watchdog('theme', 'Theme key "@key" not found.', array('@key' => $hook), WATCHDOG_WARNING);
+      }
       return '';
     }
   }
@@ -862,6 +875,7 @@ function theme($hook, $variables = array()) {
   }
 
   // Generate the output using either a function or a template.
+  $output = '';
   if (isset($info['function'])) {
     if (function_exists($info['function'])) {
       $output = $info['function']($variables);
@@ -1099,9 +1113,10 @@ function drupal_find_theme_templates($cache, $extension, $path) {
  * given for $theme.
  *
  * @param $setting_name
- *  The name of the setting to be retrieved.
+ *   The name of the setting to be retrieved.
  * @param $theme
- *  The name of a given theme; defaults to the current theme.
+ *   The name of a given theme; defaults to the current theme.
+ *
  * @return
  *   The value of the requested setting, NULL if the setting does not exist.
  */
@@ -1109,7 +1124,7 @@ function theme_get_setting($setting_name, $theme = NULL) {
   $cache = &drupal_static(__FUNCTION__, array());
 
   // If no key is given, use the current theme if we can determine it.
-  if (is_null($theme)) {
+  if (!isset($theme)) {
     $theme = !empty($GLOBALS['theme_key']) ? $GLOBALS['theme_key'] : '';
   }
 
@@ -1260,7 +1275,7 @@ function theme_enable($theme_list) {
  */
 function theme_disable($theme_list) {
   // Don't disable the default theme.
-  if ($pos = array_search(variable_get('theme_default', 'garland'), $theme_list) !== FALSE) {
+  if ($pos = array_search(variable_get('theme_default', 'bartik'), $theme_list) !== FALSE) {
     unset($theme_list[$pos]);
     if (empty($theme_list)) {
       return;
@@ -1470,6 +1485,8 @@ function theme_links($variables) {
  *   An associative array containing:
  *   - path: Either the path of the image file (relative to base_path()) or a
  *     full URL.
+ *   - width: The width of the image (if known).
+ *   - height: The height of the image (if known).
  *   - alt: The alternative text for text-based browsers. HTML 4 and XHTML 1.0
  *     always require an alt attribute. The HTML 5 draft allows the alt
  *     attribute to be omitted in some cases. Therefore, this variable defaults
@@ -1483,38 +1500,19 @@ function theme_links($variables) {
  *   - title: The title text is displayed when the image is hovered in some
  *     popular browsers.
  *   - attributes: Associative array of attributes to be placed in the img tag.
- *   - getsize: If set to TRUE, the image's dimension are fetched and added as
- *     width/height attributes.
  */
 function theme_image($variables) {
-  $path = $variables['path'];
-  $alt = $variables['alt'];
-  $title = $variables['title'];
   $attributes = $variables['attributes'];
-  $getsize = $variables['getsize'];
+  $attributes['src'] = file_create_url($variables['path']);
 
-  if (!$getsize || (is_file($path) && (list($width, $height) = @getimagesize($path)))) {
-    // The src attribute can be omitted, by passing NULL for $path and FALSE for
-    // $getsize.
-    if (isset($path)) {
-      $attributes['src'] = file_create_url($path);
+  foreach (array('width', 'height', 'alt', 'title') as $key) {
+
+    if (isset($variables[$key])) {
+      $attributes[$key] = $variables[$key];
     }
-    // The alt attribute defaults to an empty string. By passing NULL as value,
-    // it can be omitted.
-    if (isset($alt)) {
-      $attributes['alt'] = $alt;
-    }
-    if (isset($title)) {
-      $attributes['title'] = $title;
-    }
-    if (!isset($attributes['width']) && !empty($width)) {
-      $attributes['width'] = $width;
-    }
-    if (!isset($attributes['height']) && !empty($height)) {
-      $attributes['height'] = $height;
-    }
-    return '<img' . drupal_attributes($attributes) . ' />';
   }
+
+  return '<img' . drupal_attributes($attributes) . ' />';
 }
 
 /**
@@ -1555,6 +1553,8 @@ function theme_breadcrumb($variables) {
  *     associative array with the following keys:
  *     - "data": an array of cells
  *     - Any HTML attributes, such as "class", to apply to the table row.
+ *     - "no_striping": a boolean indicating that the row should receive no
+ *       'even / odd' styling. Defaults to FALSE.
  *     Each cell can be either a string or an associative array with the
  *     following keys:
  *     - "data": The string to display in the table cell.
@@ -1723,8 +1723,10 @@ function theme_table($variables) {
       }
       if (count($cells)) {
         // Add odd/even class
-        $class = $flip[$class];
-        $attributes['class'][] = $class;
+        if (empty($row['no_striping'])) {
+          $class = $flip[$class];
+          $attributes['class'][] = $class;
+        }
 
         // Build row
         $output .= ' <tr' . drupal_attributes($attributes) . '>';
@@ -1854,7 +1856,7 @@ function theme_item_list($variables) {
  *   - url: The url for the link.
  */
 function theme_more_help_link($variables) {
-  return '<div class="more-help-link">' . t('<a href="@link">More help</a>', array('@link' => check_url($variables['url']))) . '</div>';
+  return '<div class="more-help-link">' . l(t('More help'), $variables['url']) . '</div>';
 }
 
 /**
@@ -1868,7 +1870,7 @@ function theme_more_help_link($variables) {
 function theme_feed_icon($variables) {
   $text = t('Subscribe to @feed-title', array('@feed-title' => $variables['title']));
   if ($image = theme('image', array('path' => 'misc/feed.png', 'alt' => $text))) {
-    return '<a href="' . check_url($variables['url']) . '" title="' . $text . '" class="feed-icon">' . $image . '</a>';
+    return l($image, $variables['url'], array('html' => TRUE, 'attributes' => array('class' => array('feed-icon'), 'title' => $text)));
   }
 }
 
@@ -1918,7 +1920,7 @@ function theme_html_tag($variables) {
  *   - title: A descriptive verb for the link, like 'Read more'.
  */
 function theme_more_link($variables) {
-  return '<div class="more-link">' . t('<a href="@link" title="@title">More</a>', array('@link' => check_url($variables['url']), '@title' => $variables['title'])) . '</div>';
+  return '<div class="more-link">' . l(t('More'), $variables['url'], array('attributes' => array('title' => $variables['title']))) . '</div>';
 }
 
 /**
@@ -1992,6 +1994,19 @@ function theme_indentation($variables) {
  * @} End of "ingroup themeable".
  */
 
+/**
+ * Returns HTML output for a single table cell for theme_table().
+ *
+ * @param $cell
+ *   Array of cell information, or string to display in cell.
+ * @param bool $header
+ *   TRUE if this cell is a table header cell, FALSE if it is an ordinary
+ *   table cell. If $cell is an array with element 'header' set to TRUE, that
+ *   will override the $header parameter.
+ *
+ * @return
+ *   HTML for the cell.
+ */
 function _theme_table_cell($cell, $header = FALSE) {
   $attributes = '';
 
@@ -2172,7 +2187,7 @@ function template_preprocess_html(&$variables) {
   if (theme_get_setting('toggle_favicon')) {
     $favicon = theme_get_setting('favicon');
     $type = theme_get_setting('favicon_mimetype');
-    drupal_add_html_head_link(array('rel' => 'shortcut icon', 'href' => check_url($favicon), 'type' => $type));
+    drupal_add_html_head_link(array('rel' => 'shortcut icon', 'href' => drupal_strip_dangerous_protocols($favicon), 'type' => $type));
   }
 
   // Construct page title.
@@ -2231,7 +2246,6 @@ function template_preprocess_page(&$variables) {
 
   $variables['base_path']         = base_path();
   $variables['front_page']        = url();
-  $variables['breadcrumb']        = theme('breadcrumb', array('breadcrumb' => drupal_get_breadcrumb()));
   $variables['feed_icons']        = drupal_get_feeds();
   $variables['language']          = $GLOBALS['language'];
   $variables['language']->dir     = $GLOBALS['language']->direction ? 'rtl' : 'ltr';
@@ -2243,7 +2257,6 @@ function template_preprocess_page(&$variables) {
   $variables['site_name']         = (theme_get_setting('toggle_name') ? filter_xss_admin(variable_get('site_name', 'Drupal')) : '');
   $variables['site_slogan']       = (theme_get_setting('toggle_slogan') ? filter_xss_admin(variable_get('site_slogan', '')) : '');
   $variables['tabs']              = theme('menu_local_tasks');
-  $variables['title']             = drupal_get_title();
 
   if ($node = menu_get_object()) {
     $variables['node'] = $node;
@@ -2254,6 +2267,29 @@ function template_preprocess_page(&$variables) {
     $variables['theme_hook_suggestions'] = $suggestions;
   }
 }
+
+/**
+ * Process variables for page.tpl.php
+ *
+ * Perform final addition of variables before passing them into the template.
+ * To customize these variables, simply set them in an earlier step.
+ *
+ * @see template_preprocess_page()
+ * @see page.tpl.php
+ */
+function template_process_page(&$variables) {
+  if (!isset($variables['breadcrumb'])) {
+    // Build the breadcrumb last, so as to increase the chance of being able to
+    // re-use the cache of an already rendered menu containing the active link
+    // for the current page.
+    // @see menu_tree_page_data()
+    $variables['breadcrumb'] = theme('breadcrumb', array('breadcrumb' => drupal_get_breadcrumb()));
+  }
+  if (!isset($variables['title'])) {
+    $variables['title'] = drupal_get_title();
+  }
+}
+
 /**
  * Process variables for html.tpl.php
  *
@@ -2339,8 +2375,7 @@ function theme_get_suggestions($args, $base, $delimiter = '__') {
 /**
  * The variables array generated here is a mirror of template_preprocess_page().
  * This preprocessor will run its course when theme_maintenance_page() is
- * invoked. It is also used in theme_install_page() and theme_update_page() to
- * keep all the variables consistent.
+ * invoked.
  *
  * An alternate template file of "maintenance-page--offline.tpl.php" can be
  * used when the database is offline to hide errors and completely replace the
@@ -2356,7 +2391,7 @@ function template_preprocess_maintenance_page(&$variables) {
   if (theme_get_setting('toggle_favicon')) {
     $favicon = theme_get_setting('favicon');
     $type = theme_get_setting('favicon_mimetype');
-    drupal_add_html_head_link(array('rel' => 'shortcut icon', 'href' => check_url($favicon), 'type' => $type));
+    drupal_add_html_head_link(array('rel' => 'shortcut icon', 'href' => drupal_strip_dangerous_protocols($favicon), 'type' => $type));
   }
 
   global $theme;
@@ -2437,8 +2472,6 @@ function template_preprocess_maintenance_page(&$variables) {
 /**
  * The variables array generated here is a mirror of template_process_html().
  * This processor will run its course when theme_maintenance_page() is invoked.
- * It is also used in theme_install_page() and theme_update_page() to keep all
- * the variables consistent.
  *
  * @see maintenance-page.tpl.php
  */
@@ -2464,9 +2497,8 @@ function template_preprocess_region(&$variables) {
   $variables['content'] = $variables['elements']['#children'];
   $variables['region'] = $variables['elements']['#region'];
 
-  $region = drupal_region_class($variables['region']);
-  $variables['classes_array'][] = $region;
-  $variables['theme_hook_suggestions'][] = 'region__' . $region;
+  $variables['classes_array'][] = drupal_region_class($variables['region']);
+  $variables['theme_hook_suggestions'][] = 'region__' . $variables['region'];
 }
 
 /**

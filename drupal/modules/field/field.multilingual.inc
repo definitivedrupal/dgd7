@@ -1,9 +1,63 @@
 <?php
-// $Id: field.multilingual.inc,v 1.10 2010/03/25 11:46:20 dries Exp $
+// $Id: field.multilingual.inc,v 1.14 2010/10/09 03:43:31 webchick Exp $
 
 /**
  * @file
- * Multilingual field API helper functions.
+ * Functions implementing Field API multilingual support.
+ */
+
+/**
+ * @defgroup field_language Field language API
+ * @{
+ * Handling of multilingual fields.
+ *
+ * Fields natively implement multilingual support, and all fields use the
+ * following structure:
+ * @code
+ * $entity->{$field_name}[$langcode][$delta][$column_name]
+ * @endcode
+ * Every field can hold a single or multiple value for each language belonging
+ * to the available languages set:
+ * - For untranslatable fields this set only contains LANGUAGE_NONE.
+ * - For translatable fields this set can contain any language code. By default
+ *   it is the list returned by field_content_languages(), which contains all
+ *   enabled languages with the addition of LANGUAGE_NONE. This default can be
+ *   altered by modules implementing hook_field_available_languages_alter().
+ *
+ * The available languages for a particular field are returned by
+ * field_available_languages(). Whether a field is translatable is determined by
+ * calling field_is_translatable(), which checks the $field['translatable']
+ * property returned by field_info_field(), and whether there is at least one
+ * translation handler available for the field. A translation handler is a
+ * module registering itself via hook_entity_info() to handle field
+ * translations.
+ *
+ * By default, _field_invoke() and _field_invoke_multiple() are processing a
+ * field in all available languages, unless they are given a language
+ * suggestion. Based on that suggestion, _field_language_suggestion() determines
+ * the languages to act on.
+ *
+ * Most field_attach_*() functions act on all available languages, except for
+ * the following:
+ * - field_attach_form() only takes a single language code, specifying which
+ *   language the field values will be submitted in.
+ * - field_attach_view() requires the language the entity will be displayed in.
+ *   Since it is unknown whether a field translation exists for the requested
+ *   language, the translation handler is responsible for performing one of the
+ *   following actions:
+ *   - Ignore missing translations, i.e. do not show any field values for the
+ *     requested language. For example, see locale_field_language_alter().
+ *   - Provide a value in a different language as fallback. By default, the
+ *     fallback logic is applied separately to each field to ensure that there
+ *     is a value for each field to display.
+ *   The field language fallback logic relies on the global language fallback
+ *   configuration. Therefore, the displayed field values can be in the
+ *   requested language, but may be different if no values for the requested
+ *   language are available. The default language fallback rules inspect all the
+ *   enabled languages ordered by their weight. This behavior can be altered or
+ *   even disabled by modules implementing hook_field_language_alter(), making
+ *   it possible to choose the first approach. The display language for each
+ *   field is returned by field_language().
  */
 
 /**
@@ -31,7 +85,11 @@ function field_multilingual_settings_changed() {
  *   An array of valid language codes.
  */
 function field_available_languages($entity_type, $field) {
-  $field_languages = &drupal_static(__FUNCTION__, array());
+  static $drupal_static_fast;
+  if (!isset($drupal_static_fast)) {
+    $drupal_static_fast['field_languages'] = &drupal_static(__FUNCTION__);
+  }
+  $field_languages = &$drupal_static_fast['field_languages'];
   $field_name = $field['field_name'];
 
   if (!isset($field_languages[$entity_type][$field_name])) {
@@ -95,8 +153,7 @@ function _field_language_suggestion($available_languages, $language_suggestion, 
  *   An array of language codes.
  */
 function field_content_languages() {
-  $languages = language_list('enabled');
-  return array_keys($languages[1] + array(LANGUAGE_NONE => NULL));
+  return array_keys(language_list() + array(LANGUAGE_NONE => NULL));
 }
 
 /**
@@ -212,10 +269,11 @@ function field_language($entity_type, $entity, $field_name = NULL, $langcode = N
   if (!isset($display_languages[$entity_type][$id][$langcode])) {
     $display_language = array();
 
-    // By default display language is set to LANGUAGE_NONE. It is up to
-    // translation handlers to implement language fallback rules.
+    // By default display language is set to LANGUAGE_NONE if the field
+    // translation is not available. It is up to translation handlers to
+    // implement language fallback rules.
     foreach (field_info_instances($entity_type, $bundle) as $instance) {
-      $display_language[$instance['field_name']] = LANGUAGE_NONE;
+      $display_language[$instance['field_name']] = isset($entity->{$instance['field_name']}[$langcode]) ? $langcode : LANGUAGE_NONE;
     }
 
     if (field_has_translation_handler($entity_type)) {

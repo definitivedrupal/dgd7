@@ -1,5 +1,5 @@
 <?php
-// $Id: install.inc,v 1.7 2010/05/13 08:23:56 dries Exp $
+// $Id: install.inc,v 1.10 2010/08/16 21:01:23 dries Exp $
 
 /**
  * @file
@@ -15,6 +15,10 @@ class DatabaseTasks_pgsql extends DatabaseTasks {
   public function __construct() {
     $this->tasks[] = array(
       'function' => 'checkEncoding',
+      'arguments' => array(),
+    );
+    $this->tasks[] = array(
+      'function' => 'checkPHPVersion',
       'arguments' => array(),
     );
     $this->tasks[] = array(
@@ -51,6 +55,23 @@ class DatabaseTasks_pgsql extends DatabaseTasks {
   }
 
   /**
+   * Check PHP version.
+   *
+   * There are two bugs in PDO_pgsql affecting Drupal:
+   *
+   * - in versions < 5.2.7, PDO_pgsql refuses to insert an empty string into
+   *   a NOT NULL BLOB column. See: http://bugs.php.net/bug.php?id=46249
+   * - in versions < 5.2.11 and < 5.3.1 that prevents inserting integer values
+   *   into numeric columns that exceed the PHP_INT_MAX value.
+   *   See: http://bugs.php.net/bug.php?id=48924
+   */
+  function checkPHPVersion() {
+    if (!version_compare(PHP_VERSION, '5.2.11', '>=') || (version_compare(PHP_VERSION, '5.3.0', '>=') && !version_compare(PHP_VERSION, '5.3.1', '>='))) {
+      $this->fail(st('The version of PHP you are using has known issues with PostgreSQL. You need to upgrade PHP to 5.2.11, 5.3.1 or greater.'));
+    };
+  }
+
+  /**
    * Make PostgreSQL Drupal friendly.
    */
   function initializeDatabase() {
@@ -77,18 +98,33 @@ class DatabaseTasks_pgsql extends DatabaseTasks {
         );
       }
 
-      // Don't use {} around pg_proc table.
-      if (!db_query("SELECT COUNT(*) FROM pg_proc WHERE proname = 'concat'")->fetchField()) {
-        db_query('CREATE OR REPLACE FUNCTION "concat"(text, text) RETURNS text AS
-          \'SELECT $1 || $2;\'
-          LANGUAGE \'sql\''
-        );
-      }
-
       db_query('CREATE OR REPLACE FUNCTION "substring_index"(text, text, integer) RETURNS text AS
         \'SELECT array_to_string((string_to_array($1, $2)) [1:$3], $2);\'
         LANGUAGE \'sql\''
       );
+
+      // Using || to concatenate in Drupal is not recommeneded because there are
+      // database drivers for Drupal that do not support the syntax, however
+      // they do support CONCAT(item1, item2) which we can replicate in
+      // PostgreSQL. PostgreSQL requires the function to be defined for each
+      // different argument variation the function can handle.
+      db_query('CREATE OR REPLACE FUNCTION "concat"(anynonarray, anynonarray) RETURNS text AS
+        \'SELECT CAST($1 AS text) || CAST($2 AS text);\'
+        LANGUAGE \'sql\'
+      ');
+      db_query('CREATE OR REPLACE FUNCTION "concat"(text, anynonarray) RETURNS text AS
+        \'SELECT $1 || CAST($2 AS text);\'
+        LANGUAGE \'sql\'
+      ');
+      db_query('CREATE OR REPLACE FUNCTION "concat"(anynonarray, text) RETURNS text AS
+        \'SELECT CAST($1 AS text) || $2;\'
+        LANGUAGE \'sql\'
+      ');
+      db_query('CREATE OR REPLACE FUNCTION "concat"(text, text) RETURNS text AS
+        \'SELECT $1 || $2;\'
+        LANGUAGE \'sql\'
+      ');
+
       $this->pass(st('PostgreSQL has initialized itself.'));
     }
     catch (Exception $e) {

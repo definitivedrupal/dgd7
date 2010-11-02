@@ -1,72 +1,10 @@
 <?php
-// $Id: search.module,v 1.348 2010/05/09 19:46:11 dries Exp $
+// $Id: search.module,v 1.365 2010/10/20 01:31:07 dries Exp $
 
 /**
  * @file
  * Enables site-wide keyword searching.
  */
-
-/**
- * Matches Unicode character classes to exclude from the search index.
- *
- * @see http://unicode.org/glossary
- *
- * Characters with the following General_category (gc) property values are
- * excluded from the search index. Also, they are used as word boundaries.
- * While this does not fully conform to the  Word Boundaries algorithm
- * described in http://unicode.org/reports/tr29, as PCRE does not contain the
- * Word_Break property table, this simpler algorithm has to do.
- * - Cc, Cf, Cn, Co, Cs: Other.
- * - Pc, Pd, Pe, Pf, Pi, Po, Ps: Punctuation.
- * - Sc, Sk, Sm, So: Symbols.
- * - Zl, Zp, Zs: Separators.
- *
- * Consequently, the index only contains characters with the following
- * General_category (gc) property values:
- * - Ll, Lm, Lo, Lt, Lu: Letters.
- * - Mc, Me, Mn: Combining Marks.
- * - Nd, Nl, No: Numbers.
- *
- * Note that the PCRE property matcher is not used because we wanted to be
- * compatible with Unicode 5.2.0 regardless of the PCRE version used (and any
- * bugs in PCRE property tables).
- */
-define('PREG_CLASS_SEARCH_EXCLUDE',
-  '\x{0}-\x{2F}\x{3A}-\x{40}\x{5B}-\x{60}\x{7B}-\x{A9}\x{AB}-\x{B1}\x{B4}' .
-  '\x{B6}-\x{B8}\x{BB}\x{BF}\x{D7}\x{F7}\x{2C2}-\x{2C5}\x{2D2}-\x{2DF}' .
-  '\x{2E5}-\x{2EB}\x{2ED}\x{2EF}-\x{2FF}\x{375}\x{37E}-\x{385}\x{387}\x{3F6}' .
-  '\x{482}\x{55A}-\x{55F}\x{589}-\x{58A}\x{5BE}\x{5C0}\x{5C3}\x{5C6}' .
-  '\x{5F3}-\x{60F}\x{61B}-\x{61F}\x{66A}-\x{66D}\x{6D4}\x{6DD}\x{6E9}' .
-  '\x{6FD}-\x{6FE}\x{700}-\x{70F}\x{7F6}-\x{7F9}\x{830}-\x{83E}' .
-  '\x{964}-\x{965}\x{970}\x{9F2}-\x{9F3}\x{9FA}-\x{9FB}\x{AF1}\x{B70}' .
-  '\x{BF3}-\x{BFA}\x{C7F}\x{CF1}-\x{CF2}\x{D79}\x{DF4}\x{E3F}\x{E4F}' .
-  '\x{E5A}-\x{E5B}\x{F01}-\x{F17}\x{F1A}-\x{F1F}\x{F34}\x{F36}\x{F38}' .
-  '\x{F3A}-\x{F3D}\x{F85}\x{FBE}-\x{FC5}\x{FC7}-\x{FD8}\x{104A}-\x{104F}' .
-  '\x{109E}-\x{109F}\x{10FB}\x{1360}-\x{1368}\x{1390}-\x{1399}\x{1400}' .
-  '\x{166D}-\x{166E}\x{1680}\x{169B}-\x{169C}\x{16EB}-\x{16ED}' .
-  '\x{1735}-\x{1736}\x{17B4}-\x{17B5}\x{17D4}-\x{17D6}\x{17D8}-\x{17DB}' .
-  '\x{1800}-\x{180A}\x{180E}\x{1940}-\x{1945}\x{19DE}-\x{19FF}' .
-  '\x{1A1E}-\x{1A1F}\x{1AA0}-\x{1AA6}\x{1AA8}-\x{1AAD}\x{1B5A}-\x{1B6A}' .
-  '\x{1B74}-\x{1B7C}\x{1C3B}-\x{1C3F}\x{1C7E}-\x{1C7F}\x{1CD3}\x{1FBD}' .
-  '\x{1FBF}-\x{1FC1}\x{1FCD}-\x{1FCF}\x{1FDD}-\x{1FDF}\x{1FED}-\x{1FEF}' .
-  '\x{1FFD}-\x{206F}\x{207A}-\x{207E}\x{208A}-\x{208E}\x{20A0}-\x{20B8}' .
-  '\x{2100}-\x{2101}\x{2103}-\x{2106}\x{2108}-\x{2109}\x{2114}' .
-  '\x{2116}-\x{2118}\x{211E}-\x{2123}\x{2125}\x{2127}\x{2129}\x{212E}' .
-  '\x{213A}-\x{213B}\x{2140}-\x{2144}\x{214A}-\x{214D}\x{214F}' .
-  '\x{2190}-\x{244A}\x{249C}-\x{24E9}\x{2500}-\x{2775}\x{2794}-\x{2B59}' .
-  '\x{2CE5}-\x{2CEA}\x{2CF9}-\x{2CFC}\x{2CFE}-\x{2CFF}\x{2E00}-\x{2E2E}' .
-  '\x{2E30}-\x{3004}\x{3008}-\x{3020}\x{3030}\x{3036}-\x{3037}' .
-  '\x{303D}-\x{303F}\x{309B}-\x{309C}\x{30A0}\x{30FB}\x{3190}-\x{3191}' .
-  '\x{3196}-\x{319F}\x{31C0}-\x{31E3}\x{3200}-\x{321E}\x{322A}-\x{3250}' .
-  '\x{3260}-\x{327F}\x{328A}-\x{32B0}\x{32C0}-\x{33FF}\x{4DC0}-\x{4DFF}' .
-  '\x{A490}-\x{A4C6}\x{A4FE}-\x{A4FF}\x{A60D}-\x{A60F}\x{A673}\x{A67E}' .
-  '\x{A6F2}-\x{A716}\x{A720}-\x{A721}\x{A789}-\x{A78A}\x{A828}-\x{A82B}' .
-  '\x{A836}-\x{A839}\x{A874}-\x{A877}\x{A8CE}-\x{A8CF}\x{A8F8}-\x{A8FA}' .
-  '\x{A92E}-\x{A92F}\x{A95F}\x{A9C1}-\x{A9CD}\x{A9DE}-\x{A9DF}' .
-  '\x{AA5C}-\x{AA5F}\x{AA77}-\x{AA79}\x{AADE}-\x{AADF}\x{ABEB}' .
-  '\x{D800}-\x{F8FF}\x{FB29}\x{FD3E}-\x{FD3F}\x{FDFC}-\x{FDFD}' .
-  '\x{FE10}-\x{FE19}\x{FE30}-\x{FE6B}\x{FEFF}-\x{FF0F}\x{FF1A}-\x{FF20}' .
-  '\x{FF3B}-\x{FF40}\x{FF5B}-\x{FF65}\x{FFE0}-\x{FFFD}');
 
 /**
  * Matches all 'N' Unicode character classes (numbers)
@@ -169,17 +107,14 @@ function search_theme() {
       'template' => 'search-block-form',
     ),
     'search_result' => array(
-      'variables' => array('result' => NULL, 'type' => NULL),
+      'variables' => array('result' => NULL, 'module' => NULL),
       'file' => 'search.pages.inc',
       'template' => 'search-result',
     ),
     'search_results' => array(
-      'variables' => array('results' => NULL, 'type' => NULL),
+      'variables' => array('results' => NULL, 'module' => NULL),
       'file' => 'search.pages.inc',
       'template' => 'search-results',
-    ),
-    'search_results_listing' => array(
-      'variables' => array('title' => NULL, 'content' => NULL),
     ),
   );
 }
@@ -228,7 +163,7 @@ function search_menu() {
   $items['search'] = array(
     'title' => 'Search',
     'page callback' => 'search_view',
-    'access arguments' => array('search content'),
+    'access callback' => 'search_is_active',
     'type' => MENU_SUGGESTED_ITEM,
     'file' => 'search.pages.inc',
   );
@@ -238,7 +173,6 @@ function search_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('search_admin_settings'),
     'access arguments' => array('administer search'),
-    'type' => MENU_NORMAL_ITEM,
     'weight' => -10,
     'file' => 'search.admin.inc',
   );
@@ -247,17 +181,8 @@ function search_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('search_reindex_confirm'),
     'access arguments' => array('administer search'),
-    'type' => MENU_CALLBACK,
+    'type' => MENU_VISIBLE_IN_BREADCRUMB,
     'file' => 'search.admin.inc',
-  );
-  $items['admin/reports/search'] = array(
-    'title' => 'Top search phrases',
-    'description' => 'View most popular search phrases.',
-    'page callback' => 'dblog_top',
-    'page arguments' => array('search'),
-    'access arguments' => array('access site reports'),
-    'file path' => drupal_get_path('module', 'dblog'),
-    'file' => 'dblog.admin.inc',
   );
 
   // Add paths for searching. We add each module search path twice: once without
@@ -268,23 +193,24 @@ function search_menu() {
   // http://drupal.org/node/245103 for details.
 
   drupal_static_reset('search_get_info');
-  if ($active = variable_get('search_active_modules', array('node', 'user'))) {
-    foreach (array_intersect_key(search_get_info(), array_flip($active)) as $module => $search_info) {
+  $default_info = search_get_default_module_info();
+  if ($default_info) {
+    foreach (search_get_info() as $module => $search_info) {
       $path = 'search/' . $search_info['path'];
       $items[$path] = array(
         'title' => $search_info['title'],
         'page callback' => 'search_view',
-        'page arguments' => array($module),
+        'page arguments' => array($module, ''),
         'access callback' => '_search_menu_access',
         'access arguments' => array($module),
-        'type' => $module == 'node' ? MENU_DEFAULT_LOCAL_TASK : MENU_LOCAL_TASK,
+        'type' => MENU_LOCAL_TASK,
         'file' => 'search.pages.inc',
-        'weight' => $module == 'node' ? -10 : 0,
+        'weight' => $module == $default_info['module'] ? -10 : 0,
       );
       $items["$path/%menu_tail"] = array(
         'title' => $search_info['title'],
         'page callback' => 'search_view',
-        'page arguments' => array($module),
+        'page arguments' => array($module, 2),
         'access callback' => '_search_menu_access',
         'access arguments' => array($module),
         // The default local task points to its parent, but this item points to
@@ -293,9 +219,9 @@ function search_menu() {
         'file' => 'search.pages.inc',
         'weight' => 0,
         // These tabs are not subtabs.
-        'tab_root' => 'search/node/%',
+        'tab_root' => 'search/' . $default_info['path'] . '/%',
         // These tabs need to display at the same level.
-        'tab_parent' => 'search',
+        'tab_parent' => 'search/' . $default_info['path'],
       );
     }
   }
@@ -303,19 +229,63 @@ function search_menu() {
 }
 
 /**
- * Get information about all available search hooks.
+ * Determines access for the ?q=search path.
  */
-function search_get_info() {
+function search_is_active() {
+  // This path cannot be accessed if there are no active modules.
+  return user_access('search content') && search_get_info();
+}
+
+/**
+ * Returns information about available search modules.
+ *
+ * @param $all
+ *   If TRUE, information about all enabled modules implementing
+ *   hook_search_info() will be returned. If FALSE (default), only modules that
+ *   have been set to active on the search settings page will be returned.
+ *
+ * @return
+ *   Array of hook_search_info() return values, keyed by module name. The
+ *   'title' and 'path' array elements will be set to defaults for each module
+ *   if not supplied by hook_search_info(), and an additional array element of
+ *   'module' will be added (set to the module name).
+ */
+function search_get_info($all = FALSE) {
   $search_hooks = &drupal_static(__FUNCTION__);
 
   if (!isset($search_hooks)) {
     foreach (module_implements('search_info') as $module) {
       $search_hooks[$module] = call_user_func($module . '_search_info');
-      // Use module name as the default.
+      // Use module name as the default value.
       $search_hooks[$module] += array('title' => $module, 'path' => $module);
+      // Include the module name itself in the array.
+      $search_hooks[$module]['module'] = $module;
     }
   }
-  return $search_hooks;
+
+  if ($all) {
+    return $search_hooks;
+  }
+
+  $active = variable_get('search_active_modules', array('node', 'user'));
+  return array_intersect_key($search_hooks, array_flip($active));
+}
+
+/**
+ * Returns information about the default search module.
+ *
+ * @return
+ *    The search_get_info() array element for the default search module, if any.
+ */
+function search_get_default_module_info() {
+  $info = search_get_info();
+  $default = variable_get('search_default_module', 'node');
+  if (isset($info[$default])) {
+    return $info[$default];
+  }
+  // The variable setting does not match any active module, so just return
+  // the info for the first active module (if any).
+  return reset($info);
 }
 
 /**
@@ -383,7 +353,7 @@ function search_cron() {
   // to date.
   drupal_register_shutdown_function('search_update_totals');
 
-  foreach(variable_get('search_active_modules', array('node', 'user')) as $module) {
+  foreach (variable_get('search_active_modules', array('node', 'user')) as $module) {
     // Update word index
     module_invoke($module, 'update_index');
   }
@@ -446,15 +416,18 @@ function search_simplify($text) {
   // Readable regexp: ([number]+)[punctuation]+(?=[number])
   $text = preg_replace('/([' . PREG_CLASS_NUMBERS . ']+)[' . PREG_CLASS_PUNCTUATION . ']+(?=[' . PREG_CLASS_NUMBERS . '])/u', '\1', $text);
 
+  // Multiple dot and dash groups are word boundaries and replaced with space.
+  // No need to use the unicode modifer here because 0-127 ASCII characters
+  // can't match higher UTF-8 characters as the leftmost bit of those are 1.
+  $text = preg_replace('/[.-]{2,}/', ' ', $text);
+
   // The dot, underscore and dash are simply removed. This allows meaningful
-  // search behavior with acronyms and URLs. No need to use the unicode modifer
-  // here because 0-127 ASCII characters can't match higher UTF-8 characters as
-  // the leftmost bit of those are 1.
+  // search behavior with acronyms and URLs. See unicode note directly above.
   $text = preg_replace('/[._-]+/', '', $text);
 
   // With the exception of the rules above, we consider all punctuation,
   // marks, spacers, etc, to be a word boundary.
-  $text = preg_replace('/[' . PREG_CLASS_SEARCH_EXCLUDE . ']+/u', ' ', $text);
+  $text = preg_replace('/[' . PREG_CLASS_UNICODE_WORD_BOUNDARY . ']+/u', ' ', $text);
 
   return $text;
 }
@@ -865,41 +838,59 @@ function search_comment_unpublish($comment) {
 }
 
 /**
- * Extract a module-specific search option from a search query. e.g. 'type:book'
+ * Extracts a module-specific search option from a search expression.
+ *
+ * Search options are added using search_expression_insert(), and retrieved
+ * using search_expression_extract(). They take the form option:value, and
+ * are added to the ordinary keywords in the search expression.
+ *
+ * @param $expression
+ *   The search expression to extract from.
+ * @param $option
+ *   The name of the option to retrieve from the search expression.
+ *
+ * @return
+ *   The value previously stored in the search expression for option $option,
+ *   if any. Trailing spaces in values will not be included.
  */
-function search_expression_extract($keys, $option) {
-  if (preg_match('/(^| )' . $option . ':([^ ]*)( |$)/i', $keys, $matches)) {
+function search_expression_extract($expression, $option) {
+  if (preg_match('/(^| )' . $option . ':([^ ]*)( |$)/i', $expression, $matches)) {
     return $matches[2];
   }
 }
 
 /**
- * Return a query with the given module-specific search option inserted in.
- * e.g. 'type:book'.
+ * Adds a module-specific search option to a search expression.
+ *
+ * Search options are added using search_expression_insert(), and retrieved
+ * using search_expression_extract(). They take the form option:value, and
+ * are added to the ordinary keywords in the search expression.
+ *
+ * @param $expression
+ *   The search expression to add to.
+ * @param $option
+ *   The name of the option to add to the search expression.
+ * @param $value
+ *   The value to add for the option. If present, it will replace any previous
+ *   value added for the option. Cannot contain any spaces or | characters, as
+ *   these are used as delimiters. If you want to add a blank value $option: to
+ *   the search expression, pass in an empty string or a string that is composed
+ *   of only spaces. To clear a previously-stored option without adding a
+ *   replacement, pass in NULL for $value or omit.
+ *
+ * @return
+ *   $expression, with any previous value for this option removed, and a new
+ *   $option:$value pair added if $value was provided.
  */
-function search_expression_insert($keys, $option, $value = '') {
-  if (search_expression_extract($keys, $option)) {
-    $keys = trim(preg_replace('/(^| )' . $option . ':[^ ]*/i', '', $keys));
-  }
-  if ($value != '') {
-    $keys .= ' ' . $option . ':' . $value;
-  }
-  return $keys;
-}
+function search_expression_insert($expression, $option, $value = NULL) {
+  // Remove any previous values stored with $option.
+  $expression = trim(preg_replace('/(^| )' . $option . ':[^ ]*/i', '', $expression));
 
-/**
- * Helper function for grabbing search keys.
- */
-function search_get_keys() {
-  $return = &drupal_static(__FUNCTION__);
-  if (!isset($return)) {
-    // Extract keys as remainder of path
-    // Note: support old GET format of searches for existing links.
-    $path = explode('/', $_GET['q'], 3);
-    $keys = empty($_REQUEST['keys']) ? '' : $_REQUEST['keys'];
-    $return = count($path) == 3 ? $path[2] : $keys;
+  // Set new value, if provided.
+  if (isset($value)) {
+    $expression .= ' ' . $option . ':' . trim($value);
   }
-  return $return;
+  return $expression;
 }
 
 /**
@@ -931,28 +922,44 @@ function search_get_keys() {
  */
 
 /**
- * Render a search form.
+ * Builds a search form.
  *
  * @param $action
- *   Form action. Defaults to "search/$type". This will be run through url().
+ *   Form action. Defaults to "search/$path", where $path is the search path
+ *   associated with the $type module in its hook_search_info(). This will be
+ *   run through url().
  * @param $keys
  *   The search string entered by the user, containing keywords for the search.
  * @param $type
- *   The type of search to render the node for. Must be the name of module
- *   which implements hook_search(). Defaults to 'node'.
+ *   The search module to render the form for: a module that implements
+ *   hook_search_info(). If not supplied, the default search module is used.
  * @param $prompt
- *   A piece of text to put before the form (e.g. "Enter your keywords")
+ *   Label for the keywords field. Defaults to t('Enter your keywords') if NULL.
+ *   Supply '' to omit.
+ *
  * @return
- *   An HTML string containing the search form.
+ *   A Form API array for the search form.
  */
 function search_form($form, &$form_state, $action = '', $keys = '', $type = NULL, $prompt = NULL) {
-  // Add CSS
-  drupal_add_css(drupal_get_path('module', 'search') . '/search.css', array('preprocess' => FALSE));
+  $module_info = FALSE;
+  if (!$type) {
+    $module_info = search_get_default_module_info();
+  }
+  else {
+    $info = search_get_info();
+    $module_info = isset($info[$type]) ? $info[$type] : FALSE;
+  }
+
+  // Sanity check.
+  if (!$module_info) {
+    form_set_error(NULL, t('Search is currently disabled.'), 'error');
+    return $form;
+  }
 
   if (!$action) {
-    $action = 'search/' . $type;
+    $action = 'search/' . $module_info['path'];
   }
-  if (is_null($prompt)) {
+  if (!isset($prompt)) {
     $prompt = t('Enter your keywords');
   }
 
@@ -971,7 +978,7 @@ function search_form($form, &$form_state, $action = '', $keys = '', $type = NULL
   );
   // processed_keys is used to coordinate keyword passing between other forms
   // that hook into the basic search form.
-  $form['basic']['processed_keys'] = array('#type' => 'value', '#value' => array());
+  $form['basic']['processed_keys'] = array('#type' => 'value', '#value' => '');
   $form['basic']['submit'] = array('#type' => 'submit', '#value' => t('Search'));
 
   return $form;
@@ -988,6 +995,8 @@ function search_form($form, &$form_state, $action = '', $keys = '', $type = NULL
 function search_box($form, &$form_state, $form_id) {
   $form[$form_id] = array(
     '#type' => 'textfield',
+    '#title' => t('Search'),
+    '#title_display' => 'invisible',
     '#size' => 15,
     '#default_value' => '',
     '#attributes' => array('title' => t('Enter the terms you wish to search for.')),
@@ -1012,7 +1021,13 @@ function search_box_form_submit($form, &$form_state) {
   }
 
   $form_id = $form['form_id']['#value'];
-  $form_state['redirect'] = 'search/node/' . trim($form_state['values'][$form_id]);
+  $info = search_get_default_module_info();
+  if ($info) {
+    $form_state['redirect'] = 'search/' . $info['path'] . '/' . trim($form_state['values'][$form_id]);
+  }
+  else {
+    form_set_error(NULL, t('Search is currently disabled.'), 'error');
+  }
 }
 
 /**
@@ -1043,19 +1058,31 @@ function template_preprocess_search_block_form(&$variables) {
 }
 
 /**
- * Perform a standard search on the given keys, and return the formatted results.
+ * Performs a search by calling hook_search_execute().
+ *
+ * @param $keys
+ *   Keyword query to search on.
+ * @param $module
+ *   Search module to search.
+ * @param $conditions
+ *   Optional array of additional search conditions.
+ *
+ * @return
+ *   Renderable array of search results. No return value if $keys are not
+ *   supplied or if the given search module is not active.
  */
-function search_data($keys = NULL, $type = 'node') {
-
-  if (isset($keys)) {
-    if (module_hook($type, 'search_execute')) {
-      $results = module_invoke($type, 'search_execute', $keys);
-      if (module_hook($type, 'search_page')) {
-        return module_invoke($type, 'search_page', $results);
-      }
-      else {
-        return theme('search_results', array('results' => $results, 'type' => $type));
-      }
+function search_data($keys, $module, $conditions = NULL) {
+  if (module_hook($module, 'search_execute')) {
+    $results = module_invoke($module, 'search_execute', $keys, $conditions);
+    if (module_hook($module, 'search_page')) {
+      return module_invoke($module, 'search_page', $results);
+    }
+    else {
+      return array(
+        '#theme' => 'search_results',
+        '#results' => $results,
+        '#module' => $module,
+      );
     }
   }
 }
@@ -1075,14 +1102,17 @@ function search_data($keys = NULL, $type = 'node') {
  */
 function search_excerpt($keys, $text) {
   // We highlight around non-indexable or CJK characters.
-  $boundary = '(?:(?<=[' . PREG_CLASS_SEARCH_EXCLUDE . PREG_CLASS_CJK . '])|(?=[' . PREG_CLASS_SEARCH_EXCLUDE . PREG_CLASS_CJK . ']))';
+  $boundary = '(?:(?<=[' . PREG_CLASS_UNICODE_WORD_BOUNDARY . PREG_CLASS_CJK . '])|(?=[' . PREG_CLASS_UNICODE_WORD_BOUNDARY . PREG_CLASS_CJK . ']))';
 
   // Extract positive keywords and phrases
   preg_match_all('/ ("([^"]+)"|(?!OR)([^" ]+))/', ' ' . $keys, $matches);
   $keys = array_merge($matches[2], $matches[3]);
 
-  // Prepare text
-  $text = ' ' . strip_tags(str_replace(array('<', '>'), array(' <', '> '), $text)) . ' ';
+  // Prepare text by stripping HTML tags and decoding HTML entities.
+  $text = strip_tags(str_replace(array('<', '>'), array(' <', '> '), $text));
+  $text = decode_entities($text);
+
+  // Slash-escape quotes in the search keyword string.
   array_walk($keys, '_search_excerpt_replace');
   $workkeys = $keys;
 
@@ -1112,9 +1142,12 @@ function search_excerpt($keys, $text) {
       // $q) and behind it (position $s)
       if (preg_match('/' . $boundary . $key . $boundary . '/iu', $text, $match, PREG_OFFSET_CAPTURE, $included[$key])) {
         $p = $match[0][1];
-        if (($q = strpos($text, ' ', max(0, $p - 60))) !== FALSE) {
-          $end = substr($text, $p, 80);
+        if (($q = strpos(' ' . $text, ' ', max(0, $p - 61))) !== FALSE) {
+          $end = substr($text . ' ', $p, 80);
           if (($s = strrpos($end, ' ')) !== FALSE) {
+            // Account for the added spaces.
+            $q = max($q - 1, 0);
+            $s = min($s, drupal_strlen($end) - 1);
             $ranges[$q] = $p + $s;
             $length += $p + $s - $q;
             $included[$key] = $p + 1;
@@ -1133,9 +1166,11 @@ function search_excerpt($keys, $text) {
     }
   }
 
-  // If we didn't find anything, return the beginning.
   if (count($ranges) == 0) {
-    return truncate_utf8($text, 256, TRUE, TRUE);
+    // We didn't find any keyword matches, so just return the first part of the
+    // text. We also need to re-encode any HTML special characters that we
+    // entity-decoded above.
+    return check_plain(truncate_utf8($text, 256, TRUE, TRUE));
   }
 
   // Sort the text ranges by starting position.
@@ -1165,7 +1200,12 @@ function search_excerpt($keys, $text) {
   foreach ($newranges as $from => $to) {
     $out[] = substr($text, $from, $to - $from);
   }
-  $text = (isset($newranges[0]) ? '' : '... ') . implode(' ... ', $out) . ' ...';
+
+  // Let translators have the ... separator text as one chunk.
+  $dots = explode('!excerpt', t('... !excerpt ... !excerpt ...'));
+
+  $text = (isset($newranges[0]) ? '' : $dots[0]) . implode($dots[1], $out) . $dots[2];
+  $text = check_plain($text);
 
   // Highlight keywords. Must be done at once to prevent conflicts ('strong' and '<strong>').
   $text = preg_replace('/' . $boundary . '(' . implode('|', $keys) . ')' . $boundary . '/iu', '<strong>\0</strong>', $text);
@@ -1177,12 +1217,15 @@ function search_excerpt($keys, $text) {
  */
 
 /**
- * Helper function for array_walk in search_except.
+ * Helper function for array_walk() in search_excerpt().
  */
 function _search_excerpt_replace(&$text) {
   $text = preg_quote($text, '/');
 }
 
+/**
+ * Implements hook_forms().
+ */
 function search_forms() {
   $forms['search_block_form']= array(
     'callback' => 'search_box',
@@ -1190,3 +1233,4 @@ function search_forms() {
   );
   return $forms;
 }
+

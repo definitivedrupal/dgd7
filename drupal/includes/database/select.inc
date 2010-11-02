@@ -1,5 +1,5 @@
 <?php
-// $Id: select.inc,v 1.41 2010/05/15 07:04:21 dries Exp $
+// $Id: select.inc,v 1.52 2010/10/05 01:42:24 dries Exp $
 
 /**
  * @ingroup database
@@ -92,6 +92,24 @@ interface SelectQueryInterface extends QueryConditionInterface, QueryAlterableIn
    *   A reference to the expression array structure.
    */
   public function &getOrderBy();
+
+  /**
+   * Returns a reference to the group-by array for this query.
+   *
+   * Because this method returns by reference, alter hooks may edit the group-by
+   * array directly to make their changes. If just adding additional grouping
+   * fields, however, the use of groupBy() is preferred.
+   *
+   * Note that this method must be called by reference as well:
+   *
+   * @code
+   * $fields =& $query->getGroupBy();
+   * @endcode
+   *
+   * @return
+   *   A reference to the group-by array structure.
+   */
+  public function &getGroupBy();
 
   /**
    * Returns a reference to the tables array for this query.
@@ -348,6 +366,13 @@ interface SelectQueryInterface extends QueryConditionInterface, QueryAlterableIn
    * If called multiple times, the query will order by each specified field in the
    * order this method is called.
    *
+   * If the query uses DISTINCT or GROUP BY conditions, fields or expressions
+   * that are used for the order must be selected to be compatible with some
+   * databases like PostgreSQL. The PostgreSQL driver can handle simple cases
+   * automatically but it is suggested to explicitly specify them. Additionally,
+   * when ordering on an alias, the alias must be added before orderBy() is
+   * called.
+   *
    * @param $field
    *   The field on which to order.
    * @param $direction
@@ -485,6 +510,22 @@ interface SelectQueryInterface extends QueryConditionInterface, QueryAlterableIn
    * duplicate the connection itself.
    */
   public function __clone();
+
+  /**
+   * Add FOR UPDATE to the query.
+   *
+   * FOR UPDATE prevents the rows retrieved by the SELECT statement from being
+   * modified or deleted by other transactions until the current transaction
+   * ends. Other transactions that attempt UPDATE, DELETE, or SELECT FOR UPDATE
+   * of these rows will be blocked until the current transaction ends.
+   *
+   * @param $set
+   *   IF TRUE, FOR UPDATE will be added to the query, if FALSE then it won't.
+   *
+   * @return QueryConditionInterface
+   *   The called object.
+   */
+  public function forUpdate($set = TRUE);
 }
 
 /**
@@ -601,11 +642,8 @@ class SelectQueryExtender implements SelectQueryInterface {
   /* Implementations of QueryExtendableInterface. */
 
   public function extend($extender_name) {
-    $override_class = $this->connection->driver();
-    if (class_exists($override_class)) {
-      $extender_name = $override_class;
-    }
-    return new $extender_name($this, $this->connection);
+    $class = $this->connection->getDriverClass($extender_name);
+    return new $class($this, $this->connection);
   }
 
   /* Alter accessors to expose the query data to alter hooks. */
@@ -620,6 +658,10 @@ class SelectQueryExtender implements SelectQueryInterface {
 
   public function &getOrderBy() {
     return $this->query->getOrderBy();
+  }
+
+  public function &getGroupBy() {
+    return $this->query->getGroupBy();
   }
 
   public function &getTables() {
@@ -640,7 +682,7 @@ class SelectQueryExtender implements SelectQueryInterface {
 
   public function preExecute(SelectQueryInterface $query = NULL) {
     // If no query object is passed in, use $this.
-    if (is_null($query)) {
+    if (!isset($query)) {
       $query = $this;
     }
 
@@ -718,6 +760,11 @@ class SelectQueryExtender implements SelectQueryInterface {
 
   public function groupBy($field) {
     $this->query->groupBy($field);
+    return $this;
+  }
+
+  public function forUpdate($set = TRUE) {
+    $this->query->forUpdate($set);
     return $this;
   }
 
@@ -900,6 +947,11 @@ class SelectQuery extends Query implements SelectQueryInterface {
    */
   protected $prepared = FALSE;
 
+  /**
+   * The FOR UPDATE status
+   */
+  protected $forUpdate = FALSE;
+
   public function __construct($table, $alias = NULL, DatabaseConnection $connection, $options = array()) {
     $options['return'] = Database::RETURN_STATEMENT;
     parent::__construct($connection, $options);
@@ -1014,6 +1066,12 @@ class SelectQuery extends Query implements SelectQueryInterface {
     return $this;
   }
 
+  public function forUpdate($set = TRUE) {
+    if (isset($set)) {
+      $this->forUpdate = $set;
+    }
+    return $this;
+  }
 
   /* Alter accessors to expose the query data to alter hooks. */
 
@@ -1027,6 +1085,10 @@ class SelectQuery extends Query implements SelectQueryInterface {
 
   public function &getOrderBy() {
     return $this->order;
+  }
+
+  public function &getGroupBy() {
+    return $this->group;
   }
 
   public function &getTables() {
@@ -1085,7 +1147,7 @@ class SelectQuery extends Query implements SelectQueryInterface {
    */
   public function preExecute(SelectQueryInterface $query = NULL) {
     // If no query object is passed in, use $this.
-    if (is_null($query)) {
+    if (!isset($query)) {
       $query = $this;
     }
 
@@ -1102,7 +1164,21 @@ class SelectQuery extends Query implements SelectQueryInterface {
       }
       drupal_alter($hooks, $query);
     }
-    return $this->prepared = TRUE;
+
+    $this->prepared = TRUE;
+
+    // Now also prepare any sub-queries.
+    foreach ($this->tables as $table) {
+      if ($table['table'] instanceof SelectQueryInterface) {
+        $table['table']->preExecute();
+      }
+    }
+
+    foreach ($this->union as $union) {
+      $union['query']->preExecute();
+    }
+
+    return $this->prepared;
   }
 
   public function execute() {
@@ -1128,14 +1204,14 @@ class SelectQuery extends Query implements SelectQueryInterface {
     }
 
     // If that's already in use, try the table name and field name.
-    if (!empty($this->tables[$alias])) {
+    if (!empty($this->fields[$alias])) {
       $alias = $table_alias . '_' . $field;
     }
 
     // If that is already used, just add a counter until we find an unused alias.
     $alias_candidate = $alias;
     $count = 2;
-    while (!empty($this->tables[$alias_candidate])) {
+    while (!empty($this->fields[$alias_candidate])) {
       $alias_candidate = $alias . '_' . $count++;
     }
     $alias = $alias_candidate;
@@ -1282,13 +1358,24 @@ class SelectQuery extends Query implements SelectQueryInterface {
     // Create our new query object that we will mutate into a count query.
     $count = clone($this);
 
+    $group_by = array_keys($count->getGroupBy());
+
     if (!$count->distinct) {
       // When not executing a distinct query, we can zero-out existing fields
-      // and expressions.
+      // and expressions that are not used by a GROUP BY.  Fields listed in
+      // the GROUP BY clause need to be present in the query.
       $fields =& $count->getFields();
-      $fields = array();
+      foreach (array_keys($fields) as $field) {
+        if (!empty($group_by[$field])) {
+          unset($fields[$field]);
+        }
+      }
       $expressions =& $count->getExpressions();
-      $expressions = array();
+      foreach (array_keys($expressions) as $field) {
+        if (!empty($group_by[$field])) {
+          unset($fields[$field]);
+        }
+      }
 
       // Also remove 'all_fields' statements, which are expanded into tablename.*
       // when the query is executed.
@@ -1297,22 +1384,25 @@ class SelectQuery extends Query implements SelectQueryInterface {
       }
     }
 
+    // If we've just removed all fields from the query, make sure there is at
+    // least one so that the query still runs.
+    $count->addExpression('1');
+
     // Ordering a count query is a waste of cycles, and breaks on some
     // databases anyway.
     $orders = &$count->getOrderBy();
     $orders = array();
 
-    if ($count->distinct) {
-      // If the query is distinct, we need to execute it in a subquery,
-      // because SQL99 does not support counting on distinct multiple fields.
-      $count = db_select($count);
+    if ($count->distinct && !empty($group_by)) {
+      // If the query is distinct and contains a GROUP BY, we need to remove the
+      // distinct because SQL99 does not support counting on distinct multiple fields.
       $count->distinct = FALSE;
     }
 
-    // COUNT() is an expression, so we add that back in.
-    $count->addExpression('COUNT(*)');
+    $query = $this->connection->select($count);
+    $query->addExpression('COUNT(*)');
 
-    return $count;
+    return $query;
   }
 
   public function __toString() {
@@ -1336,10 +1426,10 @@ class SelectQuery extends Query implements SelectQueryInterface {
     foreach ($this->fields as $alias => $field) {
       // Always use the AS keyword for field aliases, as some
       // databases require it (e.g., PostgreSQL).
-      $fields[] = (isset($field['table']) ? $this->connection->escapeTable($field['table']) . '.' : '') . $this->connection->escapeField($field['field']) . ' AS ' . $this->connection->escapeField($field['alias']);
+      $fields[] = (isset($field['table']) ? $this->connection->escapeTable($field['table']) . '.' : '') . $this->connection->escapeField($field['field']) . ' AS ' . $this->connection->escapeAlias($field['alias']);
     }
     foreach ($this->expressions as $alias => $expression) {
-      $fields[] = $expression['expression'] . ' AS ' . $expression['alias'];
+      $fields[] = $expression['expression'] . ' AS ' . $this->connection->escapeAlias($expression['alias']);
     }
     $query .= implode(', ', $fields);
 
@@ -1374,6 +1464,13 @@ class SelectQuery extends Query implements SelectQueryInterface {
 
     // WHERE
     if (count($this->where)) {
+      // The following line will not generate placeholders correctly if there
+      // is a subquery. Fortunately, it is also called from getArguments() first
+      // so it's not a problem in practice... unless you try to call __toString()
+      // before calling getArguments().  That is a problem that we will have to
+      // fix in Drupal 8, because it requires more refactoring than we are
+      // able to do in Drupal 7.
+      // @todo Move away from __toString() For SelectQuery compilation at least.
       $this->where->compile($this->connection, $this);
       // There is an implicit string cast on $this->condition.
       $query .= "\nWHERE " . $this->where;
@@ -1407,7 +1504,7 @@ class SelectQuery extends Query implements SelectQueryInterface {
     // Databases that need a different syntax can override this method and
     // do whatever alternate logic they need to.
     if (!empty($this->range)) {
-      $query .= "\nLIMIT " . $this->range['length'] . " OFFSET " . $this->range['start'];
+      $query .= "\nLIMIT " . (int) $this->range['length'] . " OFFSET " . (int) $this->range['start'];
     }
 
     // UNION is a little odd, as the select queries to combine are passed into
@@ -1416,6 +1513,10 @@ class SelectQuery extends Query implements SelectQueryInterface {
       foreach ($this->union as $union) {
         $query .= ' ' . $union['type'] . ' ' . (string) $union['query'];
       }
+    }
+
+    if ($this->forUpdate) {
+      $query .= ' FOR UPDATE';
     }
 
     return $query;

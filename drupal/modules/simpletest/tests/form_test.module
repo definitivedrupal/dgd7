@@ -1,5 +1,5 @@
 <?php
-// $Id: form_test.module,v 1.39 2010/04/28 16:11:22 dries Exp $
+// $Id: form_test.module,v 1.52 2010/10/20 01:15:58 dries Exp $
 
 /**
  * @file
@@ -92,11 +92,25 @@ function form_test_menu() {
     'access callback' => TRUE,
     'type' => MENU_CALLBACK,
   );
+  $items['form-test/select'] = array(
+    'title' => t('Select'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('form_test_select'),
+    'access callback' => TRUE,
+  );
 
   $items['form-test/disabled-elements'] = array(
     'title' => t('Form test'),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('_form_test_disabled_elements'),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['form-test/input-forgery'] = array(
+    'title' => t('Form test'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('_form_test_input_forgery'),
     'access callback' => TRUE,
     'type' => MENU_CALLBACK,
   );
@@ -144,6 +158,23 @@ function form_test_menu() {
       'type' => MENU_CALLBACK,
     );
   }
+
+  $items['form-test/load-include-menu'] = array(
+    'title' => 'FAPI test loading includes',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('form_test_load_include_menu'),
+    'access callback' => TRUE,
+    'file' => 'form_test.file.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['form-test/load-include-custom'] = array(
+    'title' => 'FAPI test loading includes',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('form_test_load_include_custom'),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
 
   return $items;
 }
@@ -288,7 +319,7 @@ function form_test_limit_validation_errors_form($form, &$form_state) {
   $form['actions']['partial'] = array(
     '#type' => 'submit',
     '#limit_validation_errors' => array(array('test')),
-    '#submit' => array(),
+    '#submit' => array('form_test_limit_validation_errors_form_partial_submit'),
     '#value' => t('Partial validate'),
   );
   $form['actions']['full'] = array(
@@ -304,6 +335,17 @@ function form_test_limit_validation_errors_form($form, &$form_state) {
 function form_test_limit_validation_errors_element_validate_test(&$element, &$form_state) {
   if ($element['#value'] == 'invalid') {
     form_error($element, 'Test element is invalid');
+  }
+}
+
+/**
+ * Form submit handler for the partial validation submit button.
+ */
+function form_test_limit_validation_errors_form_partial_submit($form, $form_state) {
+  // The title has not been validated, thus its value - in case of the test case
+  // an empty string - may not be set.
+  if (!isset($form_state['values']['title']) && isset($form_state['values']['test'])) {
+    drupal_set_message('Only validated values appear in the form values.');
   }
 }
 
@@ -466,7 +508,7 @@ function form_test_storage_form($form, &$form_state) {
   }
   // Count how often the form is constructed.
   $_SESSION['constructions']++;
-  drupal_set_message("Form constructions: ". $_SESSION['constructions']);
+  drupal_set_message("Form constructions: " . $_SESSION['constructions']);
 
   $form['title'] = array(
     '#type' => 'textfield',
@@ -480,16 +522,10 @@ function form_test_storage_form($form, &$form_state) {
     '#default_value' => $form_state['storage']['thing']['value'],
     '#element_validate' => array('form_test_storage_element_validate_value_cached'),
   );
-  $form['button'] = array(
-    '#type' => 'button',
-    '#value' => 'Reload',
-    // Reload the form (don't rebuild), thus we start at the initial step again.
-  );
   $form['continue_button'] = array(
     '#type' => 'button',
     '#value' => 'Reset',
     // Rebuilds the form without keeping the values.
-    '#validate' => array('form_storage_test_form_continue_validate'),
   );
   $form['continue_submit'] = array(
     '#type' => 'submit',
@@ -535,20 +571,11 @@ function form_storage_test_form_continue_submit($form, &$form_state) {
 }
 
 /**
- * Form validation handler, which doesn't preserve the values but rebuilds the
- * form. We cannot use a submit handler here, as buttons of type button don't
- * submit the form.
- */
-function form_storage_test_form_continue_validate($form, &$form_state) {
-  $form_state['rebuild'] = TRUE;
-}
-
-/**
  * Form submit handler to finish multi-step form.
  */
 function form_test_storage_form_submit($form, &$form_state) {
-  drupal_set_message("Title: ". check_plain($form_state['values']['title']));
-  drupal_set_message("Form constructions: ". $_SESSION['constructions']);
+  drupal_set_message("Title: " . check_plain($form_state['values']['title']));
+  drupal_set_message("Form constructions: " . $_SESSION['constructions']);
   if (isset($form_state['storage']['thing']['changed'])) {
     drupal_set_message("The thing has been changed.");
   }
@@ -750,6 +777,115 @@ function _form_test_checkbox_submit($form, &$form_state) {
 }
 
 /**
+ * Builds a form to test #type 'select' validation.
+ */
+function form_test_select($form, &$form_state) {
+  $base = array(
+    '#type' => 'select',
+    '#options' => drupal_map_assoc(array('one', 'two', 'three')),
+  );
+
+  $form['select'] = $base + array(
+    '#title' => '#default_value one',
+    '#default_value' => 'one',
+  );
+  $form['select_required'] = $base + array(
+    '#title' => '#default_value one, #required',
+    '#required' => TRUE,
+    '#default_value' => 'one',
+  );
+  $form['select_optional'] = $base + array(
+    '#title' => '#default_value one, not #required',
+    '#required' => FALSE,
+    '#default_value' => 'one',
+  );
+  $form['empty_value'] = $base + array(
+    '#title' => '#default_value one, #required, #empty_value 0',
+    '#required' => TRUE,
+    '#default_value' => 'one',
+    '#empty_value' => 0,
+  );
+  $form['empty_value_one'] = $base + array(
+    '#title' => '#default_value = #empty_value, #required',
+    '#required' => TRUE,
+    '#default_value' => 'one',
+    '#empty_value' => 'one',
+  );
+
+  $form['no_default'] = $base + array(
+    '#title' => 'No #default_value, #required',
+    '#required' => TRUE,
+  );
+  $form['no_default_optional'] = $base + array(
+    '#title' => 'No #default_value, not #required',
+    '#required' => FALSE,
+    '#description' => 'Should result in "one", because it is not required and there is no #empty_value requested, so default browser behavior of preselecting first option is in effect.',
+  );
+  $form['no_default_optional_empty_value'] = $base + array(
+    '#title' => 'No #default_value, not #required, #empty_value empty string',
+    '#empty_value' => '',
+    '#required' => FALSE,
+    '#description' => 'Should result in an empty string (due to #empty_value), because it is optional.',
+  );
+
+  $form['no_default_empty_option'] = $base + array(
+    '#title' => 'No #default_value, #required, #empty_option',
+    '#required' => TRUE,
+    '#empty_option' => '- Choose -',
+  );
+  $form['no_default_empty_option_optional'] = $base + array(
+    '#title' => 'No #default_value, not #required, #empty_option',
+    '#empty_option' => '- Dismiss -',
+    '#description' => 'Should result in an empty string (default of #empty_value), because it is optional.',
+  );
+
+  $form['no_default_empty_value'] = $base + array(
+    '#title' => 'No #default_value, #required, #empty_value 0',
+    '#required' => TRUE,
+    '#empty_value' => 0,
+    '#description' => 'Should never result in 0.',
+  );
+  $form['no_default_empty_value_one'] = $base + array(
+    '#title' => 'No #default_value, #required, #empty_value one',
+    '#required' => TRUE,
+    '#empty_value' => 'one',
+    '#description' => 'A mistakenly assigned #empty_value contained in #options should not be valid.',
+  );
+  $form['no_default_empty_value_optional'] = $base + array(
+    '#title' => 'No #default_value, not #required, #empty_value 0',
+    '#required' => FALSE,
+    '#empty_value' => 0,
+    '#description' => 'Should result in 0, because it is optional.',
+  );
+
+  $form['multiple'] = $base + array(
+    '#title' => '#multiple, #default_value two',
+    '#default_value' => array('two'),
+    '#multiple' => TRUE,
+  );
+  $form['multiple_no_default'] = $base + array(
+    '#title' => '#multiple, no #default_value',
+    '#multiple' => TRUE,
+  );
+  $form['multiple_no_default_required'] = $base + array(
+    '#title' => '#multiple, #required, no #default_value',
+    '#required' => TRUE,
+    '#multiple' => TRUE,
+  );
+
+  $form['submit'] = array('#type' => 'submit', '#value' => 'Submit');
+  return $form;
+}
+
+/**
+ * Form submit handler for form_test_select().
+ */
+function form_test_select_submit($form, &$form_state) {
+  drupal_json_output($form_state['values']);
+  exit();
+}
+
+/**
  * Build a form to test disabled elements.
  */
 function _form_test_disabled_elements($form, &$form_state) {
@@ -844,6 +980,77 @@ function _form_test_disabled_elements($form, &$form_state) {
     ),
   );
 
+  // The #disabled state should propagate to children.
+  $form['disabled_container'] = array(
+    '#disabled' => TRUE,
+  );
+  foreach (array('textfield', 'textarea', 'hidden') as $type) {
+    $form['disabled_container']['disabled_container_' . $type] = array(
+      '#type' => $type,
+      '#title' => $type,
+      '#default_value' => $type,
+      '#test_hijack_value' => 'HIJACK',
+    );
+  }
+
+  // Text format.
+  $form['text_format'] = array(
+    '#type' => 'text_format',
+    '#title' => 'Text format',
+    '#disabled' => TRUE,
+    '#default_value' => 'Text value',
+    '#format' => 'plain_text',
+    '#expected_value' => array(
+      'value' => 'Text value',
+      'format' => 'plain_text',
+    ),
+    '#test_hijack_value' => array(
+      'value' => 'HIJACK',
+      'format' => 'filtered_html',
+    ),
+  );
+
+  // Password fields.
+  $form['password'] = array(
+    '#type' => 'password',
+    '#title' => 'Password',
+    '#disabled' => TRUE,
+  );
+  $form['password_confirm'] = array(
+    '#type' => 'password_confirm',
+    '#title' => 'Password confirm',
+    '#disabled' => TRUE,
+  );
+
+  // Files.
+  $form['file'] = array(
+    '#type' => 'file',
+    '#title' => 'File',
+    '#disabled' => TRUE,
+  );
+  $form['managed_file'] = array(
+    '#type' => 'managed_file',
+    '#title' => 'Managed file',
+    '#disabled' => TRUE,
+  );
+
+  // Buttons.
+  $form['image_button'] = array(
+    '#type' => 'image_button',
+    '#value' => 'Image button',
+    '#disabled' => TRUE,
+  );
+  $form['button'] = array(
+    '#type' => 'button',
+    '#value' => 'Button',
+    '#disabled' => TRUE,
+  );
+  $form['submit_disabled'] = array(
+    '#type' => 'submit',
+    '#value' => 'Submit',
+    '#disabled' => TRUE,
+  );
+
   $form['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Submit'),
@@ -856,6 +1063,35 @@ function _form_test_disabled_elements($form, &$form_state) {
  * Return the form values via JSON.
  */
 function _form_test_disabled_elements_submit($form, &$form_state) {
+  drupal_json_output($form_state['values']);
+  exit();
+}
+
+/**
+ * Build a form to test input forgery of enabled elements.
+ */
+function _form_test_input_forgery($form, &$form_state) {
+  // For testing that a user can't submit a value not matching one of the
+  // allowed options.
+  $form['checkboxes'] = array(
+    '#type' => 'checkboxes',
+    '#options' => array(
+      'one' => 'One',
+      'two' => 'Two',
+    ),
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+  return $form;
+}
+
+/**
+ * Return the form values via JSON.
+ */
+function _form_test_input_forgery_submit($form, &$form_state) {
   drupal_json_output($form_state['values']);
   exit();
 }
@@ -984,9 +1220,19 @@ function form_test_form_form_test_state_persist_alter(&$form, &$form_state) {
  * Form builder to test programmatic form submissions.
  */
 function form_test_programmatic_form($form, &$form_state) {
-  $form['submitted_field'] = array(
-    '#title' => 'Submitted',
+  $form['textfield'] = array(
+    '#title' => 'Textfield',
     '#type' => 'textfield',
+  );
+  $form['checkboxes'] = array(
+    '#type' => 'checkboxes',
+    '#options' => array(
+      1 => 'First checkbox',
+      2 => 'Second checkbox',
+    ),
+    // Both checkboxes are selected by default so that we can test the ability
+    // of programmatic form submissions to uncheck them.
+    '#default_value' => array(1, 2),
   );
 
   return $form;
@@ -999,8 +1245,8 @@ function form_test_programmatic_form($form, &$form_state) {
  * explicitly required here.
  */
 function form_test_programmatic_form_validate($form, &$form_state) {
-  if (empty($form_state['values']['submitted_field'])) {
-    form_set_error('submitted_field', t('Submitted field is required.'));
+  if (empty($form_state['values']['textfield'])) {
+    form_set_error('textfield', t('Textfield is required.'));
   }
 }
 
@@ -1008,10 +1254,10 @@ function form_test_programmatic_form_validate($form, &$form_state) {
  * Form submit handler for programmatic form submissions.
  *
  * To test that the submission handler is correctly executed, we store the
- * submitted value in a place we can access from the caller context.
+ * submitted values in a place we can access from the caller context.
  */
 function form_test_programmatic_form_submit($form, &$form_state) {
-  $form_state['storage']['programmatic_form_submit'] = $form_state['values']['submitted_field'];
+  $form_state['storage']['programmatic_form_submit'] = $form_state['values'];
 }
 
 /**
@@ -1077,8 +1323,8 @@ function form_test_clicked_button($form, &$form_state) {
  * Form validation handler for the form_test_clicked_button() form.
  */
 function form_test_clicked_button_validate($form, &$form_state) {
-  if (isset($form_state['clicked_button'])) {
-    drupal_set_message(t('The clicked button is %name.', array('%name' => $form_state['clicked_button']['#name'])));
+  if (isset($form_state['triggering_element'])) {
+    drupal_set_message(t('The clicked button is %name.', array('%name' => $form_state['triggering_element']['#name'])));
   }
   else {
     drupal_set_message('There is no clicked button.');
@@ -1091,7 +1337,6 @@ function form_test_clicked_button_validate($form, &$form_state) {
 function form_test_clicked_button_submit($form, &$form_state) {
   drupal_set_message('Submit handler for form_test_clicked_button executed.');
 }
-
 
 /**
  * Implements hook_form_FORM_ID_alter() for the registration form.
@@ -1106,8 +1351,6 @@ function form_test_form_user_register_form_alter(&$form, &$form_state) {
   if (!empty($_REQUEST['field'])) {
     $node = (object)array('type' => 'page');
     field_attach_form('node', $node, $form, $form_state);
-    // The form API requires the builder function to set rebuilding, so do so.
-    $form['#builder_function'] = 'form_test_user_register_form_rebuild';
   }
 }
 
@@ -1134,4 +1377,21 @@ function form_test_two_instances() {
   $return['node_form_1'] = drupal_get_form('page_node_form', $node1);
   $return['node_form_2'] = drupal_get_form('page_node_form', $node2);
   return $return;
+}
+
+/**
+ * Menu callback for testing custom form includes.
+ */
+function form_test_load_include_custom($form, &$form_state) {
+  $form['button'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save'),
+    '#submit' => array('form_test_load_include_submit'),
+  );
+  // Specify the include file and enable form caching. That way the form is
+  // cached when it is submitted, but needs to find the specified submit handler
+  // in the include.
+  $form_state['build_info']['files'][] = array('module' => 'form_test', 'name' => 'form_test.file');
+  $form_state['cache'] = TRUE;
+  return $form;
 }

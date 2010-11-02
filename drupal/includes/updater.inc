@@ -1,5 +1,5 @@
 <?php
-// $Id: updater.inc,v 1.5 2010/01/30 07:54:01 dries Exp $
+// $Id: updater.inc,v 1.7 2010/09/01 20:08:17 dries Exp $
 
 /**
  * @file
@@ -23,6 +23,7 @@ interface DrupalUpdaterInterface {
 
   /**
    * Checks if the project is installed.
+   *
    * @return bool
    */
   public function isInstalled();
@@ -49,6 +50,7 @@ interface DrupalUpdaterInterface {
    * @param string $directory
    *
    * @return bool
+   *   TRUE if the project is installed, FALSE if not.
    */
   public static function canUpdateDirectory($directory);
 
@@ -105,6 +107,7 @@ class Updater {
    *
    * @param string $directory
    *   Extracted Drupal project.
+   *
    * @return string
    *   The class name which can work with this project type.
    */
@@ -129,6 +132,7 @@ class Updater {
    *
    * @param string $directory
    *   Directory to search in.
+   *
    * @return string
    *   Path to the info file.
    */
@@ -155,7 +159,9 @@ class Updater {
    *        provide their canonical name.
    *
    * @param string $directory
+   *
    * @return string
+   *   The name of the project.
    */
   public static function getProjectName($directory) {
     return basename($directory);
@@ -166,7 +172,9 @@ class Updater {
    *
    * @param string $directory
    *   Directory to search for the info file.
+   *
    * @return string
+   *   The title of the project.
    */
   public static function getProjectTitle($directory) {
     $info_file = self::findInfoFile($directory);
@@ -182,6 +190,7 @@ class Updater {
    *
    * @param array $overrides
    *   An array of overrides for the default parameters.
+   *
    * @return array
    *   An array of configuration parameters for an update or install operation.
    */
@@ -359,7 +368,7 @@ class Updater {
    * Return the full path to a directory where backups should be written.
    */
   public function getBackupDir() {
-    return file_directory_path('temporary');
+    return file_stream_wrapper_get_instance_by_scheme('temporary')->getDirectoryPath();
   }
 
   /**

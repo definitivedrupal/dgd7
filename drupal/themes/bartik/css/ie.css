@@ -1,10 +1,7 @@
-/* $Id$ */
+/* $Id: ie.css,v 1.7 2010/10/08 03:36:03 webchick Exp $ */
 
 .block {
   zoom: 1;
-}
-input.form-text {
-  font-family: sans-serif;
 }
 #password-strength-text {
   margin-top: 0;
@@ -13,12 +10,29 @@ fieldset legend {
   left: -8px;
   padding: 0;
 }
-.tabs ul.primary {
-  height: auto;
-}
-.tabs ul.primary li a.active {
-  padding: 0 7px 0 10px; /* LTR */
-}
 #footer-wrapper #footer .block {
   height: 100%;
+}
+#search-block-form input.form-submit,
+#search-form input.form-submit {
+  text-transform: capitalize; /* Trigger text indent. */
+  height: 26px;
+}
+.meta {
+  margin-bottom: 10px;
+}
+.region-header .form-required {
+  color: #eee;
+}
+#search-block-form input.form-submit:hover,
+#search-block-form input.form-submit:focus,
+#search-form input.form-submit:hover,
+#search-form input.form-submit:focus {
+  background-position: center -25px;
+}
+.contact-form #edit-message {
+  width: 75%;
+}
+.contact-form .resizable-textarea .grippie {
+  width: 76.3%;
 }
