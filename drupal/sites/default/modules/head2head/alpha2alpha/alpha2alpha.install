@@ -91,6 +91,7 @@ function alpha2alpha_update_helper($head2head_update, $alpha_version) {
   // Delete any forcibly-set older alpha version.
   variable_del('alpha2alpha_version');
   $current_alpha_version = alpha2alpha_get_alpha_version();
+debug($current_alpha_version);
   if (!$current_alpha_version || $current_alpha_version < $alpha_version) {
     throw new DrupalUpdateException(t('Not yet on Drupal 7.0-alpha@version.', array('@version' => $alpha_version)));
   }
@@ -112,10 +113,10 @@ function alpha2alpha_update_helper($head2head_update, $alpha_version) {
 
 /**
  * Field_config_instance.object_type becomes entity_type.
- */
 function alpha2alpha_update_7400() {
   alpha2alpha_update_helper('707724', 4);
 }
+ */
 
 /**
  * Block_node_type table moved from block module to node module.

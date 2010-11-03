@@ -1,4 +1,4 @@
-// $Id: mollom.admin.js,v 1.1 2010/09/22 10:33:14 sun Exp $
+// $Id: mollom.admin.js,v 1.2 2010/10/13 00:18:52 dries Exp $
 (function ($) {
 
 /**
@@ -29,15 +29,17 @@ Drupal.behaviors.mollomBlacklistFilter = {
       self.lastSearch = {};
       var filterRows = function () {
         // Prepare static variables and conditions only once.
-        var text, visible, changed;
+        var i, text, visible, changed;
         var search = {
-          text: $filterText.val(),
+          // Blacklist entries are stored in lowercase, so to get any filter
+          // results, the entered text must be converted to lowercase, too.
+          text: $filterText.val().toLowerCase(),
           context: $filterContext.val(),
           match: $filterMatch.val()
         };
         // Immediately cancel processing if search values did not change.
         changed = false;
-        for (var i in search) {
+        for (i in search) {
           if (search[i] != self.lastSearch[i]) {
             changed = true;
             break;
@@ -64,7 +66,7 @@ Drupal.behaviors.mollomBlacklistFilter = {
           }
         }
       };
-      $filterText.keyup(filterRows);
+      $filterText.bind('keyup change', filterRows);
       $filterContext.change(filterRows);
       $filterMatch.change(filterRows);
     });

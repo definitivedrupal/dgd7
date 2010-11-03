@@ -1,5 +1,5 @@
 <?php
-// $Id: mollom.install,v 1.28 2010/09/25 01:05:41 dries Exp $
+// $Id: mollom.install,v 1.33 2010/10/16 18:00:29 sun Exp $
 
 /**
  * @file
@@ -82,15 +82,15 @@ function mollom_schema() {
         'not null' => TRUE,
         'default' => '',
       ),
-      'did' => array(
+      'id' => array(
         'description' => 'Unique entity ID of the content.',
         'type' => 'varchar',
         'length' => 32,
         'not null' => TRUE,
         'default' => '',
       ),
-      'session' => array(
-        'description' => "Session hash returned by Mollom.",
+      'session_id' => array(
+        'description' => 'Session hash returned by Mollom.',
         'type' => 'varchar',
         'length' => 255,
         'not null' => TRUE,
@@ -106,6 +106,13 @@ function mollom_schema() {
       'changed' => array(
         'description' => 'Unix timestamp when the data was changed.',
         'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'moderate' => array(
+        'description' => 'Whether the content needs to be moderated.',
+        'type' => 'int',
+        'size' => 'tiny',
         'not null' => TRUE,
         'default' => 0,
       ),
@@ -139,8 +146,8 @@ function mollom_schema() {
         'default' => '',
       ),
     ),
-    'indexes' => array('session' => array('session')),
-    'primary key' => array('entity', 'did'),
+    'indexes' => array('session_id' => array('session_id')),
+    'primary key' => array('entity', 'id'),
     'foreign keys' => array(
       'mollom_form_id' => array(
         'table' => 'mollom_form',
@@ -173,6 +180,13 @@ function mollom_schema() {
         'type' => 'text',
         'not null' => FALSE,
         'serialize' => TRUE,
+      ),
+      'discard' => array(
+        'description' => 'Whether to discard (1) or retain (0) bad posts.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 1,
       ),
       'enabled_fields' => array(
         'description' => 'Form elements to analyze.',
@@ -668,9 +682,9 @@ function mollom_update_7007() {
     foreach ($result as $row) {
       $ids[$row->type][] = $row->did;
     }
-    foreach ($ids as $type => $cids) {
+    foreach ($ids as $type => $nids) {
       db_update('mollom')
-        ->fields(array('form_id' => "node_{$type}_form"))
+        ->fields(array('form_id' => "{$type}_node_form"))
         ->condition('entity', 'node')
         ->condition('did', $nids)
         ->execute();
@@ -721,5 +735,58 @@ function mollom_update_7007() {
         ->condition('did', $cids)
         ->execute();
     }
+  }
+}
+
+/**
+ * Rename {mollom}.did to .id, and {mollom}.session to .session_id.
+ */
+function mollom_update_7008() {
+  db_drop_primary_key('mollom');
+  if (!db_field_exists('mollom', 'id')) {
+    db_change_field('mollom', 'did', 'id', array(
+      'description' => 'Unique entity ID of the content.',
+      'type' => 'varchar',
+      'length' => 32,
+      'not null' => TRUE,
+      'default' => '',
+    ));
+  }
+  db_add_primary_key('mollom', array('entity', 'id'));
+
+  db_drop_index('mollom', 'session');
+  if (!db_field_exists('mollom', 'session_id')) {
+    db_change_field('mollom', 'session', 'session_id', array(
+      'description' => 'Session hash returned by Mollom.',
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => TRUE,
+      'default' => '',
+    ));
+  }
+  db_add_index('mollom', 'session_id', array('session_id'));
+}
+
+/**
+ * Add {mollom_form}.discard and {mollom}.moderate columns.
+ */
+function mollom_update_7009() {
+  if (!db_field_exists('mollom_form', 'discard')) {
+    db_add_field('mollom_form', 'discard', array(
+      'description' => 'Whether to discard (1) or retain (0) bad posts.',
+      'type' => 'int',
+      'size' => 'tiny',
+      'not null' => TRUE,
+      'default' => 1,
+    ));
+  }
+  if (!db_field_exists('mollom', 'moderate')) {
+    db_add_field('mollom', 'moderate', array(
+      'description' => 'Whether the content needs to be moderated.',
+      'type' => 'int',
+      'size' => 'tiny',
+      'not null' => TRUE,
+      'default' => 0,
+    ));
   }
 }
