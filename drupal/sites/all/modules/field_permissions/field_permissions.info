@@ -8,9 +8,9 @@ files[] = field_permissions.module
 files[] = includes/admin.inc
 files[] = includes/field_access.inc
 
-; Information added by drupal.org packaging script on 2009-11-16
+; Information added by drupal.org packaging script on 2010-07-11
 version = "7.x-1.x-dev"
 core = "7.x"
 project = "field_permissions"
-datestamp = "1258373331"
+datestamp = "1278834241"
 
