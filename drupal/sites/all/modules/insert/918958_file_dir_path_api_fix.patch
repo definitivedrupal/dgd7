@@ -1,0 +1,25 @@
+Index: insert.module
+===================================================================
+RCS file: /cvs/drupal/contributions/modules/insert/insert.module,v
+retrieving revision 1.9
+diff -u -r1.9 insert.module
+--- insert.module	7 Aug 2010 18:46:55 -0000	1.9
++++ insert.module	28 Oct 2010 00:24:31 -0000
+@@ -25,7 +25,7 @@
+   $items = array();
+ 
+   // Public file directory callback.
+-  $public_path = file_directory_path('public') .'/styles/%image_style';
++  $public_path = file_default_scheme() .'/styles/%image_style';
+   $items[$public_path] = array(
+     'page callback' => 'image_style_generate',
+     'page arguments' => array(count(explode('/', $public_path)) - 1, 'public'),
+@@ -206,7 +206,7 @@
+   // Add base settings only once.
+   if (!isset($js_added)) {
+     $js_added = array();
+-    $settings = array('fileDirectoryPath' => file_directory_path());
++    $settings = array('fileDirectoryPath' => file_default_scheme());
+     drupal_add_js(array('insert' => $settings), 'setting');
+     drupal_add_js(drupal_get_path('module', 'insert') . '/insert.js');
+   }
