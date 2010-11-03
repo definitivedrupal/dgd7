@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_filter_group_by_numeric.inc,v 1.1.4.2 2010/01/24 22:37:52 dereine Exp $
+// $Id: views_handler_filter_group_by_numeric.inc,v 1.1.4.4 2010/08/24 16:13:22 dereine Exp $
 
 /**
  * Simple filter to handle greater than/less than filters

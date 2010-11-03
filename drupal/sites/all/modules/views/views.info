@@ -1,10 +1,11 @@
-; $Id: views.info,v 1.7.6.34 2010/05/27 20:27:58 dereine Exp $
+; $Id: views.info,v 1.7.6.43 2010/10/25 22:21:46 dereine Exp $
 name = Views
 description = Create customized lists and queries from your database.
 package = Views
 core = 7.x
 php = 5.2
 files[] = views.module
+dependencies[] = ctools
 ; Handlers
 files[] = handlers/views_handler_area.inc
 files[] = handlers/views_handler_area_text.inc
@@ -40,7 +41,6 @@ files[] = handlers/views_handler_filter_boolean_operator.inc
 files[] = handlers/views_handler_filter_boolean_operator_string.inc
 files[] = handlers/views_handler_filter_date.inc
 files[] = handlers/views_handler_filter_equality.inc
-files[] = handlers/views_handler_filter_float.inc
 files[] = handlers/views_handler_filter_in_operator.inc
 files[] = handlers/views_handler_filter_in_operator.test
 files[] = handlers/views_handler_filter_many_to_one.inc
@@ -94,6 +94,7 @@ files[] = modules/comment/views_handler_field_ncs_last_comment_name.inc
 files[] = modules/comment/views_handler_field_ncs_last_updated.inc
 files[] = modules/comment/views_handler_field_node_comment.inc
 files[] = modules/comment/views_handler_field_node_new_comments.inc
+files[] = modules/comment/views_handler_field_last_comment_timestamp.inc
 files[] = modules/comment/views_handler_filter_comment_user_uid.inc
 files[] = modules/comment/views_handler_filter_ncs_last_updated.inc
 files[] = modules/comment/views_handler_filter_node_comment.inc
@@ -106,6 +107,7 @@ files[] = modules/contact/views_handler_field_contact_link.inc
 files[] = modules/contact.views.inc
 files[] = modules/field.views.inc
 files[] = modules/field/views_handler_field_field.inc
+files[] = modules/field/views_handler_filter_field_list.inc
 files[] = modules/filter/views_handler_field_filter_format_name.inc
 files[] = modules/filter.views.inc
 files[] = modules/locale.views.inc
@@ -161,6 +163,9 @@ files[] = modules/statistics/views_handler_field_accesslog_path.inc
 files[] = modules/system.views.inc
 files[] = modules/system/views_handler_argument_file_fid.inc
 files[] = modules/system/views_handler_field_file.inc
+files[] = modules/system/views_handler_field_file_extension.inc
+files[] = modules/system/views_handler_field_file_filemime.inc
+files[] = modules/system/views_handler_field_file_uri.inc
 files[] = modules/system/views_handler_field_file_status.inc
 files[] = modules/system/views_handler_filter_file_status.inc
 files[] = modules/taxonomy.views.inc
@@ -177,6 +182,7 @@ files[] = modules/taxonomy/views_handler_field_term_link_edit.inc
 files[] = modules/taxonomy/views_handler_filter_term_node_tid.inc
 files[] = modules/taxonomy/views_handler_filter_term_node_tid_depth.inc
 files[] = modules/taxonomy/views_handler_filter_vocabulary_vid.inc
+files[] = modules/taxonomy/views_handler_filter_vocabulary_machine_name.inc
 files[] = modules/taxonomy/views_handler_relationship_node_term_data.inc
 files[] = modules/taxonomy/views_plugin_argument_validate_taxonomy_term.inc
 files[] = modules/taxonomy/views_plugin_argument_default_taxonomy_tid.inc
@@ -279,6 +285,7 @@ files[] = theme/views-view-table.tpl.php
 files[] = theme/views-view-unformatted.tpl.php
 files[] = theme/views-view.tpl.php
 ; Tests
+files[] = tests/handlers/views_handler_filter_date.test
 files[] = tests/views_access.test
 files[] = tests/views_basic.test
 files[] = tests/views_argument_default.test
@@ -290,10 +297,11 @@ files[] = tests/views_handlers.test
 files[] = tests/views_pager.test
 files[] = tests/views_query.test
 files[] = tests/views_test.views_default.inc
+files[] = tests/user/views_user_argument_default.test
 
-; Information added by drupal.org packaging script on 2010-07-15
+; Information added by drupal.org packaging script on 2010-10-29
 version = "7.x-3.x-dev"
 core = "7.x"
 project = "views"
-datestamp = "1279196333"
+datestamp = "1288311980"
 

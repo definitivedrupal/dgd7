@@ -1,5 +1,5 @@
 <?php
-// $Id: upload.views.inc,v 1.16.4.4 2010/05/15 07:36:18 dereine Exp $
+// $Id: upload.views.inc,v 1.16.4.5 2010/07/19 09:18:42 dereine Exp $
 /**
  * @file
  *
@@ -134,18 +134,6 @@ function upload_views_data_alter(&$data) {
       'handler' => 'views_handler_relationship',
       'label' => t('Files'),
     ),
-  );
-}
-
-/**
- * Implements hook_views_handlers() to register all of the basic handlers
- * views uses.
- */
-function upload_views_handlers() {
-  return array(
-     'views_handler_field_upload_fid',
-     'views_handler_field_upload_description',
-     'views_handler_filter_upload_fid',
   );
 }
 

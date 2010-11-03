@@ -1,11 +1,11 @@
 <?php
-// $Id: views_handler_filter_node_access.inc,v 1.2.4.1 2009/11/02 22:01:26 merlinofchaos Exp $
+// $Id: views_handler_filter_node_access.inc,v 1.2.4.2 2010/08/26 09:41:55 dereine Exp $
 /**
  * Filter by node_access records.
  */
 class views_handler_filter_node_access extends views_handler_filter {
   function admin_summary() { }
-  function operator_form() { }
+  function operator_form(&$form, &$form_state) { }
   function can_expose() {
     return FALSE;
   }

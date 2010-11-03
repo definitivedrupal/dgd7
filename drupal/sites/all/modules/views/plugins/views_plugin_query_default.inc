@@ -1,5 +1,5 @@
 <?php
-// $Id: views_plugin_query_default.inc,v 1.1.4.19 2010/05/14 17:07:10 dereine Exp $
+// $Id: views_plugin_query_default.inc,v 1.1.4.29 2010/10/18 15:48:33 dereine Exp $
 /**
  * @file views_plugin_query_default.inc
  * Defines the default query object which builds SQL to execute using the
@@ -78,7 +78,8 @@ class views_plugin_query_default extends views_plugin_query {
   /**
    * Constructor; Create the basic query object and fill with default values.
    */
-  function init($base_table = 'node', $base_field = 'nid') {
+  function init($base_table = 'node', $base_field = 'nid', $options) {
+    parent::init($base_table, $base_field, $options);
     $this->base_table = $base_table;  // Predefine these above, for clarity.
     $this->base_field = $base_field;
     $this->relationships[$base_table] = array(
@@ -154,6 +155,40 @@ class views_plugin_query_default extends views_plugin_query {
    */
   function set_header($header) {
     $this->header = $header;
+  }
+
+  function option_definition() {
+    $options = parent::option_definition();
+    $options['disable_sql_rewrite'] = array(
+      'default' => FALSE,
+      'translatable' => FALSE,
+      'bool' => TRUE,
+    );
+    $options['distinct'] = array(
+      'default' => FALSE,
+      'bool' => TRUE,
+    );
+
+    return $options;
+  }
+
+  /**
+   * Add settings for the ui.
+   */
+  function options_form(&$form, &$form_state) {
+    $form['disable_sql_rewrite'] = array(
+      '#title' => t('Disable SQL rewriting'),
+      '#description' => t('Disabling SQL rewriting will disable node_access checks as well as other modules that implement hook_db_rewrite_sql().'),
+      '#type' => 'checkbox',
+      '#default_value' => !empty($this->options['disable_sql_rewrite']),
+      '#prefix' =>  '<div class="messages warning">' . t('WARNING: Disabling SQL rewriting means that node access security is disabled. This may allow users to see data they should not be able to see if your view is misconfigured. Please use this option only if you understand and accept this security risk.') . '</div>',
+    );
+    $form['distinct'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Distinct'),
+      '#description' => t('This will make the view display only distinct items. If there are multiple identical items, each will be displayed only once. You can use this to try and remove duplicates from a view, though it does not always work. Note that this can slow queries down, so use it with caution.'),
+      '#default_value' => !empty($this->options['distinct']),
+    );
   }
 
   // ----------------------------------------------------------------
@@ -450,7 +485,7 @@ class views_plugin_query_default extends views_plugin_query {
       // add_table() which requires the ability to intentionally add
       // the same table with the same join multiple times.  For
       // example, a view that filters on 3 taxonomy terms using AND
-      // needs to join term_data 3 times with the same join.
+      // needs to join taxonomy_term_data 3 times with the same join.
 
       // scan through the table queue to see if a matching join and
       // relationship exists.  If so, use it instead of this join.
@@ -876,7 +911,12 @@ class views_plugin_query_default extends views_plugin_query {
     foreach ($this->$where as $group => $info) {
       $sub_group = $info['type'] == 'OR' ? db_or() : db_and();
       foreach ($info['conditions'] as $key => $clause) {
-        $sub_group->condition($clause['field'], $clause['value'], $clause['operator']);
+        if ($clause['operator'] == 'formula') {
+          $sub_group->where($clause['field'], $clause['value']);
+        }
+        else {
+          $sub_group->condition($clause['field'], $clause['value'], $clause['operator']);
+        }
       }
       $main_group->condition($sub_group);
     }
@@ -911,14 +951,16 @@ class views_plugin_query_default extends views_plugin_query {
         $info = $this->get_aggregation_info();
         if (!empty($info[$field['function']]['method']) && function_exists($info[$field['function']]['method'])) {
           $string = $info[$field['function']]['method']($field['function'], $string);
-          $query->addExpression($string, $fieldname);
+          $placeholders = !empty($field['placeholders']) ? $field['placeholders'] : array();
+          $query->addExpression($string, $fieldname, $placeholders);
         }
 
         $this->has_aggregate = TRUE;
       }
       // This is a formula, using no tables.
       elseif (empty($field['table'])) {
-        $query->addExpression($string, $fieldname);
+        $placeholders = !empty($field['placeholders']) ? $field['placeholders'] : array();
+        $query->addExpression($string, $fieldname, $placeholders);
       }
 
       elseif ($this->distinct && !in_array($fieldname, $this->groupby)) {
@@ -984,7 +1026,7 @@ class views_plugin_query_default extends views_plugin_query {
     }
 
     // Go ahead and build the query.
-    $query = db_select($this->base_table, $this->base_table);
+    $query = db_select($this->base_table, $this->base_table)->addTag('views');
 
     $joins = $where = $having = $orderby = $groupby = '';
     $fields = $distinct = array();
@@ -1027,6 +1069,9 @@ class views_plugin_query_default extends views_plugin_query {
       $query->condition($this->build_condition('where'));
     }
 
+    // Add all query substitutions as metadata.
+    $query->addMetaData('views_substitutions', module_invoke_all('views_query_substitutions', $this));
+
     return $query;
   }
 
@@ -1058,7 +1103,12 @@ class views_plugin_query_default extends views_plugin_query {
    * Builds the necessary info to execute the query.
    */
   function build(&$view) {
-    $view->init_pager($view);
+    // Make the query distinct if the option was set.
+    if (!empty($this->options['distinct'])) {
+      // $this->set_distinct();
+    }
+
+    $view->init_pager();
 
     // Let the pager modify the query to add limits.
     $this->pager->query();
@@ -1079,12 +1129,23 @@ class views_plugin_query_default extends views_plugin_query {
     $query = $view->build_info['query'];
     $count_query = $view->build_info['count_query'];
 
+    $query->addMetaData('view', $view);
+    $count_query->addMetaData('view', $view);
+
+    if (empty($this->options['disable_sql_rewrite'])) {
+      $base_table_data = views_fetch_data($this->base_table);
+      if (isset($base_table_data['table']['base']['access query tag'])) {
+        $access_tag = $base_table_data['table']['base']['access query tag'];
+        $query->addTag($access_tag);
+        $count_query->addTag($access_tag);
+      }
+    }
+
     $items = array();
     if ($query) {
       $additional_arguments = module_invoke_all('views_query_substitutions', $view);
       // Build the count query. db_select::countQuery does not work with groupby.
-      $count_query = db_select($count_query);
-      $count_query->addExpression('COUNT(*)');
+      $count_query = $count_query->countQuery();
       //  $count_query->distinct = FALSE;
 
       // Add additional arguments as a fake condition.

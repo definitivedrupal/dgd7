@@ -1,5 +1,5 @@
 <?php
-// $Id: views_plugin_display_block.inc,v 1.5.4.2 2010/04/29 22:37:56 dereine Exp $
+// $Id: views_plugin_display_block.inc,v 1.5.4.3 2010/08/04 05:54:08 dereine Exp $
 /**
  * @file
  * Contains the block display plugin.
@@ -133,7 +133,7 @@ class views_plugin_display_block extends views_plugin_display {
         $form['#title'] .= t('Block admin description');
         $form['block_description'] = array(
           '#type' => 'textfield',
-          '#description' => t('This will appear as the name of this block in administer >> site building >> blocks.'),
+          '#description' => t('This will appear as the name of this block in administer >> structure >> blocks.'),
           '#default_value' => $this->get_option('block_description'),
         );
         break;

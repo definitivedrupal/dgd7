@@ -1,5 +1,5 @@
 <?php
-// $Id: base.inc,v 1.3.4.3 2010/01/29 00:14:42 dereine Exp $
+// $Id: base.inc,v 1.3.4.5 2010/08/26 09:41:55 dereine Exp $
 /**
  * @file
  *
@@ -43,7 +43,7 @@ class views_object {
    * Set default options on this object. Called by the constructor in a
    * complex chain to deal with backward compatibility.
    */
-  function options() { }
+  function options(&$options) { }
 
   /**
    * Set default options.
@@ -76,8 +76,8 @@ class views_object {
    * Unpack options over our existing defaults, drilling down into arrays
    * so that defaults don't get totally blown away.
    */
-  function unpack_options(&$storage, $options, $definition = NULL, $all = TRUE) {
-    if (!is_array($options)) {
+  function unpack_options(&$storage, $options, $definition = NULL, $all = TRUE, $check = TRUE) {
+    if ($check && !is_array($options)) {
       return;
     }
 
@@ -103,7 +103,7 @@ class views_object {
           continue;
         }
 
-        $this->unpack_options($storage[$key], $value, isset($definition[$key]['contains']) ? $definition[$key]['contains'] : array(), $all);
+        $this->unpack_options($storage[$key], $value, isset($definition[$key]['contains']) ? $definition[$key]['contains'] : array(), $all, FALSE);
       }
       elseif (!empty($definition[$key]['translatable']) && !empty($value)) {
         $storage[$key] = t($value);

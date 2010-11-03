@@ -1,5 +1,5 @@
 <?php
-// $Id: views_plugin_pager_full.inc,v 1.1.4.7 2010/03/22 20:25:10 merlinofchaos Exp $
+// $Id: views_plugin_pager_full.inc,v 1.1.4.10 2010/10/17 10:42:44 dereine Exp $
 
 /**
  * The plugin to handle full pager.
@@ -88,9 +88,10 @@ class views_plugin_pager_full extends views_plugin_pager {
       '#required' => TRUE,
       '#description' => t('Label to use in the exposed items per page form element.'),
       '#default_value' => $this->options['expose']['items_per_page_label'],
-      '#process' => array('views_process_dependency'),
-      '#dependency' => array(
-        'edit-pager-options-expose-items-per-page' => array(1)
+      '#states' => array(
+        'invisible' => array(
+          'input[name="pager_options[expose][items_per_page]"]' => array('checked' => FALSE),
+        ),
       ),
     );
 
@@ -100,9 +101,10 @@ class views_plugin_pager_full extends views_plugin_pager {
       '#required' => TRUE,
       '#description' => t('Set between which values the user can choose when determining the items per page. Separated by comma.'),
       '#default_value' => $this->options['expose']['items_per_page_options'],
-      '#process' => array('views_process_dependency'),
-      '#dependency' => array(
-        'edit-pager-options-expose-items-per-page' => array(1)
+      '#states' => array(
+        'invisible' => array(
+          'input[name="pager_options[expose][items_per_page]"]' => array('checked' => FALSE),
+        ),
       ),
     );
 
@@ -119,9 +121,10 @@ class views_plugin_pager_full extends views_plugin_pager {
       '#required' => TRUE,
       '#description' => t('Label to use in the exposed offset form element.'),
       '#default_value' => $this->options['expose']['offset_label'],
-      '#process' => array('views_process_dependency'),
-      '#dependency' => array(
-        'edit-pager-options-expose-offset' => array(1)
+      '#states' => array(
+        'invisible' => array(
+          'input[name="pager_options[expose][offset]"]' => array('checked' => FALSE),
+        ),
       ),
     );
   }
@@ -198,11 +201,20 @@ class views_plugin_pager_full extends views_plugin_pager {
     // based upon
     global $pager_page_array;
     // Extract the ['page'] info.
-    $pager_page_array = isset($_GET['page']) ? explode(',', $_GET['page']) : array();
+    $pager_page_array = isset($_GET['page']) ? explode(',', $_GET['page']) : array(0);
 
     $this->current_page = 0;
     if (!empty($pager_page_array[$this->options['id']])) {
       $this->current_page = intval($pager_page_array[$this->options['id']]);
+    }
+  }
+  
+  function get_pager_total() {
+    if ($items_per_page = intval($this->get_items_per_page())) {
+      return ceil($this->total_items / $items_per_page);
+    }
+    else {
+      return 1;
     }
   }
 
@@ -228,7 +240,7 @@ class views_plugin_pager_full extends views_plugin_pager {
       // Set the item count for the pager.
       $pager_total_items[$this->options['id']] = $this->total_items;
       // Calculate and set the count of available pages.
-      $pager_total[$this->options['id']] = ceil($pager_total_items[$this->options['id']] / $this->get_items_per_page());
+      $pager_total[$this->options['id']] = $this->get_pager_total();
 
       // See if the requested page was within range:
       if ($this->current_page < 0) {

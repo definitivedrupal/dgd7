@@ -1,5 +1,5 @@
 <?php
-// $Id: views_plugin_exposed_form.inc,v 1.2.2.9 2010/06/03 07:47:06 dereine Exp $
+// $Id: views_plugin_exposed_form.inc,v 1.2.2.14 2010/10/17 10:42:44 dereine Exp $
 
 /**
  * The base plugin to handle exposed filter forms.
@@ -62,10 +62,11 @@ class views_plugin_exposed_form extends views_plugin {
       '#description' => t('Text to display in the reset button of the exposed form.'),
       '#default_value' => $this->options['reset_button_label'],
       '#required' => TRUE,
-      '#dependency' => array(
-        'edit-exposed-form-options-reset-button' => array(1)
+      '#states' => array(
+        'invisible' => array(
+          'input[name="exposed_form_options[reset_button]"]' => array('checked' => FALSE),
+        ),
       ),
-      '#process' => array('views_process_dependency'),
     );
 
     $form['exposed_sorts_label'] = array(
@@ -127,18 +128,23 @@ class views_plugin_exposed_form extends views_plugin {
       $this->view->js_settings = $form_state['js settings'];
     }
 
-    return $output;
+    if (!$this->view->display_handler->displays_exposed() || (!$block && $this->view->display_handler->get_option('exposed_block'))) {
+      return "";
+    }
+    else {
+      return $output;
+    }
   }
 
   function query() {
     $view = $this->view;
-    $exposed_data = $view->exposed_data;
+    $exposed_data = isset($view->exposed_data) ? $view->exposed_data : array();
     $sort_by = isset($exposed_data['sort_by']) ? $exposed_data['sort_by'] : NULL;
     if (!empty($sort_by)) {
       $handler = $view->sort[$sort_by];
       if (isset($handler)) {
         $view->query->orderby = array();
-        if (isset($exposed_data['sort_order']) && in_array($exposed_data['sort_order'], array('asc', 'desc'))) {
+        if (isset($exposed_data['sort_order']) && in_array($exposed_data['sort_order'], array('ASC', 'DESC'))) {
           $handler->options['order'] = $exposed_data['sort_order'];
         }
         $handler->query();
@@ -183,13 +189,15 @@ class views_plugin_exposed_form extends views_plugin {
         '#title' => t($this->options['exposed_sorts_label']),
       );
       $sort_order = array(
-        'asc' => t($this->options['sort_asc_label']),
-        'desc' => t($this->options['sort_desc_label']),
+        'ASC' => t($this->options['sort_asc_label']),
+        'DESC' => t($this->options['sort_desc_label']),
       );
+      $first_sort = reset($this->view->sort);
       $form['sort_order'] = array(
         '#type' => 'select',
         '#options' => $sort_order,
         '#title' => t('Order'),
+        '#default_value' => $first_sort->options['order'],
       );
       $form['submit']['#weight'] = 10;
       if (isset($form['reset'])) {
@@ -222,7 +230,7 @@ class views_plugin_exposed_form extends views_plugin {
   *   $view->exposed_raw_input
   */
   function exposed_form_submit(&$form, &$form_state, &$exclude) {
-    if (isset($form_state['values']['op']) && $form_state['values']['op'] == t('Reset')) {
+    if (!empty($form_state['values']['op']) && $form_state['values']['op'] == t($this->options['reset_button_label'])) {
       $this->reset_form($form, $form_state);
     }
     if (isset($form_state['pager_plugin'])) {

@@ -1,5 +1,5 @@
 <?php
-// $Id: translation.views.inc,v 1.8.6.3 2010/05/11 21:41:18 dereine Exp $
+// $Id: translation.views.inc,v 1.8.6.4 2010/07/19 09:18:42 dereine Exp $
 
 /**
  * @file
@@ -141,30 +141,6 @@ function translation_views_data_alter(&$data) {
   );
 
 
-}
-
-/**
- * Implements hook_views_handlers() to register all of the basic handlers
- * views uses.
- */
-function translation_views_handlers() {
-  return array(
-    // field handlers
-    'views_handler_field_node_language',
-    'views_handler_field_node_link_translate',
-
-    // argument handlers
-    'views_handler_argument_node_language',
-    'views_handler_argument_node_tnid',
-
-    // filters
-    'views_handler_filter_node_language',
-    'views_handler_filter_node_tnid',
-
-    // relationships
-    'views_handler_relationship_translation',
-    'views_handler_filter_node_tnid_child',
-  );
 }
 
 /**

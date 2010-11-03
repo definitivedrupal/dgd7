@@ -1,11 +1,11 @@
 <?php
-// $Id: views_handler_field_node_new_comments.inc,v 1.7.4.2 2009/11/09 22:46:05 dereine Exp $
+// $Id: views_handler_field_node_new_comments.inc,v 1.7.4.3 2010/08/26 09:41:55 dereine Exp $
 
 /**
  * Field handler to display the number of new comments
  */
 class views_handler_field_node_new_comments extends views_handler_field_numeric {
-  function init(&$view, $options) {
+  function init(&$view, &$options) {
     parent::init($view, $options);
 
     // translate an older setting:

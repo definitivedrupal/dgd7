@@ -1,5 +1,5 @@
 <?php
-// $Id: statistics.views.inc,v 1.9.6.2 2009/11/09 22:49:56 dereine Exp $
+// $Id: statistics.views.inc,v 1.9.6.3 2010/07/19 09:18:42 dereine Exp $
 /**
  * @file
  * Provide views data and handlers for statistics.module
@@ -244,14 +244,6 @@ function statistics_views_data() {
 
 
   return $data;
-}
-
-/**
- * Implements hook_views_handlers() to register all of the basic handlers
- * views uses.
- */
-function statistics_views_handlers() {
-  return array('views_handler_field_accesslog_path');
 }
 
 /**

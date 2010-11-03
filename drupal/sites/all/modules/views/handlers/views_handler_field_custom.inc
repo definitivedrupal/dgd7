@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_field_custom.inc,v 1.1 2009/01/30 00:01:41 merlinofchaos Exp $
+// $Id: views_handler_field_custom.inc,v 1.1.6.1 2010/10/17 10:42:43 dereine Exp $
 
 /**
  * A handler to provide a field that is completely custom by the administrator.
@@ -24,7 +24,7 @@ class views_handler_field_custom extends views_handler_field {
 
     // Remove the checkbox
     unset($form['alter']['alter_text']);
-    unset($form['alter']['text']['#dependency']);
+    unset($form['alter']['text']['#states']);
     unset($form['alter']['text']['#process']);
   }
 

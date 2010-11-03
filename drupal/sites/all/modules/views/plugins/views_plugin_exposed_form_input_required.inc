@@ -1,5 +1,5 @@
 <?php
-// $Id: views_plugin_exposed_form_input_required.inc,v 1.2.2.5 2010/06/03 07:47:06 dereine Exp $
+// $Id: views_plugin_exposed_form_input_required.inc,v 1.2.2.7 2010/08/13 22:56:15 merlinofchaos Exp $
 
 /**
  * Exposed form plugin that provides basic exposed form
@@ -22,18 +22,16 @@ class views_plugin_exposed_form_input_required extends views_plugin_exposed_form
     parent::options_form($form, $form_state);
 
     $form['text_input_required'] = array(
-      '#type' => 'textarea',
+      '#type' => 'text_format',
       '#title' => t('Text on demand'),
-      '#description' => t('Text to display instead results until user select and apply an expose filter.'),
+      '#description' => t('Text to display instead of results until the user selects and applies an exposed filter.'),
       '#default_value' => $this->options['text_input_required'],
+      '#format' => $this->options['text_input_required_format'],
     );
-
-    $form['text_input_required_format'] = filter_form($this->options['text_input_required_format'], NULL, array('text_input_required_format'));
   }
 
   function options_submit(&$form, &$form_state) {
-    $form_state['values']['exposed_form_options']['text_input_required_format'] = $form_state['values']['text_input_required_format'];
-
+    $form_state['values']['exposed_form_options']['text_input_required_format'] = $form_state['values']['options']['text_input_required']['format'];
     parent::options_submit($form, $form_state);
   }
 

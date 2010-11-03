@@ -1,10 +1,10 @@
 <?php
-// $Id: views_handler_sort_group_by_numeric.inc,v 1.1.4.2 2010/01/24 22:37:52 dereine Exp $
+// $Id: views_handler_sort_group_by_numeric.inc,v 1.1.4.3 2010/08/26 09:41:55 dereine Exp $
 /**
  * Handler for GROUP BY on simple numeric fields.
  */
 class views_handler_sort_group_by_numeric extends views_handler_sort {
-  function init(&$view, $options) {
+  function init(&$view, &$options) {
     parent::init($view, $options);
 
     // Initialize the original handler.

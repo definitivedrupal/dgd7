@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_argument_term_node_tid_depth.inc,v 1.3.4.2 2010/03/16 23:38:16 merlinofchaos Exp $
+// $Id: views_handler_argument_term_node_tid_depth.inc,v 1.3.4.5 2010/10/17 10:42:44 dereine Exp $
 /**
  * Argument handler for taxonomy terms with depth.
  *
@@ -46,8 +46,11 @@ class views_handler_argument_term_node_tid_depth extends views_handler_argument 
       '#title' => t("Use Drupal's taxonomy term path to create breadcrumb links"),
       '#description' => t('If selected, the links in the breadcrumb trail will be created using the standard drupal method instead of the custom views method. This is useful if you are using modules like taxonomy redirect to modify your taxonomy term links.'),
       '#default_value' => !empty($this->options['use_taxonomy_term_path']),
-      '#process' => array('views_process_dependency'),
-      '#dependency' => array('edit-options-set-breadcrumb' => array(TRUE)),
+      '#states' => array(
+        'invisible' => array(
+          'input[name="options[set_breadcrumb]"]' => array('checked' => FALSE),
+        ),
+      ),
     );
   }
 
@@ -87,36 +90,36 @@ class views_handler_argument_term_node_tid_depth extends views_handler_argument 
       }
 
       if (count($tids->value) > 1) {
-        $operator = 'IN';# = " IN (" . implode(', ', array_fill(0, sizeof($tids->value), '%d')) . ")";
+        $operator = 'IN';
       }
       else {
-        $operator = '=';#$placeholder = " = %d";
+        $operator = '=';
       }
 
       $tids = $tids->value;
     }
     else {
-      $placeholder = "= %d";
+      $operator = "=";
       $tids = array($this->argument);
     }
     // Now build the subqueries.
-    $subquery = db_select('term_node', 'tn');
-    $subquery->addField('tn', 'vid');
-    $where = db_or()->condition('tn.tid', $this->value, $operator);
+    $subquery = db_select('taxonomy_index', 'tn');
+    $subquery->addField('tn', 'nid');
+    $where = db_or()->condition('tn.tid', $tids, $operator);
     $last = "tn";
 
     if ($this->options['depth'] > 0) {
-      $subquery->leftJoin('term_hierarchy', 'th', "th.tid = tn.tid");
+      $subquery->leftJoin('taxonomy_term_hierarchy', 'th', "th.tid = tn.tid");
       $last = "th";
       foreach (range(1, abs($this->options['depth'])) as $count) {
-        $subquery->leftJoin('term_hierarchy', "th$count", "$last.parent = th$count.tid");
+        $subquery->leftJoin('taxonomy_term_hierarchy', "th$count", "$last.parent = th$count.tid");
         $where->condition("th$count.tid", $tids, $operator);
         $last = "th$count";
       }
     }
     elseif ($this->options['depth'] < 0) {
       foreach (range(1, abs($this->options['depth'])) as $count) {
-        $subquery->leftJoin('term_hierarchy', "th$count", "$last.tid = th$count.parent");
+        $subquery->leftJoin('taxonomy_term_hierarchy', "th$count", "$last.tid = th$count.parent");
         $where->condition("th$count.tid", $tids, $operator);
         $last = "th$count";
       }

@@ -1,12 +1,12 @@
 <?php
-// $Id: views_handler_field_history_user_timestamp.inc,v 1.1.6.2 2010/02/06 16:29:52 dereine Exp $
+// $Id: views_handler_field_history_user_timestamp.inc,v 1.1.6.3 2010/08/26 09:41:55 dereine Exp $
 /**
  * Field handler to display the marker for new content.
  *
  * The handler is named history_user, because of compability reasons, the table is history.
  */
 class views_handler_field_history_user_timestamp extends views_handler_field_node {
-  function init(&$view, $options) {
+  function init(&$view, &$options) {
     parent::init($view, $options);
     global $user;
     if ($user->uid) {

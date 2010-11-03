@@ -1,5 +1,5 @@
 <?php
-// $Id: filter.views.inc,v 1.1.6.1 2009/11/02 22:01:26 merlinofchaos Exp $
+// $Id: filter.views.inc,v 1.1.6.2 2010/07/19 09:18:42 dereine Exp $
 /**
  * @file
  * Provide basic views data for filter.module.
@@ -34,20 +34,6 @@ function filter_views_data() {
   );
 
   return $data;
-}
-
-function filter_views_handlers() {
-  return array(
-    'info' => array(
-      'path' => drupal_get_path('module', 'views') . '/modules/filter',
-    ),
-    'handlers' => array(
-      // field handlers
-      'views_handler_field_filter_format_name' => array(
-        'parent' => 'views_handler_field',
-      ),
-    ),
-  );
 }
 
 /**

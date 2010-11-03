@@ -1,10 +1,23 @@
 <?php
-// $Id: views_handler_filter_term_node_tid.inc,v 1.8.6.2 2010/01/29 00:14:42 dereine Exp $
+// $Id: views_handler_filter_term_node_tid.inc,v 1.8.6.9 2010/10/17 10:42:44 dereine Exp $
 
 /**
  * Filter by term id
  */
 class views_handler_filter_term_node_tid extends views_handler_filter_many_to_one {
+  function init(&$view, &$options) {
+    parent::init($view, $options);
+
+    // Convert legacy vid option to machine name vocabulary.
+    if (!empty($this->options['vid'])) {
+      $vocabularies = taxonomy_get_vocabularies();
+      $vid = $this->options['vid'];
+      if (isset($vocabularies[$vid], $vocabularies[$vid]->machine_name)) {
+        $this->options['vocabulary'] = $vocabularies[$vid]->machine_name;
+      }
+    }
+  }
+
   function has_extra_options() { return TRUE; }
 
   function get_value_options() { /* don't overwrite the value options */ }
@@ -14,8 +27,9 @@ class views_handler_filter_term_node_tid extends views_handler_filter_many_to_on
 
     $options['type'] = array('default' => 'textfield');
     $options['limit'] = array('default' => TRUE);
-    $options['vid'] = array('default' => 0);
+    $options['vocabulary'] = array('default' => 0);
     $options['hierarchy'] = array('default' => 0);
+    $options['error_message'] = array('default' => TRUE);
 
     return $options;
   }
@@ -23,24 +37,24 @@ class views_handler_filter_term_node_tid extends views_handler_filter_many_to_on
   function extra_options_form(&$form, &$form_state) {
     $vocabularies = taxonomy_get_vocabularies();
     foreach ($vocabularies as $voc) {
-      $options[$voc->vid] = check_plain($voc->name);
+      $options[$voc->machine_name] = check_plain($voc->name);
     }
 
     if ($this->options['limit']) {
-      // We only do this when the form is displayed so this query doesn't run
-      // unnecessarily just when the object is constructed.
+      // We only do this when the form is displayed.
       if ($this->options['vid'] == 0) {
-        $this->options['vid'] = db_query('SELECT MIN(vid) FROM {taxonomy_vocabulary} v')->fetchField();
+        $first_vocabulary = reset($vocabularies);
+        $this->options['vid'] = $first_vocabulary->vid;
       }
 
-      $form['vid'] = array(
+      $form['vocabulary'] = array(
         '#prefix' => '<div class="views-left-40">',
         '#suffix' => '</div>',
         '#type' => 'radios',
         '#title' => t('Vocabulary'),
         '#options' => $options,
         '#description' => t('Select which vocabulary to show terms for in the regular options.'),
-        '#default_value' => $this->options['vid'],
+        '#default_value' => $this->options['vocabulary'],
       );
     }
 
@@ -59,8 +73,11 @@ class views_handler_filter_term_node_tid extends views_handler_filter_many_to_on
       '#type' => 'checkbox',
       '#title' => t('Show hierarchy in dropdown'),
       '#default_value' => !empty($this->options['hierarchy']),
-      '#process' => array('views_process_dependency'),
-      '#dependency' => array('radio:options[type]' => array('select')),
+      '#states' => array(
+          'visible' => array(
+            'input[name="options[type]' => array('value' => 'select'),
+          ),
+        ),
     );
 
     $form['markup_end'] = array(
@@ -69,7 +86,7 @@ class views_handler_filter_term_node_tid extends views_handler_filter_many_to_on
   }
 
   function value_form(&$form, &$form_state) {
-    $vocabulary = taxonomy_vocabulary_load($this->options['vid']);
+    $vocabulary = taxonomy_vocabulary_machine_name_load($this->options['vocabulary']);
     if (empty($vocabulary) && $this->options['limit']) {
       $form['markup'] = array(
         '#markup' => '<div class="form-item">' . t('An invalid vocabulary is selected. Please change it in the options.') . '</div>',
@@ -80,8 +97,10 @@ class views_handler_filter_term_node_tid extends views_handler_filter_many_to_on
     if ($this->options['type'] == 'textfield') {
       $default = '';
       if ($this->value) {
-        $result = db_query("SELECT * FROM {taxonomy_term_data} td WHERE td.tid IN (:tids)", array(
-          ':tids' => $this->value));
+        $result = db_select('taxonomy_term_data', 'td')
+          ->fields('td')
+          ->condition('td.tid', $this->value)
+          ->execute();
         foreach ($result as $term) {
           if ($default) {
             $default .= ', ';
@@ -97,7 +116,7 @@ class views_handler_filter_term_node_tid extends views_handler_filter_many_to_on
       );
 
       if ($this->options['limit']) {
-        $form['value']['#autocomplete_path'] = 'taxonomy/autocomplete/' . $vocabulary->vid;
+        $form['value']['#autocomplete_path'] = 'admin/views/ajax/autocomplete/taxonomy/' . $vocabulary->vid;
       }
     }
     else {
@@ -115,12 +134,18 @@ class views_handler_filter_term_node_tid extends views_handler_filter_many_to_on
       }
       else {
         $options = array();
+        $query = db_select('taxonomy_term_data', 'td');
+        $query->innerJoin('taxonomy_vocabulary', 'tv', 'td.vid = tv.vid');
+        $query->fields('td');
+        $query->orderby('tv.weight');
+        $query->orderby('tv.name');
+        $query->orderby('td.weight');
+        $query->orderby('td.name');
+        $query->addTag('term_access');
         if ($this->options['limit']) {
-          $result = db_query("SELECT * FROM {taxonomy_term_data} WHERE vid = :vid ORDER BY weight, name", array(':vid' => $vocabulary->vid));
+          $query->condition('tv.machine_name', $vocabulary->machine_name);
         }
-        else {
-          $result = db_query("SELECT td.* FROM {taxonomy_term_data} td INNER JOIN {taxonomy_vocabulary} v ON td.vid = v.vid ORDER BY v.weight, v.name, td.weight, td.name");
-        }
+        $result = $query->execute();
         foreach ($result as $term) {
           $options[$term->tid] = $term->name;
         }
@@ -174,7 +199,7 @@ class views_handler_filter_term_node_tid extends views_handler_filter_many_to_on
     }
   }
 
-  function value_validate(&$form, &$form_state) {
+  function value_validate($form, &$form_state) {
     // We only validate if they've chosen the text field style.
     if ($this->options['type'] != 'textfield') {
       return;
@@ -259,19 +284,23 @@ class views_handler_filter_term_node_tid extends views_handler_filter_many_to_on
       return;
     }
 
-    //$result = db_query("SELECT * FROM {taxonomy_term_data} WHERE name IN (" . implode(', ', $placeholders) . ") AND vid = %d", $args);
-    $result = db_query("SELECT * FROM {taxonomy_term_data} WHERE name IN (:name) AND vid = :vid",
-      array(
-        ':vid' => $this->options['vid'],
-        ':name' => $names
-      ));
+    $query = db_select('taxonomy_term_data', 'td');
+    $query->addJoin('taxonomy_vocabulary', 'tv', 'td.vid = tv.vid');
+    $query->fields('td');
+    $query->condition('td.name', $names);
+    $query->condition('tv.machine_name', $this->options['vocabulary']);
+    $query->addTag('term_access');
+    $result = $query->execute();
     foreach ($result as $term) {
       unset($missing[strtolower($term->name)]);
       $tids[] = $term->tid;
     }
 
-    if ($missing) {
+    if ($missing && !empty($this->options['error_message'])) {
       form_error($form, format_plural(count($missing), 'Unable to find term: @terms', 'Unable to find terms: @terms', array('@terms' => implode(', ', array_keys($missing)))));
+    }
+    elseif ($missing && empty($this->options['error_message'])) {
+      $tids = array(0);
     }
 
     return $tids;
@@ -286,6 +315,11 @@ class views_handler_filter_term_node_tid extends views_handler_filter_many_to_on
     if ($this->options['type'] != 'select') {
       unset($form['expose']['reduce']);
     }
+    $form['error_message'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Display error message'),
+      '#default_value' => !empty($this->options['error_message']),
+    );
   }
 
   function admin_summary() {
@@ -293,8 +327,10 @@ class views_handler_filter_term_node_tid extends views_handler_filter_many_to_on
     $this->value_options = array();
 
     if ($this->value) {
-      $result = db_query("SELECT * FROM {taxonomy_term_data} td WHERE td.tid IN (:tids)", array(':tids' => $this->value));
-
+      $result = db_select('taxonomy_term_data', 'td')
+        ->fields('td')
+        ->condition('td.tid', $this->value)
+        ->execute();
       foreach ($result as $term) {
         $this->value_options[$term->tid] = $term->name;
       }

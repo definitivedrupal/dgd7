@@ -1,5 +1,5 @@
 <?php
-// $Id: views.module,v 1.341.4.25 2010/05/31 21:31:47 dereine Exp $
+// $Id: views.module,v 1.341.4.39 2010/10/26 05:05:27 dereine Exp $
 /**
  * @file
  * Primarily Drupal hooks and global API functions to manipulate views.
@@ -80,7 +80,7 @@ function views_theme() {
         }
 
         if (!function_exists('theme_' . $def['theme'])) {
-          $hooks[$def['theme']]['template'] = views_css_safe($def['theme']);
+          $hooks[$def['theme']]['template'] = drupal_clean_css_identifier($def['theme']);
         }
       }
       if (isset($def['additional themes'])) {
@@ -98,7 +98,7 @@ function views_theme() {
           );
 
           if (!function_exists('theme_' . $theme)) {
-            $hooks[$theme]['template'] = views_css_safe($theme);
+            $hooks[$theme]['template'] = drupal_clean_css_identifier($theme);
           }
         }
       }
@@ -131,9 +131,9 @@ function views_preprocess_node(&$vars) {
   // The 'view' attribute of the node is added in template_preprocess_views_view_row_node()
   if (!empty($vars['node']->view) && !empty($vars['node']->view->name)) {
     $vars['view'] = &$vars['node']->view;
-    $vars['template_files'][] = 'node-view-' . $vars['node']->view->name;
+    $vars['theme_hook_suggestions'][] = 'node__view__' . $vars['node']->view->name;
     if (!empty($vars['node']->view->current_display)) {
-      $vars['template_files'][] = 'node-view-' . $vars['node']->view->name . '-' . $vars['node']->view->current_display;
+      $vars['theme_hook_suggestions'][] = 'node__view__' . $vars['node']->view->name . '__' . $vars['node']->view->current_display;
     }
   }
 }
@@ -146,9 +146,9 @@ function views_preprocess_comment(&$vars) {
   // The 'view' attribute of the node is added in template_preprocess_views_view_row_comment()
   if (!empty($vars['node']->view) && !empty($vars['node']->view->name)) {
     $vars['view'] = &$vars['node']->view;
-    $vars['template_files'][] = 'comment-view-' . $vars['node']->view->name;
+    $vars['theme_hook_suggestions'][] = 'comment__view__' . $vars['node']->view->name;
     if (!empty($vars['node']->view->current_display)) {
-      $vars['template_files'][] = 'comment-view-' . $vars['node']->view->name . '-' . $vars['node']->view->current_display;
+      $vars['theme_hook_suggestions'][] = 'comment__view__' . $vars['node']->view->name . '__' . $vars['node']->view->current_display;
     }
   }
 }
@@ -188,6 +188,15 @@ function views_menu() {
   // the generic ajax callback.
   $items['admin/views/ajax/autocomplete/user'] = array(
     'page callback' => 'views_ajax_autocomplete_user',
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+    'file' => 'includes/ajax.inc',
+  );
+  // Define another taxonomy autocomplete because the default one of drupal
+  // does not support a vid a argument anymore
+  $items['admin/views/ajax/autocomplete/taxonomy'] = array(
+    'page callback' => 'views_ajax_autocomplete_taxonomy',
     'access callback' => 'user_access',
     'access arguments' => array('access content'),
     'type' => MENU_CALLBACK,
@@ -318,6 +327,13 @@ function views_page() {
  * Implement hook_block_info().
  */
 function views_block_info() {
+  // Try to avoid instantiating all the views just to get the blocks info.
+  views_include('cache');
+  $cache = views_cache_get('views_block_items', TRUE);
+  if ($cache && is_array($cache->data)) {
+    return $cache->data;
+  }
+
   $items = array();
   $views = views_get_all_views();
   foreach ($views as $view) {
@@ -371,6 +387,8 @@ function views_block_info() {
   foreach ($views as $view) {
     $view->destroy();
   }
+
+  views_cache_set('views_block_items', $items, TRUE);
 
   return $items;
 }
@@ -463,7 +481,7 @@ function views_invalidate_cache() {
  * code and PHP is more locked down than administer views.
  */
 function views_import_access() {
-  return user_access('administer views') && user_access('use PHP for block visibility');
+  return user_access('administer views') && user_access('use PHP for settings');
 }
 
 /**
@@ -580,8 +598,8 @@ function views_include($file) {
 /**
  * Load views files on behalf of modules.
  */
-function views_module_include($file) {
-  foreach (views_get_module_apis() as $module => $info) {
+function views_module_include($file, $reset = FALSE) {
+  foreach (views_get_module_apis($reset) as $module => $info) {
     if (file_exists(DRUPAL_ROOT . "/$info[path]/$module.$file")) {
       require_once DRUPAL_ROOT . "/$info[path]/$module.$file";
     }
@@ -591,9 +609,9 @@ function views_module_include($file) {
 /**
  * Get a list of modules that support the current views API.
  */
-function views_get_module_apis() {
+function views_get_module_apis($reset = FALSE) {
   static $cache = NULL;
-  if (!isset($cache)) {
+  if (!isset($cache) || $reset) {
     $cache = array();
     foreach (module_implements('views_api') as $module) {
       $info = module_invoke($module, 'views_api');
@@ -636,7 +654,7 @@ function views_add_js($file) {
     $base = FALSE;
   }
   if ($ajax && $file == 'ajax') {
-    drupal_add_js('misc/ajax.js', array('weight' => -1));
+    drupal_add_js('misc/ajax.js', array('group' => JS_LIBRARY));
     $ajax = TRUE;
   }
   drupal_add_js(drupal_get_path('module', 'views') . "/js/$file.js");
@@ -645,10 +663,10 @@ function views_add_js($file) {
 /**
  * Load views files on behalf of modules.
  */
-function views_include_handlers() {
+function views_include_handlers($reset = FALSE) {
   static $finished = FALSE;
   // Ensure this only gets run once.
-  if ($finished) {
+  if ($finished && !$reset) {
     return;
   }
 
@@ -663,19 +681,19 @@ function views_include_handlers() {
 /**
  * Load default views files on behalf of modules.
  */
-function views_include_default_views() {
+function views_include_default_views($reset = FALSE) {
   static $finished = FALSE;
   // Ensure this only gets run once.
-  if ($finished) {
+  if ($finished && !$reset) {
     return;
   }
 
   // Default views hooks may be in the normal handler file,
   // or in a separate views_default file at the discretion of
   // the module author.
-  views_include_handlers();
+  views_include_handlers($reset);
 
-  _views_include_default_views();
+  _views_include_default_views($reset);
   $finished = TRUE;
 }
 
@@ -734,9 +752,9 @@ function views_get_handler($table, $field, $key, $override = NULL) {
 /**
  * Fetch Views' data from the cache
  */
-function views_fetch_data($table = NULL) {
+function views_fetch_data($table = NULL, $reset = FALSE) {
   views_include('cache');
-  return _views_fetch_data($table);
+  return _views_fetch_data($table, $reset);
 }
 
 // -----------------------------------------------------------------------
@@ -745,17 +763,17 @@ function views_fetch_data($table = NULL) {
 /**
  * Fetch the plugin data from cache.
  */
-function views_fetch_plugin_data($type = NULL, $plugin = NULL) {
+function views_fetch_plugin_data($type = NULL, $plugin = NULL, $reset = FALSE) {
   views_include('cache');
-  return _views_fetch_plugin_data($type, $plugin);
+  return _views_fetch_plugin_data($type, $plugin, $reset);
 }
 
 /**
  * Get a handler for a plugin
  */
-function views_get_plugin($type, $plugin) {
+function views_get_plugin($type, $plugin, $reset = FALSE) {
   views_include('handlers');
-  $definition = views_fetch_plugin_data($type, $plugin);
+  $definition = views_fetch_plugin_data($type, $plugin, $reset);
   if (!empty($definition)) {
     return _views_create_handler($definition, $type);
   }
@@ -936,9 +954,11 @@ function views_get_view($name, $reset = FALSE) {
   $view = view::load($name, $reset);
   $default_view = views_get_default_view($name, $reset);
 
+   // The view does not exist.
   if (empty($view) && empty($default_view)) {
     return;
   }
+  // The view is defined in code.
   elseif (empty($view) && !empty($default_view)) {
     $status = variable_get('views_defaults', array());
     if (isset($status[$default_view->name])) {
@@ -947,6 +967,7 @@ function views_get_view($name, $reset = FALSE) {
     $default_view->type = t('Default');
     return $default_view->clone_view();
   }
+  // The view is overriden/defined in the database.
   elseif (!empty($view) && !empty($default_view)) {
     $view->type = t('Overridden');
   }
@@ -994,8 +1015,7 @@ function vpr_trace() {
  */
 function views_exposed_form($form, &$form_state) {
   // Don't show the form when batch operations are in progress.
-  $batch =& batch_get();
-  if (!empty($batch)) {
+  if ($batch = batch_get() && isset($batch['current_set'])) {
     return array(
       // Set the theme callback to be nothing to avoid errors in template_preprocess_views_exposed_form().
       '#theme' => '',
@@ -1047,14 +1067,13 @@ function views_exposed_form($form, &$form_state) {
 
   $form['#action'] = url($view->get_url());
   $form['#theme'] = views_theme_functions('views_exposed_form', $view, $display);
-  $form['#id'] = views_css_safe('views_exposed_form-' . check_plain($view->name) . '-' . check_plain($display->id));
+  $form['#id'] = drupal_clean_css_identifier('views_exposed_form-' . check_plain($view->name) . '-' . check_plain($display->id));
 //  $form['#attributes']['class'] = array('views-exposed-form');
 
   // If using AJAX, we need the form plugin.
   if ($view->use_ajax) {
-    drupal_add_js('misc/jquery.form.js');
+    drupal_add_js('misc/jquery.form.js', array('group' => JS_LIBRARY));
   }
-  views_add_js('dependent');
 
   $exposed_form_plugin = $form_state['exposed_form_plugin'];
   $exposed_form_plugin->exposed_form_alter($form, $form_state);
@@ -1146,12 +1165,63 @@ function views_theme_functions($hook, $view, $display = NULL) {
 function views_views_query_substitutions($view) {
   global $language;
   return array(
-    ':views-current-version' => VERSION,
-    ':views-current-time' => REQUEST_TIME,
-    ':views-current-language' => $language->language,
-    ':views-default-language' => language_default('language'),
-    ':views-no-language' => '',
+    '***CURRENT_VERSION***' => VERSION,
+    '***CURRENT_TIME***' => REQUEST_TIME,
+    '***CURRENT_LANGUAGE***' => $language->language,
+    '***DEFAULT_LANGUAGE***' => language_default('language'),
+    '***NO_LANGUAGE***' => '',
   );
+}
+
+/**
+ * Implements hook_query_TAG_alter().
+ *
+ * This is the hook_query_alter() for queries tagged by Views and is used to
+ * add in substitutions from hook_views_query_substitutions().
+ */
+function views_query_views_alter(QueryAlterableInterface $query) {
+  $substitutions = $query->getMetaData('views_substitutions');
+  $tables =& $query->getTables();
+  $where =& $query->conditions();
+
+  // Replaces substitions in tables.
+  foreach ($tables as $table_name => $table_metadata) {
+    foreach ($table_metadata['arguments'] as $replacement_key => $value) {
+      if (isset($substitutions[$value])) {
+        $tables[$table_name]['arguments'][$replacement_key] = $substitutions[$value];
+      }
+    }
+  }
+
+  // Replaces substitions in filter criterias.
+  _views_query_tag_alter_condition($query, $where, $substitutions);
+}
+
+/**
+ * Replaces the substitutions recursive foreach condition.
+ */
+function _views_query_tag_alter_condition(QueryAlterableInterface $query, &$conditions, $substitutions) {
+  foreach ($conditions as $condition_id => &$condition) {
+    if (is_numeric($condition_id)) {
+      if (is_string($condition['field'])) {
+        $condition['field'] = str_replace(array_keys($substitutions), array_values($substitutions), $condition['field']);
+      }
+      elseif (is_object($condition['field'])) {
+        $sub_conditions =& $condition['field']->conditions();
+        _views_query_tag_alter_condition($query, $sub_conditions, $substitutions);
+      }
+      // $condition['value'] is a subquery so alter the subquery recursive.
+      // Therefore take sure to get the metadata of the main query.
+      if (is_object($condition['value'])) {
+        $subquery = $condition['value'];
+        $subquery->addMetaData('views_substitutions', $query->getMetaData('views_substitutions'));
+        views_query_views_alter($condition['value']);
+      }
+      elseif (isset($condition['value'])) {
+        $condition['value'] = str_replace(array_keys($substitutions), array_values($substitutions), $condition['value']);
+      }
+    }
+  }
 }
 
 /**
@@ -1276,13 +1346,6 @@ function views_var_export($var, $prefix = '', $init = TRUE) {
 }
 
 /**
- * Prepare the specified string for use as a CSS identifier.
- */
-function views_css_safe($string) {
-  return str_replace('_', '-', $string);
-}
-
-/**
  * Implement hook_views_exportables().
  */
 function views_views_exportables($op = 'list', $views = NULL, $name = 'foo') {
@@ -1319,28 +1382,6 @@ function views_views_exportables($op = 'list', $views = NULL, $name = 'foo') {
 
     return $code;
   }
-}
-
-/**
- * Process callback to add dependency to form items.
- *
- * Usage:
- *
- * On any form item, add
- * - @code '#process' => 'views_process_dependency' @endcode
- * - @code '#dependency' => array('id-of-form-without-the-#' => array(list, of, values, that, make, this, gadget, visible)); @endcode
- */
-function views_process_dependency($element) {
-  if (isset($element['#dependency'])) {
-    if (!isset($element['#dependency_count'])) {
-      $element['#dependency_count'] = 1;
-    }
-    views_add_js('dependent');
-    $options['viewsAjax']['formRelationships'][$element['#id']] = array('num' => $element['#dependency_count'], 'values' => $element['#dependency']);
-    drupal_add_js($options, 'setting');
-  }
-
-  return $element;
 }
 
 /**

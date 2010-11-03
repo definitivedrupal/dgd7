@@ -1,5 +1,5 @@
 <?php
-// $Id: locale.views.inc,v 1.1.6.1 2009/11/02 22:01:26 merlinofchaos Exp $
+// $Id: locale.views.inc,v 1.1.6.2 2010/07/19 09:18:42 dereine Exp $
 
 /**
  * @file
@@ -200,27 +200,6 @@ function locale_views_data() {
   );
 
   return $data;
-}
-
-/**
- * Implements hook_views_handlers().
- */
-function locale_views_handlers() {
-  return array(
-    // Field handlers.
-    'views_handler_field_locale_group',
-    'views_handler_field_locale_language',
-    'views_handler_field_locale_link_edit',
-
-    // Argument handlers.
-    'views_handler_argument_locale_group',
-    'views_handler_argument_locale_language',
-
-    // Filters.
-    'views_handler_filter_locale_group',
-    'views_handler_filter_locale_language',
-    'views_handler_filter_locale_version',
-  );
 }
 
 /**

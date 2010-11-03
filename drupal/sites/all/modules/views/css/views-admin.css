@@ -1,4 +1,4 @@
-/* $Id: views-admin.css,v 1.14.4.6 2010/05/14 21:15:09 dereine Exp $ */
+/* $Id: views-admin.css,v 1.14.4.10 2010/08/24 16:13:20 dereine Exp $ */
 
 /*
  * Summary pad
@@ -431,7 +431,6 @@ a.views-button-remove {
 a.views-button-remove {
   background-position: 0px -72px;
   position: relative;
-  top: -4px;
 }
 a.views-button-remove:hover {
   background-position: 0px -84px;
@@ -644,6 +643,7 @@ html.js .views-hidden {
   max-width: 95%;
 }
 
+.clone-display,
 .remove-display {
   float: right;
   margin: 0;
@@ -653,7 +653,9 @@ html.js .views-hidden {
 }
 
 .views-display .remove-display form,
-.remove-display input {
+.remove-display input,
+.views-display .clone-display form,
+.clone-display input {
   margin: 0 !important;
 }
 

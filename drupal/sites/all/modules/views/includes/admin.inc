@@ -1,5 +1,5 @@
 <?php
-// $Id: admin.inc,v 1.161.4.37 2010/07/15 07:19:26 dereine Exp $
+// $Id: admin.inc,v 1.161.4.56 2010/10/26 19:06:26 dereine Exp $
 /**
  * @file admin.inc
  * Provides the Views' administrative interface.
@@ -573,7 +573,8 @@ function views_ui_add_page() {
     ),
   );
 
-  return drupal_render(drupal_build_form('views_ui_add_form', $form_state));
+  $form = drupal_build_form('views_ui_add_form', $form_state);
+  return drupal_render($form);
 }
 
 /**
@@ -613,6 +614,7 @@ function views_ui_add_form($form, &$form_state) {
     '#title' => t('View description'),
     '#description' => t('This description will appear on the Views administrative UI to tell you what the view is about.'),
     '#default_value' => $view ? $view->description : '',
+    '#maxlength' => 255,
   );
 
   $form['tag'] = array(
@@ -657,8 +659,8 @@ function views_ui_add_form_validate($form, &$form_state) {
   $name = $form_state['values']['name'];
 
   // View name must be alphanumeric or underscores, no other punctuation.
-  if (preg_match('/[^a-zA-Z0-9_]/', $name)) {
-    form_error($form['name'], t('View name must be alphanumeric or underscores only.'));
+  if (preg_match('/[^a-zA-Z0-9_]/', $name) || is_numeric($name)) {
+    form_error($form['name'], t('View name must be alphanumeric or underscores only, but cannot be numeric.'));
   }
 
   // View name must already exist.
@@ -720,7 +722,7 @@ function views_ui_delete_confirm($form, &$form_state, $view) {
  */
 function views_ui_delete_confirm_submit(&$form, &$form_state) {
   $form_state['view']->delete();
-  views_object_cache_clear('view', $form_state['view']->name);
+  ctools_object_cache_clear('view', $form_state['view']->name);
   drupal_set_message(t('The view has been deleted.'));
   $form_state['redirect'] = 'admin/structure/views';
 }
@@ -755,10 +757,7 @@ function views_ui_break_lock_confirm($form, &$form_state, $view) {
  * Submit handler to break_lock a view.
  */
 function views_ui_break_lock_confirm_submit(&$form, &$form_state) {
-  db_delete('views_object_cache')
-    ->condition('obj', 'view')
-    ->condition('name', $form_state['view']->name)
-    ->execute();
+  ctools_object_cache_clear_all('view', $form_state['view']->name);
   $form_state['redirect'] = 'admin/structure/views/edit/' . $form_state['view']->name;
   drupal_set_message(t('The lock has been broken and you may now edit this view.'));
 }
@@ -991,7 +990,7 @@ function views_ui_edit_view_form_submit($form, &$form_state) {
   cache_clear_all();
 
   // Remove this view from cache so we can edit it properly.
-  views_object_cache_clear('view', $form_state['view']->name);
+  ctools_object_cache_clear('view', $form_state['view']->name);
 }
 
 /**
@@ -999,7 +998,7 @@ function views_ui_edit_view_form_submit($form, &$form_state) {
  */
 function views_ui_edit_view_form_cancel($form, &$form_state) {
   // Remove this view from cache so edits will be lost.
-  views_object_cache_clear('view', $form_state['view']->name);
+  ctools_object_cache_clear('view', $form_state['view']->name);
   if (empty($form['view']->vid)) {
     // I seem to have to drupal_goto here because I can't get fapi to
     // honor the redirect target. Not sure what I screwed up here.
@@ -1010,7 +1009,7 @@ function views_ui_edit_view_form_cancel($form, &$form_state) {
 function views_ui_edit_view_form_delete($form, &$form_state) {
   unset($_REQUEST['destination']);
   // Redirect to the delete confirm page
-  $form_state['redirect'] = array('admin/structure/views/delete/' . $form_state['view']->name, array('cancel' => 'admin/structure/views/edit/' . $form_state['view']->name));
+  $form_state['redirect'] = array('admin/structure/views/delete/' . $form_state['view']->name, array('query' => drupal_get_destination() + array('cancel' => 'admin/structure/views/edit/' . $form_state['view']->name)));
 }
 
 /**
@@ -1018,7 +1017,6 @@ function views_ui_edit_view_form_delete($form, &$form_state) {
  */
 function template_preprocess_views_ui_edit_view(&$vars) {
   $view = &$vars['view'];
-  views_add_js('dependent');
 
   // The form has to be saved as variable because of strict warnings.
   $form = drupal_get_form('views_ui_edit_view_form', $view);
@@ -1072,7 +1070,8 @@ function template_preprocess_views_ui_edit_view(&$vars) {
       'args' => array(),
     ),
   );
-  $vars['preview'] = drupal_render(drupal_build_form('views_ui_preview_form', $form_state));
+  $preview_form = drupal_build_form('views_ui_preview_form', $form_state);
+  $vars['preview'] = drupal_render($preview_form);
 
   $vars['locked'] = NULL;
   if (isset($view->locked) && is_object($view->locked)) {
@@ -1113,10 +1112,27 @@ function template_preprocess_views_ui_edit_view(&$vars) {
     }
   }
 
-  $vars['quick_links'] = theme('links', array('links' => $vars['quick_links_raw']));
+  if (module_exists('contextual')) {
+    $build = array(
+      '#prefix' => '<div class="contextual-links-wrapper">',
+      '#suffix' => '</div>',
+      '#theme' => 'links__contextual',
+      '#links' => $vars['quick_links_raw'],
+      '#attributes' => array('class' => array('contextual-links')),
+      '#attached' => array(
+        'library' => array(array('contextual', 'contextual-links')),
+      ),
+    );
+    $vars['quick_links'] = drupal_render($build);
+  }
+  else {
+    $vars['quick_links'] = theme('links__views_quick_links', array('links' => $vars['quick_links_raw']));
+  }
   views_add_css('views-admin');
   views_add_js('ajax');
-  drupal_add_js('misc/jquery.form.js');
+  drupal_add_js('misc/jquery.form.js', array('group' => JS_LIBRARY));
+  // @TODO Remove this line when http://drupal.org/node/561858 is in.
+  drupal_add_js('misc/jquery.cookie.js', array('group' => JS_LIBRARY));
 
   // Also add any js files required by plugins:
   $plugins = views_fetch_plugin_data();
@@ -1150,12 +1166,16 @@ function template_preprocess_views_ui_edit_tab(&$vars) {
   // submit again.
 
   $vars['remove'] = '';
+  $vars['clone'] = '';
   if (empty($plugin['no remove'])) {
-    if (!empty($_POST['form_id']) && $_POST['form_id'] == 'views_ui_remove_display_form') {
+    if (!empty($_POST['form_id']) && in_array($_POST['form_id'], array('views_ui_remove_display_form', 'views_ui_clone_display_form'))) {
       unset($_POST['form_id']);
     }
     $form_state = array('view' => &$view, 'display_id' => $display->id, 'ajax' => FALSE, 'build_info' => array('args' => array()));
-    $vars['remove'] = drupal_render(drupal_build_form('views_ui_remove_display_form', $form_state));
+    $remove_form = drupal_build_form('views_ui_remove_display_form', $form_state);
+    $clone_form = drupal_build_form('views_ui_clone_display_form', $form_state);
+    $vars['remove'] = drupal_render($remove_form);
+    $vars['clone'] = drupal_render($clone_form);
   }
 
   // basic fields
@@ -1164,7 +1184,7 @@ function template_preprocess_views_ui_edit_tab(&$vars) {
 
   // Special fields if tihs is the default display.
   $vars['default'] = ($display->id == 'default');
-  $vars['details_class'] = views_ui_item_css('details');
+  $vars['details_class'] = drupal_clean_css_identifier('details');
   if (!empty($view->changed_sections['details'])) {
     $vars['details_changed'] = TRUE;
   }
@@ -1212,7 +1232,7 @@ function template_preprocess_views_ui_edit_tab(&$vars) {
         }
       }
     }
-    $data['class'][] = views_ui_item_css($display_id . '-' . $id);
+    $data['class'][] = drupal_clean_css_identifier($display_id . '-' . $id);
     if (!empty($view->changed_sections[$display_id . '-' . $id])) {
       $data['changed'] = TRUE;
     }
@@ -1302,7 +1322,12 @@ function template_preprocess_views_ui_edit_item(&$vars) {
     }
   }
 
-  $vars['title'] = l($types[$type]['title'], "admin/structure/views/nojs/config-type/$view->name/$display->id/$type", array('attributes' => array('class' => array('views-ajax-link'), 'id' => 'views-title-' . $type)));
+  if ($display->display_plugin != 'default') {
+    $vars['title'] = l($types[$type]['title'], "admin/structure/views/nojs/config-type/$view->name/$display->id/$type", array('attributes' => array('class' => array('views-ajax-link'), 'id' => 'views-title-' . $type)));
+  }
+  else {
+    $vars['title'] = $types[$type]['title'];
+  }
 
   $fields = array();
 
@@ -1334,7 +1359,7 @@ function template_preprocess_views_ui_edit_item(&$vars) {
     }
 
     $fields[$id]['title'] = l($field_name, "admin/structure/views/nojs/config-item/$view->name/$display->id/$type/$id", array('attributes' => array('class' => array('views-ajax-link')), 'html' => TRUE));
-    $fields[$id]['class'][] = views_ui_item_css($display->id . '-' . $type . '-' . $id);
+    $fields[$id]['class'][] = drupal_clean_css_identifier($display->id . '-' . $type . '-' . $id);
     if (!empty($view->changed_sections[$display->id . '-' . $type . '-' . $id])) {
       $fields[$id]['changed'] = TRUE;
     }
@@ -1358,7 +1383,7 @@ function template_preprocess_views_ui_edit_item(&$vars) {
       }
 
       $fields[$pid]['title'] = ' ' . t('&nbsp; Style: !style', array('!style' => l($style_title, "admin/structure/views/nojs/change-style/$view->name/$display->id/$type/$id", array('attributes' => array('class' => array('views-ajax-link'))))));
-      $fields[$pid]['class'][] = views_ui_item_css($display->id . '-' . $type . '-' . $pid);
+      $fields[$pid]['class'][] = drupal_clean_css_identifier($display->id . '-' . $type . '-' . $pid);
       if (!empty($view->changed_sections[$display->id . '-' . $type . '-' . $pid])) {
         $fields[$pid]['changed'] = TRUE;
       }
@@ -1411,16 +1436,29 @@ function views_ui_standard_form_buttons(&$form, &$form_state, $form_id, $name = 
   if (empty($name)) {
     $name = t('Update');
   }
+
   // remove default validate handler
   $form['#validate'] = array();
+
+    // Add the override and update button
+  if ($name == t('Update default display')) {
+    $form['buttons']['override_update'] = array(
+      '#type' => 'submit',
+      '#value' => t('Update and override'),
+      '#submit' => array(
+        'views_ui_edit_display_form_override_update_section',
+        'views_ui_standard_submit',
+        'views_ui_edit_display_form_override_update',
+      ),
+    );
+  }
 
   if (empty($form_state['ok_button'])) {
     // but be sure submit button validates!
     $form['buttons']['submit'] = array(
       '#type' => 'submit',
       '#value' => $name,
-      '#submit' => array($form_id . '_submit'),
-      '#validate' => array('views_ui_standard_submit'),
+      '#submit' => array('views_ui_standard_submit', $form_id . '_submit'),
     );
     // Take sure that the validation handler exists.
     if (function_exists($form_id . '_validate')) {
@@ -1775,6 +1813,86 @@ function views_ui_add_display_form_submit($form, &$form_state) {
 }
 
 /**
+ * AJAX callback to add a display.
+ */
+function views_ui_clone_display($js, $view, $id) {
+  views_include('ajax');
+  $form_state = array(
+    'view' => &$view,
+    'ajax' => $js,
+    'display_id' => $id,
+  );
+
+  $output = views_ajax_form_wrapper('views_ui_clone_display_form', $form_state);
+
+  if ($js) {
+    // If we don't have an output object, it was submitted. Set up the submission.
+    if (empty($output)) {
+      $id = $form_state['id'];
+
+      // Make sure the new display is active
+      if (!$view->set_display('default')) {
+        views_ajax_render(t('Unable to initialize default display'));
+      }
+
+      // Render the new display
+      list($title, $body) = views_ui_display_tab($view, $view->display[$id]);
+
+      // Instruct the javascript on the browser to render the new tab.
+      $output = new stdClass;
+      $output->tab = array('#views-tab-' . $id => array('title' => $title, 'body' => $body));
+    }
+    // Render the command object. This automatically exits.
+    views_ajax_render($output);
+  }
+
+  // But the non-js variant will return output if it didn't redirect us.
+  return $output;
+}
+
+/**
+ * From to clone a display from a view.
+ */
+function views_ui_clone_display_form($form, &$form_state) {
+  $view = &$form_state['view'];
+  $display_id = $form_state['display_id'];
+
+  $form['clone_display'] = array(
+    '#type' => 'submit',
+    '#value' => t('Clone display'),
+    '#submit' => array('views_ui_clone_display_form_submit'),
+  );
+
+  $form['#id'] = 'views-clone-display-form';
+  $form['#action'] = url("admin/build/views/nojs/clone-display/$view->name/$display_id");
+  $form['#attributes'] = array('class' => 'views-ajax-form');
+
+  return $form;
+}
+
+/**
+ * Submit handler to add a clone to a display from a view.
+ */
+function views_ui_clone_display_form_submit($form, &$form_state) {
+  // Create the new display
+  $id = $form_state['display_id'];
+  $display = $form_state['view']->display[$id];
+
+  $new_id = $form_state['view']->add_display($display->display_plugin);
+  $form_state['id'] = $new_id;
+
+  // Replace the new display by a copy of the old
+  $form_state['view']->display[$new_id] = clone $display;
+  $form_state['view']->display[$new_id]->id = $new_id;
+
+  // Store in cache
+  views_ui_cache_set($form_state['view']);
+
+  // Send it back
+  $form_state['redirect'] = array('admin/structure/views/edit/' . $form_state['view']->name, array('fragment' =>  'views-tab-' . $new_id));
+}
+
+/**
  * Form to remove a display from a view.
  */
 function views_ui_remove_display_form($form, &$form_state) {
@@ -2025,6 +2143,24 @@ function views_ui_edit_display_form_override($form, &$form_state) {
   $form_state['rerender'] = TRUE;
   $form_state['rebuild'] = TRUE;
 }
+/**
+ * Override handler and submit views_ui_edit_display_form
+ */
+function views_ui_edit_display_form_override_update(&$form, &$form_state) {
+  $display = &$form_state['view']->display[$form_state['display_id']];
+  $display->handler->options_override($form, $form_state);
+  $display->handler->options_submit($form, $form_state);
+  views_ui_cache_set($form_state['view']);
+}
+
+/**
+ * Override handler and submit views_ui_edit_display_form
+ */
+function views_ui_edit_display_form_override_update_section(&$form, &$form_state) {
+  // Update the #section so it knows what to mark changed.
+  $form['#section'] = str_replace('default-', $form_state['display_id'] . '-', $form['#section']);
+}
+
 /**
  * Form to config items in the views UI.
  */
@@ -2292,7 +2428,6 @@ function views_ui_add_item_form($form, &$form_state) {
       '#value' => '<div class="form-item">' . t('There are no @types available to add.', array('@types' =>  $types[$type]['ltitle'])) . '</div>',
     );
   }
-  views_add_js('dependent');
   views_ui_standard_form_buttons($form, $form_state, 'views_ui_add_item_form', t('Add'));
 
   return $form;
@@ -2491,12 +2626,12 @@ function views_ui_config_item_group_form($type, &$form_state) {
   $type = $form_state['type'];
   $id = $form_state['id'];
 
-  $view->init_query();
-
   $form = array('options' => array('#tree' => TRUE));
   if (!$view->set_display($display_id)) {
     views_ajax_render(t('Invalid display id @display', array('@display' => $display_id)));
   }
+
+  $view->init_query();
 
   $item = $view->get_item($display_id, $type, $id);
 
@@ -2811,13 +2946,6 @@ function views_ui_get_roles() {
   }
 
   return $roles;
-}
-
-/**
- * Get a css safe id for a particular section.
- */
-function views_ui_item_css($item) {
-  return views_css_safe('views-item-' . $item);
 }
 
 /**
@@ -3256,4 +3384,3 @@ function theme_views_ui_style_plugin_table($variables) {
   $output .= drupal_render_children($form);
   return $output;
 }
-

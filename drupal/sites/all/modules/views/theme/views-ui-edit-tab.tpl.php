@@ -1,5 +1,5 @@
 <?php
-// $Id: views-ui-edit-tab.tpl.php,v 1.11.6.2 2010/02/07 13:44:07 dereine Exp $
+// $Id: views-ui-edit-tab.tpl.php,v 1.11.6.3 2010/08/23 09:47:07 dereine Exp $
 /**
  * @file views-ui-edit-tab.tpl.php
  * Template for the primary view editing window.
@@ -9,6 +9,9 @@
   <?php // top section ?>
   <?php if ($remove): ?>
     <div class="remove-display"><?php print $remove ?></div>
+  <?php endif; ?>
+  <?php if ($clone): ?>
+    <div class="clone-display"><?php print $clone ?></div>
   <?php endif; ?>
   <div class="top">
     <div class="inside">

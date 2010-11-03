@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_argument_dates_various.inc,v 1.4.6.1 2010/02/06 16:38:11 dereine Exp $
+// $Id: views_handler_argument_dates_various.inc,v 1.4.6.3 2010/09/19 08:18:11 dereine Exp $
 /**
  * Argument handler for a full date (CCYYMMDD)
  */
@@ -19,14 +19,14 @@ class views_handler_argument_node_created_fulldate extends views_handler_argumen
    */
   function summary_name($data) {
     $created = $data->{$this->name_alias};
-    return format_date(strtotime($created), 'custom', $this->format, 0);
+    return format_date(strtotime($created . " 00:00:00 UTC"), 'custom', $this->format, 'UTC');
   }
 
   /**
    * Provide a link to the next level of the view
    */
   function title() {
-    return format_date(strtotime($this->argument), 'custom', $this->format, 0);
+    return format_date(strtotime($this->argument . " 00:00:00 UTC"), 'custom', $this->format, 'UTC');
   }
 }
 
@@ -63,16 +63,14 @@ class views_handler_argument_node_created_year_month extends views_handler_argum
    */
   function summary_name($data) {
     $created = $data->{$this->name_alias};
-    // @todo fix this! I removed ,0 but the whole timezone handling is broken.
-    return format_date(strtotime($created . "15"), 'custom', $this->format);
+    return format_date(strtotime($created . "15" . " 00:00:00 UTC"), 'custom', $this->format, 'UTC');
   }
 
   /**
    * Provide a link to the next level of the view
    */
   function title() {
-    // @todo fix this! I removed ,0 but the whole timezone handling is broken.
-    return format_date(strtotime($this->argument . "15"), 'custom', $this->format);
+    return format_date(strtotime($this->argument . "15" . " 00:00:00 UTC"), 'custom', $this->format, 'UTC');
   }
 }
 
@@ -95,7 +93,7 @@ class views_handler_argument_node_created_month extends views_handler_argument_d
    */
   function summary_name($data) {
     $month = str_pad($data->{$this->name_alias}, 2, '0', STR_PAD_LEFT);
-    return format_date(strtotime("2005" . $month . "15"), 'custom', $this->format);
+    return format_date(strtotime("2005" . $month . "15" . " 00:00:00 UTC" ), 'custom', $this->format, 'UTC');
   }
 
   /**
@@ -103,7 +101,7 @@ class views_handler_argument_node_created_month extends views_handler_argument_d
    */
   function title() {
     $month = str_pad($this->argument, 2, '0', STR_PAD_LEFT);
-    return format_date(strtotime("2005" . $month . "15"), 'custom', $this->format, 0);
+    return format_date(strtotime("2005" . $month . "15" . " 00:00:00 UTC"), 'custom', $this->format, 'UTC');
   }
 
   function summary_argument($data) {
@@ -131,7 +129,8 @@ class views_handler_argument_node_created_day extends views_handler_argument_dat
    */
   function summary_name($data) {
     $day = str_pad($data->{$this->name_alias}, 2, '0', STR_PAD_LEFT);
-    return format_date(strtotime("2005" . "05" . $day), 'custom', $this->format, 0);
+    // strtotime respects server timezone, so we need to set the time fixed as utc time
+    return format_date(strtotime("2005" . "05" . $day . " 00:00:00 UTC"), 'custom', $this->format, 'UTC');
   }
 
   /**
@@ -139,7 +138,7 @@ class views_handler_argument_node_created_day extends views_handler_argument_dat
    */
   function title() {
     $day = str_pad($this->argument, 2, '0', STR_PAD_LEFT);
-    return format_date(strtotime("2005" . "05" . $day), 'custom', $this->format, 0);
+    return format_date(strtotime("2005" . "05" . $day . " 00:00:00 UTC"), 'custom', $this->format, 'UTC');
   }
 
   function summary_argument($data) {

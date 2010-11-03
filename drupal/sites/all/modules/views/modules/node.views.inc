@@ -1,5 +1,5 @@
 <?php
-// $Id: node.views.inc,v 1.97.4.12 2010/05/19 20:22:41 dereine Exp $
+// $Id: node.views.inc,v 1.97.4.18 2010/10/14 20:28:49 merlinofchaos Exp $
 /**
  * @file
  * Provide views data and handlers for node.module
@@ -29,6 +29,7 @@ function node_views_data() {
     'title' => t('Node'),
     'help' => t("Nodes are a Drupal site's primary content."),
     'weight' => -10,
+    'access query tag' => 'node_access',
   );
 
   // For other base tables, explain how we join
@@ -193,25 +194,6 @@ function node_views_data() {
     'filter' => array(
       'handler' => 'views_handler_filter_boolean_operator',
       'label' => t('Promoted to front page'),
-      'type' => 'yes-no',
-    ),
-    'sort' => array(
-      'handler' => 'views_handler_sort',
-    ),
-  );
-
-  // moderate
-  $data['node']['moderate'] = array(
-    'title' => t('Moderated'), // The item it appears as on the UI,
-    'help' => t('Whether or not the node is moderated.'), // The help that appears on the UI,
-     // Information for displaying a title as a field
-    'field' => array(
-      'handler' => 'views_handler_field_boolean',
-      'click sortable' => TRUE,
-    ),
-    'filter' => array(
-      'handler' => 'views_handler_filter_boolean_operator',
-      'label' => t('Moderated'),
       'type' => 'yes-no',
     ),
     'sort' => array(
@@ -586,44 +568,6 @@ function node_views_data() {
 }
 
 /**
- * Implements hook_views_handlers() to register all of the basic handlers
- * views uses.
- */
-function node_views_handlers() {
-  return array(
-    // field handlers
-    'views_handler_field_node',
-    'views_handler_field_node_type',
-    'views_handler_field_node_link',
-    'views_handler_field_node_path',
-    'views_handler_field_node_type',
-    'views_handler_field_node_link_edit',
-    'views_handler_field_node_link_delete',
-    'views_handler_field_node_revision_link_revert',
-    'views_handler_field_node_revision_link_delete',
-    'views_handler_field_history_user_timestamp',
-    'views_handler_field_node_revision',
-
-    // argument handlers
-    'views_handler_argument_node_type',
-    'views_handler_argument_node_nid',
-    'views_handler_argument_node_vid',
-    'views_handler_argument_node_created_fulldate',
-    'views_handler_argument_node_created_year',
-    'views_handler_argument_node_created_year_month',
-    'views_handler_argument_node_created_month',
-    'views_handler_argument_node_created_day',
-    'views_handler_argument_node_created_week',
-
-    // filters
-    'views_handler_filter_node_type',
-    'views_handler_filter_history_user_timestamp',
-    'views_handler_filter_node_status',
-    'views_handler_filter_node_access',
-  );
-}
-
-/**
  * Implements hook_views_plugins
  */
 function node_views_plugins() {
@@ -678,7 +622,9 @@ function template_preprocess_views_view_row_node(&$vars) {
   $vars['node'] = '';
   $vars['comments'] = '';
 
-  $nid = $vars['row']->{$vars['field_alias']};
+  if (!empty($vars['row']->{$vars['field_alias']})) {
+    $nid = $vars['row']->{$vars['field_alias']};
+  }
   if (!is_numeric($nid)) {
     return;
   }
@@ -712,8 +658,8 @@ function template_preprocess_views_view_row_node(&$vars) {
  */
 function node_views_query_substitutions() {
   return array(
-    ':node-administer-nodes' => intval(user_access('administer nodes')),
-    ':node-view-own-unpublished-nodes' => intval(user_access('view own unpublished content')),
+    '***ADMINISTER_NODES***' => intval(user_access('administer nodes')),
+    '***VIEW_OWN_UNPUBLISHED_NODES***' => intval(user_access('view own unpublished content')),
   );
 }
 

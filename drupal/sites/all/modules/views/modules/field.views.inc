@@ -1,5 +1,5 @@
 <?php
-// $Id: field.views.inc,v 1.1.2.6 2010/04/04 16:16:03 dereine Exp $
+// $Id: field.views.inc,v 1.1.2.11 2010/10/05 22:04:16 dereine Exp $
 
 /**
  * @file
@@ -118,7 +118,7 @@ function field_views_field_default_views_data($field) {
   }
 
   foreach ($field['columns'] as $column => $attributes) {
-    $sort = !empty($attributes['sortable']) ? TRUE : FALSE;
+    $allow_sort = TRUE;
 
     // Identify likely filters and arguments for each column based on field type.
     switch ($attributes['type']) {
@@ -127,20 +127,20 @@ function field_views_field_default_views_data($field) {
       case 'tinyint':
       case 'bigint':
       case 'serial':
-        $filter = 'views_handler_filter_numeric';
-        $argument = 'views_handler_argument_numeric';
-        break;
       case 'numeric':
       case 'float':
-        $filter = 'views_handler_filter_float';
+        $filter = 'views_handler_filter_numeric';
         $argument = 'views_handler_argument_numeric';
+        $sort = 'views_handler_sort';
         break;
-
       case 'text':
       case 'blob':
+        // It does not make sense to sort by blob or text.
+        $allow_sort = FALSE;
       default:
         $filter = 'views_handler_filter_string';
         $argument = 'views_handler_argument_string';
+        $sort = 'views_handler_sort';
         break;
     }
 
@@ -174,7 +174,7 @@ function field_views_field_default_views_data($field) {
         'table' => $table,
         'handler' => $argument,
         'additional fields' => $additional_fields,
-        'content_field_name' => $field['field_name'],
+        'field_name' => $field['field_name'],
         'empty field name' => t('<No value>'),
       );
       $data[$table][$column_real_name]['filter'] = array(
@@ -182,16 +182,16 @@ function field_views_field_default_views_data($field) {
         'table' => $table,
         'handler' => $filter,
         'additional fields' => $additional_fields,
-        'content_field_name' => $field['field_name'],
+        'field_name' => $field['field_name'],
         'allow empty' => TRUE,
       );
-      if (!empty($sort)) {
+      if (!empty($allow_sort)) {
         $data[$table][$column_real_name]['sort'] = array(
           'field' => $column_real_name,
           'table' => $table,
-          'handler' => 'content_handler_sort',
+          'handler' => $sort,
           'additional fields' => $additional_fields,
-          'content_field_name' => $field['field_name'],
+          'field_name' => $field['field_name'],
         );
       }
 
@@ -212,12 +212,14 @@ function field_views_field_default_views_data($field) {
           'handler' => 'views_handler_argument_numeric',
           'additional fields' => $additional_fields,
           'empty field name' => t('<No value>'),
+          'field_name' => $field['field_name'],
         );
         $data[$table]['delta']['filter'] = array(
           'field' => 'delta',
           'table' => $table,
           'handler' => 'views_handler_filter_numeric',
           'additional fields' => $additional_fields,
+          'field_name' => $field['field_name'],
           'allow empty' => TRUE,
         );
         $data[$table]['delta']['sort'] = array(
@@ -225,6 +227,7 @@ function field_views_field_default_views_data($field) {
           'table' => $table,
           'handler' => 'views_handler_sort',
           'additional fields' => $additional_fields,
+          'field_name' => $field['field_name'],
         );
       }
     }
@@ -234,21 +237,19 @@ function field_views_field_default_views_data($field) {
 }
 
 /**
- * Implements hook_views_handlers().
+ * Have a different filter handler for lists. This should allow to select values of the list.
  */
-function field_views_handlers() {
-  return array(
-    'info' => array(
-      'path' => drupal_get_path('module', 'views') . '/modules/field',
-    ),
-    'handlers' => array(
-      'views_handler_field_field' => array(
-        'parent' => 'views_handler_field',
-      ),
-    ),
-  );
+function list_field_views_data($field) {
+  $data = field_views_field_default_views_data($field);
+  foreach ($data as $table_name => $table_data) {
+    foreach ($table_data as $field_name => $field_data) {
+      if (!in_array($field_name, array('table', 'entity_id', 'revision_id'))) {
+        $data[$table_name][$field_name]['filter']['handler'] = 'views_handler_filter_field_list';
+      }
+    }
+  }
+  return $data;
 }
-
 
 /**
  * @}

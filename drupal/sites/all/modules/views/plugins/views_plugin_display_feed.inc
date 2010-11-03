@@ -1,5 +1,5 @@
 <?php
-// $Id: views_plugin_display_feed.inc,v 1.7.4.1 2009/11/02 22:01:27 merlinofchaos Exp $
+// $Id: views_plugin_display_feed.inc,v 1.7.4.3 2010/10/17 10:42:44 dereine Exp $
 /**
  * @file
  * Contains the feed display plugin.
@@ -30,7 +30,7 @@ class views_plugin_display_feed extends views_plugin_display_page {
   }
 
   function preview() {
-    if (!empty($this->live_preview)) {
+    if (!empty($this->view->live_preview)) {
       return '<pre>' . check_plain($this->view->render()) . '</pre>';
     }
     return $this->view->render();
@@ -136,8 +136,11 @@ class views_plugin_display_feed extends views_plugin_display_page {
           '#default_value' => $this->get_option('sitename_title'),
         );
         $form['title'] = $title;
-        $form['title']['#process'] = array('views_process_dependency');
-        $form['title']['#dependency'] = array('edit-sitename-title' => array(FALSE));
+        $form['title']['#states'] = array(
+          'invisible' => array(
+            'input[name="sitename_title"]' => array('checked' => TRUE),
+          ),
+        );
         break;
       case 'displays':
         $form['#title'] .= t('Attach to');

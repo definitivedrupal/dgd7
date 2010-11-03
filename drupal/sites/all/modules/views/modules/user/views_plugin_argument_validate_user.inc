@@ -1,5 +1,5 @@
 <?php
-// $Id: views_plugin_argument_validate_user.inc,v 1.2.6.5 2010/06/16 20:17:43 merlinofchaos Exp $
+// $Id: views_plugin_argument_validate_user.inc,v 1.2.6.9 2010/10/17 10:42:44 dereine Exp $
 
 /**
  * Validate whether an argument is a valid user.
@@ -44,9 +44,11 @@ class views_plugin_argument_validate_user extends views_plugin_argument_validate
       '#options' => user_roles(TRUE),
       '#default_value' => $this->options['roles'],
       '#description' => t('If no roles are selected, users from any role will be allowed.'),
-      '#process' => array('form_process_checkboxes', 'views_process_dependency'),
-      '#dependency' => array(
-        'edit-options-argument-validate-user-restrict-roles' => array(1),
+      '#process' => array('form_process_checkboxes'),
+      '#states' => array(
+        'invisible' => array(
+          'input[name="options[argument_validate][user][restrict_roles]"]' => array('checked' => FALSE),
+        ),
       ),
     );
   }
@@ -71,17 +73,21 @@ class views_plugin_argument_validate_user extends views_plugin_argument_validate
     if (is_numeric($argument) && $argument == (int)$argument) {
       if ($type == 'uid' || $type == 'either') {
         if ($argument == $GLOBALS['user']->uid) {
-          $account = $GLOBALS['user'];
+          // If you assign an object to a variable in PHP, the variable
+          // automatically acts as a reference, not a copy, so we use
+          // clone to ensure that we don't actually mess with the
+          // real global $user object.
+          $account = clone $GLOBALS['user'];
         }
-        $where = 'uid = %d';
+        $where = 'uid = :argument';
       }
     }
     else {
       if ($type == 'name' || $type == 'either') {
         if ($argument == $GLOBALS['user']->name) {
-          $account = $GLOBALS['user'];
+          $account = clone $GLOBALS['user'];
         }
-        $where = "name = '%s'";
+        $where = "name = :argument";
       }
     }
 
@@ -92,7 +98,7 @@ class views_plugin_argument_validate_user extends views_plugin_argument_validate
 
     if (!isset($account)) {
       $query = "SELECT uid, name FROM {users} WHERE $where";
-      $account = db_fetch_object(db_query($query, $argument));
+      $account = db_query($query, array(':argument' => $argument))->fetchObject();
     }
     if (empty($account)) {
       // User not found.

@@ -1,5 +1,5 @@
 <?php
-// $Id: search.views.inc,v 1.18.4.2 2009/12/24 00:55:12 merlinofchaos Exp $
+// $Id: search.views.inc,v 1.18.4.3 2010/07/19 09:18:42 dereine Exp $
 /**
  * @file
  * Provide views data and handlers for search.module
@@ -128,18 +128,6 @@ function search_views_data() {
   );
 
   return $data;
-}
-
-/**
- * Implements hook_views_handlers() to register all of the basic handlers
- * views uses.
- */
-function search_views_handlers() {
-  return array(
-    'views_handler_field_search_score',
-    'views_handler_sort_search_score',
-    'views_handler_filter_search',
-  );
 }
 
 /**

@@ -1,5 +1,5 @@
 <?php
-//$Id: user.views.inc,v 1.59.4.7 2010/03/22 20:32:39 merlinofchaos Exp $
+//$Id: user.views.inc,v 1.59.4.13 2010/09/22 21:31:29 dereine Exp $
 /**
  * @file
  * Provide views data and handlers for user.module
@@ -26,6 +26,7 @@ function user_views_data() {
     'field' => 'uid',
     'title' => t('User'),
     'help' => t('Users who have created accounts on your site.'),
+    'access query tag' => 'user_access',
   );
 
   $data['users']['table']['join'] = array(
@@ -67,6 +68,7 @@ function user_views_data() {
       'help' => t('Relate nodes to the user who created it. This relationship will create one record for every node created by the user.'),
       'handler' => 'views_handler_relationship',
       'base' => 'node',
+      'base field' => 'uid',
       'field' => 'uid',
       'label' => t('nodes'),
     ),
@@ -210,7 +212,7 @@ function user_views_data() {
     ),
   );
 
-  // published status
+  // active status
   $data['users']['status'] = array(
     'title' => t('Active'), // The item it appears as on the UI,
     'help' => t('Whether a user is active or blocked.'), // The help that appears on the UI,
@@ -298,6 +300,7 @@ function user_views_data() {
       'name table' => 'role',
       'name field' => 'name',
       'empty field name' => t('No role'),
+      'zero is null' => TRUE,
       'numeric' => TRUE,
     ),
   );
@@ -331,7 +334,7 @@ function user_views_data() {
 
   // ----------------------------------------------------------------------
   // authmap table
-  
+
   $data['authmap']['table']['group']  = t('User');
   $data['authmap']['table']['join'] = array(
      // Directly links to users table.
@@ -386,7 +389,7 @@ function user_views_data() {
       'handler' => 'views_handler_argument_string',
     ),
   );
-  
+
   return $data;
 }
 
@@ -419,35 +422,11 @@ function user_views_plugins() {
 }
 
 /**
- * Implements hook_views_handlers() to register all of the basic handlers
- * views uses.
- */
-function user_views_handlers() {
-  return array(
-    'views_handler_argument_user_uid',
-    'views_handler_field_user',
-    'views_handler_field_user_name',
-    'views_handler_field_user_link',
-    'views_handler_field_user_link_edit',
-    'views_handler_field_user_link_delete',
-    'views_handler_field_user_mail',
-    'views_handler_field_user_language',
-    'views_handler_field_user_picture',
-    'views_handler_field_user_roles',
-    'views_handler_filter_user_name',
-    'views_handler_filter_user_current',
-    'views_handler_filter_user_roles',
-    'views_handler_argument_users_roles_rid',
-  );
-}
-
-
-/**
  * Allow replacement of current userid so we can cache these queries
  */
 function user_views_query_substitutions($view) {
   global $user;
-  return array(':user-current-user' => intval($user->uid));
+  return array('***CURRENT_USER***' => intval($user->uid));
 }
 
 /**

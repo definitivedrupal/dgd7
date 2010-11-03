@@ -1,5 +1,5 @@
 <?php
-// $Id: docs.php,v 1.16.4.3 2010/03/08 20:04:35 merlinofchaos Exp $
+// $Id: docs.php,v 1.16.4.6 2010/10/16 08:41:24 dereine Exp $
 /**
  * @file
  * This file contains no working PHP code; it exists to provide additional documentation
@@ -205,6 +205,36 @@ function hook_views_data() {
 }
 
 /**
+ * Alter table structure.
+ *
+ * You can add/edit/remove to existing tables defined by hook_views_data().
+ *
+ * This hook should be placed in MODULENAME.views.inc and it will be auto-loaded.
+ * This must either be in the same directory as the .module file or in a subdirectory
+ * named 'includes'.
+ *
+ * The full documentation for this hook is in the advanced help.
+ * @link http://views-help.doc.logrus.com/help/views/api-tables @endlink
+ */
+function hook_views_data_alter(&$data) {
+  // This example alters the title of the node: nid field for the admin.
+  $data['node']['nid']['title'] = t('Node-Nid');
+
+  // This example adds a example field to the users table
+  $data['users']['example_field'] = array(
+    'title' => t('Example field'),
+    'help' => t('Some examüple content that references a user'),
+    'handler' => 'hook_handlers_field_example_field',
+  );
+
+  // This example changes the handler of the node title field.
+  // In this handler you could do stuff, like preview of the node, when clicking the node title.
+
+  $data['node']['title']['handler'] = 'modulename_handlers_field_node_title';
+}
+
+
+/**
  * The full documentation for this hook is now in the advanced help.
  *
  * This hook should be placed in MODULENAME.views.inc and it will be auto-loaded.
@@ -225,16 +255,6 @@ function hook_views_plugins() {
 function hook_views_plugins_alter(&$plugins) {
   // Add apachesolr to the base of the node row plugin.
   $plugins['row']['node']['base'][] = 'apachesolr';
-}
-
-/**
- * Register handler, file and parent information so that handlers can be
- * loaded only on request.
- *
- * The full documentation for this hook is in the advanced help.
- */
-function hook_views_handlers() {
-  // example code here
 }
 
 /**
@@ -279,9 +299,7 @@ function hook_views_default_views() {
   $view->name = 'frontpage';
   $view->description = t('Emulates the default Drupal front page; you may set the default home page path to this view to make it your front page.');
   $view->tag = t('default');
-  $view->view_php = '';
   $view->base_table = 'node';
-  $view->is_cacheable = '0';
   $view->api_version = 2;
   $view->disabled = FALSE; // Edit this to true to make a default view disabled initially
   $view->display = array();

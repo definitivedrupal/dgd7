@@ -1,5 +1,5 @@
 <?php
-// $Id: theme.inc,v 1.84.4.20 2010/07/04 10:04:51 dereine Exp $
+// $Id: theme.inc,v 1.84.4.27 2010/10/12 21:31:52 merlinofchaos Exp $
 
 /**
  * @file theme.inc
@@ -24,7 +24,7 @@ function _views_theme_functions($hook, $view, $display = NULL) {
   if ($display) {
     $themes[] = $hook . '__' . $view->name . '__' . $display->id;
     $themes[] = $hook . '__' . $display->id;
-    $themes[] = $hook . '__' . preg_replace('/[^a-z0-9]/', '-', strtolower($view->tag));
+    $themes[] = $hook . '__' . preg_replace('/[^a-z0-9]/', '_', strtolower($view->tag));
     if ($display->id != $display->display_plugin) {
       $themes[] = $hook . '__' . $view->name . '__' . $display->display_plugin;
       $themes[] = $hook . '__' . $display->display_plugin;
@@ -45,14 +45,14 @@ function template_preprocess_views_view(&$vars) {
 
   $vars['rows']       = !empty($view->result) || !empty($view->style_plugin->definition['even empty']) ? $view->style_plugin->render($view->result) : '';
 
-  $vars['css_name']   = views_css_safe($view->name);
+  $vars['css_name']   = drupal_clean_css_identifier($view->name);
   $vars['name']       = $view->name;
   $vars['display_id'] = $view->current_display;
 
   // Basic classes
   $vars['classes_array'] = array();
   $vars['classes_array'][] = 'view';
-  $vars['classes_array'][] = 'view-' . views_css_safe($vars['name']);
+  $vars['classes_array'][] = 'view-' . drupal_clean_css_identifier($vars['name']);
   $vars['classes_array'][] = 'view-id-' . $vars['name'];
   $vars['classes_array'][] = 'view-display-id-' . $vars['display_id'];
 
@@ -82,21 +82,11 @@ function template_preprocess_views_view(&$vars) {
   if (user_access('administer views') && module_exists('views_ui') && module_exists('contextual') && empty($view->hide_admin_links) && !variable_get('views_no_hover_links', FALSE)) {
     $links = array(
       array(
-        'title' => t('Edit'),
+        'title' => t('Edit view'),
         'alt' => t("Edit this view"),
         'href' => "admin/structure/views/edit/$view->name",
         'fragment' => 'views-tab-' . $view->current_display,
         'query' => drupal_get_destination(),
-      ),
-      array(
-        'title' => t('Export'),
-        'alt' => t("Export this view"),
-        'href' => "admin/structure/views/export/$view->name",
-      ),
-      array(
-        'title' => t('Clone'),
-        'alt' => t("Create a copy of this view"),
-        'href' => "admin/structure/views/clone/$view->name",
       ),
     );
     drupal_alter('views_admin_links', $links, $view);
@@ -111,7 +101,6 @@ function template_preprocess_views_view(&$vars) {
         'library' => array(array('contextual', 'contextual-links')),
       ),
     );
-    drupal_add_library('contextual', 'contextual-links');
     $vars['classes_array'][] = 'contextual-links-region';
     $vars['admin_links'] = drupal_render($build);
   }
@@ -176,7 +165,7 @@ function template_preprocess_views_view_fields(&$vars) {
     // render this even if set to exclude so it can be used elsewhere.
     $field_output = $view->field[$id]->theme($vars['row']);
     $empty = $field_output !== 0 && empty($field_output);
-    if (empty($field->options['exclude']) && (!$empty || empty($field->options['hide_empty']))) {
+    if (empty($field->options['exclude']) && (!$empty || (empty($field->options['hide_empty']) && empty($vars['options']['hide_empty'])))) {
       $object = new stdClass();
 
       $object->content = $field_output;
@@ -197,7 +186,7 @@ function template_preprocess_views_view_fields(&$vars) {
       $object->handler = &$view->field[$id];
       $object->element_type = $object->handler->element_type();
 
-      $object->class = views_css_safe($id);
+      $object->class = drupal_clean_css_identifier($id);
       $object->label = check_plain($view->field[$id]->label());
       $vars['fields'][$id] = $object;
     }
@@ -248,7 +237,11 @@ function template_preprocess_views_view_summary(&$vars) {
     $args = $view->args;
     $args[$argument->position] = $argument->summary_argument($row);
 
-    $vars['rows'][$id]->url = url($view->get_url($args), $url_options);
+    $base_path = NULL;
+    if (!empty($argument->options['style_options']['base_path'])) {
+      $base_path = $argument->options['style_options']['base_path'];
+    }
+    $vars['rows'][$id]->url = url($view->get_url($args, $base_path), $url_options);
     $vars['rows'][$id]->count = intval($row->{$argument->count_alias});
     if ($vars['rows'][$id]->url == base_path() . $_GET['q'] || $vars['rows'][$id]->url == base_path() . drupal_get_path_alias($_GET['q'])) {
       $vars['classes'][$id] = 'active';
@@ -281,7 +274,11 @@ function template_preprocess_views_view_summary_unformatted(&$vars) {
     $args = $view->args;
     $args[$argument->position] = $argument->summary_argument($row);
 
-    $vars['rows'][$id]->url = url($view->get_url($args), $url_options);
+    $base_path = NULL;
+    if (!empty($argument->options['style_options']['base_path'])) {
+      $base_path = $argument->options['style_options']['base_path'];
+    }
+    $vars['rows'][$id]->url = url($view->get_url($args, $base_path), $url_options);
     $vars['rows'][$id]->count = intval($row->{$argument->count_alias});
     if ($vars['rows'][$id]->url == base_path() . $_GET['q'] || $vars['rows'][$id]->url == base_path() . drupal_get_path_alias($_GET['q'])) {
       $vars['classes'][$id] = 'active';
@@ -360,14 +357,14 @@ function template_preprocess_views_view_table(&$vars) {
 
     // Create a second variable so we can easily find what fields we have and what the
     // CSS classes should be.
-    $vars['fields'][$field] = views_css_safe($field);
+    $vars['fields'][$field] = drupal_clean_css_identifier($field);
     if ($active == $field) {
       $vars['fields'][$field] .= ' active';
     }
 
     // Add a CSS align class to each field if one was set
     if (!empty($options['info'][$field]['align'])) {
-      $vars['fields'][$field] .= ' ' . views_css_safe($options['info'][$field]['align']);
+      $vars['fields'][$field] .= ' ' . drupal_clean_css_identifier($options['info'][$field]['align']);
     }
 
     // Render each field into its appropriate column.

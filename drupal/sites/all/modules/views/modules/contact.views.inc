@@ -1,5 +1,5 @@
 <?php
-//$Id: contact.views.inc,v 1.1.6.1 2009/11/02 22:01:26 merlinofchaos Exp $
+//$Id: contact.views.inc,v 1.1.6.2 2010/07/19 09:18:42 dereine Exp $
 /**
  * @file
  * Provide views data and handlers for contact.module
@@ -15,19 +15,4 @@ function contact_views_data() {
   );
   return $data;
 }
-/**
- * Implements hook_views_handlers() to register all of the basic handlers
- * views uses.
- */
-function contact_views_handlers() {
-  return array(
-    'info' => array(
-      'path' => drupal_get_path('module', 'views') . '/modules/contact',
-    ),
-    'handlers' => array(
-      'views_handler_field_contact_link' => array(
-        'parent' => 'views_handler_field_user_link',
-      ),
-    ),
-  );
-}
+

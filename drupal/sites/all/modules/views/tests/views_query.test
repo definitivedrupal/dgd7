@@ -1,5 +1,5 @@
 <?php
-// $Id: views_query.test,v 1.1.2.12 2010/07/10 06:04:00 dereine Exp $
+// $Id: views_query.test,v 1.1.2.13 2010/10/05 12:29:56 dereine Exp $
 
 /**
  * @file
@@ -132,6 +132,7 @@ abstract class ViewsSqlTest extends ViewsTestCase {
     variable_set('views_test_views_plugins', $this->viewsPlugins());
 
     module_enable(array('views_test'));
+    $this->resetAll();
 
     // Load the test dataset.
     $data_set = $this->dataSet();

@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_field.inc,v 1.33.4.18 2010/06/30 19:18:55 merlinofchaos Exp $
+// $Id: views_handler_field.inc,v 1.33.4.28 2010/10/17 10:42:43 dereine Exp $
 /**
  * @defgroup views_field_handlers Views' field handlers
  * @{
@@ -48,7 +48,7 @@ class views_handler_field extends views_handler {
     return TRUE;
   }
 
-  function init(&$view, $options) {
+  function init(&$view, &$options) {
     parent::init($view, $options);
 
     $this->options += array(
@@ -96,7 +96,7 @@ class views_handler_field extends views_handler {
           }
 
           if (empty($table_alias)) {
-            vpr(t('Handler @handler tried to add additional_field @identifier but @table could not be added!', array('@handler' => $this->definition['handler'], '@identifier' => $identifier, '@table' => $info['table'])));
+            debug(t('Handler @handler tried to add additional_field @identifier but @table could not be added!', array('@handler' => $this->definition['handler'], '@identifier' => $identifier, '@table' => $info['table'])));
             $this->aliases[$identifier] = 'broken';
             continue;
           }
@@ -119,7 +119,7 @@ class views_handler_field extends views_handler {
    * Called to determine what to tell the clicksorter.
    */
   function click_sort($order) {
-    $this->query->add_orderby($this->table, $this->field, $order, $this->field_alias);
+    $this->query->add_orderby($this->table_alias, $this->real_field, $order, $this->field_alias);
   }
 
   /**
@@ -161,6 +161,7 @@ class views_handler_field extends views_handler {
         'text' => array('default' => '', 'translatable' => TRUE),
         'make_link' => array('default' => FALSE),
         'path' => array('default' => '', 'translatable' => TRUE),
+        'absolute' => array('default' => '', 'translatable' => FALSE),
         'alt' => array('default' => '', 'translatable' => TRUE),
         'link_class' => array('default' => ''),
         'prefix' => array('default' => '', 'translatable' => TRUE),
@@ -215,9 +216,10 @@ class views_handler_field extends views_handler {
         '#type' => 'textarea',
         '#default_value' => $this->options['alter']['text'],
         '#description' => t('The text to display for this field. You may include HTML. You may enter data from this view as per the "Replacement patterns" below.'),
-        '#process' => array('views_process_dependency'),
-        '#dependency' => array(
-          'edit-options-alter-alter-text' => array(1)
+        '#states' => array(
+          'visible' => array(
+            'input[name="options[alter][alter_text]"]' => array('checked' => TRUE),
+          )
         ),
       );
 
@@ -232,20 +234,33 @@ class views_handler_field extends views_handler {
         '#type' => 'textfield',
         '#default_value' => $this->options['alter']['path'],
         '#description' => t('The Drupal path or absolute URL for this link. You may enter data from this view as per the "Replacement patterns" below.'),
-        '#process' => array('views_process_dependency'),
-        '#dependency' => array(
-          'edit-options-alter-make-link' => array(1)
+        '#states' => array(
+          'visible' => array(
+            'input[name="options[alter][make_link]"]' => array('checked' => TRUE),
+          ),
         ),
         '#maxlength' => 255,
       );
+       $form['alter']['absolute'] = array(
+         '#type' => 'checkbox',
+         '#title' => t('Use absolute path'),
+         '#default_value' => $this->options['alter']['absolute'],
+          '#states' => array(
+          'visible' => array(
+            'input[name="options[alter][make_link]"]' => array('checked' => TRUE),
+          ),
+        ),
+       );
+
       $form['alter']['link_class'] = array(
         '#title' => t('Link class'),
         '#type' => 'textfield',
         '#default_value' => $this->options['alter']['link_class'],
         '#description' => t('The CSS class to apply to the link.'),
-        '#process' => array('views_process_dependency'),
-        '#dependency' => array(
-          'edit-options-alter-make-link' => array(1)
+        '#states' => array(
+          'visible' => array(
+            'input[name="options[alter][make_link]"]' => array('checked' => TRUE),
+          ),
         ),
       );
       $form['alter']['alt'] = array(
@@ -253,9 +268,10 @@ class views_handler_field extends views_handler {
         '#type' => 'textfield',
         '#default_value' => $this->options['alter']['alt'],
         '#description' => t('Text to place as "alt" text which most browsers display as a tooltip when hovering over the link.'),
-        '#process' => array('views_process_dependency'),
-        '#dependency' => array(
-          'edit-options-alter-make-link' => array(1)
+        '#states' => array(
+          'visible' => array(
+            'input[name="options[alter][make_link]"]' => array('checked' => TRUE),
+          ),
         ),
       );
       $form['alter']['prefix'] = array(
@@ -263,9 +279,10 @@ class views_handler_field extends views_handler {
         '#type' => 'textfield',
         '#default_value' => $this->options['alter']['prefix'],
         '#description' => t('Any text to display before this link. You may include HTML.'),
-        '#process' => array('views_process_dependency'),
-        '#dependency' => array(
-          'edit-options-alter-make-link' => array(1)
+        '#states' => array(
+          'visible' => array(
+            'input[name="options[alter][make_link]"]' => array('checked' => TRUE),
+          ),
         ),
       );
       $form['alter']['suffix'] = array(
@@ -273,9 +290,10 @@ class views_handler_field extends views_handler {
         '#type' => 'textfield',
         '#default_value' => $this->options['alter']['suffix'],
         '#description' => t('Any text to display after this link. You may include HTML.'),
-        '#process' => array('views_process_dependency'),
-        '#dependency' => array(
-          'edit-options-alter-make-link' => array(1)
+        '#states' => array(
+          'visible' => array(
+            'input[name="options[alter][make_link]"]' => array('checked' => TRUE),
+          ),
         ),
       );
       $form['alter']['target'] = array(
@@ -283,9 +301,10 @@ class views_handler_field extends views_handler {
         '#type' => 'textfield',
         '#default_value' => $this->options['alter']['target'],
         '#description' => t("Target of the link, such as _blank, _parent or an iframe's name. This field is rarely used."),
-        '#process' => array('views_process_dependency'),
-        '#dependency' => array(
-          'edit-options-alter-make-link' => array(1)
+        '#states' => array(
+          'visible' => array(
+            'input[name="options[alter][make_link]"]' => array('checked' => TRUE),
+          ),
         ),
       );
 
@@ -326,18 +345,17 @@ class views_handler_field extends views_handler {
           }
         }
       }
-      // This construct uses 'hidden' and not markup because process doesn't
-      // run. It also has an extra div because the dependency wants to hide
-      // the parent in situations like this, so we need a second div to
-      // make this work.
+      // This has an extra div because fieldsets do not have an ID by
+      // default in Drupal.
       $form['alter']['help'] = array(
-        '#type' => 'hidden',
+        '#type' => 'markup',
         '#id' => 'views-tokens-help',
-        '#prefix' => '<div><fieldset id="views-tokens-help"><legend>' . t('Replacement patterns') . '</legend>' . $output . '</fieldset></div>',
-        '#process' => array('views_process_dependency'),
-        '#dependency' => array(
-          'edit-options-alter-make-link' => array(1),
-          'edit-options-alter-alter-text' => array(1),
+        '#prefix' => '<div><fieldset id="views-tokens-help" class="form-item"><legend>' . t('Replacement patterns') . '</legend>' . $output . '</fieldset></div>',
+        '#states' => array(
+          'invisible' => array(
+            'input[name="options[alter][alter_text]"]' => array('checked' => FALSE),
+            'input[name="options[alter][make_link]"]' => array('checked' => FALSE),
+          ),
         ),
       );
 
@@ -353,9 +371,10 @@ class views_handler_field extends views_handler {
         '#type' => 'textfield',
         '#default_value' => $this->options['alter']['max_length'],
         '#description' => t('The maximum number of characters this field can be.'),
-        '#process' => array('views_process_dependency'),
-        '#dependency' => array(
-          'edit-options-alter-trim' => array(1)
+        '#states' => array(
+          'visible' => array(
+            'input[name="options[alter][trim]"]' => array('checked' => TRUE),
+          ),
         ),
       );
 
@@ -364,9 +383,10 @@ class views_handler_field extends views_handler {
         '#title' => t('Trim only on a word boundary'),
         '#description' => t('If checked, this field be trimmed only on a word boundary. This is guaranteed to be the maximum characters stated or less. If there are no word boundaries this could trim a field to nothing.'),
         '#default_value' => $this->options['alter']['word_boundary'],
-        '#process' => array('views_process_dependency'),
-        '#dependency' => array(
-          'edit-options-alter-trim' => array(1)
+        '#states' => array(
+          'visible' => array(
+            'input[name="options[alter][trim]"]' => array('checked' => TRUE),
+          ),
         ),
       );
 
@@ -375,9 +395,10 @@ class views_handler_field extends views_handler {
         '#title' => t('Add an ellipsis'),
         '#description' => t('If checked, a "..." will be added if a field was trimmed.'),
         '#default_value' => $this->options['alter']['ellipsis'],
-        '#process' => array('views_process_dependency'),
-        '#dependency' => array(
-          'edit-options-alter-trim' => array(1)
+        '#states' => array(
+          'visible' => array(
+            'input[name="options[alter][trim]"]' => array('checked' => TRUE),
+          ),
         ),
       );
 
@@ -386,9 +407,10 @@ class views_handler_field extends views_handler {
         '#title' => t('Field can contain HTML'),
         '#description' => t('If checked, HTML corrector will be run to ensure tags are properly closed after trimming.'),
         '#default_value' => $this->options['alter']['html'],
-        '#process' => array('views_process_dependency'),
-        '#dependency' => array(
-          'edit-options-alter-trim' => array(1)
+        '#states' => array(
+          'visible' => array(
+            'input[name="options[alter][trim]"]' => array('checked' => TRUE),
+          ),
         ),
       );
 
@@ -397,7 +419,11 @@ class views_handler_field extends views_handler {
         '#title' => t('Strip HTML tags'),
         '#description' => t('If checked, all HTML tags will be stripped.'),
         '#default_value' => $this->options['alter']['strip_tags'],
-        '#process' => array('views_process_dependency'),
+        '#states' => array(
+          'visible' => array(
+            'input[name="options[alter][trim]"]' => array('checked' => TRUE),
+          ),
+        ),
       );
     }
 
@@ -492,7 +518,9 @@ class views_handler_field extends views_handler {
 
     if (empty($this->last_render)) {
       if (($this->last_render !== 0 && $this->last_render !== '0') || !empty($this->options['empty_zero'])) {
-        $this->last_render = $this->options['empty'];
+        $this->options['alter']['alter_text'] = 1;
+        $this->options['alter']['text'] = $this->options['empty'];
+        $this->last_render = $this->render_text($this->options['alter']);
       }
     }
 
@@ -507,13 +535,14 @@ class views_handler_field extends views_handler {
    */
   function render_text($alter) {
     $value = trim($this->last_render);
-    if ($this->options['hide_empty'] && empty($value) && ($value !== 0 || $this->options['empty_zero'])) {
-      return '';
-    }
 
     if (!empty($alter['alter_text']) && $alter['text'] !== '') {
       $tokens = $this->get_render_tokens($alter);
       $value = $this->render_altered($alter, $tokens);
+    }
+
+    if ($this->options['hide_empty'] && empty($value) && ($value !== 0 || $this->options['empty_zero'])) {
+      return '';
     }
 
     if (!empty($alter['strip_tags'])) {
@@ -570,7 +599,8 @@ class views_handler_field extends views_handler {
     }
 
     $options = array(
-      'html' => 'true',
+      'html' => TRUE,
+      'absolute' => !empty($alter['absolute']) ? TRUE : FALSE,
     );
 
     // $path will be run through check_url() by l() so we do not need to
@@ -595,10 +625,14 @@ class views_handler_field extends views_handler {
     $url = parse_url($path);
     if (isset($url['query'])) {
       $path = strtr($path, array('?' . $url['query'] => ''));
-      $options['query'] = $url['query'];
+      $options['query'] = drupal_get_query_array($url['query']);
     }
     if (isset($url['fragment'])) {
       $path = strtr($path, array('#' . $url['fragment'] => ''));
+      // If the path is empty we want to have a fragment for the current site.
+      if ($path == '') {
+        $options['external'] = TRUE;
+      }
       $options['fragment'] = $url['fragment'];
     }
 
@@ -621,7 +655,11 @@ class views_handler_field extends views_handler {
     // If the query and fragment were programatically assigned overwrite any
     // parsed values.
     if (isset($alter['query'])) {
+      // Convert the query to a string, perform token replacement, and then
+      // convert back to an array form for l().
+      $options['query'] = drupal_http_build_query($alter['query']);
       $options['query'] = strtr($alter['query'], $tokens);
+      $options['query'] = drupal_get_query_array($options['query']);
     }
     if (isset($alter['alias'])) {
       // Alias is a boolean field, so no token.
@@ -662,7 +700,10 @@ class views_handler_field extends views_handler {
         $tokens[$token] = '';
       }
 
-      $tokens['!' . $count] = isset($this->view->args[$count - 1]) ? check_plain($this->view->args[$count - 1]) : '';
+      // Use strip tags as there should never be HTML in the path.
+      // However, we need to preserve special characters like " that
+      // were removed by check_plain().
+      $tokens['!' . $count] = isset($this->view->args[$count - 1]) ? strip_tags(html_entity_decode($this->view->args[$count - 1])) : '';
     }
 
     // Now add replacements for our fields.

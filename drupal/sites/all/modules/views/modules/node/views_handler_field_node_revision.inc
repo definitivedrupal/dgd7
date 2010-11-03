@@ -1,12 +1,12 @@
 <?php
-// $Id: views_handler_field_node_revision.inc,v 1.1.6.2 2010/03/12 09:00:15 dereine Exp $
+// $Id: views_handler_field_node_revision.inc,v 1.1.6.3 2010/08/26 09:41:55 dereine Exp $
 /**
  * @file
  * Contains the basic 'node_revision' field handler.
  */
 
 class views_handler_field_node_revision extends views_handler_field_node {
-  function init(&$view, $options) {
+  function init(&$view, &$options) {
     parent::init($view, $options);
     if (!empty($this->options['link_to_node_revision'])) {
       $this->additional_fields['vid'] = 'vid';

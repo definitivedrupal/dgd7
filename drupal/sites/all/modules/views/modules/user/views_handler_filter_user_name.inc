@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_filter_user_name.inc,v 1.2.6.1 2009/11/02 22:01:27 merlinofchaos Exp $
+// $Id: views_handler_filter_user_name.inc,v 1.2.6.2 2010/08/26 09:41:55 dereine Exp $
 
 /**
  * Filter handler for usernames
@@ -36,7 +36,7 @@ class views_handler_filter_user_name extends views_handler_filter_in_operator {
     }
   }
 
-  function value_validate(&$form, &$form_state) {
+  function value_validate($form, &$form_state) {
     $values = drupal_explode_tags($form_state['values']['options']['value']);
     $uids = $this->validate_user_strings($form['value'], $values);
 

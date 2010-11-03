@@ -1,5 +1,5 @@
 <?php
-// $Id: views_plugin_display.inc,v 1.27.4.29 2010/07/15 07:19:27 dereine Exp $
+// $Id: views_plugin_display.inc,v 1.27.4.37 2010/10/16 08:51:10 dereine Exp $
 /**
  * @file
  * Contains the base display plugin.
@@ -113,6 +113,16 @@ class views_plugin_display extends views_plugin {
           $this->set_option($area, array());
         }
       }
+    }
+
+    // Convert distinct setting from display to query settings.
+    $distinct = $this->get_option('distinct');
+    if (!empty($distinct)) {
+      $query_settings = $this->get_option('query');
+      $query_settings['options']['distinct'] = $distinct;
+      $this->set_option('query', $query_settings);
+      // Clear the values
+      $this->set_option('distinct', NULL);
     }
   }
 
@@ -257,11 +267,11 @@ class views_plugin_display extends views_plugin {
       'title' => array('title'),
       'css_class' => array('css_class'),
       'use_ajax' => array('use_ajax'),
+      'query' => array('query'),
       'items_per_page' => array('items_per_page', 'offset', 'use_pager', 'pager_element'),
       'pager' => array('pager'),
       'use_more' => array('use_more', 'use_more_always', 'use_more_text'),
       'link_display' => array('link_display'),
-      'distinct' => array('distinct'),
       'exposed_block' => array('exposed_block'),
       'exposed_form' => array('exposed_form'),
 
@@ -291,36 +301,13 @@ class views_plugin_display extends views_plugin {
     }
   }
 
-  /**
-   * Set default options.
-   *
-   * Displays put their options in a different place than everything else; also
-   * displays spread their options out. We don't want to set defaults for
-   * items that are normally defaulted elsewhere.
-   */
-  function _set_option_defaults(&$storage, $options, $level = 0) {
-    foreach ($options as $option => $definition) {
-      // If defaulted to elsewhere and we're not the default display, skip.
-      if ($level == 0 && !$this->is_default_display() && !empty($options['defaults']['default'][$option])) {
-        continue;
-      }
-
-      if (isset($definition['contains']) && is_array($definition['contains'])) {
-        $storage[$option] = array();
-        $this->_set_option_defaults($storage[$option], $definition['contains'], $level++);
-      }
-      else {
-        $storage[$option] = isset($definition['default']) ? $definition['default'] : NULL;
-      }
-    }
-  }
-
   function option_definition() {
     $options = array(
       'defaults' => array(
         'default' => array(
           'access' => TRUE,
           'cache' => TRUE,
+          'query' => TRUE,
           'title' => TRUE,
           'css_class' => TRUE,
 
@@ -332,7 +319,6 @@ class views_plugin_display extends views_plugin {
           'use_more' => TRUE,
           'use_more_always' => TRUE,
           'use_more_text' => TRUE,
-          'distinct' => TRUE,
           'exposed_block' => TRUE,
           'exposed_form' => TRUE,
 
@@ -394,10 +380,6 @@ class views_plugin_display extends views_plugin {
       'link_display' => array(
         'default' => '',
       ),
-      'distinct' => array(
-        'default' => FALSE,
-        'bool' => TRUE,
-      ),
       'group_by' => array(
         'default' => FALSE,
         'bool' => TRUE,
@@ -413,6 +395,12 @@ class views_plugin_display extends views_plugin {
       'cache' => array(
         'contains' => array(
           'type' => array('default' => 'none', 'export' => 'export_plugin'),
+         ),
+      ),
+      'query' => array(
+        'contains' => array(
+          'type' => array('default' => 'views_query', 'export' => 'export_plugin'),
+          'options' => array('default' => array(), 'export' => FALSE),
          ),
       ),
       // Note that exposed_form plugin has options in a separate array,
@@ -618,6 +606,9 @@ class views_plugin_display extends views_plugin {
           }
 
           break;
+        case 'query':
+          $views_data = views_fetch_data($this->view->base_table);
+          $name = !empty($views_data['table']['base']['query class']) ? $views_data['table']['base']['query class'] : 'views_query';
         default:
           $option_name = $type;
           $options = $this->get_option($type);
@@ -631,13 +622,17 @@ class views_plugin_display extends views_plugin {
             $options = $options['options'];
           }
       }
-
       $plugin = views_get_plugin($type, $name);
+
       if (!$plugin) {
         return;
       }
-
-      $plugin->init($this->view, $this->display, $options);
+      if ($type != 'query') {
+        $plugin->init($this->view, $this->display, $options);
+      }
+      else {
+        $plugin->init($this->view->base_table, $this->view->base_field, $options);
+      }
       $cache[$type][$name] = $plugin;
     }
 
@@ -904,13 +899,6 @@ class views_plugin_display extends views_plugin {
       );
     }
 
-    $options['distinct'] = array(
-      'category' => 'advanced',
-      'title' => t('Distinct'),
-      'value' => $this->get_option('distinct') ? t('Yes') : t('No'),
-      'desc' => t('Display only distinct items, without duplicates.'),
-    );
-
     $this->view->init_query();
     if ($this->view->query->get_aggregation_info()) {
       $options['group_by'] = array(
@@ -920,6 +908,13 @@ class views_plugin_display extends views_plugin {
         'desc' => t('Allow grouping and aggregation (calculation) of fields.'),
       );
     }
+
+    $options['query'] = array(
+      'category' => 'advanced',
+      'title' => t('Query settings'),
+      'value' => t('Settings'),
+      'desc' => t('Allow to set some advanced settings for the query plugin'),
+    );
 
     $access_plugin = $this->get_plugin('access');
     if (!$access_plugin) {
@@ -1059,7 +1054,7 @@ class views_plugin_display extends views_plugin {
         $form['display_id'] = array(
           '#type' => 'textfield',
           '#description' => t('This is machine name of the display.'),
-          '#default_value' => $this->display->id,
+          '#default_value' => !empty($this->display->new_id) ? $this->display->new_id : $this->display->id,
           '#required' => TRUE,
           '#size' => 64,
         );
@@ -1119,15 +1114,6 @@ class views_plugin_display extends views_plugin {
           '#title' => t('More link text'),
           '#description' => t("The text to display for the more link."),
           '#default_value' => $this->get_option('use_more_text'),
-        );
-        break;
-      case 'distinct':
-        $form['#title'] .= t('Display only distinct items, without duplicates.');
-        $form['distinct'] = array(
-          '#type' => 'checkbox',
-          '#title' => t('Distinct'),
-          '#description' => t('This will make the view display only distinct items. If there are multiple identical items, each will be displayed only once. You can use this to try and remove duplicates from a view, though it does not always work. Note that this can slow queries down, so use it with caution.'),
-          '#default_value' => $this->get_option('distinct'),
         );
         break;
       case 'group_by':
@@ -1222,6 +1208,35 @@ class views_plugin_display extends views_plugin {
             '#value' => $cache['type'],
           );
           $plugin->options_form($form['cache_options'], $form_state);
+        }
+        break;
+      case 'query':
+        $query_options = $this->get_option('query');
+        $plugin_name = $query_options['type'];
+
+        $form['#title'] .= t('Query options');
+        $this->view->init_query();
+        if ($this->view->query) {
+          if (isset($this->view->query->definition['help topic'])) {
+            $form['#help_topic'] = $this->view->query->definition['help topic'];
+          }
+
+          if (isset($this->view->query->definition['module'])) {
+            $form['#help_module'] = $this->view->query->definition['module'];
+          }
+
+          $form['query'] = array(
+            '#tree' => TRUE,
+            'type' => array(
+              '#type' => 'value',
+              '#value' => $plugin_name,
+            ),
+            'options' => array(
+              '#tree' => TRUE,
+            ),
+          );
+          
+          $this->view->query->options_form($form['query']['options'], $form_state);
         }
         break;
       case 'style_plugin':
@@ -1643,6 +1658,10 @@ class views_plugin_display extends views_plugin {
       break;
       case 'display_id':
         if ($form_state['values']['display_id']) {
+          if (preg_match('/[^a-zA-Z0-9_]/', $form_state['values']['display_id'])) {
+            form_error($form['display_id'], t('Display id must be alphanumeric or underscores only.'));
+          }
+
           foreach ($this->view->display as $id => $display) {
             if ($id != $this->view->current_display && ($form_state['values']['display_id'] == $id || $form_state['values']['display_id'] == $display->new_id)) {
               form_error($form['display_id'], t('Display id should be unique.'));
@@ -1663,6 +1682,11 @@ class views_plugin_display extends views_plugin {
         $plugin = $this->get_plugin('access');
         if ($plugin) {
           $plugin->options_validate($form['access_options'], $form_state);
+        }
+        break;
+      case 'query':
+        if ($this->view->query) {
+          $this->view->query->options_validate($form['query'], $form_state);
         }
         break;
       case 'cache_options':
@@ -1700,7 +1724,7 @@ class views_plugin_display extends views_plugin {
     $section = $form_state['section'];
     switch ($section) {
       case 'display_id':
-        if ($this->display->id != $form_state['values']['display_id']) {
+        if (isset($form_state['values']['display_id'])) {
           $this->display->new_id = $form_state['values']['display_id'];
         }
         break;
@@ -1749,6 +1773,14 @@ class views_plugin_display extends views_plugin {
           $this->set_option('cache', $form_state['values'][$section]);
         }
         break;
+      case 'query':
+        $plugin = $this->get_plugin('query');
+        if ($plugin) {
+          $plugin->options_submit($form['query']['options'], $form_state);
+          $this->set_option('query', $form_state['values'][$section]);
+        }
+        break;
+
       case 'title':
       case 'css_class':
       case 'link_display':
@@ -1952,12 +1984,7 @@ class views_plugin_display extends views_plugin {
   /**
    * Inject anything into the query that the display handler needs.
    */
-  function query() {
-    // Make the query distinct if the option was set.
-    if ($this->get_option('distinct')) {
-      $this->view->query->set_distinct();
-    }
-  }
+  function query() {  }
 
   /**
    * Not all display plugins will support filtering
