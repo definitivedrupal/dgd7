@@ -1,5 +1,10 @@
 <?php
-// $Id: token.module,v 1.40 2010/07/21 07:12:27 davereid Exp $
+// $Id: token.module,v 1.44 2010/09/25 15:58:49 davereid Exp $
+
+/**
+ * The maximum depth for token tree recursion.
+ */
+define('TOKEN_MAX_DEPTH', 9);
 
 /**
  * Impelements hook_help().
@@ -15,16 +20,83 @@ function token_help($path, $arg) {
 }
 
 /**
+ * Return an array of the core modules supported by token.module.
+ */
+function _token_core_supported_modules() {
+  return array('book', 'menu');
+}
+
+/**
  * Implements hook_menu().
  */
 function token_menu() {
-  $items['token/autocomplete'] = array(
+  /*$items['token/autocomplete/all/%menu_tail'] = array(
     'page callback' => 'token_autocomplete',
     'access callback' => TRUE,
     'type' => MENU_CALLBACK,
     'file' => 'token.pages.inc',
+  );*/
+  $items['token/autocomplete/%token_type'] = array(
+    'page callback' => 'token_autocomplete_token',
+    'page arguments' => array(2),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+    'file' => 'token.pages.inc',
   );
+  /*$items['token/autocomplete/%token_type/%menu_tail'] = array(
+    'page callback' => 'token_autocomplete_token',
+    'page arguments' => array(2, 3),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+    'file' => 'token.pages.inc',
+  );*/
+
+  // Devel token pages.
+  if (module_exists('devel')) {
+    $items['node/%node/devel/token'] = array(
+      'title' => 'Tokens',
+      'page callback' => 'token_devel_token_object',
+      'page arguments' => array('node', 1),
+      'access arguments' => array('access devel information'),
+      'type' => MENU_LOCAL_TASK,
+      'file' => 'token.pages.inc',
+      'weight' => 5,
+    );
+    $items['comment/%comment/devel/token'] = array(
+      'title' => 'Tokens',
+      'page callback' => 'token_devel_token_object',
+      'page arguments' => array('comment', 1),
+      'access arguments' => array('access devel information'),
+      'type' => MENU_LOCAL_TASK,
+      'file' => 'token.pages.inc',
+      'weight' => 5,
+    );
+    $items['taxonomy/term/%taxonomy_term/devel/token'] = array(
+      'title' => 'Tokens',
+      'page callback' => 'token_devel_token_object',
+      'page arguments' => array('taxonomy_term', 2),
+      'access arguments' => array('access devel information'),
+      'type' => MENU_LOCAL_TASK,
+      'file' => 'token.pages.inc',
+      'weight' => 5,
+    );
+    $items['user/%user/devel/token'] = array(
+      'title' => 'Tokens',
+      'page callback' => 'token_devel_token_object',
+      'page arguments' => array('user', 1),
+      'access arguments' => array('access devel information'),
+      'type' => MENU_LOCAL_TASK,
+      'file' => 'token.pages.inc',
+      'weight' => 5,
+    );
+  }
+
   return $items;
+}
+
+function token_type_load($token_type) {
+  $info = token_get_info();
+  return isset($info['types'][$token_type]) ? $info['types'][$token_type] : FALSE;
 }
 
 /**
@@ -66,8 +138,8 @@ function token_library() {
 /**
  * Return an array of entity type to token type mappings.
  */
-function _token_entity_mappings() {
-  return array(
+function token_get_entity_mapping($value_type = 'token', $value = NULL) {
+  $mapping = array(
     'comment' => 'comment',
     'node' => 'node',
     'file' => 'file',
@@ -75,21 +147,15 @@ function _token_entity_mappings() {
     'taxonomy_vocabulary' => 'vocabulary',
     'user' => 'user',
   );
-}
 
-/**
- * Given a token type, return its corresponding entity type if available.
- *
- * @param $token_type
- *   A token type.
- * @return
- *   An entity type, or NULL if not available.
- */
-function _token_get_entity_from_token_type($token_type) {
-  $token_entity_types = _token_entity_mappings();
-  $token_entity_types = array_flip($token_entity_types);
-  if (isset($token_entity_types[$token_type])) {
-    return $token_entity_types[$token_type];
+  if (!isset($value)) {
+    return $mapping;
+  }
+  elseif ($value_type == 'token') {
+    return array_search($value, $mapping);
+  }
+  elseif ($value_type == 'entity') {
+    return isset($mapping[$value]) ? $mapping[$value] : FALSE;
   }
 }
 
@@ -100,7 +166,7 @@ function _token_get_entity_from_token_type($token_type) {
  * map them to the proper type. This is purely for other modules' benefit.
  */
 function token_entity_info_alter(&$info) {
-  $entity_token_types = _token_entity_mappings();
+  $entity_token_types = token_get_entity_mapping();
   foreach ($entity_token_types as $entity_type => $token_type) {
     if (isset($info[$entity_type])) {
       $info[$entity_type]['token type'] = $token_type;
@@ -115,8 +181,7 @@ function token_entity_info_alter(&$info) {
  */
 function token_module_implements_alter(&$implementations, $hook) {
   if ($hook == 'tokens' || $hook == 'token_info') {
-    $modules = array('book', 'menu');
-    foreach ($modules as $module) {
+    foreach (_token_core_supported_modules() as $module) {
       if (module_exists($module)) {
         $implementations[$module] = TRUE;
       }
@@ -124,8 +189,15 @@ function token_module_implements_alter(&$implementations, $hook) {
     // Move token.module to get included first since it is responsible for
     // other modules.
     unset($implementations['token']);
-    $implementations = array_merge(array('token' => 'token'), $implementations);
+    $implementations = array_merge(array('token' => 'tokens'), $implementations);
   }
+}
+
+/**
+ * Implements hook_flush_caches().
+ */
+function token_flush_caches() {
+  return array('cache_token');
 }
 
 /**
@@ -142,21 +214,30 @@ function token_get_info($token_type = NULL) {
   $token_info = &$drupal_static_fast['token_info'];
 
   if (empty($token_info)) {
-    $langcode = $language->language;
-    if ($cache = cache_get("token_info:$langcode")) {
+    $cid = "info:{$language->language}";
+
+    if ($cache = cache_get($cid, 'cache_token')) {
       $token_info = $cache->data;
     }
     else {
       $token_info = token_info();
-      
+
       // Pre-sort tokens.
       uasort($token_info['types'], 'token_asort_tokens');
       foreach (array_keys($token_info['tokens']) as $type) {
         uasort($token_info['tokens'][$type], 'token_asort_tokens');
       }
-      
+
+      // Add a 'type' value to each token type so we can properly use
+      // token_type_load().
+      foreach (array_keys($token_info['types']) as $type_key) {
+        if (!isset($token_info['types'][$type_key]['type'])) {
+          $token_info['types'][$type_key]['type'] = $type_key;
+        }
+      }
+
       // Store info in cache for future use.
-      cache_set("token_info:$langcode", $token_info);
+      cache_set($cid, $token_info, 'cache_token');
     }
   }
 
@@ -358,4 +439,186 @@ function token_form_user_admin_settings_alter(&$form, &$form_state) {
       '#weight' => 100,
     );
   }
+}
+
+/**
+ * Build a tree array of tokens used for themeing or information.
+ *
+ * @param $token_type
+ *   The token type.
+ * @param $flat_tree
+ *   A boolean if TRUE will only make a flat array of tokens, otherwise
+ *   child tokens will be inside the 'children' parameter of a token.
+ * @param $show_restricted
+ *   A boolean if TRUE will show restricted tokens. Otherwise they will be
+ *   hidden. Default is FALSE.
+ * @param $recursion_limit
+ *   An integer with the maximum number of token levels to recurse.
+ * @param $parents
+ *   An optional array with the current parents of the tokens.
+ */
+function token_build_tree($token_type, array $options = array()) {
+  global $language;
+
+  // Static cache of already built token trees.
+  $trees = &drupal_static(__FUNCTION__, array());
+
+  $options += array(
+    'restricted' => FALSE,
+    'depth' => 4,
+    'data' => array(),
+    'values' => FALSE,
+    'flat' => FALSE,
+  );
+
+  // Do not allow past the maximum token information depth.
+  $options['depth'] = min($options['depth'], TOKEN_MAX_DEPTH);
+
+  // If $token_type is an entity, make sure we are using the actual token type.
+  if ($entity_token_type = token_get_entity_mapping('entity', $token_type)) {
+    $token_type = $entity_token_type;
+  }
+
+  $tree_cid = "tree:{$token_type}:{$language->language}:{$options['depth']}";
+
+  // If we do not have this base tree in the static cache, check {cache_token}
+  // otherwise generate and store it in the cache.
+  if (!isset($trees[$tree_cid])) {
+    if ($cache = cache_get($tree_cid, 'cache_token')) {
+      $trees[$tree_cid] = $cache->data;
+    }
+    else {
+      $options['parents'] = array();
+      $trees[$tree_cid] = _token_build_tree($token_type, $options);
+      cache_set($tree_cid, $trees[$tree_cid], 'cache_token');
+    }
+  }
+
+  $tree = $trees[$tree_cid];
+
+  // If the user has requested a flat tree, convert it.
+  if (!empty($options['flat'])) {
+    $tree = token_flatten_tree($tree);
+  }
+
+  // Fill in token values.
+  if (!empty($options['values'])) {
+    $token_values = array();
+    foreach ($tree as $token => $token_info) {
+      if (!empty($token_info['dynamic']) || !empty($token_info['restricted'])) {
+        continue;
+      }
+      elseif (!isset($token_info['value'])) {
+        $token_values[$token_info['token']] = $token;
+      }
+    }
+    if (!empty($token_values)) {
+      $token_values = token_generate($token_type, $token_values, $options['data']);
+      foreach ($token_values as $token => $replacement) {
+        $tree[$token]['value'] = $replacement;
+      }
+    }
+  }
+
+  return $tree;
+}
+
+/**
+ * Flatten a token tree.
+ */
+function token_flatten_tree($tree) {
+  $result = array();
+  foreach ($tree as $token => $token_info) {
+    $result[$token] = $token_info;
+    if (isset($token_info['children']) && is_array($token_info['children'])) {
+      $result += token_flatten_tree($token_info['children']);
+      //unset($result[$token]['children']);
+    }
+  }
+  return $result;
+}
+
+/**
+ * Generate a token tree.
+ */
+function _token_build_tree($token_type, array $options) {
+  $options += array(
+    'parents' => array(),
+  );
+
+  $info = token_get_info();
+  if ($options['depth'] <= 0 || !isset($info['types'][$token_type])) {
+    return array();
+  }
+
+  $tree = array();
+  $root_token_type = $info['types'][$token_type]['type'];
+  foreach ($info['tokens'][$root_token_type] as $token => $token_info) {
+    // Build the raw token string.
+    $token_parents = $options['parents'];
+    if (empty($token_parents)) {
+      // If the parents array is currently empty, assume the token type is its
+      // parent.
+      $token_parents[] = $token_type;
+    }
+    $token_parents[] = $token;
+    if (!empty($token_info['dynamic'])) {
+      $token_parents[] = '?';
+    }
+    $raw_token = '[' . implode(':', $token_parents) . ']';
+    $tree[$raw_token] = $token_info;
+    $tree[$raw_token]['raw token'] = $raw_token;
+
+    // Add the token's real name (leave out the base token type).
+    $tree[$raw_token]['token'] = implode(':', array_slice($token_parents, 1));
+
+    // Add the token's parent as its raw token value.
+    if (!empty($options['parents'])) {
+      $tree[$raw_token]['parent'] = '[' . implode(':', $options['parents']) . ']';
+    }
+
+    // Fetch the child tokens.
+    if (!empty($token_info['type'])) {
+      $child_options = $options;
+      $child_options['depth']--;
+      $child_options['parents'] = $token_parents;
+      $tree[$raw_token]['children'] = _token_build_tree($token_info['type'], $child_options);
+    }
+  }
+
+  return $tree;
+}
+
+/**
+ * Find tokens that have been declared twice by different modules.
+ */
+function token_find_duplicate_tokens() {
+  $all_tokens = array();
+
+  foreach (module_implements('token_info') as $module) {
+    $module_token_info = module_invoke($module, 'token_info');
+    if (in_array($module, _token_core_supported_modules())) {
+      $module = 'token';
+    }
+    if (!empty($module_token_info['types'])) {
+      foreach (array_keys($module_token_info['types']) as $type) {
+        $all_tokens['type:' . $type][] = $module;
+      }
+    }
+    if (!empty($module_token_info['tokens'])) {
+      foreach ($module_token_info['tokens'] as $type => $tokens) {
+        foreach (array_keys($tokens) as $token) {
+          $all_tokens[$type . ':' . $token][] = $module;
+        }
+      }
+    }
+  }
+
+  foreach ($all_tokens as $token => $modules) {
+    if (count($modules) < 2) {
+      unset($all_tokens[$token]);
+    }
+  }
+
+  return $all_tokens;
 }

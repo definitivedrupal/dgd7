@@ -1,5 +1,5 @@
 <?php
-// $Id: token.tokens.inc,v 1.8 2010/07/21 06:51:49 davereid Exp $
+// $Id: token.tokens.inc,v 1.18 2010/10/07 16:42:48 davereid Exp $
 
 /**
  * @file
@@ -94,11 +94,20 @@ function token_token_info() {
     'description' => t("The menu link's parent."),
     'type' => 'menu-link',
   );
+  $info['tokens']['menu-link']['root'] = array(
+    'name' => t('Root'),
+    'description' => t("The menu link's root."),
+    'type' => 'menu-link',
+  );
 
   // Current page tokens.
   $info['types']['current-page'] = array(
     'name' => t('Current page'),
     'description' => t('Tokens related to the current page request.'),
+  );
+  $info['tokens']['current-page']['title'] = array(
+    'name' => t('Title'),
+    'description' => t('The title of the current page.'),
   );
   $info['tokens']['current-page']['path'] = array(
     'name' => t('Path'),
@@ -152,7 +161,7 @@ function token_tokens($type, $tokens, array $data = array(), array $options = ar
     }
 
     // Chained token relationships.
-    if (!empty($node->tnid) && ($source_node = node_load($node->tnid)) && $source_tokens = token_find_with_prefix($tokens, 'source')) {
+    if (!empty($node->tnid) && ($source_tokens = token_find_with_prefix($tokens, 'source')) && $source_node = node_load($node->tnid)) {
       $replacements += token_generate('node', $source_tokens, array('node' => $source_node), $options);
     }
   }
@@ -191,12 +200,19 @@ function token_tokens($type, $tokens, array $data = array(), array $options = ar
             $replacements[$original] = $sanitize ? check_plain($parent['title']) : $parent['title'];
           }
           break;
+        case 'root';
+          if (!empty($link['p1']) && $root = menu_link_load($link['p1'])) {
+            $replacements[$original] = $sanitize ? check_plain($root['title']) : $root['title'];
+          }
       }
     }
 
     // Chained token relationships.
-    if (!empty($link['plid']) && ($parent = menu_link_load($link['plid'])) && $source_tokens = token_find_with_prefix($tokens, 'parent')) {
+    if (!empty($link['plid']) && ($source_tokens = token_find_with_prefix($tokens, 'parent')) && $parent = menu_link_load($link['plid'])) {
       $replacements += token_generate('menu-link', $source_tokens, array('menu-link' => $parent), $options);
+    }
+    if (!empty($link['p1']) && ($root_tokens = token_find_with_prefix($tokens, 'root')) && $root = menu_link_load($link['p1'])) {
+      $replacements += token_generate('menu-link', $source_tokens, array('menu-link' => $root), $options);
     }
   }
 
@@ -206,6 +222,9 @@ function token_tokens($type, $tokens, array $data = array(), array $options = ar
 
     foreach ($tokens as $name => $original) {
       switch ($name) {
+        case 'title':
+          $replacements[$original] = drupal_get_title();
+          break;
         case 'path':
           $alias = drupal_get_path_alias($current_path, $language_code);
           $replacements[$original] = $sanitize ? check_plain($alias) : $alias;
@@ -226,10 +245,19 @@ function token_tokens($type, $tokens, array $data = array(), array $options = ar
   }
 
   // Entity tokens.
-  if (!empty($data[$type]) && $entity_type = _token_get_entity_from_token_type($type)) {
+  if (!empty($data[$type]) && $entity_type = token_get_entity_mapping('token', $type)) {
     $entity = $data[$type];
+
+    // Sometimes taxonomy terms are not properly loaded.
+    // @see http://drupal.org/node/870528
+    if ($entity_type == 'taxonomy_term' && !isset($entity->vocabulary_machine_name)) {
+      $entity->vocabulary_machine_name = db_query("SELECT machine_name FROM {taxonomy_vocabulary} WHERE vid = :vid", array(':vid' => $entity->vid))->fetchField();
+    }
+
     foreach ($tokens as $name => $original) {
       switch ($name) {
+        // @todo Support entity:label
+        // @todo Support entity:url
         case 'path':
           if ($uri = entity_uri($entity_type, $entity)) {
             $alias = drupal_get_path_alias($uri['path'], $language_code);
@@ -238,6 +266,12 @@ function token_tokens($type, $tokens, array $data = array(), array $options = ar
           break;
       }
     }
+  }
+
+  // If $type is a token type, $data[$type] is empty but $data[$entity_type] is not, re-run token replacements.
+  if (empty($data[$type]) && ($entity_type = token_get_entity_mapping('token', $type)) && $entity_type != $type && !empty($data[$entity_type])) {
+    $data[$type] = $data[$entity_type];
+    $replacements += module_invoke_all('tokens', $type, $tokens, $data, $options);
   }
 
   return $replacements;
