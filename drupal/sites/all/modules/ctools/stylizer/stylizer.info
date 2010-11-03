@@ -1,0 +1,14 @@
+; $Id: stylizer.info,v 1.2 2010/10/11 22:18:23 sdboyer Exp $
+name = Stylizer
+description = Create custom styles for applications such as Panels.
+core = 7.x
+package = Chaos tool suite
+dependencies[] = ctools
+dependencies[] = color
+files[] = stylizer.module
+; Information added by drupal.org packaging script on 2010-10-11
+version = "7.x-1.0-alpha1"
+core = "7.x"
+project = "ctools"
+datestamp = "1286838960"
+

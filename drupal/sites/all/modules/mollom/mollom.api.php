@@ -1,5 +1,5 @@
 <?php
-// $Id: mollom.api.php,v 1.6 2010/09/12 22:05:55 dries Exp $
+// $Id: mollom.api.php,v 1.7 2010/10/09 23:13:01 dries Exp $
 
 /**
  * @file
@@ -150,6 +150,9 @@
  *       $form_info = array(
  *         // Optional: User permission list to skip Mollom's protection for.
  *         'bypass access' => array('administer instant messages'),
+ *         // Optional: Function to invoke to put a bad form submission into a
+ *         // moderation queue instead of discarding it.
+ *         'moderation callback' => 'im_mollom_form_moderation',
  *         // Optional: To allow textual analysis of the form values, the form
  *         // elements needs to be registered individually. The keys are the
  *         // field keys in $form_state['values']. Sub-keys are noted using "]["
@@ -204,6 +207,16 @@
  *
  * Additionally, the "post_id" data property always needs to be mapped to a form
  * element that holds the entity id.
+ *
+ * When registering a 'moderation callback', then the registered function needs
+ * to be available when the form is validated, and it is responsible for
+ * changing the submitted form values in a way that results in an unpublished
+ * post ending up in a moderation queue:
+ * @code
+ * function im_mollom_form_moderation(&$form, &$form_state) {
+ *   $form_state['values']['status'] = 0;
+ * }
+ * @endcode
  *
  * @see mollom_node
  * @see mollom_comment
@@ -276,6 +289,10 @@ function hook_mollom_form_list() {
  *     current user to determine whether to protect the form with Mollom or do
  *     not validate submitted form values. If the current user has at least one
  *     of the listed permissions, the form will not be protected.
+ *   - moderation callback: (optional) A function name to invoke when a form
+ *     submission would normally be discarded. This allows modules to put such
+ *     posts into a moderation queue (i.e., to accept but not publish them) by
+ *     altering the $form or $form_state that are passed by reference.
  *   - mail ids: (optional) An array of mail IDs that will be sent as a result
  *     of this form being submitted. When these mails are sent, a 'report to
  *     Mollom' link will be included at the bottom of the mail body. Be sure to

@@ -1,0 +1,6 @@
+Current API VERSION: 2.0. See API.txt for more information.
+
+ctools 7.x-1.x-dev
+==================
+
+Changelog reset for 7.x
