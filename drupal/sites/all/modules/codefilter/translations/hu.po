@@ -1,5 +1,3 @@
-# $Id: hu.po,v 1.1 2007/12/04 21:15:42 johnalbin Exp $
-#
 # Hungarian translation of Drupal (codefilter.module)
 # Copyright Drupal.hu Fordítói Csapat <forditas [at] drupal.hu>
 # Generated from files:

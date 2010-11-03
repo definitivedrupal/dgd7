@@ -1,7 +1,6 @@
-// $Id: CHANGELOG.txt,v 1.5 2009/09/07 16:15:14 johnalbin Exp $
-
 Code Filter 7.x-1.x-dev, xxxx-xx-xx (development release)
 -------------------------------
+- #606036 by psynaptic: Allow aggregation of CSS file
 - #565328 by John Morahan: Port to 7.x
 
 Code Filter 6.x-1.0, 2008-03-06

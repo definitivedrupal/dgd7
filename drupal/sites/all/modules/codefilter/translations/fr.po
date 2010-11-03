@@ -1,6 +1,6 @@
 # translation of fr.po to
 # translation of codefilter.po to
-# $Id: fr.po,v 1.1 2008/01/01 18:56:42 johnalbin Exp $
+#
 # LANGUAGE translation of Drupal (codefilter.module)
 # Generated from files:
 #  codefilter.module,v 1.21.2.5 2006/12/28 22:49:07 unconed

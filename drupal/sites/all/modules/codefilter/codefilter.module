@@ -1,13 +1,11 @@
 <?php
-// $Id: codefilter.module,v 1.30 2009/09/07 16:15:14 johnalbin Exp $
-
 /**
  * Implement hook_init().
  *
  * Adds the codefilter stylesheet to the page
  */
 function codefilter_init() {
-  drupal_add_css(drupal_get_path('module', 'codefilter') .'/codefilter.css', array('preprocess' => FALSE));
+  drupal_add_css(drupal_get_path('module', 'codefilter') .'/codefilter.css');
 }
 
 /**
