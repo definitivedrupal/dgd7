@@ -1,0 +1,29 @@
+; $Id: page_manager.info,v 1.4 2009/10/17 22:58:26 sdboyer Exp $
+name = Page manager
+description = Provides a UI and API to manage pages within the site.
+core = 7.x
+dependencies[] = ctools
+package = Chaos tool suite
+files[] = plugins/tasks/user_view.inc
+files[] = plugins/tasks/poll.inc
+files[] = plugins/tasks/page.admin.inc
+files[] = plugins/tasks/blog_user.inc
+files[] = plugins/tasks/contact_site.inc
+files[] = plugins/tasks/contact_user.inc
+files[] = plugins/tasks/node_view.inc
+files[] = plugins/tasks/search.inc
+files[] = plugins/tasks/node_edit.inc
+files[] = plugins/tasks/page.inc
+files[] = plugins/tasks/term_view.inc
+files[] = plugins/tasks/blog.inc
+files[] = page_manager.admin.inc
+files[] = page_manager.module
+files[] = js/page-list.js
+files[] = theme/page-manager-edit-page.tpl.php
+files[] = theme/page_manager.theme.inc
+; Information added by drupal.org packaging script on 2010-10-11
+version = "7.x-1.0-alpha1"
+core = "7.x"
+project = "ctools"
+datestamp = "1286838960"
+
