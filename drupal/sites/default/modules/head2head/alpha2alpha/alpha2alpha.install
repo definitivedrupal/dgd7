@@ -91,8 +91,9 @@ function alpha2alpha_update_helper($head2head_update, $alpha_version) {
   // Delete any forcibly-set older alpha version.
   variable_del('alpha2alpha_version');
   $current_alpha_version = alpha2alpha_get_alpha_version();
+
   if (!$current_alpha_version || $current_alpha_version < $alpha_version) {
-    throw new DrupalUpdateException(t('Not yet on Drupal 7.0-alpha@version.', array('@version' => $alpha_version)));
+    throw new DrupalUpdateException(t('Not yet on Drupal 7.0-alpha@version on .'. $current_alpha_version, array('@version' => $alpha_version)));
   }
   else {
     // Run the head2head update, passing along any additional arguments that
@@ -112,24 +113,24 @@ function alpha2alpha_update_helper($head2head_update, $alpha_version) {
 
 /**
  * Field_config_instance.object_type becomes entity_type.
- */
 function alpha2alpha_update_7400() {
   alpha2alpha_update_helper('707724', 4);
 }
+ */
 
 /**
  * Block_node_type table moved from block module to node module.
- */
 function alpha2alpha_update_7401() {
   alpha2alpha_update_helper('684774', 4);
 }
+ */
 
 /**
  * File becomes file_managed.
- */
 function alpha2alpha_update_7402() {
   alpha2alpha_update_helper('741578', 4);
 }
+ */
 
 /**
  * @} End of "defgroup updates-alpha-3-to-4"
@@ -142,17 +143,17 @@ function alpha2alpha_update_7402() {
 
 /**
  * Update for changes due to new core hashing scheme.
- */
 function alpha2alpha_update_7500() {
   alpha2alpha_update_helper('723802', 5);
 }
+ */
 
 /**
  * Recreate required menus.
- */
 function alpha2alpha_update_7501() {
   alpha2alpha_update_helper('410636_19', 5);
 }
+ */
 
 /**
  * @} End of "defgroup updates-alpha-4-to-5"
@@ -173,10 +174,10 @@ function alpha2alpha_update_7600() {
 
 /**
  * Add signature_format field to users table.
- */
 function alpha2alpha_update_7601() {
   alpha2alpha_update_helper('824932', 6);
 }
+ */
 
 /**
  * Alter the session table to change schema of sid and ssid fields and keys.

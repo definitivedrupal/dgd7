@@ -25,7 +25,7 @@ function alpha2alpha_menu() {
  * Determines the core alpha version.
  */
 function alpha2alpha_get_alpha_version() {
-  $version = variable_get('alpha2alpha_version', FALSE);
+  $version = variable_get('alpha2alpha_version', 8);
 
   if (!$version) {
     $version = alpha2alpha_determine_alpha_version();
