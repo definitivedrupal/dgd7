@@ -1,0 +1,24 @@
+? undefined-index.patch
+Index: simplenews.module
+===================================================================
+RCS file: /cvs/drupal-contrib/contributions/modules/simplenews/simplenews.module,v
+retrieving revision 1.251
+diff -u -r1.251 simplenews.module
+--- simplenews.module	22 Apr 2010 15:02:52 -0000	1.251
++++ simplenews.module	10 Jun 2010 22:33:52 -0000
+@@ -735,12 +735,15 @@
+   $info['node']['view modes'] += array(
+     'email_plain' => array(
+       'label' => t('Email: Plain'),
++      'custom settings' => FALSE,
+     ),
+     'email_html' => array(
+       'label' => t('Email: HTML'),
++      'custom settings' => FALSE,
+     ),
+     'email_textalt' => array(
+       'label' => t('Email: HTML text alternative'),
++      'custom settings' => FALSE,
+     ),
+   );
+ }

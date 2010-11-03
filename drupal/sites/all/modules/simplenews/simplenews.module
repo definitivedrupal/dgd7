@@ -735,12 +735,15 @@ function simplenews_entity_info_alter(&$info) {
   $info['node']['view modes'] += array(
     'email_plain' => array(
       'label' => t('Email: Plain'),
+      'custom settings' => FALSE,
     ),
     'email_html' => array(
       'label' => t('Email: HTML'),
+      'custom settings' => FALSE,
     ),
     'email_textalt' => array(
       'label' => t('Email: HTML text alternative'),
+      'custom settings' => FALSE,
     ),
   );
 }
