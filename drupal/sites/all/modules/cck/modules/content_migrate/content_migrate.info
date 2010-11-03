@@ -6,9 +6,9 @@ package = CCK
 files[] = content_migrate.module
 files[] = content_migrate.admin.inc
 
-; Information added by drupal.org packaging script on 2010-06-22
+; Information added by drupal.org packaging script on 2010-10-19
 version = "7.x-2.x-dev"
 core = "7.x"
 project = "cck"
-datestamp = "1277164965"
+datestamp = "1287446680"
 

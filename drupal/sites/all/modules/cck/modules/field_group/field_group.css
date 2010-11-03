@@ -1,0 +1,5 @@
+/* $Id: field_group.css,v 1.1 2010/09/27 15:00:19 karens Exp $ */
+#field-overview tr.field-group .group-label,#field-display-overview tr.field-group .group-label
+  {
+  font-weight: bold;
+}

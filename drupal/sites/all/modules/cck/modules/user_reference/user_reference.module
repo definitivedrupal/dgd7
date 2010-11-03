@@ -472,7 +472,7 @@ function _user_reference_potential_references_standard($field, $string = '', $ma
     $query->where($name_clause, $args);
   }
   elseif ($ids) {
-    $query->condition('u.uid', $ids, 'IN', $ids);
+    $query->condition($user_uid_alias, $ids, 'IN', $ids);
   }
 
   $query
