@@ -1,5 +1,5 @@
 <?php
-// $Id: logintoboggan.install,v 1.20 2009/10/21 19:04:20 thehunmonkgroup Exp $
+// $Id: logintoboggan.install,v 1.21 2010/02/07 01:25:58 thehunmonkgroup Exp $
 
 /**
 * @file
@@ -22,6 +22,20 @@ function logintoboggan_disable() {
   if (variable_get('site_403', '') == 'toboggan/denied') {
     variable_set('site_403', '');
   }
+}
+
+/**
+ * Remove hardcoded numeric deltas from blocks.
+ */
+function logintoboggan_update_7000(&$sandbox) {
+  // Get an array of the renamed block deltas, organized by module.
+  $renamed_deltas = array(
+    'logintoboggan' => array(
+      '0' => 'logintoboggan_logged_in',
+    ),
+  );
+
+  update_fix_d7_block_deltas($sandbox, $renamed_deltas);
 }
 
 /**
