@@ -1,0 +1,40 @@
+name = DGD7
+description = Definitive Guide to Drupal 7
+; engine no longer required as of 11/6/2010 [#801632].
+engine = phptemplate
+core = 7.x
+
+; STYLESHEETS
+;-------------------------------------------------------------------------------
+; Stylesheets handling is totally broken in .info files, so I can't recommend
+; using it for themes that load any stylesheets conditionally, i.e. ad admin.css
+; file that only loads in /admin section.  I also do not recommend it when
+;
+; Files added here:
+; - Load on every page, whether they were supposed to in the first place or not.
+; - Are grouped in a separate <style> tag with aggregation turn off and
+;   preprocessed and aggregated together when turned on in a <link> tag, which
+;   means you get once step closer to the 31 stylesheet limit in IE.
+; - Do not support the full range of drupal_add_css() functionality. So, you
+;   cannot do any of the following really common tasks:
+;   - Fully remove a stylesheet by overriding it.  The second an AJAX render
+;     request is made, not only will the files you removed load, but they will
+;     added at the bottom of the stack and will royally break your design.
+;   - Add conditional stylesheet for IE.
+;   - Add an external stylesheet, such as a Google or Typekit font.
+;   - Lose the ability to maintain control of the order in which the files are
+;     loaded.
+;
+; So, stylesheets for this theme have been:
+; - Added via apress_preprocess_html() in template.php.
+; - Removes via apress_css_alter() in template.php.
+
+; FEATURES
+;-------------------------------------------------------------------------------
+features[] = favicon
+features[] = name
+features[] = slogan
+features[] = node_user_picture
+features[] = comment_user_picture
+features[] = comment_user_verification
+features[] = main_menu

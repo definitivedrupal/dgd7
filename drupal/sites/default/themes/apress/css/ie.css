@@ -1,0 +1,8 @@
+/* Fake inline-block */
+.inline li,
+.links li span,
+.tabs li,
+.pager li {
+  display: inline;
+  zoom: 1;
+}

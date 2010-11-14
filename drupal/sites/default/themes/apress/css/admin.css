@@ -1,0 +1,63 @@
+/* toggle config buttons */
+a.tabledrag-toggle-weight {
+  background: #eee;
+  border: solid 1px #ddd;
+  color: #000;
+  display: inline-block;
+  font-size: 0.923em;
+  padding: 0 0.8em;
+  -moz-border-radius: 6px;
+  -webkit-border-radius: 6px;
+  border-radius: 6px;
+}
+a.tabledrag-toggle-weight:hover,
+a.tabledrag-toggle-weight:hover,
+a.tabledrag-toggle-weight:focus {
+  background-color: #39c;
+  border-color: #396;
+  color: #fff;
+  text-decoration: none;
+}
+
+a[href*="configure"] {
+  background: url(../images/spr-gray.png) no-repeat 0 -1856px;
+  padding-left: 20px;
+}
+a[href*="edit"] {
+  background: url(../images/spr-gray.png) no-repeat -232px -1160px;
+  padding-left: 20px;
+}
+a[href*="delete"] {
+  background: url(../images/spr-gray.png) no-repeat -464px -580px;
+  padding-left: 20px;
+}
+
+/* content list */
+#node-admin-content td {
+  font-size: 0.923em;
+}
+#node-admin-content td:nth-child(2) {
+  max-width: 24em;
+}
+#node-admin-content td:nth-child(2) a {
+  display: inline-block;
+}
+#node-admin-content span.icon {
+  display: none;
+}
+#node-admin-content .edit a,
+#node-admin-content .delete a {
+  display: block;
+  text-indent: -999em;
+}
+
+/* modules list */
+#system-modules td:nth-child(3) { /* version */
+  color: #777;
+  font-size: 0.923em;
+  white-space: nowrap;
+}
+div.admin-requirements {
+  color: #666;
+  line-height: 1.4em;
+}

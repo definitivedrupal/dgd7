@@ -1,0 +1,108 @@
+/**
+ * - Background colors:
+ *   Overlay module overrides theme-specific background and color styles because
+ *   it intentionally uses more specific selectors to and applies a background
+ *   color of white and foreground color of black. Because of this, themes are
+ *   required to override those defaults when creating a theme with a background
+ *   other than white for the theme to function properly inside the Overlay.
+ *
+ * - Disable overlay message:
+ *   This message is for screen reader and keyboard only users. The background
+ *   of it's wrapper is styled to white by default. It must match the background
+ *   color of your content in order for it to be visible to keyboard only users.
+ *
+ * - Link colors:
+ *   Link colors are not set in Overlay module's CSS files so the colors set in
+ *   your theme will be inherited.
+ *
+ * - Tabs:
+ *   The overlay module also provides heavily styled tabs.  These styles likely
+ *   conflict with any tab styles you've created and may not match at all.
+ *
+ * - Regions:
+ *   The overlay module essentially opens up the same page inside an iframe. The
+ *   overlay is used when performing administrative tasks on the site. It is
+ *   activated when visiting the admin section from the front end section, and
+ *   also when editing content. Typically all that should be visible inside the
+ *   overlay is: system messages, tabs (for secondary tabs), action links,
+ *   breadcrumbs and the main content area. The header, footer, sidebars and
+ *   all other supplemntal regions should be hidden using display: none.
+ */
+/* Background color & overlay disable message. */
+#overlay-content,
+#disable-overlay-message,
+#overlay-content,
+.overlay #main-wrapper,
+.overlay div.tabs {
+  background-color: transparent;
+}
+/* Regions */
+.overlay #header,
+.overlay #navigation,
+.overlay #page-title,
+.overlay #sidebar-first,
+.overlay #sidebar-second,
+.overlay #footer {
+  display: none;
+}
+.overlay #main {
+  width: 100%;
+}
+.overlay #block-system-help,
+.overlay div.tabs {
+  margin: 0;
+  padding: 1em;
+}
+.overlay #main-wrapper,
+.overlay ul.secondary {
+  margin: 0;
+  padding: 0;
+}
+.overlay #content .section {
+  background: transparent;
+  margin-top: 0;
+  -moz-border-radius: 0;
+  -webkit-border-radius: 0;
+  border-radius: 0;
+}
+#overlay-content {
+  padding: 0;
+}
+#overlay-tabs li {
+  margin-left: 0.2em;
+}
+#overlay-tabs li a,
+#overlay-tabs li a:active, 
+#overlay-tabs li a:visited,
+#overlay-tabs li a:hover {
+  background-color: #39c;
+  color: #fff;
+  font-size: 1.077em;
+  font-weight: normal;
+  text-transform: none;
+}
+#overlay-tabs li.active a,
+#overlay-tabs li.active a:focus,
+#overlay-tabs li.active a:hover {
+  color: #000;
+  font-weight: normal;
+}
+.overlay #page-wrapper {
+  background-color: #fff;
+  -moz-border-radius: 10px;
+  -webkit-border-radius: 10px;
+  border-radius: 10px;
+  -moz-border-radius-topright: 0;
+  -webkit-border-top-right-radius: 0;
+  border-radius-topright: 0;
+}
+.overlay div.messages {
+  background-color: transparent;
+  border-color: #fff;
+  border-width: 0 0 1px 0;
+  border-bottom-color: #ddd;
+  color: #444;
+}
+.overlay div.messages a {
+  color: #39c;
+}

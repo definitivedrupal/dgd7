@@ -1,0 +1,1395 @@
+html {
+  background-color: #fc0;
+}
+body {
+  background-color: #fc0;
+  color: #444;
+  font-family: "Droid Sans", "Lucida Grande", Helvetica, Arial, sans-serif;
+  font-size: 81.3%; /* 13px */
+  line-height: 1.6em;
+  margin: 0;
+  padding: 0;
+}
+#page-wrapper {
+  background-color: #111;
+  color: #fff;
+}
+
+/**
+ * Font sizes
+ * Based on 13px body (81.3%).
+ *
+ * 13 x 0.846em = 11px
+ * 13 x 0.923em = 12px
+ * 13 x 1.077em = 14px
+ * 13 x 1.231em = 16px
+ * 13 x 1.385em = 18px
+ * 13 x 1.538em = 20px
+ * 13 x 1.692em = 22px
+ * 13 x 1.846em = 24px
+ * 13 x 2.153em = 28px
+ * 13 x 2.461em = 32px
+ */
+
+/* @group Header
+ -----------------------------------------------------------------------------*/
+#header .section {
+  padding: 1em;
+  position: relative;
+}
+#site-name {
+  margin: 0;
+  padding: 0;
+}
+#site-name a {
+  display: block;
+  background: transparent url(../images/logo.png) no-repeat;
+  height: 114px;
+  text-indent: -999em;
+  width: 296px;
+}
+#site-slogan {
+  display: inline-block;
+  font: 1.231em "Droid Serif", Georgia, Verdana, Arial, sans-serif;
+  margin-top: 0.5em;
+}
+.region-header {
+  margin: 0;
+  padding: 0;
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 260px;
+  max-width: 50%;
+}
+.region-header .block {
+  margin: 0 0 1em 0;
+}
+.region-header .block .content {
+  padding: 1em;
+  position: relative;
+  right: 0;
+}
+/* @end */
+
+
+/* @group Footer
+ -----------------------------------------------------------------------------*/
+.region-footer {
+  background: #fc0 url(../images/bg-curve.png) no-repeat 100% 0;
+  color: #444;
+}
+.region-footer a {
+  color: #000;
+}
+.region-footer #block-system-powered-by {
+  float: right;
+  margin: 0;
+  padding: 0;
+  min-width: 300px;
+  text-align: right;
+  width: 25%;
+}
+.region-footer #block-system-powered-by .content {
+  padding: 1em 50px 1em 1em;
+}
+.region-footer #block-system-powered-by .content span {
+  display: block;
+}
+.region-footer #block-system-powered-by .content a {
+  background: transparent url('/misc/druplicon.png') no-repeat;
+  display: block;
+  float: right;
+  height: 100px;
+  position: relative;
+  text-align: left;
+  text-indent: -999em;
+  top: -65px;
+  width: 88px;
+}
+
+/* @group breadcrumbs */
+.breadcrumb-wrapper {
+  float: left;
+  text-transform: lowercase;
+  width: 75%;
+}
+.breadcrumb {
+  padding: 1em;
+}
+.breadcrumb a:first-child {
+  background: transparent url('../images/16-000.png') no-repeat -232px -232px;
+  display: inline-block;
+  height: 16px;
+  margin-left: 0;
+  text-indent: -999em;
+  width: 16px;
+}
+.breadcrumb a:first-child:hover,
+.breadcrumb a:first-child:focus,
+.breadcrumb a:first-child:active {
+  background-image: url('../images/16-39c.png');
+}
+.breadcrumb a,
+.breadcrumb a:visited {
+  color: #444;
+  margin: 0 0.25em;
+}
+/* @end */
+/* @end */
+
+
+/* @group Basics
+ -----------------------------------------------------------------------------*/
+a,
+a:visited {
+  color: #39c;
+  text-decoration: none;
+  -moz-transition: all 0.3s ease;
+  -webkit-transition: all 0.3s ease;
+  transition: all 0.3s ease;
+}
+a:hover {
+  text-decoration: underline;
+}
+a:hover,
+a:active {
+  outline: none;
+}
+
+.region-content,
+caption {
+  font-family: "Droid Serif", Georgia, Verdana, Arial, sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: "Droid Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 400;
+  line-height: 1.1em;
+  margin: 0 0 24px 0;
+}
+h1 { font-size: 2.461em; } /* 13px x 1.846 = 24px */
+h2 { font-size: 1.692em; } /* 13px x 1.692 = 22px */
+h3 { font-size: 1.385em; } /* 13px x 1.385 = 18px */
+h4 { font-size: 1.231em; } /* 13px x 1.231 = 16px */
+h5 { font-size: 1.077em; } /* 13px x 1.077 = 14px */
+h6 { font-size: 1em; } 
+
+h1 a, h2 a {
+  color: #444;
+}
+h1 a:visited, h2 a:visited {
+  color: #888;
+}
+h1 a:hover, h2 a:hover,
+h1 a:focus, h2 a:focus,
+h1 a:active, h2 a:active {
+  color: #d44510;
+  outline: 0;
+  text-decoration: underline;
+}
+
+img {
+  border: none;
+}
+/* Normalize monospace font size */
+pre, code, kbd, samp, tt {
+  font-family: Monaco, monospace, sans-serif;
+}
+pre {
+  background-color: #eee;
+  border: solid 1px #ddd;
+  padding: 1em;
+  white-space: pre-wrap;
+}
+dt {
+  font-family: "Droid Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 1.231em;
+}
+dd {
+  margin: 1em;
+}
+/* @end */
+
+
+/* @group Content
+ -----------------------------------------------------------------------------*/
+#page-title {
+  background-color: #222;
+  color: #fff;
+  margin: 0;
+  padding: 0.7em;
+  position: relative;
+  -moz-border-radius-topleft: 10px;
+  -webkit-border-top-left-radius: 10px;
+  border-radius-topleft: 10px;  
+  -moz-border-radius-topright: 10px;
+  -webkit-border-top-right-radius: 10px;
+  border-radius-topright: 10px;  
+}
+.region-content {
+  background-color: #fff;
+  color: #444;
+  padding: 20px;
+  -moz-border-radius-bottomleft: 10px;
+  -webkit-border-bottom-left-radius: 10px;
+  border-radius-bottomleft: 10px;
+  -moz-border-radius-bottomright: 10px;
+  -webkit-border-bottom-right-radius: 10px;
+  border-radius-bottomright: 10px;
+}
+.no-title .region-content {
+  -moz-border-radius: 10px;
+  -webkit-border-radius: 10px;
+  border-radius: 10px;
+}
+#content {
+  position: relative;
+}
+.feed-icon {
+  position: absolute;
+  top: 1em;
+  right: 1em;
+}
+/* @end */
+
+
+/* @group Content
+ -----------------------------------------------------------------------------*/
+.region-help {
+  background-color: #fff;
+  color: #777;
+  font-family: "Droid Serif", Georgia, Verdana, Arial, sans-serif;
+  font-size: 1.077em;
+}
+.region-help .block {
+  padding: 20px 20px 0 20px;
+  margin: 0;
+}
+.region-help p:only-child {
+  margin: 0;
+}
+/* @end */
+
+
+/* @group Link lists
+ -----------------------------------------------------------------------------*/
+/**
+ * Link lists.
+ *
+ * Drupal uses a few different functions to output lists of links. The links
+ * output by these functions usually display similarly, as inline lists. The
+ * functions used include:
+ *
+ * theme_links().
+ * The function itself doesn't apply any classes to the <ul> by default. Each
+ * list output using this function uses the array key of the link to apply a
+ * class to the <li>. Sometimes these array keys are helpful and provide names
+ * of the links inside them, but other times they are just numbered keys like:
+ * <li class="0> and <li class="1">. The first and last links in a list always
+ * have helper classes such as <li class="first"> and <li class="last"> to help
+ * with common styling challenges that mean differences for the first and last
+ * items. The classes usually applied are:
+ * - inline: Basic styles are applied in system.menus.css to make links appear
+ *   inline, remove list styles and apply padding to space them. Since we've
+ *   removed the system.menus.css we need to re-apply these styles as they are
+ *   used throughout Drupal.
+ *   <ul class="inline">
+ * - links: Usually used for node links, along with the "inline" class. May
+ *   also be used for a basic list of links.
+ *   <ul class="links"> or <ul class="links inline">
+ *
+ * theme_item_list().
+ * This function is used for all sorts of lists output by Drupal and contributed
+ * modules. Each list is wrapped in a <div> with an "item-list" class applied:
+ * <div class="item-list">
+ * The <ul> and it's <li>'s do not receive any classes.
+ *   
+ */
+.inline,
+.links.inline {
+  display: inline;
+  padding-left: 0;
+}
+.inline li {
+  display: inline-block;
+  list-style-type: none;
+  padding: 0 0.5em;
+  vertical-align: middle;
+}
+
+li.first {
+  padding-left: 0;
+}
+li.last {
+  padding-right: 0;
+}
+
+.links {
+  font-family: "Droid Sans", "Lucida Grande", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+.inline .icon {
+  background: transparent url(../images/16-eee.png) no-repeat 0 -1100px;
+  display: inline-block;
+  height: 1.6em;
+  vertical-align: middle;
+  width: 20px;
+}
+.inline .icon:hover {
+  background-color: url('../images/16-39c.png');
+}
+/* @end */
+
+
+/* @group Blocks
+ -----------------------------------------------------------------------------*/
+.block {
+  padding: 1em;
+  margin: 0 0 1em 0;
+}
+.block ul {
+  padding-left: 1.6em;
+}
+.block li a {
+  color: #fff;
+}
+
+.main .block {
+  background-color: #111;
+  color: #fff;
+}
+.main .block-title {
+  color: #bbb;
+  font-size: 1.231em; /* 13px x 1.231 = 16px */
+  margin: 0 0 0.6em 0;
+  text-shadow: 1px 1px 1px #222;
+  text-transform: lowercase;
+  letter-spacing: 1px;
+}
+/* @end */
+
+/* @group Nodes
+ -----------------------------------------------------------------------------*/
+/**
+ * Container.
+ * Each node is wrapped in a container <div> with basic class and id attributes
+ * that communicate information about it. It's generally not recommended to
+ * style against ID attributes. However, the classes are perfect to style
+ * against. They allow for lots of flexibility and customization based on a few
+ * reliable properties.
+ *   - classes:
+ *     - node: The entity type and base. Applied to all nodes.
+ *     - node-TYPE: The node type, e.g. node-article, node-page. Applies to all
+ *       nodes.
+ *     - node-teaser: Indicates a node is being displayed as a "teaser" (short
+ *       version).
+ *     - node-preview: Indicates the node in "preview" mode.
+ *   - id:
+ *     - node-ID: "node-" followed by the unique system ID of the node (nid).
+ *
+ * Status and publishing options.
+ * In addition to the classes listed above, selected publishing options are also
+ * applied where applicable. The following classes are applied when applicable
+ * based on settings chosen in the node edit form under "Publishing options:"
+ *   - node-unpublished: Applied when "Published" has been unchecked.
+ *   - node-promoted: Applied only whe "Promot to front page" is checked.
+ *   - node-sticky: Applied when "Sticky at the top of lists" is checked.
+ *
+ * Attributes API.
+ * Take advantage of preprocess functions in order to get the classes you need.
+ * There are a few options available to manipulate classes in preprocess
+ * functions:
+ *  - $classes ($classes_array): My be used to manipulate the container classes.
+ *  - $title_attributes ($title_attributes_array): May be used to manipulate all
+ *    attributes of the $title attributes (for teasers only).
+ *  - $content_attributes ($content_attributes_array): May be used to manupulate
+ *    all attributes of the <div class="content"> container.
+ *  In the template.php provided with this theme, we've added a class for the
+ *  node title which provides the following markup:
+ *    <h2 class="node-title">
+ *  This allows us to easily target the node title with CSS, and style it
+ * differently than an <h2> that might be part of the node content. 
+ *
+ *----------------------------------------------------------------------------*/
+.node {
+  position: relative;
+  margin-bottom: 3em;
+}
+.node-title {
+  margin-bottom: 10px;
+}
+.submitted {
+  color: #666;
+  font-family: "Droid Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  margin-bottom: 1em;
+}
+.node .username {
+  background: transparent url('../images/16-aaa.png') no-repeat -580px -1392px;
+  padding-left: 20px;
+  font-size: 1.077em;
+}
+.node .username:hover,
+.node .username:focus,
+.node .username:active {
+  background-image: url('../images/16-39c.png');
+  color: #444;
+}
+.node .content {
+  font-size: 1.077em;
+}
+.node img {
+  display: block;
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+.node .content img[width="1"]{
+  float: none;
+}
+.node ul.links {
+  display: block;
+  border-bottom: solid 1px #eee;
+  margin-top: 1em;
+  padding: 1em 0;
+  text-align: right;
+}
+.node .links a {
+  color: #666;
+}
+.node .links .icon {
+  background-image: url('../images/16-aaa.png');
+}
+.node-readmore .icon { background-position: -348px -696px /* .page */ }
+.comment-add .icon { background-position: -116px -580px; /* .comment */ }
+.book-add-child .icon { background-position: -348px -1392px; /* .plus-1 */ }
+.book-printer .icon { background-position: -464px -232px; /* printer */ }
+/* @end */
+
+
+/* @group Book navigation
+ -----------------------------------------------------------------------------*/
+.book-navigation .menu {
+  border-color: #ddd;
+}
+.book-navigation .page-links {
+  border: solid 1px #ddd;
+  background-color: #eee;
+  font-family: "Droid Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  padding: 0;
+  -moz-border-radius: 10px;
+  -webkit-border-radius: 10px;
+  border-radius: 10px;
+}
+.page-links {
+  position: relative;
+}
+.page-links a,
+.page-links a:visited {
+  color: #666;
+  display: inline-block;
+  vertical-align: middle;
+  text-indent: 16px;
+  padding: 0;
+}
+.page-links .icon {
+  position: absolute;
+  background: transparent url('../images/16-aaa.png') no-repeat;
+  display: inline-block;
+  height: 16px;
+  top: 0;
+  width: 16px;
+}
+.page-previous .icon {
+  background-position: -216px -1517px;
+  z-index: 1;
+}
+.page-links .page-next {
+  padding-left: 0;
+  padding-right: 16px;
+}
+.page-next .icon {
+  background-position: -216px -1583px;
+  float: right;
+}
+.page-links a:hover,
+.page-links a:active,
+.page-links a:focus {
+  color: #39c;
+  text-decoration: none;  
+}
+.page-links a:hover .icon {
+  background-image: url(../images/spr-blue.png);
+}
+/* @end */
+
+
+/* @group Fields
+ -----------------------------------------------------------------------------*/
+/**
+ * Don't remove UI functionality
+ * - Do as much manipulation as possible in the UI (hide labels, order, etc).
+ *   
+ * - Avoid overriding by field name, and use template suggestions to
+ *   manipulate markup by field type where possible.
+------------------------------------------------------------------------------*/
+.node .field h4 {
+  font-size: 1.231em;
+  margin-bottom: 0.25em;
+  text-shadow: 1px 1px 1px #fff;
+}
+.node .field {
+  margin-bottom: 0.3em;
+  padding: 0.5em;
+}
+.node .field-name-body {
+  background: none;
+  border: none;
+}
+/* @end */
+
+
+/* @group Skip link
+------------------------------------------------------------------------------*/
+#skip-link {
+  left: 50%;
+  margin-left: -5.25em;
+  margin-top: 0;
+  position: absolute;
+  width: auto !important;
+  z-index: 50;
+}
+#skip-link a,
+#skip-link a:link,
+#skip-link a:visited {
+  background: #000;
+  color: #fff;
+  display: block;
+  font-size: 0.94em;
+  height: 1px;
+  line-height: 1.7;
+  position: absolute;
+  text-decoration: none;
+  top: -10000px;
+  width: 1px;
+  -moz-border-radius: 0 0 10px 10px;
+  -webkit-border-top-left-radius: 0;
+  -webkit-border-top-right-radius: 0;
+  -webkit-border-bottom-left-radius: 10px;
+  -webkit-border-bottom-right-radius: 10px;
+  border-radius: 0 0 10px 10px;
+}
+#skip-link a:hover,
+#skip-link a:active,
+#skip-link a:focus {
+  height: auto;
+  outline: 0;
+  overflow: visible;
+  padding: 1px 10px 2px 10px;
+  position: static;
+  width: auto;
+}
+/* @end */
+
+
+/* @group Navigation
+ -----------------------------------------------------------------------------*/
+/* Styling "Main Menu" and "Secondary Menu".
+ *
+ * - Hiding the titles
+ *   Do not remove or hide these using display: none. They are there for a
+ *   good reason, and can easily be hidden correctly. See the "Invisible
+ *   elements" section of this stylesheet for details.
+ *
+ * - Main Menu
+ *   The main menu is used for the main navigation links for your site. It can
+ *   be targeted using #main-menu or #navigation ul if you plan to style the
+ *   secondary menu simliarly.
+ *
+ * - Secondary Menu
+ *   The secondary menu is a configurable menu, which contains user links by
+ *   default. It is placed inside #navigation because you can also configure it
+ *   to contain a separate menu to include children links of the Main Menu.
+ *   Often a user navigation menu makes sense in the top right corner of the
+ *   page, so our example will implement that.
+ */
+#navigation {
+  background: #fc0;
+  background: -webkit-gradient(linear, left bottom, left top, color-stop(0.42, rgb(232,187,9)), color-stop(0.71, rgb(255,204,0)));
+  background:-moz-linear-gradient(center bottom, rgb(232,187,9) 42%, rgb(255,204,0) 71%);
+  padding: 0;
+  text-align: center;
+}
+
+/* Common */
+#navigation ul.links {
+  display: inline-block;
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+#navigation ul.links li {
+  display: inline;
+  list-style: none;
+}
+#navigation .icon {
+  display: none;
+}
+
+/* Main navigation */
+#main-menu {
+  font-family: "Droid Serif", Georgia, Verdana, Arial, sans-serif;
+  font-size: 1.231em;
+  padding: 0.5em 0;
+  vertical-align: middle;
+}
+#main-menu a {
+  color: #000;
+  display: inline-block;
+  padding: 0.35em 0.8em;
+  vertical-align: middle;
+  white-space: nowrap;
+  -moz-border-radius: 10px;
+  -webkit-border-radius: 10px;
+  border-radius: 10px;
+}
+#main-menu li {
+  background: transparent;
+  float: left;
+  padding: 0;
+  margin-right: 0.5em;
+}
+#main-menu a:hover,
+#main-menu a:focus,
+#main-menu a.active {
+  background-color: #222;
+  color: #fff;
+  text-decoration: none;
+}
+
+/* Secondary navigation */
+#secondary-menu {
+  position: absolute;
+  margin: 0;
+  top: 1em;
+  right: 1em;
+}
+/* @end */
+
+
+/* @group Messages & Markers
+ -----------------------------------------------------------------------------*/
+/**
+ * Drupal's system messages, which are output using drupal_set_message() are
+ * pre-styled by Drupal. They are heavily styled with pastel background colors,
+ * and icons, and depend on a light background and a color scheme to look good.
+ *
+ * Options for dealing with this problem:
+ *  - Provide styles to override these colors in your theme's CSS (shown
+ *    (below).
+ *  - Prevent the system.messages.css file from loading and style all of the
+ *    messages yourself from scratch.
+ *  - Pull the system.messages.css file into your theme and tweak the styles
+ *    until satisfied (shown below).
+ *
+ * Each message contains a common class called "message" followed by the type:
+ *   <div class="messages type">
+ *
+ *  Message types:
+ *  - Status: Usually displays a confirmation upon a successful event. Styled
+ *    green by default with a reddish brown text color, and a green circle icon
+ *    with a white checkbox.
+ *  - error: Usually a pastel pink color, with a reddish brown text color, a
+ *    red border and a red octagon shaped icon with an "x" inside it.
+ *  - warning: Usually a pastel yellow color, with reddish brown text and a
+ *    triangle shaped icon with a black exclamation point inside it.
+ *
+ *  Things to keep in mind:
+ *  - The styling of these messages should remain helpful to the users as they
+ *    communicate important information, i.e. keep the icons or replace them
+ *    with icons that fit the design better, or display the hidden headings
+ *    that are inside them.
+ *  - The colors you choose should conform to accessibility standards, i.e. they
+ *    should not introduce color contrast issues for those with vision
+ *    impairment issues, and should not rely on color alone to communicate.
+ */
+div.messages {
+  background-color: #333;
+  border-color: #333;
+  color: #fff;
+  font-family: "Helvetica Neue", Arial, Helvetica, Geneva, sans-serif;
+  margin: 0;
+}
+div.messages a {
+  color: #fff;
+}
+div.messages p:first-child {
+  margin-top: 0;
+}
+div.warning {
+  color: #fc0;
+}
+div.status {
+  color: #393;
+}
+
+/* Markers */
+span.marker {
+  background-color: #d44510;
+  color: #fff;
+  display: inline-block;
+  float: left;
+  line-height: 1.3em;
+  padding: 0 0.3em;
+  margin-right: 0.4em;
+  -webkit-border-radius: 4px;
+}
+
+/* Debugging */
+div.krumo-root {
+  background-color: #fff;
+}
+div.krumo-root,
+div.krumo-root a {
+  color: #000;
+}
+/* @end */
+
+
+/* @group Action links
+ -----------------------------------------------------------------------------*/
+/**
+ * In addition to primary and secondary tabs, Drupal 7 introduces a new list of
+ * links called "action links." These display underneath the tabs and are used
+ * for page actions, such as "add block," "add content type." They are typically
+ * styled with a "+" icon.
+ */
+.action-links {
+  background-color: #fff;
+  margin: 0;
+  padding: 1em 0;
+}
+.action-links li {
+  display: inline-block;
+  list-style: none;
+  padding: 0 1em;
+  position: relative;
+}
+.action-links span {
+  background: transparent url(../images/16-39c.png) no-repeat -348px -1624px;
+  display: inline-block;
+  height: 1em;
+  padding-left: 0.2em;
+  width: 16px;
+}
+.action-links a:hover {
+  text-decoration: none;
+  color: #000;
+}
+.action-links a:hover .icon {
+  background-image: url(../images/16-000.png);
+}
+/* @end */
+
+
+/* @group Pagers
+ -----------------------------------------------------------------------------*/
+/**
+ * Pagers are output using 2 theme functions:
+ *
+ * - theme_pager():
+ *   Each pager is output in a unordered list with a pager class:
+ *     <ul class="pager">
+ *   The classes for each list item are applied in theme_page(), but some of the
+ *   links themselves are handled by other theme functions. Fortunately you'll
+ *   likely never need to deal with those. The following classes are applied
+ *   where applicable:
+ *   - pager-item: Applied to each <li> containing a link to a page number.
+ *   - pager-current: Applies to the current <li> which only contains the
+ *     the current page #.
+ *   - pager-next: Applied to the list item containing "Next >".
+ *   - pager-previous: Applied to the list item containing "Previous >".
+ *   - pager-first: Applied to the list item containing "First >>".
+ *   - pager-last: Applied to the list item containing "Last >>".
+ *
+ * - theme_item_list():
+ *   This function wraps the pager with a <div class="item-list"> and applies
+ *   "first" and "last" classes to the appropriate list items.
+ */
+ul.pager {
+  display: block;
+  font-family: "Helvetica Neue", Arial, Helvetica, Geneva, sans-serif;
+  margin: 1.5em 0 1em 0;
+  padding: 0;
+  text-align: right;
+}
+.pager li {
+  display: inline-block;
+  margin: 0.5em 0.2em 0 0;
+}
+.pager a,
+.pager .pager-current {
+  background-color: #eee;
+  display: inline-block;
+  padding: 0.2em 0.8em;
+  -moz-border-radius: 3px;
+  -webkit-border-radius: 3px;
+  border-radius: 3px;
+}
+.pager .pager-current {
+  color: #000;
+  font-weight: bold;
+}
+.pager a:hover,
+.pager a:active,
+.pager a:focus {
+  background-color: #39c;
+  color: #fff;
+  text-decoration: none;
+}
+/* @end */
+
+
+
+
+/* @group Tables
+ -----------------------------------------------------------------------------*/
+/**
+ * Drupal provides heavy syling for tables by default in system.theme.css.
+ * When writing a theme with any background color other than white it's
+ * these styles are often undesirable. By removing system.theme.css we are
+ * able to start with sane defaults and style without any assumptions.
+ *
+ *
+ * - Table Drag:
+ * Table drag is the what the functionality that allows you to drag and drop
+ * rows of a table with your mouse. When table drag is activated each row
+ * gets a crosshair icon at the beginning of each row. There's also a link
+ * at the top of the table "Show row weights"
+ *
+ * - Sticky Table Headers:
+ * When sticky table headers are enabled the table head stays at the top of
+ * the top of the page when scrolling down. It often doesn't need special
+ * styling, except for when the background color of the table head clashes
+ * or is to close in color to the header of your site.
+ *
+ * - Totally annoying classes
+ *   td.block needs to just die.
+ */
+td.block {
+  background-color: #fff !important;
+  color: #111 !important;
+  padding: 0.5em !important;
+}
+table {
+  background-color: #fff;
+  border-collapse: collapse;
+  border-top: solid 1px #eee;
+  border-left: solid 1px #eee;
+  border-right: solid 1px #eee;
+  font-family: "Droid Sans", "Lucida Grande", Helvetica, Arial, sans-serif;
+  margin: 1em 0;
+  width: 100%;
+}
+thead {
+  background-color: #333;
+  color: #fff;
+  font-size: 0.923em;
+}
+th, td {
+  padding: 0.5em;
+  vertical-align: top;
+}
+th {
+  font-weight: normal;
+  text-align: left;
+}
+th a {
+  color: #fc0;
+}
+tr {
+  border-bottom: solid 1px #eee;
+}
+tr.even {
+  background-color: #f8f8f8;
+}
+
+/* Table drag */
+tr.draggable td:last-child {
+  border-right: solid 1px #eee;
+}
+.draggable a.tabledrag-handle {
+  background: transparent url(../images/sp-gray.png) no-repeat -348px -116px;
+  height: 16px;
+  margin: 0 0.8em 0 0.5em;
+  padding: 0;
+  width: 16px;
+  -webkit-transition: none;
+}
+.draggable a.tabledrag-handle:hover,
+.draggable a.tabledrag-handle:active,
+.draggable a.tabledrag-handle:focus,
+.drag a.tabledrag-handle-hover:hover,
+.drag a.tabledrag-handle-hover:active,
+.drag a.tabledrag-handle-hover:focus {
+  background-image: url(../images/sp-blue.png);
+}
+#table-tabledrag tr td:first-child {
+  white-space: nowrap;
+}
+
+/* this is (a) invalid HTML and (b) some of the worst CSS */
+div.handle { display: none; }
+/* @end */
+
+
+/* @group Forms
+ -----------------------------------------------------------------------------*/
+/**
+ * - Forms.
+ *
+ *
+ * - Wrappers.
+ *
+ *
+ * - Elements.
+ *
+ *
+ * - Autocomplete text inouts.
+ *
+ *
+ * - Errors and markers.
+ *
+ *
+ * - Collapsible fieldsets.
+ *
+ *
+ * - Vertical tabs. 
+ */
+form {
+  font-family: "Droid Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+fieldset {
+  border: solid 1px #ddd;
+  padding: 1em;
+  margin: 0 0 1em 0;
+}
+legend {
+  font-weight: bold;
+}
+label {
+  cursor: pointer;
+  display: block;
+  font-weight: bold;
+  line-height: 2em;
+}
+label.option {
+  font-weight: normal;
+  display: inline;
+}
+.form-item {
+  margin: 1em 0;
+}
+td .form-item,
+.filter-wrapper .form-item {
+  margin: 0;
+}
+.filter-wrapper {
+  padding-top: 0.5em;
+}
+
+/* Elements */
+select, input, textarea, button {
+  font: 99% sans-serif;
+  font-family: "Lucida Grande", "Lucida Sans Unicode", Lucida, Verdana, sans-serif;
+  margin: 0;
+}
+input[type="button"],
+input[type="submit"],
+input[type="image"],
+button {
+  cursor: pointer;
+}
+input[type=text],
+textarea,
+.form-text,
+.form-textarea {
+  background-color: #fff;
+  border: solid 1px #ddd;
+  border-top-color: #ccc;
+  padding: 0.35em;
+  color: #000;
+  -moz-box-sizing: border-box;
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
+  -moz-border-radius: 3px;
+  -webkit-border-radius: 3px;
+  border-radius: 3px;
+}
+.resizable-textarea textarea {
+  -moz-border-radius-bottomleft: 0;
+  -webkit-border-bottom-left-radius: 0;
+  border-radius-bottomleft: 0;
+  -moz-border-radius-bottomright: 0;
+  -webkit-border-bottom-right-radius: 0;
+  border-radius-bottompright: 0;
+}
+.form-text:active,
+.form-text:focus,
+.form-textarea:active,
+.form-textarea:focus {
+  background-color: #eee;
+}
+.form-text[size="60"] {
+  max-width: 100%; /* prevents overflowing inputs when used with box-sizing. */
+}
+.form-checkboxes .form-item,
+.form-radios .form-item {
+  margin: 0;
+}
+.container-inline .form-item {
+  margin-right: 1em;
+}
+.form-actions {
+  padding-top: 1em;
+  display: block;
+}
+button,
+input[type=submit],
+.form-submit {
+  background-color: #777;
+  background: -webkit-gradient(linear, 0 100%, 0 0, color-stop(0.4, #555), color-stop(0.7, #777));
+  background: -moz-linear-gradient(center bottom, #555 40%, #777 70%);
+  border: solid 1px #555;
+  color: #fff;
+  padding: 0.35em 1em;
+  margin: 0 0.5em;
+  -moz-border-radius: 4px;
+  -webkit-border-radius: 4px;
+  border-radius: 4px;
+}
+
+/* Asterisk denoting a required field. */
+.form-required,
+.tabledrag-changed {
+  color: #d44510;
+  margin: 0.25em;
+}
+
+/* Descriptions */
+.description,
+.fieldset-description {
+  color: #888;
+  font-family: "Lucida Sans Unicode", "Droid Serif", Lucida, Verdana, sans-serif;
+  font-style: italic;
+}
+.description strong {
+  color: #444;
+  font-family: "Lucida Grande", "Lucida Sans Unicode", "Droid Serif", Lucida, Verdana, sans-serif;
+  font-style: normal;
+}
+.form-item .description {
+  font-size: 0.923em;
+  line-height: 1.4em;
+  padding: 0.5em 0;
+}
+
+/* Autocomplete */
+html.js input.form-autocomplete {
+  background-position: 100% 5px;
+}
+html.js input.throbbing {
+  background-position: 100% -13px;
+}
+
+/**
+ * Prevent text inputs from overflowing when container is too narrow. "width" is
+ * applied to override hardcoded cols or size attributes and used in conjunction
+ * with "box-sizing" to prevent box model issues from occurring in most browsers.
+*/
+.vertical-tabs .form-type-textfield input {
+  width: 100%;
+  -moz-box-sizing: border-box;
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
+}
+* html .vertical-tabs .form-type-textfield,
+* html .vertical-tabs .form-textarea-wrapper {
+  width: 95%; /* IE6 */
+}
+
+
+/* Textarea formatting tips */
+ul.tips {
+  padding: 0 0 0 1em;
+}
+ul.tips code {
+  font-size: 0.923em;
+}
+
+/* password checker */
+div.form-item div.password-suggestions {
+  background-color: #f8f8f8;
+  border-color: #eee;
+  color: #000;
+  font-size: 1em;
+  padding: 1em;
+}
+/* @end */
+
+
+/* @group Comments
+ -----------------------------------------------------------------------------*/
+h2.comment-form {
+  background-color: #ddd;
+  border-bottom: 0;
+  border-top: solid 1px #ddd;
+  margin: 0;
+  padding: 0.5em;
+}
+.comment-form {
+  background-color: #eee;
+  border: solid 1px #ddd;
+  border-top-width: 0;
+  padding: 1em 2em;
+}
+.comment-form .form-item-subject label {
+  display: inline;
+  margin-right: 1em;
+}
+/* @end */
+
+
+
+
+
+/* @group Shortcut link
+------------------------------------------------------------------------------*/
+div.add-or-remove-shortcuts {
+  position: absolute;
+  right: 1em;
+  top: 0;
+  z-index: 10;
+}
+div.add-or-remove-shortcuts a {
+  display: block;
+  white-space: nowrap;
+  width: 100%;
+}
+div.add-or-remove-shortcuts a:hover,
+div.add-or-remove-shortcuts a:focus,
+div.add-or-remove-shortcuts a:active {
+  text-decoration: none;
+}
+div.add-or-remove-shortcuts a span.icon {
+  background: transparent url('../images/24-eee.png') no-repeat -496px -124px;
+  height: 27px;
+  margin: 0;
+  padding: 0;
+  width: 24px;
+}
+div.add-shortcut a:focus span.icon,
+div.add-shortcut a:hover span.icon,
+div.remove-shortcut a span.icon,
+div.remove-shortcut a:focus span.icon,
+div.remove-shortcut a:hover span.icon {
+  background: transparent url('../images/24-fc0.png') no-repeat -496px -116px;
+}
+div.add-or-remove-shortcuts a span.text {
+  float: none;
+  padding: 1em;
+  display: none;
+}
+div.add-or-remove-shortcuts a:focus span.text,
+div.add-or-remove-shortcuts a:hover span.text {
+  background-color: #343434;
+  border: solid 1px #444;
+  color: #fff;
+  font-size: inherit;
+  line-height: normal;
+  text-decoration: underline;
+  width: 100%;
+  -moz-border-radius: 8px;
+  -webkit-border-radius: 8px;
+  border-radius: 8px;
+}
+/* @end */
+
+
+/* @group Helpers
+------------------------------------------------------------------------------*/
+.left,
+.right {
+  display: block;
+  margin: 2em;
+}
+.left {
+  float: left;
+  margin-left: 0;
+}
+.right {
+  float: right;
+  margin-right: 0;
+}
+.field-item > p:first-child .left,
+.field-item > p:first-child .right {
+  margin-top: 0;
+}
+/* @end */
+
+
+/* @group Clear fixes
+ -----------------------------------------------------------------------------*/
+/**
+ * Some elements don't have clearfix classes applied. In may places we could
+ * override template files and theme functions to add a clearfix class where
+ * needed, but it is easier to do with CSS if you are not comfortable with
+ * template.php or don't want to mess with templates.
+ *
+ * References:
+ * http://github.com/paulirish/html5-boilerplate
+ * http://j.mp/bestclearfix
+ * http://blueprintcss.lighthouseapp.com/projects/15318/tickets/5-extra-margin-padding-bottom-of-page
+ */
+ul.tabs:before, ul.tabs:after,
+.action-links:before, .action-links:after,
+.field-item:before, .field-item:after,
+.form-item:before, .form-item:after {
+  content: "\0020";  /*UTF-8 character for a space.*/ 
+  display: block;
+  height: 0;
+  visibility: hidden;	
+}
+ul.tabs:after,
+.action-links:after,
+.field-item:after,
+.form-item:after, {
+  clear: both;
+}
+ul.tabs,
+.action-links,
+.field-item,
+.form-item {
+  zoom: 1;
+}
+/* @end */
+
+
+/* @group Invisible elements
+ -----------------------------------------------------------------------------*/
+/**
+ * Use this section to hide things like block titles, and other elements that
+ * may not fit with the visual design, but would be helpful for screen reader
+ * users. Don't go trigger happy hiding block and menu titles in the database or
+ * with CSS using display: none.  There is a much better way to do this using
+ * the code below that will not conflict with your design.
+ *
+ * Drupal's default main and secondary menus print with visible titles. These
+ * titles were added as an accessibility improvement to help screen reader users
+ * easily navigate the page. These should never be removed or hidden using
+ * display: none. Drupal has a special class to deal with these headings called
+ * .element-invisible. This class will hide the content visually, but keep it
+ * available for screen reader users. You can apply this class in page.tpl.php,
+ * or you can do it with CSS as shown below.
+ */
+#navigation h2 {
+  clip: rect(1px 1px 1px 1px); /* IE6, IE7 */
+  clip: rect(1px, 1px, 1px, 1px);
+  position: absolute !important;
+}
+/* @end */
+
+
+/* @group mobile
+ -----------------------------------------------------------------------------*/
+@media screen and (min-width: 320px) and (max-width: 480px) {
+  #main-wrapper {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+  .region-content {
+    overflow-x: auto;
+  }
+  #page-title,
+  .region-content {
+    -moz-border-radius: 0 !important;
+    -webkit-border-radius: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  /* Header */
+  #header .section {
+    padding-bottom: 0;
+  }
+  #site-name,
+  #site-name a {
+    height: 105px;
+    width: 231px;
+  }
+  #site-name a {
+    background-image: url(../images/logo-mobile.png);
+  }
+  .region-header  {
+    position: relative;
+    background-color: #333;
+    min-width: none;
+    max-width: none;
+    margin: 1em -1em -1em;
+  }
+  .region-header .block {
+    padding: 0;
+  }
+
+  /* Navigation */
+  #navigation {
+    text-align: left;
+    padding-left: 0.2em;
+  }
+  #main-menu a {
+    font-size: 0.846em;
+  }
+  #navigation #main-menu li {
+    display: block;
+    float: none;
+    white-space: nowrap;
+  }
+  #main-menu .active a {
+   margin-left: 0.5em;
+  }
+
+  /* Breadcrumb */
+  div.breadcrumb {
+    clear: both;
+  }
+  .node .content img {
+    clear: both !important;
+    float: none;
+  }
+  .region-content .form-item,
+  .region-content .form-item div {
+    float: none !important;
+  }
+  .region-content .form-text,
+  .region-content .form-textarea {
+    width: 100%;
+  }
+  .passworrd-strength,
+  .password-confirm{
+    margin-bottom: 1em;
+    padding-left: 0;
+  }
+  .region-content .container-inline .form-text,
+  .region-content .container-inline .form-textarea {
+    margin-bottom: 1em;
+  }
+  .password-parent,
+  #header .form-text,
+  #header .form-textarea {
+    width: auto;
+  }
+}
+
+/*@media all and (max-width: 53em) {
+  #main-menu a {
+    font-size: 1em;
+    padding: 0.3em 0.5em;
+  }
+}*/
