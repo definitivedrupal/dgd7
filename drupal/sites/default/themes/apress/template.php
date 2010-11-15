@@ -11,10 +11,7 @@ function apress_html_head_alter(&$head_elements) {
   $head_elements['apress_edge_chrome'] = array(
     '#type' => 'html_tag',
     '#tag' => 'meta',
-    '#attributes' => array(
-      'http-equiv' => 'X-UA-Compatible',
-      'content' => 'IE-edge,chrome=1',
-    ),
+    '#attributes' => array('http-equiv' => 'X-UA-Compatible', 'content' => 'IE-edge,chrome=1'),
   );
   // Add an Apple touch icon.
  // <link rel="apple-touch-icon-precomposed" href="path/to/theme/images/apple-touch-icon.png" />
@@ -59,7 +56,7 @@ function apress_page_alter(&$page) {
   if (!empty($page['content']['system_main'])) {
     $page['content']['system_main']['#theme_wrappers'] = array_diff($page['content']['system_main']['#theme_wrappers'], array('block'));
   }
-  // Add the breadcrumbs to the bottom of the content region.
+  // Add the breadcrumbs to the bottom of the footer region.
   $page['footer']['breadcrumbs'] = array(
     '#theme' => 'breadcrumb',
     '#prefix' => '<div class="breadcrumb-wrapper">',
@@ -121,8 +118,10 @@ function apress_preprocess_html(&$vars) {
   drupal_add_css($theme_path . '/css/style.css', $conditional);
 
   // Add css/overlay.css when the overlay window is in child mode.
-  if (overlay_get_mode() == 'child') {
-    drupal_add_css($theme_path . '/css/overlay.css', $conditional);
+  if (module_exists('overlay')) {
+    if (overlay_get_mode() == 'child') {
+      drupal_add_css($theme_path . '/css/overlay.css', $conditional);
+    }
   }
   // Add css/tabs.css if the page as tabs.
   if (menu_primary_local_tasks() || menu_secondary_local_tasks()) {
@@ -130,7 +129,7 @@ function apress_preprocess_html(&$vars) {
   }
   // Add css/admin.css in the admin section.
   if (arg(0) == 'admin') {
-    drupal_add_css($theme_path . '/css/admin.css', $options);
+    drupal_add_css($theme_path . '/css/admin.css', $conditional);
   }
 
   // Add an IE conditional stylesheet.
@@ -140,7 +139,6 @@ function apress_preprocess_html(&$vars) {
   // aggregation is disabled and a <link> when it's enabled.
   $preprocess = variable_get('preprocess_css', 0) == 0 ? TRUE : FALSE;
   $ie = array_merge($options, array('browsers' => array('IE' => 'lte IE 7', '!IE' => FALSE), 'preprocess' => $preprocess));
-
   drupal_add_css($theme_path . '/css/ie.css', $ie);
 
   // Add a class to indicate there's no title for styling the content region.
