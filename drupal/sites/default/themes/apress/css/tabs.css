@@ -1,3 +1,8 @@
+/* @override 
+	http://dgd7/sites/default/themes/apress/css/tabs.css?lbwu0n
+	http://drupal-7/sites/all/themes/apress/css/tabs.css?lbzygy
+*/
+
 /* @group Tabs
  -----------------------------------------------------------------------------*/
 /**
@@ -47,6 +52,8 @@ ul.tabs {
   font-size: 1.077em;
   line-height: 4ex;
   margin-top: 1em;
+  overflow-y: auto;
+  height: 4ex;
 }
 .primary a {
   padding: 0 1em;
@@ -74,14 +81,16 @@ ul.tabs {
 /* Secondary */
 ul.secondary {
   background-color: #fff;
+  line-height: 3ex;
   margin: 0 -2em;
   padding: 1em 1em 0 1em;
   position: relative;
 }
 .secondary a {
-  border: solid 1px #f8f8f8;
+  background-color: #f8f8f8;
+  border: solid 1px #eee;
   color: #000;
-  font-size: 0.923em;
+  font-size: 0.846em;
   font-weight: bold;
   padding: 0.2em 1em;
   text-transform: uppercase;

@@ -46,6 +46,7 @@ function apress_css_alter(&$css) {
   // Cannot remove these in .info without due to bug: [#967166]
   unset($css['modules/system/system.theme.css']);
   unset($css['modules/system/system.menus.css']);
+  unset($css['modules/system/system.messages.css']);
 }
 
 /**
@@ -70,6 +71,9 @@ function apress_page_alter(&$page) {
     // This doesn't work.
     // $page['help']['messages']['#theme'] = 'status_messages';
     $page['help']['messages']['#markup'] = theme('status_messages');
+    $page['help']['messages']['#weight'] = -10;
+    // Trigger the contents of the region to be sorted.
+    $page['help']['#sorted'] = FALSE;
   }
 
   // Kill the sidebar regions in the admin section.
@@ -114,8 +118,9 @@ function apress_preprocess_html(&$vars) {
   drupal_add_css('http://fonts.googleapis.com/css?family=Droid+Sans:regular,bold&subset=latin', $external);
 
   // Add the regular theme stylesheets.
-  drupal_add_css($theme_path . '/css/layout.css', $conditional);
-  drupal_add_css($theme_path . '/css/style.css', $conditional);
+  drupal_add_css($theme_path . '/css/layout.css', $options);
+  drupal_add_css($theme_path . '/css/style.css', $options);
+  drupal_add_css($theme_path . '/css/forms.css', $options);
 
   // Add css/overlay.css when the overlay window is in child mode.
   if (module_exists('overlay')) {
@@ -174,8 +179,13 @@ function apress_preprocess_region(&$vars) {
   if (in_array($region, array('sidebar_first', 'sidebar_second', 'content'))) {
     $vars['classes_array'][] = 'main';
   }
-  if ($region == 'footer') {
+  // Add a clearfix class to certain regions.
+  if (in_array($region, array('footer', 'help', 'highlight'))) {
     $vars['classes_array'][] = 'clearfix';
+  }
+  // Add an "outer" class to the darker regions.
+  if (in_array($region, array('header', 'footer', 'sidebar_first', 'sidebar_second'))) {
+    $vars['classes_array'][] = 'outer';
   }
 }
 
@@ -201,10 +211,23 @@ function apress_preprocess_node(&$vars) {
 }
 
 /**
+ * Implements template_preprocess_user_picture().
+ */
+function apress_preprocess_user_picture(&$vars) {
+  if ($vars['account']->uid == $vars['user']->uid) {
+    $vars['edit_picture'] = l('Change picture', 'user/' . $vars['account']->uid . '/edit', array(
+      'fragment' => 'edit-picture',
+      'attributes' => array('class' => array('change-user-picture')),
+      )
+    );
+  }
+}
+
+/**
  * Implements template_process_page().
  */
 function apress_process_page(&$vars) {
-  // Remove breadcrumbs/messages. See hook_page_alter().
+  // breadcrumbs/messages. See hook_page_alter().
   $vars['breadcrumb'] = '';
   $vars['messages'] = '';
 }
@@ -310,4 +333,35 @@ function apress_breadcrumb($variables) {
     $output .= '<div class="breadcrumb">' . implode(' » ', $breadcrumb) . '</div>';
     return $output;
   }
+}
+
+function apress_status_messages($variables) {
+  $display = $variables['display'];
+  $output = '';
+
+  $status_heading = array(
+    'status' => t('Status'),
+    'error' => t('Error'), 
+    'warning' => t('Warning'),
+  );
+  foreach (drupal_get_messages($display) as $type => $messages) {
+    $output .= "<div class=\"messages $type\">\n";
+    if (!empty($status_heading[$type])) {
+      $output .= '<h2 class="message-title"><span class="icon"></span>' . $status_heading[$type] . "</h2>\n";
+    }
+    $output .= '<div class="content">';
+    if (count($messages) > 1) {
+      $output .= "<ul>\n";
+      foreach ($messages as $message) {
+        $output .= '  <li>' . $message . "</li>\n";
+      }
+      $output .= " </ul>\n";
+    }
+    else {
+      $output .= $messages[0];
+    }
+    $output .= "</div>\n";
+    $output .= "</div>\n";
+  }
+  return $output;
 }

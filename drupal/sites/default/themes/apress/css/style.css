@@ -1,3 +1,7 @@
+/* @override 
+	http://dgd7/sites/default/themes/apress/css/style.css?lc0jqm
+*/
+
 html {
   background-color: #fc0;
 }
@@ -254,13 +258,11 @@ dd {
 /* @end */
 
 
-/* @group Content
+/* @group Help
  -----------------------------------------------------------------------------*/
 .region-help {
   background-color: #fff;
-  color: #777;
-  font-family: "Droid Serif", Georgia, Verdana, Arial, sans-serif;
-  font-size: 1.077em;
+  color: #444;
 }
 .region-help .block {
   padding: 20px 20px 0 20px;
@@ -348,23 +350,31 @@ li.last {
   margin: 0 0 1em 0;
 }
 .block ul {
-  padding-left: 1.6em;
+  padding-left: 1.2em;
 }
-.block li a {
-  color: #fff;
-}
-
 .main .block {
   background-color: #111;
   color: #fff;
 }
-.main .block-title {
+.sidebar .section {
+  margin: 0 1em;
+}
+.sidebar .block {
+  border-bottom: solid 1px #333;
+}
+.sidebar .block-title {
   color: #bbb;
-  font-size: 1.231em; /* 13px x 1.231 = 16px */
-  margin: 0 0 0.6em 0;
-  text-shadow: 1px 1px 1px #222;
-  text-transform: lowercase;
-  letter-spacing: 1px;
+  font-size: 1.385em;
+  margin-bottom: 0;
+  text-shadow: 2px 2px 2px #000;
+  -webkit-font-smoothing: antialiased;
+}
+.sidebar a {
+  color: #fff;
+}
+.sidebar .form-item {
+  margin: 0 0 0.5em 0;
+  padding: 0;
 }
 /* @end */
 
@@ -455,6 +465,7 @@ li.last {
 .node .links a {
   color: #666;
 }
+.comment .links .icon,
 .node .links .icon {
   background-image: url('../images/16-aaa.png');
 }
@@ -462,6 +473,10 @@ li.last {
 .comment-add .icon { background-position: -116px -580px; /* .comment */ }
 .book-add-child .icon { background-position: -348px -1392px; /* .plus-1 */ }
 .book-printer .icon { background-position: -464px -232px; /* printer */ }
+
+.comment-delete .icon { background-position: -696px -464px; }
+.comment-reply .icon { background-position: -116px -1740px; }
+.comment-edit .icon { background-position: -348px -928px; }
 /* @end */
 
 
@@ -711,25 +726,56 @@ li.last {
  *    should not introduce color contrast issues for those with vision
  *    impairment issues, and should not rely on color alone to communicate.
  */
-div.messages {
-  background-color: #333;
-  border-color: #333;
-  color: #fff;
-  font-family: "Helvetica Neue", Arial, Helvetica, Geneva, sans-serif;
+.messages {
+  background-color: #fff;
+  color: #000;
+  font-family: "Droid Serif", Georgia, Verdana, Arial, sans-serif;
+  padding: 0;
   margin: 0;
 }
-div.messages a {
-  color: #fff;
+.message-title {
+  padding: 0.4em;
+  margin: 0;
 }
-div.messages p:first-child {
+.message-title .icon {
+  background: url(../images/24-eee.png) no-repeat -124px 0;
+  display: block;
+  float: left;
+  height: 24px;
+  margin-right: 0.5em;
+  width: 24px;
+}
+.messages .content {
+  padding: 1em;
+  background: -webkit-gradient(linear, 0 100%, 0 0, color-stop(0.4, #f8f8f8), color-stop(0.7, #fff));
+  background-color: -moz-linear-gradient(center bottom, #f8f8f8 42%, #fff 71%);
+  border-top: solid 1px #777;
+  border-bottom: solid 1px #ddd;
+  font-size: 1.077em;
+  margin: 0;
+  padding-bottom: 0.8em;
+}
+.messages p:first-child {
   margin-top: 0;
 }
-div.warning {
-  color: #fc0;
+.status .message-title {
+  background: #248625;
+  color: #fff;
 }
-div.status {
-  color: #393;
+.warning .icon {
+  background: url(../images/24-000.png) no-repeat -744px -496px;
 }
+.warning .message-title {
+  background: #fc0;  
+}
+.error .message-title {
+  background-color: #a80f08;
+  color: #fff;
+}
+.error .icon {
+  background-position: -744px -1364px;
+}
+
 
 /* Markers */
 span.marker {
@@ -740,7 +786,9 @@ span.marker {
   line-height: 1.3em;
   padding: 0 0.3em;
   margin-right: 0.4em;
+  -moz-border-radius: 4px;
   -webkit-border-radius: 4px;
+  border-radius: 4px;
 }
 
 /* Debugging */
@@ -941,276 +989,37 @@ div.handle { display: none; }
 /* @end */
 
 
-/* @group Forms
- -----------------------------------------------------------------------------*/
-/**
- * - Forms.
- *
- *
- * - Wrappers.
- *
- *
- * - Elements.
- *
- *
- * - Autocomplete text inouts.
- *
- *
- * - Errors and markers.
- *
- *
- * - Collapsible fieldsets.
- *
- *
- * - Vertical tabs. 
- */
-form {
-  font-family: "Droid Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
-}
-fieldset {
-  border: solid 1px #ddd;
-  padding: 1em;
-  margin: 0 0 1em 0;
-}
-legend {
-  font-weight: bold;
-}
-label {
-  cursor: pointer;
-  display: block;
-  font-weight: bold;
-  line-height: 2em;
-}
-label.option {
-  font-weight: normal;
-  display: inline;
-}
-.form-item {
-  margin: 1em 0;
-}
-td .form-item,
-.filter-wrapper .form-item {
-  margin: 0;
-}
-.filter-wrapper {
-  padding-top: 0.5em;
-}
-
-/* Elements */
-select, input, textarea, button {
-  font: 99% sans-serif;
-  font-family: "Lucida Grande", "Lucida Sans Unicode", Lucida, Verdana, sans-serif;
-  margin: 0;
-}
-input[type="button"],
-input[type="submit"],
-input[type="image"],
-button {
-  cursor: pointer;
-}
-input[type=text],
-textarea,
-.form-text,
-.form-textarea {
-  background-color: #fff;
-  border: solid 1px #ddd;
-  border-top-color: #ccc;
-  padding: 0.35em;
-  color: #000;
-  -moz-box-sizing: border-box;
-  -webkit-box-sizing: border-box;
-  box-sizing: border-box;
-  -moz-border-radius: 3px;
-  -webkit-border-radius: 3px;
-  border-radius: 3px;
-}
-.resizable-textarea textarea {
-  -moz-border-radius-bottomleft: 0;
-  -webkit-border-bottom-left-radius: 0;
-  border-radius-bottomleft: 0;
-  -moz-border-radius-bottomright: 0;
-  -webkit-border-bottom-right-radius: 0;
-  border-radius-bottompright: 0;
-}
-.form-text:active,
-.form-text:focus,
-.form-textarea:active,
-.form-textarea:focus {
-  background-color: #eee;
-}
-.form-text[size="60"] {
-  max-width: 100%; /* prevents overflowing inputs when used with box-sizing. */
-}
-.form-checkboxes .form-item,
-.form-radios .form-item {
-  margin: 0;
-}
-.container-inline .form-item {
-  margin-right: 1em;
-}
-.form-actions {
-  padding-top: 1em;
-  display: block;
-}
-button,
-input[type=submit],
-.form-submit {
-  background-color: #777;
-  background: -webkit-gradient(linear, 0 100%, 0 0, color-stop(0.4, #555), color-stop(0.7, #777));
-  background: -moz-linear-gradient(center bottom, #555 40%, #777 70%);
-  border: solid 1px #555;
-  color: #fff;
-  padding: 0.35em 1em;
-  margin: 0 0.5em;
-  -moz-border-radius: 4px;
-  -webkit-border-radius: 4px;
-  border-radius: 4px;
-}
-
-/* Asterisk denoting a required field. */
-.form-required,
-.tabledrag-changed {
-  color: #d44510;
-  margin: 0.25em;
-}
-
-/* Descriptions */
-.description,
-.fieldset-description {
-  color: #888;
-  font-family: "Lucida Sans Unicode", "Droid Serif", Lucida, Verdana, sans-serif;
-  font-style: italic;
-}
-.description strong {
-  color: #444;
-  font-family: "Lucida Grande", "Lucida Sans Unicode", "Droid Serif", Lucida, Verdana, sans-serif;
-  font-style: normal;
-}
-.form-item .description {
-  font-size: 0.923em;
-  line-height: 1.4em;
-  padding: 0.5em 0;
-}
-
-/* Autocomplete */
-html.js input.form-autocomplete {
-  background-position: 100% 5px;
-}
-html.js input.throbbing {
-  background-position: 100% -13px;
-}
-
-/**
- * Prevent text inputs from overflowing when container is too narrow. "width" is
- * applied to override hardcoded cols or size attributes and used in conjunction
- * with "box-sizing" to prevent box model issues from occurring in most browsers.
-*/
-.vertical-tabs .form-type-textfield input {
-  width: 100%;
-  -moz-box-sizing: border-box;
-  -webkit-box-sizing: border-box;
-  box-sizing: border-box;
-}
-* html .vertical-tabs .form-type-textfield,
-* html .vertical-tabs .form-textarea-wrapper {
-  width: 95%; /* IE6 */
-}
-
-
-/* Textarea formatting tips */
-ul.tips {
-  padding: 0 0 0 1em;
-}
-ul.tips code {
-  font-size: 0.923em;
-}
-
-/* password checker */
-div.form-item div.password-suggestions {
-  background-color: #f8f8f8;
-  border-color: #eee;
-  color: #000;
-  font-size: 1em;
-  padding: 1em;
-}
-/* @end */
-
 
 /* @group Comments
  -----------------------------------------------------------------------------*/
 h2.comment-form {
-  background-color: #ddd;
-  border-bottom: 0;
-  border-top: solid 1px #ddd;
-  margin: 0;
-  padding: 0.5em;
+  margin-bottom: 0;
 }
-.comment-form {
-  background-color: #eee;
-  border: solid 1px #ddd;
-  border-top-width: 0;
-  padding: 1em 2em;
+
+form.comment-form {
+  background-color: #fff;
+  padding: 0 1em 1em;
 }
-.comment-form .form-item-subject label {
+.comment-form .form-item label,
+.comment-form .form-item .form-item {
   display: inline;
   margin-right: 1em;
 }
-/* @end */
 
-
-
-
-
-/* @group Shortcut link
-------------------------------------------------------------------------------*/
-div.add-or-remove-shortcuts {
+.comment {
+  padding-left: 12em;
+  position: relative;
+}
+.comment .user-picture {
+  width: 12em;
   position: absolute;
-  right: 1em;
-  top: 0;
-  z-index: 10;
+  left: 0;
 }
-div.add-or-remove-shortcuts a {
-  display: block;
-  white-space: nowrap;
-  width: 100%;
-}
-div.add-or-remove-shortcuts a:hover,
-div.add-or-remove-shortcuts a:focus,
-div.add-or-remove-shortcuts a:active {
-  text-decoration: none;
-}
-div.add-or-remove-shortcuts a span.icon {
-  background: transparent url('../images/24-eee.png') no-repeat -496px -124px;
-  height: 27px;
+.comment .user-picture img {
   margin: 0;
-  padding: 0;
-  width: 24px;
 }
-div.add-shortcut a:focus span.icon,
-div.add-shortcut a:hover span.icon,
-div.remove-shortcut a span.icon,
-div.remove-shortcut a:focus span.icon,
-div.remove-shortcut a:hover span.icon {
-  background: transparent url('../images/24-fc0.png') no-repeat -496px -116px;
-}
-div.add-or-remove-shortcuts a span.text {
-  float: none;
-  padding: 1em;
-  display: none;
-}
-div.add-or-remove-shortcuts a:focus span.text,
-div.add-or-remove-shortcuts a:hover span.text {
-  background-color: #343434;
-  border: solid 1px #444;
-  color: #fff;
-  font-size: inherit;
-  line-height: normal;
-  text-decoration: underline;
-  width: 100%;
-  -moz-border-radius: 8px;
-  -webkit-border-radius: 8px;
-  border-radius: 8px;
-}
+
+
 /* @end */
 
 
@@ -1249,26 +1058,27 @@ div.add-or-remove-shortcuts a:hover span.text {
  * http://j.mp/bestclearfix
  * http://blueprintcss.lighthouseapp.com/projects/15318/tickets/5-extra-margin-padding-bottom-of-page
  */
-ul.tabs:before, ul.tabs:after,
-.action-links:before, .action-links:after,
-.field-item:before, .field-item:after,
-.form-item:before, .form-item:after {
+ul.tabs:after,
+ul.action-links:after,
+.field-item:after,
+.form-item:after {
   content: "\0020";  /*UTF-8 character for a space.*/ 
   display: block;
   height: 0;
+  clear: both;
   visibility: hidden;	
 }
-ul.tabs:after,
-.action-links:after,
-.field-item:after,
-.form-item:after, {
-  clear: both;
+* html ul.tabs,
+* html .action-links,
+* html .field-item,
+* html .form-item:after, {
+  height: 1%;
 }
-ul.tabs,
-.action-links,
-.field-item,
-.form-item {
-  zoom: 1;
+* :first-child + html ul.tabs,
+* :first-child + html .action-links,
+* :first-child + html.field-item,
+* :first-child + html .form-item {
+  min-height: 1%;
 }
 /* @end */
 
