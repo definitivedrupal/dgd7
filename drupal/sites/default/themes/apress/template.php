@@ -81,6 +81,13 @@ function apress_page_alter(&$page) {
     unset($page['sidebar_first']);
     unset($page['sidebar_second']);
   }
+
+  // Kill most of the regions on the homepage.
+  if (drupal_is_front_page()) {
+    unset($page['sidebar_first']);
+    unset($page['sidebar_second']);
+    unset($page['content']);
+  }
 }
 
 /**
@@ -119,8 +126,8 @@ function apress_preprocess_html(&$vars) {
 
   // Add the regular theme stylesheets.
   drupal_add_css($theme_path . '/css/layout.css', $options);
-  drupal_add_css($theme_path . '/css/style.css', $options);
   drupal_add_css($theme_path . '/css/forms.css', $options);
+  drupal_add_css($theme_path . '/css/style.css', $options);
 
   // Add css/overlay.css when the overlay window is in child mode.
   if (module_exists('overlay')) {
