@@ -1,0 +1,8 @@
+; $Id$
+name = DGD7 Alpha to Beta
+description = [dgd7alpha2beta] Provides helpers to upgrade DGD7 more cleanly between Alpha 6 and Betas.
+
+core = 7.x
+
+files[] = dgd7alpha2beta.module
+files[] = dgd7alpha2beta.install

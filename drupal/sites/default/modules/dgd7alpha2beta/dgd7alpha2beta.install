@@ -1,0 +1,22 @@
+<?php
+
+/**
+ * Implements hook_install().
+ */
+function dgd7alpha2beta_install() {
+  // Updates are not run on first install, and cannot be run later.
+  dgd7alpha2beta_update_7000();
+}
+
+/**
+ * Add module column to {node_type}.
+ */
+function dgd7alpha2beta_update_7000() {
+  db_add_field('node_type', 'module', array(
+    'description' => 'The module defining this node type.',
+    'type' => 'varchar',
+    'length' => 255,
+    'not null' => TRUE,
+    'default' => 'node',
+  ));
+}
