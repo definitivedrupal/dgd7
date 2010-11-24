@@ -68,7 +68,6 @@ function apress_page_alter(&$page) {
   // Trigger the contents of the region to be sorted.
   $page['footer']['#sorted'] = FALSE;
 
-
   // Move the messages.
   if ($page['#show_messages']) {
     $page['help']['messages'] = array(
@@ -219,6 +218,14 @@ function apress_preprocess_node(&$vars) {
   if (!empty($vars['content']['comments']['comment_form'])) {
     unset($vars['content']['links']['#links']['comment-add']);
   }
+
+  // Make some changes when in teaser mode.
+  if ($vars['teaser']) {
+    // Don't display author or date information.
+    $vars['display_submitted'] = FALSE;
+    // Trim the node title and append an ellipsis.
+    $vars['title'] = truncate_utf8($vars['title'], 70, TRUE, TRUE);
+  }
 }
 
 /**
@@ -262,7 +269,7 @@ function apress_form_user_login_block_alter(&$form, &$form_state) {
 
 /**
  * Overrides theme_links().
- * Added: <span class="icon"> before 
+ * Added: <span class="icon"> before links.
  */
 function apress_links($variables) {
   global $language_url;
