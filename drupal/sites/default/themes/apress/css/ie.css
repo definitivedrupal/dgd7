@@ -2,7 +2,8 @@
 .inline li,
 .links li span,
 .tabs li,
-.pager li {
+.pager li,
+.region-footer #block-user-login .form-item {
   display: inline;
   zoom: 1;
 }

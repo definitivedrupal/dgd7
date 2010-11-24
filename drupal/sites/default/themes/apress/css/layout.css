@@ -59,6 +59,12 @@ body.two-sidebars #sidebar-first {
   min-width: 700px;
   margin: 0 auto;
 }
+
+#content .section {
+  margin-left: 1em;
+  margin-right: 1em;
+}
+
 #main-wrapper {
   margin: 2em 0;
 }
@@ -75,6 +81,7 @@ body.two-sidebars #sidebar-first {
     margin: 0 auto !important;
   }
   #header .section,
+  #content .section,
   #navigation .section,
   #main {
     margin: 0 !important;

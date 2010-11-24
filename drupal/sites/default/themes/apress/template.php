@@ -60,18 +60,21 @@ function apress_page_alter(&$page) {
   // Add the breadcrumbs to the bottom of the footer region.
   $page['footer']['breadcrumbs'] = array(
     '#theme' => 'breadcrumb',
-    '#prefix' => '<div class="breadcrumb-wrapper">',
+    '#prefix' => '<div class="breadcrumb-wrapper clearfix">',
     '#breadcrumb' => drupal_get_breadcrumb(),
     '#suffix' => '</div>',
+    '#weight' => 10,
   );
+  // Trigger the contents of the region to be sorted.
+  $page['footer']['#sorted'] = FALSE;
+
 
   // Move the messages.
-  // Need to file yet another bug report. This is very strange.
   if ($page['#show_messages']) {
-    // This doesn't work.
-    // $page['help']['messages']['#theme'] = 'status_messages';
-    $page['help']['messages']['#markup'] = theme('status_messages');
-    $page['help']['messages']['#weight'] = -10;
+    $page['help']['messages'] = array(
+      '#markup' => theme('status_messages'),
+      '#weight' => -10,
+    );
     // Trigger the contents of the region to be sorted.
     $page['help']['#sorted'] = FALSE;
   }
@@ -82,8 +85,9 @@ function apress_page_alter(&$page) {
     unset($page['sidebar_second']);
   }
 
-  // Kill most of the regions on the homepage.
+  // Do special stuff on the front page.
   if (drupal_is_front_page()) {
+    // Remove the sidebars and content regions.
     unset($page['sidebar_first']);
     unset($page['sidebar_second']);
     unset($page['content']);
@@ -237,6 +241,23 @@ function apress_process_page(&$vars) {
   // breadcrumbs/messages. See hook_page_alter().
   $vars['breadcrumb'] = '';
   $vars['messages'] = '';
+}
+
+/**
+ * Implements hook_form_ID_alter().
+ */
+function apress_form_comment_form_alter(&$form, &$form_state) {
+  // krumo($form);
+  $form['notify_settings']['notify_type']['#prefix'] = '<div class="container-inline clearfix">';
+  $form['notify_settings']['notify_type']['#suffix'] = '</div>';
+}
+
+/**
+ * Implements hook_form_ID_alter().
+ */
+function apress_form_user_login_block_alter(&$form, &$form_state) {
+  $form['links']['#prefix'] = '<div class="login-links container-inline clearfix">';
+  $form['links']['#suffix'] = '</div>';
 }
 
 /**
