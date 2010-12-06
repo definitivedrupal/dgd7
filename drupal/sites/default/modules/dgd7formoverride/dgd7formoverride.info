@@ -1,0 +1,3 @@
+name = DGD7 Form Override
+core = 7.x
+files[] = dgd7formoverride.module

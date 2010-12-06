@@ -1,0 +1,9 @@
+<?php
+
+function dgd7formoverride_form_field_ui_field_settings_form_alter(&$form, &$form_state) {
+
+  if ($form['field']['settings']['allowed_values'][0]['vocabulary']['#disabled'] == TRUE) {
+    drupal_set_message(t('Changing this vocabulary is disabled, for good reason, as noted, but dgd7formoverride module is allowing you to change it even though you should not.  Please know what you are doing.'), 'warning');
+    $form['field']['settings']['allowed_values'][0]['vocabulary']['#disabled'] = FALSE;
+  }
+}
