@@ -1,5 +1,5 @@
 <?php
-// $Id: module.inc,v 1.202 2010/10/03 02:04:55 dries Exp $
+// $Id: module.inc,v 1.209 2010/11/27 20:41:38 dries Exp $
 
 /**
  * @file
@@ -32,27 +32,39 @@ function module_load_all($bootstrap = FALSE) {
 
 
 /**
- * Collect a list of all loaded modules. During the bootstrap, return only
- * vital modules. See bootstrap.inc
+ * Returns a list of currently active modules.
+ *
+ * Usually, this returns a list of all enabled modules. When called early on in
+ * the bootstrap, it will return a list of vital modules only (those needed to
+ * generate cached pages).
+ *
+ * All parameters to this function are optional and should generally not be
+ * changed from their defaults.
  *
  * @param $refresh
- *   Whether to force the module list to be regenerated (such as after the
- *   administrator has changed the system settings).
- * @param $bootstrap
- *   Whether to return the reduced set of modules loaded in "bootstrap mode"
- *   for cached pages. See bootstrap.inc.
+ *   (optional) Whether to force the module list to be regenerated (such as
+ *   after the administrator has changed the system settings). Defaults to
+ *   FALSE.
+ * @param $bootstrap_refresh
+ *   (optional) When $refresh is TRUE, setting $bootstrap_refresh to TRUE forces
+ *   the module list to be regenerated using the reduced set of modules loaded
+ *   in "bootstrap mode" for cached pages. Otherwise, setting $refresh to TRUE
+ *   generates the complete list of enabled modules.
  * @param $sort
- *   By default, modules are ordered by weight and module name. Set this option
- *   to TRUE to return a module list ordered only by module name.
+ *   (optional) By default, modules are ordered by weight and module name. Set
+ *   this option to TRUE to return a module list ordered only by module name.
  * @param $fixed_list
- *   (Optional) Override the module list with the given modules. Stays until the
- *   next call with $refresh = TRUE.
+ *   (optional) If an array of module names is provided, this will override the
+ *   module list with the given set of modules. This will persist until the next
+ *   call with $refresh set to TRUE or with a new $fixed_list passed in. This
+ *   parameter is primarily intended for internal use (e.g., in install.php and
+ *   update.php).
  *
  * @return
- *   An associative array whose keys and values are the names of all loaded
- *   modules.
+ *   An associative array whose keys and values are the names of the modules in
+ *   the list.
  */
-function module_list($refresh = FALSE, $bootstrap = FALSE, $sort = FALSE, $fixed_list = NULL) {
+function module_list($refresh = FALSE, $bootstrap_refresh = FALSE, $sort = FALSE, $fixed_list = NULL) {
   static $list = array(), $sorted_list;
 
   if (empty($list) || $refresh || $fixed_list) {
@@ -70,7 +82,7 @@ function module_list($refresh = FALSE, $bootstrap = FALSE, $sort = FALSE, $fixed
         // data.
         drupal_static_reset('system_list');
       }
-      if ($bootstrap) {
+      if ($bootstrap_refresh) {
         $list = system_list('bootstrap');
       }
       else {
@@ -181,6 +193,7 @@ function system_list($type) {
  */
 function system_list_reset() {
   drupal_static_reset('system_list');
+  drupal_static_reset('system_rebuild_module_data');
   drupal_static_reset('list_themes');
   cache_clear_all('bootstrap_modules', 'cache_bootstrap');
   cache_clear_all('system_list', 'cache_bootstrap');
@@ -235,12 +248,18 @@ function module_exists($module) {
 
 /**
  * Load a module's installation hooks.
+ *
+ * @param $module
+ *   The name of the module (without the .module extension).
+ *
+ * @return
+ *   The name of the module's install file, if successful; FALSE otherwise.
  */
 function module_load_install($module) {
   // Make sure the installation API is available
   include_once DRUPAL_ROOT . '/includes/install.inc';
 
-  module_load_include('install', $module);
+  return module_load_include('install', $module);
 }
 
 /**
@@ -264,11 +283,14 @@ function module_load_install($module) {
  * @param $module
  *   The module to which the include file belongs.
  * @param $name
- *   Optionally, specify the base file name (without the $type extension).
- *   If not set, $module is used.
+ *   (optional) The base file name (without the $type extension). If omitted,
+ *   $module is used; i.e., resulting in "$module.$type" by default.
+ *
+ * @return
+ *   The name of the included file, if successful; FALSE otherwise.
  */
 function module_load_include($type, $module, $name = NULL) {
-  if (empty($name)) {
+  if (!isset($name)) {
     $name = $module;
   }
 
@@ -466,6 +488,7 @@ function module_disable($module_list, $disable_dependents = TRUE) {
     // Create an associative array with weights as values.
     $module_list = array_flip(array_values($module_list));
 
+    $profile = drupal_get_profile();
     while (list($module) = each($module_list)) {
       if (!isset($module_data[$module]) || !$module_data[$module]->status) {
         // This module doesn't exist or is already disabled, skip it.
@@ -477,7 +500,7 @@ function module_disable($module_list, $disable_dependents = TRUE) {
       // Add dependent modules to the list, with a placeholder weight.
       // The new modules will be processed as the while loop continues.
       foreach ($module_data[$module]->required_by as $dependent => $dependent_data) {
-        if (!isset($module_list[$dependent]) && !strstr($module_data[$dependent]->filename, '.profile')) {
+        if (!isset($module_list[$dependent]) && $dependent != $profile) {
           $module_list[$dependent] = 0;
         }
       }
@@ -569,7 +592,20 @@ function module_disable($module_list, $disable_dependents = TRUE) {
  *   implemented in that module.
  */
 function module_hook($module, $hook) {
-  return function_exists($module . '_' . $hook);
+  $function = $module . '_' . $hook;
+  if (function_exists($function)) {
+    return TRUE;
+  }
+  // If the hook implementation does not exist, check whether it may live in an
+  // optional include file registered via hook_hook_info().
+  $hook_info = module_hook_info();
+  if (isset($hook_info[$hook]['group'])) {
+    module_load_include('inc', $module, $module . '.' . $hook_info[$hook]['group']);
+    if (function_exists($function)) {
+      return TRUE;
+    }
+  }
+  return FALSE;
 }
 
 /**
@@ -637,7 +673,9 @@ function module_implements($hook, $sort = FALSE, $reset = FALSE) {
     $list = module_list(FALSE, FALSE, $sort);
     foreach ($list as $module) {
       $include_file = isset($hook_info[$hook]['group']) && module_load_include('inc', $module, $module . '.' . $hook_info[$hook]['group']);
-      if (module_hook($module, $hook)) {
+      // Since module_hook() may needlessly try to load the include file again,
+      // function_exists() is used directly here.
+      if (function_exists($module . '_' . $hook)) {
         $implementations[$hook][$module] = $include_file ? $hook_info[$hook]['group'] : FALSE;
       }
     }
@@ -655,9 +693,11 @@ function module_implements($hook, $sort = FALSE, $reset = FALSE) {
         module_load_include('inc', $module, "$module.$group");
       }
       // It is possible that a module removed a hook implementation without the
-      // implementations cache being rebuilt yet, so we check module_hook() on
-      // each request to avoid undefined function errors.
-      if (!module_hook($module, $hook)) {
+      // implementations cache being rebuilt yet, so we check whether the
+      // function exists on each request to avoid undefined function errors.
+      // Since module_hook() may needlessly try to load the include file again,
+      // function_exists() is used directly here.
+      if (!function_exists($module . '_' . $hook)) {
         // Clear out the stale implementation from the cache and force a cache
         // refresh to forget about no longer existing hook implementations.
         unset($implementations[$hook][$module]);
@@ -673,9 +713,17 @@ function module_implements($hook, $sort = FALSE, $reset = FALSE) {
  * Retrieve a list of what hooks are explicitly declared.
  */
 function module_hook_info() {
-  $hook_info = &drupal_static(__FUNCTION__, array());
+  // This function is indirectly invoked from bootstrap_invoke_all(), in which
+  // case common.inc, subsystems, and modules are not loaded yet, so it does not
+  // make sense to support hook groups resp. lazy-loaded include files prior to
+  // full bootstrap.
+  if (drupal_bootstrap(NULL, FALSE) != DRUPAL_BOOTSTRAP_FULL) {
+    return array();
+  }
+  $hook_info = &drupal_static(__FUNCTION__);
 
-  if (empty($hook_info)) {
+  if (!isset($hook_info)) {
+    $hook_info = array();
     $cache = cache_get('hook_info', 'cache_bootstrap');
     if ($cache === FALSE) {
       // Rebuild the cache and save it.
@@ -745,6 +793,7 @@ function module_invoke() {
     return call_user_func_array($module . '_' . $hook, $args);
   }
 }
+
 /**
  * Invoke a hook in all enabled modules that implement it.
  *
@@ -786,7 +835,7 @@ function module_invoke_all() {
  * Array of modules required by core.
  */
 function drupal_required_modules() {
-  $files = drupal_system_listing('/\.info$/', 'modules', 'name', 0);
+  $files = drupal_system_listing('/^' . DRUPAL_PHP_FUNCTION_PATTERN . '\.info$/', 'modules', 'name', 0);
   $required = array();
 
   // An install profile is required and one must always be loaded.

@@ -1,5 +1,5 @@
 <?php
-// $Id: menu.inc,v 1.416 2010/10/21 11:56:17 dries Exp $
+// $Id: menu.inc,v 1.428 2010/12/08 06:48:39 webchick Exp $
 
 /**
  * @file
@@ -49,8 +49,9 @@
  * Access to the callback functions is also protected by the menu system.
  * The "access callback" with an optional "access arguments" of each menu
  * item is called before the page callback proceeds. If this returns TRUE,
- * then access is granted; if FALSE, then access is denied. Menu items may
- * omit this attribute to use the value provided by an ancestor item.
+ * then access is granted; if FALSE, then access is denied. Default local task
+ * menu items (see next paragraph) may omit this attribute to use the value
+ * provided by the parent item.
  *
  * In the default Drupal interface, you will notice many links rendered as
  * tabs. These are known in the menu system as "local tasks", and they are
@@ -413,8 +414,6 @@ function menu_get_item($path = NULL, $router_item = NULL) {
   }
   if (!isset($router_items[$path])) {
     $original_map = arg(NULL, $path);
-    $parts = array_slice($original_map, 0, MENU_MAX_PARTS);
-    $ancestors = menu_get_ancestors($parts);
 
     // Since there is no limit to the length of $path, use a hash to keep it
     // short yet unique.
@@ -423,10 +422,16 @@ function menu_get_item($path = NULL, $router_item = NULL) {
       $router_item = $cached->data;
     }
     else {
+      $parts = array_slice($original_map, 0, MENU_MAX_PARTS);
+      $ancestors = menu_get_ancestors($parts);
       $router_item = db_query_range('SELECT * FROM {menu_router} WHERE path IN (:ancestors) ORDER BY fit DESC', 0, 1, array(':ancestors' => $ancestors))->fetchAssoc();
       cache_set($cid, $router_item, 'cache_menu');
     }
     if ($router_item) {
+      // Allow modules to alter the router item before it is translated and
+      // checked for access.
+      drupal_alter('menu_get_item', $router_item, $path, $original_map);
+
       $map = _menu_translate($router_item, $original_map);
       $router_item['original_map'] = $original_map;
       if ($map === FALSE) {
@@ -517,8 +522,8 @@ function menu_execute_active_handler($path = NULL, $deliver = TRUE) {
 function _menu_load_objects(&$item, &$map) {
   if ($load_functions = $item['load_functions']) {
     // If someone calls this function twice, then unserialize will fail.
-    if ($load_functions_unserialized = unserialize($load_functions)) {
-      $load_functions = $load_functions_unserialized;
+    if (!is_array($load_functions)) {
+      $load_functions = unserialize($load_functions);
     }
     $path_map = $map;
     foreach ($load_functions as $index => $function) {
@@ -783,8 +788,28 @@ function _menu_link_map_translate(&$map, $to_arg_functions) {
   }
 }
 
+/**
+ * Returns path as one string from the argument we are currently at.
+ */
 function menu_tail_to_arg($arg, $map, $index) {
   return implode('/', array_slice($map, $index));
+}
+
+/**
+ * Loads path as one string from the argument we are currently at.
+ *
+ * To use this load function, you must specify the load arguments
+ * in the router item as:
+ * @code
+ * $item['load arguments'] = array('%map', '%index');
+ * @endcode
+ *
+ * @see search_menu().
+ */
+function menu_tail_load($arg, &$map, $index) {
+  $arg = implode('/', array_slice($map, $index));
+  $map = array_slice($map, 0, $index);
+  return $arg;
 }
 
 /**
@@ -1627,15 +1652,14 @@ function menu_get_custom_theme($initialize = FALSE) {
     if (!empty($custom_themes)) {
       $custom_theme = array_pop($custom_themes);
     }
-    // Otherwise, execute the theme callback function for the current page, if
-    // there is one, in order to determine the custom theme to set.
-    if (!isset($custom_theme)) {
-      $router_item = menu_get_item();
-      if (!empty($router_item['access']) && !empty($router_item['theme_callback']) && function_exists($router_item['theme_callback'])) {
-        $theme_name = call_user_func_array($router_item['theme_callback'], $router_item['theme_arguments']);
-        if (drupal_theme_access($theme_name)) {
-          $custom_theme = $theme_name;
-        }
+    // If there is a theme callback function for the current page, execute it.
+    // If this returns a valid theme, it will override any theme that was set
+    // by a hook_custom_theme() implementation above.
+    $router_item = menu_get_item();
+    if (!empty($router_item['access']) && !empty($router_item['theme_callback']) && function_exists($router_item['theme_callback'])) {
+      $theme_name = call_user_func_array($router_item['theme_callback'], $router_item['theme_arguments']);
+      if (drupal_theme_access($theme_name)) {
+        $custom_theme = $theme_name;
       }
     }
   }
@@ -2128,22 +2152,35 @@ function menu_tab_root_path() {
 }
 
 /**
- * Returns renderable local tasks.
+ * Returns a renderable element for the primary and secondary tabs.
+ */
+function menu_local_tabs() {
+  return array(
+    '#theme' => 'menu_local_tasks',
+    '#primary' => menu_primary_local_tasks(),
+    '#secondary' => menu_secondary_local_tasks(),
+  );
+}
+
+/**
+ * Returns HTML for primary and secondary local tasks.
  *
  * @ingroup themeable
  */
-function theme_menu_local_tasks() {
-  $output = array();
+function theme_menu_local_tasks(&$variables) {
+  $output = '';
 
-  if ($primary = menu_primary_local_tasks()) {
-    $primary['#prefix'] = '<h2 class="element-invisible">' . t('Primary tabs') . '</h2><ul class="tabs primary">';
-    $primary['#suffix'] = '</ul>';
-    $output[] = $primary;
+  if (!empty($variables['primary'])) {
+    $variables['primary']['#prefix'] = '<h2 class="element-invisible">' . t('Primary tabs') . '</h2>';
+    $variables['primary']['#prefix'] .= '<ul class="tabs primary">';
+    $variables['primary']['#suffix'] = '</ul>';
+    $output .= drupal_render($variables['primary']);
   }
-  if ($secondary = menu_secondary_local_tasks()) {
-    $secondary['#prefix'] = '<h2 class="element-invisible">' . t('Secondary tabs') . '</h2><ul class="tabs secondary">';
-    $secondary['#suffix'] = '</ul>';
-    $output[] = $secondary;
+  if (!empty($variables['secondary'])) {
+    $variables['secondary']['#prefix'] = '<h2 class="element-invisible">' . t('Secondary tabs') . '</h2>';
+    $variables['secondary']['#prefix'] .= '<ul class="tabs secondary">';
+    $variables['secondary']['#suffix'] = '</ul>';
+    $output .= drupal_render($variables['secondary']);
   }
 
   return $output;
@@ -2196,10 +2233,10 @@ function menu_set_active_item($path) {
  *   Path to menu root of the current page, as an array of menu link items,
  *   starting with the site's home page. Each link item is an associative array
  *   with the following components:
- *   - 'title': Title of the item.
- *   - 'href': Drupal path of the item.
- *   - 'localized_options': Options for passing into the l() function.
- *   - 'type': A menu type constant, such as MENU_DEFAULT_LOCAL_TASK, or 0 to
+ *   - title: Title of the item.
+ *   - href: Drupal path of the item.
+ *   - localized_options: Options for passing into the l() function.
+ *   - type: A menu type constant, such as MENU_DEFAULT_LOCAL_TASK, or 0 to
  *     indicate it's not really in the menu (used for the home page item).
  *   If $new_trail is supplied, the value is saved in a static variable and
  *   returned. If $new_trail is not supplied, and there is a saved value from
@@ -2890,42 +2927,8 @@ function menu_link_save(&$item) {
     }
   }
 
-  // If we have a parent link ID, we use it to inherit 'menu_name' and 'depth'.
-  if (isset($item['plid'])) {
-    if ($item['plid']) {
-      $parent = db_query("SELECT * FROM {menu_links} WHERE mlid = :mlid", array(':mlid' => $item['plid']))->fetchAssoc();
-    }
-    // If the parent link ID is zero, then this link lives at the top-level.
-    else {
-      $parent = FALSE;
-    }
-  }
-  // Otherwise, try to find a valid parent link for this link.
-  else {
-    $query = db_select('menu_links');
-    // Only links derived from router items should have module == 'system', and
-    // we want to find the parent even if it's in a different menu.
-    if ($item['module'] == 'system') {
-      $query->condition('module', 'system');
-    }
-    // We always respect the link's 'menu_name'; inheritance for router items is
-    // ensured in _menu_router_build().
-    $query->condition('menu_name', $item['menu_name']);
-
-    // Find the parent - it must be unique.
-    $parent_path = $item['link_path'];
-    do {
-      $parent = FALSE;
-      $parent_path = substr($parent_path, 0, strrpos($parent_path, '/'));
-      $new_query = clone $query;
-      $new_query->condition('link_path', $parent_path);
-      // Only valid if we get a unique result.
-      if ($new_query->countQuery()->execute()->fetchField() == 1) {
-        $parent = $new_query->fields('menu_links')->execute()->fetchAssoc();
-      }
-    } while ($parent === FALSE && $parent_path);
-  }
-  // If a parent link was found, assign it and derive its menu.
+  // Try to find a parent link. If found, assign it and derive its menu.
+  $parent = _menu_link_find_parent($item);
   if (!empty($parent['mlid'])) {
     $item['plid'] = $parent['mlid'];
     $item['menu_name'] = $parent['menu_name'];
@@ -3044,6 +3047,78 @@ function menu_link_save(&$item) {
     _menu_clear_page_cache();
   }
   return $item['mlid'];
+}
+
+/**
+ * Find a possible parent for a given menu link.
+ *
+ * Because the parent of a given link might not exist anymore in the database,
+ * we apply a set of heuristics to determine a proper parent:
+ *
+ *  - use the passed parent link if specified and existing.
+ *  - else, use the first existing link down the previous link hierarchy
+ *  - else, for system menu links (derived from hook_menu()), reparent
+ *    based on the path hierarchy.
+ *
+ * @param $menu_link
+ *   A menu link.
+ * @return
+ *   A menu link structure of the possible parent or FALSE if no valid parent
+ *   has been found.
+ */
+function _menu_link_find_parent($menu_link) {
+  $parent = FALSE;
+
+  // This item is explicitely top-level, skip the rest of the parenting.
+  if (isset($menu_link['plid']) && empty($menu_link['plid'])) {
+    return $parent;
+  }
+
+  // If we have a parent link ID, try to use that.
+  $candidates = array();
+  if (isset($menu_link['plid'])) {
+    $candidates[] = $menu_link['plid'];
+  }
+
+  // Else, if we have a link hierarchy try to find a valid parent in there.
+  if (!empty($menu_link['depth']) && $menu_link['depth'] > 1) {
+    for ($depth = $menu_link['depth'] - 1; $depth >= 1; $depth--) {
+      $candidates[] = $menu_link['p' . $depth];
+    }
+  }
+
+  foreach ($candidates as $mlid) {
+    $parent = db_query("SELECT * FROM {menu_links} WHERE mlid = :mlid", array(':mlid' => $mlid))->fetchAssoc();
+    if ($parent) {
+      return $parent;
+    }
+  }
+
+  // If everything else failed, try to derive the parent from the path
+  // hierarchy. This only makes sense for links derived from menu router
+  // items (ie. from hook_menu()).
+  if ($menu_link['module'] == 'system') {
+    $query = db_select('menu_links');
+    $query->condition('module', 'system');
+    // We always respect the link's 'menu_name'; inheritance for router items is
+    // ensured in _menu_router_build().
+    $query->condition('menu_name', $menu_link['menu_name']);
+
+    // Find the parent - it must be unique.
+    $parent_path = $menu_link['link_path'];
+    do {
+      $parent = FALSE;
+      $parent_path = substr($parent_path, 0, strrpos($parent_path, '/'));
+      $new_query = clone $query;
+      $new_query->condition('link_path', $parent_path);
+      // Only valid if we get a unique result.
+      if ($new_query->countQuery()->execute()->fetchField() == 1) {
+        $parent = $new_query->fields('menu_links')->execute()->fetchAssoc();
+      }
+    } while ($parent === FALSE && $parent_path);
+  }
+
+  return $parent;
 }
 
 /**
@@ -3305,8 +3380,7 @@ function _menu_router_build($callbacks) {
       $match = FALSE;
       // Look for wildcards in the form allowed to be used in PHP functions,
       // because we are using these to construct the load function names.
-      // See http://php.net/manual/en/language.functions.php for reference.
-      if (preg_match('/^%(|[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)$/', $part, $matches)) {
+      if (preg_match('/^%(|' . DRUPAL_PHP_FUNCTION_PATTERN . ')$/', $part, $matches)) {
         if (empty($matches[1])) {
           $match = TRUE;
           $load_functions[$k] = NULL;
@@ -3342,7 +3416,7 @@ function _menu_router_build($callbacks) {
       $fit = (1 << $number_parts) - 1;
     }
     $masks[$fit] = 1;
-    $item['load_functions'] = empty($load_functions) ? '' : serialize($load_functions);
+    $item['_load_functions'] = $load_functions;
     $item['to_arg_functions'] = empty($to_arg_functions) ? '' : serialize($to_arg_functions);
     $item += array(
       'title' => '',
@@ -3445,6 +3519,21 @@ function _menu_router_build($callbacks) {
             $item['theme arguments'] = $parent['theme arguments'];
           }
         }
+        // Same for load arguments: if a loader doesn't have any explict
+        // arguments, try to find arguments in the parent.
+        if (!isset($item['load arguments'])) {
+          foreach ($item['_load_functions'] as $k => $function) {
+            // This loader doesn't have any explict arguments...
+            if (!is_array($function)) {
+              // ... check the parent for a loader at the same position
+              // using the same function name and defining arguments...
+              if (isset($parent['_load_functions'][$k]) && is_array($parent['_load_functions'][$k]) && key($parent['_load_functions'][$k]) === $function) {
+                // ... and inherit the arguments on the child.
+                $item['_load_functions'][$k] = $parent['_load_functions'][$k];
+              }
+            }
+          }
+        }
       }
     }
     if (!isset($item['access callback']) && isset($item['access arguments'])) {
@@ -3458,6 +3547,7 @@ function _menu_router_build($callbacks) {
       $item['access callback'] = intval($item['access callback']);
     }
 
+    $item['load_functions'] = empty($item['_load_functions']) ? '' : serialize($item['_load_functions']);
     $item += array(
       'access arguments' => array(),
       'access callback' => '',

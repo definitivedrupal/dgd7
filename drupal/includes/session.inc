@@ -1,5 +1,5 @@
 <?php
-// $Id: session.inc,v 1.90 2010/10/15 04:15:41 webchick Exp $
+// $Id: session.inc,v 1.92 2010/11/13 17:40:09 webchick Exp $
 
 /**
  * @file
@@ -180,20 +180,22 @@ function _drupal_session_write($sid, $value) {
         'timestamp' => REQUEST_TIME,
       );
 
-      // The "secure pages" setting allows a site to simultaneously use both
-      // secure and insecure session cookies. If enabled and both cookies are
-      // presented then use both keys. If not enabled but on HTTPS then use the
-      // PHP session id as 'ssid'. If on HTTP then use the PHP session id as
-      // 'sid'.
+      // Use the session ID as 'sid' and an empty string as 'ssid' by default.
+      // _drupal_session_read() does not allow empty strings so that's a safe
+      // default.
+      $key = array('sid' => $sid, 'ssid' => '');
+      // On HTTPS connections, use the session ID as both 'sid' and 'ssid'.
       if ($is_https) {
         $key['ssid'] = $sid;
-        $insecure_session_name = substr(session_name(), 1);
-        if (variable_get('https', FALSE) && isset($_COOKIE[$insecure_session_name])) {
-          $key['sid'] = $_COOKIE[$insecure_session_name];
+        // The "secure pages" setting allows a site to simultaneously use both
+        // secure and insecure session cookies. If enabled and both cookies are
+        // presented then use both keys.
+        if (variable_get('https', FALSE)) {
+          $insecure_session_name = substr(session_name(), 1);
+          if (isset($_COOKIE[$insecure_session_name])) {
+            $key['sid'] = $_COOKIE[$insecure_session_name];
+          }
         }
-      }
-      else {
-        $key['sid'] = $sid;
       }
 
       db_merge('sessions')
@@ -234,7 +236,9 @@ function drupal_session_initialize() {
 
   session_set_save_handler('_drupal_session_open', '_drupal_session_close', '_drupal_session_read', '_drupal_session_write', '_drupal_session_destroy', '_drupal_session_garbage_collection');
 
-  if (isset($_COOKIE[session_name()]) || ($is_https && variable_get('https', FALSE) && isset($_COOKIE[substr(session_name(), 1)]))) {
+  // We use !empty() in the following check to ensure that blank session IDs
+  // are not valid.
+  if (!empty($_COOKIE[session_name()]) || ($is_https && variable_get('https', FALSE) && !empty($_COOKIE[substr(session_name(), 1)]))) {
     // If a session cookie exists, initialize the session. Otherwise the
     // session is only started on demand in drupal_session_commit(), making
     // anonymous users not use a session cookie unless something is stored in

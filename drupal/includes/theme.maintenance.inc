@@ -1,5 +1,5 @@
 <?php
-// $Id: theme.maintenance.inc,v 1.67 2010/09/19 18:10:41 dries Exp $
+// $Id: theme.maintenance.inc,v 1.71 2010/11/29 04:45:10 webchick Exp $
 
 /**
  * @file
@@ -41,7 +41,6 @@ function _drupal_maintenance_theme() {
     // to work. See _drupal_log_error().
     if (!class_exists('Database', FALSE)) {
       require_once DRUPAL_ROOT . '/includes/database/database.inc';
-      spl_autoload_register('db_autoload');
     }
 
     // We use the default theme as the maintenance theme. If a default theme
@@ -176,13 +175,14 @@ function theme_authorize_report($variables) {
   if (!empty($messages)) {
     $output .= '<div id="authorize-results">';
     foreach ($messages as $heading => $logs) {
-      $output .= '<h3>' . check_plain($heading) . '</h3>';
+      $items = array();
       foreach ($logs as $number => $log_message) {
         if ($number === '#abort') {
           continue;
         }
-        $output .= theme('authorize_message', array('message' => $log_message['message'], 'success' => $log_message['success']));
+        $items[] = theme('authorize_message', array('message' => $log_message['message'], 'success' => $log_message['success']));
       }
+      $output .= theme('item_list',  array('items' => $items, 'title' => $heading));
     }
     $output .= '</div>';
   }
@@ -200,14 +200,13 @@ function theme_authorize_report($variables) {
  * @ingroup themeable
  */
 function theme_authorize_message($variables) {
-  $output = '';
   $message = $variables['message'];
   $success = $variables['success'];
   if ($success) {
-    $output .= '<li class="success">' . $message . '</li>';
+    $item = array('data' => $message, 'class' => array('success'));
   }
   else {
-    $output .= '<li class="failure"><strong>' . t('Failed') . ':</strong> ' . $message . '</li>';
+    $item = array('data' => '<strong>' . $message . '</strong>', 'class' => array('failure'));
   }
-  return $output;
+  return $item;
 }

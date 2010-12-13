@@ -1,5 +1,5 @@
 <?php
-// $Id: field.module,v 1.88 2010/10/23 01:34:02 webchick Exp $
+// $Id: field.module,v 1.92 2010/12/07 05:09:58 webchick Exp $
 /**
  * @file
  * Attach custom data fields to Drupal entities.
@@ -124,7 +124,7 @@ function field_help($path, $arg) {
     case 'admin/help#field':
       $output = '';
       $output .= '<h3>' . t('About') . '</h3>';
-      $output .= '<p>' . t('The Field module allows custom data fields to be attached to Drupal <em>entities</em> (content nodes, users, taxonomy vocabularies, etc.) and takes care of storing, loading, editing, and rendering field data. Most users will not interact with the Field module directly, but will instead use the <a href="@field-ui-help">Field UI module</a> user interface. Module developers can use the Field API to make new entities "fieldable" and thus allow fields to be attached to their entities. For more information, see the online handbook entry for <a href="@field">Field module</a>.', array('@field-ui-help' => url('admin/help/field_ui'), '@field' => 'http://drupal.org/handbook/modules/field')) . '</p>';
+      $output .= '<p>' . t('The Field module allows custom data fields to be defined for <em>entity</em> types (entities include content items, comments, user accounts, and taxonomy terms). The Field module takes care of storing, loading, editing, and rendering field data. Most users will not interact with the Field module directly, but will instead use the <a href="@field-ui-help">Field UI module</a> user interface. Module developers can use the Field API to make new entity types "fieldable" and thus allow fields to be attached to them. For more information, see the online handbook entry for <a href="@field">Field module</a>.', array('@field-ui-help' => url('admin/help/field_ui'), '@field' => 'http://drupal.org/handbook/modules/field')) . '</p>';
       $output .= '<h3>' . t('Uses') . '</h3>';
       $output .= '<dl>';
       $output .= '<dt>' . t('Enabling field types') . '</dt>';
@@ -369,7 +369,7 @@ function _field_sort_items_value_helper($a, $b) {
  *       'extra_field_2' => ...
  *     ),
  *   ),
- * ),
+ * );
  * @endcode
  *
  * @param $entity_type
@@ -387,8 +387,8 @@ function field_bundle_settings($entity_type, $bundle, $settings = NULL) {
 
   if (isset($settings)) {
     $stored_settings[$entity_type][$bundle] = $settings;
+
     variable_set('field_bundle_settings', $stored_settings);
-    drupal_static_reset('field_view_mode_settings');
     field_info_cache_clear();
   }
   else {
@@ -396,6 +396,10 @@ function field_bundle_settings($entity_type, $bundle, $settings = NULL) {
     $settings += array(
       'view_modes' => array(),
       'extra_fields' => array(),
+    );
+    $settings['extra_fields'] += array(
+      'form' => array(),
+      'display' => array(),
     );
 
     return $settings;
@@ -444,11 +448,13 @@ function field_view_mode_settings($entity_type, $bundle) {
  *   The field instance being displayed.
  * @param $view_mode
  *   The view mode.
+ * @param $entity
+ *   The entity being displayed.
  *
  * @return
  *   The display settings to be used when displaying the field values.
  */
-function field_get_display($instance, $view_mode) {
+function field_get_display($instance, $view_mode, $entity) {
   // Check whether the view mode uses custom display settings or the 'default'
   // mode.
   $view_mode_settings = field_view_mode_settings($instance['entity_type'], $instance['bundle']);
@@ -460,6 +466,7 @@ function field_get_display($instance, $view_mode) {
     'entity_type' => $instance['entity_type'],
     'field' => field_info_field($instance['field_name']),
     'instance' => $instance,
+    'entity' => $entity,
     'view_mode' => $view_mode,
   );
   drupal_alter(array('field_display', 'field_display_' . $instance['entity_type']), $display, $context);
@@ -698,6 +705,7 @@ function field_view_field($entity_type, $entity, $field_name, $display = array()
       'entity_type' => $entity_type,
       'entity' => $entity,
       'view_mode' => '_custom',
+      'display' => $display,
     );
     drupal_alter('field_attach_view', $result, $context);
 

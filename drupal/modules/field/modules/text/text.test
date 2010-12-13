@@ -1,5 +1,5 @@
 <?php
-// $Id: text.test,v 1.30 2010/10/20 01:15:58 dries Exp $
+// $Id: text.test,v 1.32 2010/10/25 15:51:21 webchick Exp $
 
 class TextFieldTestCase extends DrupalWebTestCase {
   protected $instance;
@@ -215,8 +215,8 @@ class TextFieldTestCase extends DrupalWebTestCase {
     // Display edition form.
     // We should now have a 'text format' selector.
     $this->drupalGet('test-entity/manage/' . $id . '/edit');
-    $this->assertFieldByName("{$this->field_name}[$langcode][0][value]", '', t('Widget is displayed'));
-    $this->assertFieldByName("{$this->field_name}[$langcode][0][format]", '', t('Format selector is displayed'));
+    $this->assertFieldByName("{$this->field_name}[$langcode][0][value]", NULL, t('Widget is displayed'));
+    $this->assertFieldByName("{$this->field_name}[$langcode][0][format]", NULL, t('Format selector is displayed'));
 
     // Edit and change the text format to the new one that was created.
     $edit = array(
@@ -240,6 +240,11 @@ class TextSummaryTestCase extends DrupalWebTestCase {
       'description' => 'Test text_summary() with different strings and lengths.',
       'group' => 'Field types',
     );
+  }
+
+  function setUp() {
+    parent::setUp();
+    $this->article_creator = $this->drupalCreateUser(array('create article content', 'edit own article content'));
   }
 
   /**
@@ -375,6 +380,24 @@ class TextSummaryTestCase extends DrupalWebTestCase {
   function callTextSummary($text, $expected, $format = NULL, $size = NULL) {
     $summary = text_summary($text, $format, $size);
     $this->assertIdentical($summary, $expected, t('Generated summary "@summary" matches expected "@expected".', array('@summary' => $summary, '@expected' => $expected)));
+  }
+
+  /**
+   * Test sending only summary.
+   */
+  function testOnlyTextSummary() {
+    // Login as article creator.
+    $this->drupalLogin($this->article_creator);
+    // Create article with summary but empty body.
+    $summary = $this->randomName();
+    $edit = array(
+      "title" => $this->randomName(),
+      "body[und][0][summary]" => $summary,
+    );
+    $this->drupalPost('node/add/article', $edit, t('Save'));
+    $node = $this->drupalGetNodeByTitle($edit['title']);
+
+    $this->assertIdentical($node->body['und'][0]['summary'], $summary, t('Article with with summary and no body has been submitted.'));
   }
 }
 

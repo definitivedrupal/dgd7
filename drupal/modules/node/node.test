@@ -1,5 +1,5 @@
 <?php
-// $Id: node.test,v 1.98 2010/10/07 17:31:39 webchick Exp $
+// $Id: node.test,v 1.104 2010/12/09 08:01:56 webchick Exp $
 
 /**
  * Test the node_load_multiple() function.
@@ -78,6 +78,50 @@ class NodeLoadMultipleUnitTest extends DrupalWebTestCase {
     $count = count($nodes);
     $this->assertTrue($count == 1, t('@count node loaded', array('@count' => $count)));
     $this->assertEqual($nodes[$node3->nid]->title, $node3->title, t('Node successfully loaded.'));
+  }
+}
+
+/**
+ * Tests for the hooks invoked during node_load().
+ */
+class NodeLoadHooksTestCase extends DrupalWebTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Node load hooks',
+      'description' => 'Test the hooks invoked when a node is being loaded.',
+      'group' => 'Node',
+    );
+  }
+
+  function setUp() {
+    parent::setUp('node_test');
+  }
+
+  /**
+   * Test that hook_node_load() is invoked correctly.
+   */
+  function testHookNodeLoad() {
+    // Create some sample articles and pages.
+    $node1 = $this->drupalCreateNode(array('type' => 'article', 'status' => NODE_PUBLISHED));
+    $node2 = $this->drupalCreateNode(array('type' => 'article', 'status' => NODE_PUBLISHED));
+    $node3 = $this->drupalCreateNode(array('type' => 'article', 'status' => NODE_NOT_PUBLISHED));
+    $node4 = $this->drupalCreateNode(array('type' => 'page', 'status' => NODE_NOT_PUBLISHED));
+
+    // Check that when a set of nodes that only contains articles is loaded,
+    // the properties added to the node by node_test_load_node() correctly
+    // reflect the expected values.
+    $nodes = node_load_multiple(array(), array('status' => NODE_PUBLISHED));
+    $loaded_node = end($nodes);
+    $this->assertEqual($loaded_node->node_test_loaded_nids, array($node1->nid, $node2->nid), t('hook_node_load() received the correct list of node IDs the first time it was called.'));
+    $this->assertEqual($loaded_node->node_test_loaded_types, array('article'), t('hook_node_load() received the correct list of node types the first time it was called.'));
+
+    // Now, as part of the same page request, load a set of nodes that contain
+    // both articles and pages, and make sure the parameters passed to
+    // node_test_node_load() are correctly updated.
+    $nodes = node_load_multiple(array(), array('status' => NODE_NOT_PUBLISHED));
+    $loaded_node = end($nodes);
+    $this->assertEqual($loaded_node->node_test_loaded_nids, array($node3->nid, $node4->nid), t('hook_node_load() received the correct list of node IDs the second time it was called.'));
+    $this->assertEqual($loaded_node->node_test_loaded_types, array('article', 'page'), t('hook_node_load() received the correct list of node types the second time it was called.'));
   }
 }
 
@@ -872,7 +916,7 @@ class NodeAccessRecordsUnitTest extends DrupalWebTestCase {
 
     // Create an unpromoted "Basic page" node.
     $node2 = $this->drupalCreateNode(array('type' => 'page', 'promote' => 0));
-    $this->assertTrue(node_load($node1->nid), t('Unpromoted basic page node created.'));
+    $this->assertTrue(node_load($node2->nid), t('Unpromoted basic page node created.'));
 
     // Check to see if grants added by node_test_node_access_records made it in.
     $records = db_query('SELECT realm, gid FROM {node_access} WHERE nid = :nid', array(':nid' => $node2->nid))->fetchAll();
@@ -997,14 +1041,14 @@ class NodeSaveTestCase extends DrupalWebTestCase {
     $changed = $node->changed;
 
     node_save($node);
-    $node = $this->drupalGetNodeByTitle($edit['title']);
+    $node = $this->drupalGetNodeByTitle($edit['title'], TRUE);
     $this->assertEqual($node->created, $created, t('Updating a node preserves "created" timestamp.'));
 
     // Programmatically set the timestamps using hook_node_presave.
     $node->title = 'testing_node_presave';
 
     node_save($node);
-    $node = $this->drupalGetNodeByTitle('testing_node_presave');
+    $node = $this->drupalGetNodeByTitle('testing_node_presave', TRUE);
     $this->assertEqual($node->created, 280299600, t('Saving a node uses "created" timestamp set in presave hook.'));
     $this->assertEqual($node->changed, 979534800, t('Saving a node uses "changed" timestamp set in presave hook.'));
 
@@ -1027,9 +1071,39 @@ class NodeSaveTestCase extends DrupalWebTestCase {
     $node->changed = 280299600;
 
     node_save($node);
-    $node = $this->drupalGetNodeByTitle($edit['title']);
+    $node = $this->drupalGetNodeByTitle($edit['title'], TRUE);
     $this->assertEqual($node->created, 979534800, t('Updating a node uses user-set "created" timestamp.'));
     $this->assertNotEqual($node->changed, 280299600, t('Updating a node doesn\'t use user-set "changed" timestamp.'));
+  }
+
+  /**
+   * Tests determing changes in hook_node_presave() and verifies the static node
+   * load cache is cleared upon save.
+   */
+  function testDeterminingChanges() {
+    // Initial creation.
+    $node = (object) array(
+      'uid' => $this->web_user->uid,
+      'type' => 'article',
+      'title' => 'test_changes',
+    );
+    node_save($node);
+
+    // Update the node without applying changes.
+    node_save($node);
+    $this->assertEqual($node->title, 'test_changes', 'No changes have been determined.');
+
+    // Apply changes.
+    $node->title = 'updated';
+    node_save($node);
+
+    // The hook implementations node_test_node_presave() and
+    // node_test_node_update() determine changes and change the title.
+    $this->assertEqual($node->title, 'updated_presave_update', 'Changes have been determined.');
+
+    // Test the static node load cache to be cleared.
+    $node = node_load($node->nid);
+    $this->assertEqual($node->title, 'updated_presave', 'Static cache has been cleared.');
   }
 }
 
@@ -1712,6 +1786,7 @@ class NodeQueryAlter extends DrupalWebTestCase {
     // permission is implemented and granted by the node_access_test module.
     $this->accessUser = $this->drupalCreateUser(array('access content', 'node test view'));
     $this->noAccessUser = $this->drupalCreateUser(array('access content'));
+    $this->noAccessUser2 = $this->drupalCreateUser(array('access content'));
   }
 
   /**
@@ -1800,6 +1875,67 @@ class NodeQueryAlter extends DrupalWebTestCase {
       $this->fail((string) $query);
       $this->fail(t('Altered query is malformed'));
     }
+  }
+
+  /**
+   * Lower-level test of 'node_access' query alter override.
+   *
+   * Verifies that node_access_view_all_nodes() is called from
+   * node_query_node_access_alter().  We do this by checking that
+   * a user which normally would not have view privileges is able
+   * to view the nodes when we add a record to {node_access} paired
+   * with a corresponding privilege in hook_node_grants().
+   */
+  function testNodeQueryAlterOverride() {
+    $record = array(
+      'nid' => 0,
+      'gid' => 0,
+      'realm' => 'node_access_all',
+      'grant_view' => 1,
+      'grant_update' => 0,
+      'grant_delete' => 0,
+    );
+    drupal_write_record('node_access', $record);
+
+    // Test that the noAccessUser still doesn't have the 'view'
+    // privilege after adding the node_access record.
+    drupal_static_reset('node_access_view_all_nodes');
+    try {
+      $query = db_select('node', 'mytab')
+        ->fields('mytab');
+      $query->addTag('node_access');
+      $query->addMetaData('op', 'view');
+      $query->addMetaData('account', $this->noAccessUser);
+
+      $result = $query->execute()->fetchAll();
+      $this->assertEqual(count($result), 0, t('User view privileges are not overridden'));
+    }
+    catch (Exception $e) {
+      $this->fail(t('Altered query is malformed'));
+    }
+
+    // Have node_test_node_grants return a node_access_all privilege,
+    // to grant the noAccessUser 'view' access.  To verify that
+    // node_access_view_all_nodes is properly checking the specified
+    // $account instead of the global $user, we will log in as
+    // noAccessUser2.
+    $this->drupalLogin($this->noAccessUser2);
+    variable_set('node_test_node_access_all_uid', $this->noAccessUser->uid);
+    drupal_static_reset('node_access_view_all_nodes');
+    try {
+      $query = db_select('node', 'mytab')
+        ->fields('mytab');
+      $query->addTag('node_access');
+      $query->addMetaData('op', 'view');
+      $query->addMetaData('account', $this->noAccessUser);
+
+      $result = $query->execute()->fetchAll();
+      $this->assertEqual(count($result), 4, t('User view privileges are overridden'));
+    }
+    catch (Exception $e) {
+      $this->fail(t('Altered query is malformed'));
+    }
+    variable_del('node_test_node_access_all_uid');
   }
 }
 
@@ -1918,7 +2054,7 @@ class NodeTokenReplaceTestCase extends DrupalWebTestCase {
     $tests['[node:url]'] = url('node/' . $node->nid, $url_options);
     $tests['[node:edit-url]'] = url('node/' . $node->nid . '/edit', $url_options);
     $tests['[node:author:uid]'] = $node->uid;
-    $tests['[node:author:name]'] = check_plain($account->name);
+    $tests['[node:author:name]'] = check_plain(format_username($account));
     $tests['[node:created:since]'] = format_interval(REQUEST_TIME - $node->created, 2, $language->language);
     $tests['[node:changed:since]'] = format_interval(REQUEST_TIME - $node->changed, 2, $language->language);
 
@@ -1935,7 +2071,7 @@ class NodeTokenReplaceTestCase extends DrupalWebTestCase {
     $tests['[node:body]'] = $node->body[$node->language][0]['value'];
     $tests['[node:summary]'] = $node->body[$node->language][0]['summary'];
     $tests['[node:language]'] = $node->language;
-    $tests['[node:author:name]'] = $account->name;
+    $tests['[node:author:name]'] = format_username($account);
 
     foreach ($tests as $input => $expected) {
       $output = token_replace($input, array('node' => $node), array('language' => $language, 'sanitize' => FALSE));

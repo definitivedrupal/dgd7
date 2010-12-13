@@ -10,8 +10,8 @@ files[] = menu.install
 files[] = menu.test
 configure = admin/structure/menu
 
-; Information added by drupal.org packaging script on 2010-10-23
-version = "7.0-beta2"
+; Information added by drupal.org packaging script on 2010-12-11
+version = "7.0-rc2"
 project = "drupal"
-datestamp = "1287812130"
+datestamp = "1292101844"
 

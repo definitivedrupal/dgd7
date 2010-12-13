@@ -1,5 +1,5 @@
 <?php
-// $Id: locale.test,v 1.81 2010/10/09 13:46:08 dries Exp $
+// $Id: locale.test,v 1.88 2010/11/30 01:05:24 dries Exp $
 
 /**
  * @file
@@ -89,6 +89,11 @@ class LocaleConfigurationTest extends DrupalWebTestCase {
     $this->drupalPost(NULL, $edit, t('Save configuration'));
     $this->assertNoFieldChecked('edit-site-default-en', t('Default language updated.'));
     $this->assertEqual($this->getUrl(), url('admin/config/regional/language', array('absolute' => TRUE)), t('Correct page redirection.'));
+
+    // Check if a valid language prefix is added after changing the default
+    // language.
+    $this->drupalGet('admin/config/regional/language/edit/en');
+    $this->assertFieldByXPath('//input[@name="prefix"]', 'en', t('A valid path prefix has been added to the previous default language.'));
 
     // Ensure we can't delete the default language.
     $this->drupalGet('admin/config/regional/language/delete/' . $langcode);
@@ -582,7 +587,7 @@ class LocaleImportFunctionalTest extends DrupalWebTestCase {
   public static function getInfo() {
     return array(
       'name' => 'Translation import',
-      'description' => 'Tests the importation of locale files.',
+      'description' => 'Tests the import of locale files.',
       'group' => 'Locale',
     );
   }
@@ -600,7 +605,7 @@ class LocaleImportFunctionalTest extends DrupalWebTestCase {
   }
 
   /**
-   * Test importation of standalone .po files.
+   * Test import of standalone .po files.
    */
   function testStandalonePoFile() {
     // Try importing a .po file.
@@ -612,7 +617,7 @@ class LocaleImportFunctionalTest extends DrupalWebTestCase {
     $this->assertRaw(t('The language %language has been created.', array('%language' => 'French')), t('The language has been automatically created.'));
 
     // The import should have created 7 strings.
-    $this->assertRaw(t('The translation was successfully imported. There are %number newly created translated strings, %update strings were updated and %delete strings were removed.', array('%number' => 7, '%update' => 0, '%delete' => 0)), t('The translation file was successfully imported.'));
+    $this->assertRaw(t('The translation was successfully imported. There are %number newly created translated strings, %update strings were updated and %delete strings were removed.', array('%number' => 9, '%update' => 0, '%delete' => 0)), t('The translation file was successfully imported.'));
 
     // This import should have saved plural forms to have 2 variants.
     $this->assert(db_query("SELECT plurals FROM {languages} WHERE language = 'fr'")->fetchField() == 2, t('Plural number initialized.'));
@@ -698,8 +703,8 @@ class LocaleImportFunctionalTest extends DrupalWebTestCase {
   }
 
   /**
-   * Test automatic importation of a module's translation files when a language
-   * is enabled.
+   * Test automatic import of a module's translation files when a language is
+   * enabled.
    */
   function testAutomaticModuleTranslationImportLanguageEnable() {
     // Code for the language - manually set to match the test translation file.
@@ -737,8 +742,7 @@ class LocaleImportFunctionalTest extends DrupalWebTestCase {
   }
 
   /**
-   * Test automatic importation of a module's translation files when a language
-   * is enabled.
+   * Test msgctxt context support.
    */
   function testLanguageContext() {
     // Try importing a .po file.
@@ -748,6 +752,43 @@ class LocaleImportFunctionalTest extends DrupalWebTestCase {
 
     $this->assertIdentical(t('May', array(), array('langcode' => 'hr', 'context' => 'Long month name')), 'Svibanj', t('Long month name context is working.'));
     $this->assertIdentical(t('May', array(), array('langcode' => 'hr')), 'Svi.', t('Default context is working.'));
+  }
+
+  /**
+   * Test empty msgstr at end of .po file see #611786.
+   */
+  function testEmptyMsgstr() {
+    $langcode = 'hu';
+
+    // Try importing a .po file.
+    $this->importPoFile($this->getPoFileWithMsgstr(), array(
+      'langcode' => $langcode,
+    ));
+
+    $this->assertRaw(t('The translation was successfully imported. There are %number newly created translated strings, %update strings were updated and %delete strings were removed.', array('%number' => 1, '%update' => 0, '%delete' => 0)), t('The translation file was successfully imported.'));
+    $this->assertIdentical(t('Operations', array(), array('langcode' => $langcode)), 'Műveletek', t('String imported and translated.'));
+
+    // Try importing a .po file.
+    $this->importPoFile($this->getPoFileWithEmptyMsgstr(), array(
+      'langcode' => $langcode,
+      'mode' => 0,
+    ));
+    $this->assertRaw(t('The translation was successfully imported. There are %number newly created translated strings, %update strings were updated and %delete strings were removed.', array('%number' => 0, '%update' => 0, '%delete' => 1)), t('The translation file was successfully imported.'));
+    // This is the language indicator on the translation search screen for
+    // untranslated strings. Copied straight from locale.inc.
+    $language_indicator = "<em class=\"locale-untranslated\">$langcode</em> ";
+    $str = "Operations";
+    $search = array(
+      'string' => $str,
+      'language' => 'all',
+      'translation' => 'all',
+      'group' => 'all',
+    );
+    $this->drupalPost('admin/config/regional/translate/translate', $search, t('Filter'));
+    // assertText() seems to remove the input field where $str always could be
+    // found, so this is not a false assert.
+    $this->assertText($str, t('Search found the string.'));
+    $this->assertRaw($language_indicator, t('String is untranslated again.'));
   }
 
   /**
@@ -773,11 +814,16 @@ class LocaleImportFunctionalTest extends DrupalWebTestCase {
     return <<< EOF
 msgid ""
 msgstr ""
-"Project-Id-Version: Drupal 6\\n"
+"Project-Id-Version: Drupal 7\\n"
 "MIME-Version: 1.0\\n"
 "Content-Type: text/plain; charset=UTF-8\\n"
 "Content-Transfer-Encoding: 8bit\\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\\n"
+
+msgid "One sheep"
+msgid_plural "@count sheep"
+msgstr[0] "un mouton"
+msgstr[1] "@count moutons"
 
 msgid "Monday"
 msgstr "lundi"
@@ -809,7 +855,7 @@ EOF;
     return <<< EOF
 msgid ""
 msgstr ""
-"Project-Id-Version: Drupal 6\\n"
+"Project-Id-Version: Drupal 7\\n"
 "MIME-Version: 1.0\\n"
 "Content-Type: text/plain; charset=UTF-8\\n"
 "Content-Transfer-Encoding: 8bit\\n"
@@ -835,7 +881,7 @@ EOF;
     return <<< EOF
 msgid ""
 msgstr ""
-"Project-Id-Version: Drupal 6\\n"
+"Project-Id-Version: Drupal 7\\n"
 "MIME-Version: 1.0\\n"
 "Content-Type: text/plain; charset=UTF-8\\n"
 "Content-Transfer-Encoding: 8bit\\n"
@@ -858,7 +904,7 @@ EOF;
     return <<< EOF
 msgid ""
 msgstr ""
-"Project-Id-Version: Drupal 6\\n"
+"Project-Id-Version: Drupal 7\\n"
 "MIME-Version: 1.0\\n"
 "Content-Type: text/plain; charset=UTF-8\\n"
 "Content-Transfer-Encoding: 8bit\\n"
@@ -873,6 +919,45 @@ msgstr "Svi."
 EOF;
   }
 
+  /**
+   * Helper function that returns a .po file with an empty last item.
+   */
+  function getPoFileWithEmptyMsgstr() {
+    return <<< EOF
+msgid ""
+msgstr ""
+"Project-Id-Version: Drupal 7\\n"
+"MIME-Version: 1.0\\n"
+"Content-Type: text/plain; charset=UTF-8\\n"
+"Content-Transfer-Encoding: 8bit\\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\\n"
+
+msgid "Operations"
+msgstr ""
+
+EOF;
+  }
+  /**
+   * Helper function that returns a .po file with an empty last item.
+   */
+  function getPoFileWithMsgstr() {
+    return <<< EOF
+msgid ""
+msgstr ""
+"Project-Id-Version: Drupal 7\\n"
+"MIME-Version: 1.0\\n"
+"Content-Type: text/plain; charset=UTF-8\\n"
+"Content-Transfer-Encoding: 8bit\\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\\n"
+
+msgid "Operations"
+msgstr "Műveletek"
+
+msgid "Will not appear in Drupal core, so we can ensure the test passes"
+msgstr ""
+
+EOF;
+  }
 
 }
 
@@ -1492,7 +1577,58 @@ class LocalePathFunctionalTest extends DrupalWebTestCase {
     $this->drupalGet($prefix . '/' . $custom_language_path);
     $this->assertText($node->title, t('Custom language alias works.'));
 
-    $this->drupalLogout();
+    // Create a custom path.
+    $custom_path = $this->randomName(8);
+
+    // Check priority of language for alias by source path.
+    $edit = array(
+      'source'   => 'node/' . $node->nid,
+      'alias'    => $custom_path,
+      'language' => LANGUAGE_NONE,
+    );
+    path_save($edit);
+    $lookup_path = drupal_lookup_path('alias', 'node/' . $node->nid, 'en');
+    $this->assertEqual($english_path, $lookup_path, t('English language alias has priority.'));
+    // Same check for language 'xx'.
+    $lookup_path = drupal_lookup_path('alias', 'node/' . $node->nid, $prefix);
+    $this->assertEqual($custom_language_path, $lookup_path, t('Custom language alias has priority.'));
+    path_delete($edit);
+
+    // Create language nodes to check priority of aliases.
+    $first_node = $this->drupalCreateNode(array('type' => 'article', 'promote' => 1));
+    $second_node = $this->drupalCreateNode(array('type' => 'article', 'promote' => 1));
+
+    // Assign a custom path alias to the first node with the English language.
+    $edit = array(
+      'source'   => 'node/' . $first_node->nid,
+      'alias'    => $custom_path,
+      'language' => 'en',
+    );
+    path_save($edit);
+
+    // Assign a custom path alias to second node with LANGUAGE_NONE.
+    $edit = array(
+      'source'   => 'node/' . $second_node->nid,
+      'alias'    => $custom_path,
+      'language' => LANGUAGE_NONE,
+    );
+    path_save($edit);
+
+    // Test that both node titles link to our path alias.
+    $this->drupalGet('<front>');
+    $custom_path_url = base_path() . (variable_get('clean_url', 0) ? $custom_path : '?q=' . $custom_path);
+    $elements = $this->xpath('//a[@href=:href and .=:title]', array(':href' => $custom_path_url, ':title' => $first_node->title));
+    $this->assertTrue(!empty($elements), t('First node links to the path alias.'));
+    $elements = $this->xpath('//a[@href=:href and .=:title]', array(':href' => $custom_path_url, ':title' => $second_node->title));
+    $this->assertTrue(!empty($elements), t('Second node links to the path alias.'));
+
+    // Confirm that the custom path leads to the first node.
+    $this->drupalGet($custom_path);
+    $this->assertText($first_node->title, t('Custom alias returns first node.'));
+
+    // Confirm that the custom path with prefix leads to the second node.
+    $this->drupalGet($prefix . '/' . $custom_path);
+    $this->assertText($second_node->title, t('Custom alias with prefix returns second node.'));
   }
 }
 
@@ -1581,12 +1717,12 @@ class LocaleContentFunctionalTest extends DrupalWebTestCase {
     $this->drupalLogin($web_user);
     $this->drupalGet('node/add/article');
     // Verify language select list is not present.
-    $this->assertNoFieldByName('language', '', t('Language select not present on add article form.'));
+    $this->assertNoFieldByName('language', NULL, t('Language select not present on add article form.'));
 
     // Verify language selection appears on add "Basic page" form.
     $this->drupalGet('node/add/page');
     // Verify language select list is present.
-    $this->assertFieldByName('language', '', t('Language select present on add Basic page form.'));
+    $this->assertFieldByName('language', NULL, t('Language select present on add Basic page form.'));
     // Ensure enabled language appears.
     $this->assertText($name, t('Enabled language present.'));
     // Ensure disabled language doesn't appear.
@@ -1655,15 +1791,14 @@ class LocaleUILanguageNegotiationTest extends DrupalWebTestCase {
     parent::setUp('locale', 'locale_test');
     require_once DRUPAL_ROOT . '/includes/language.inc';
     drupal_load('module', 'locale');
+    $admin_user = $this->drupalCreateUser(array('administer languages', 'translate interface', 'access administration pages', 'administer blocks'));
+    $this->drupalLogin($admin_user);
   }
 
   /**
    * Tests for language switching by URL path.
    */
   function testUILanguageNegotiation() {
-    $admin_user = $this->drupalCreateUser(array('administer languages', 'translate interface', 'access administration pages'));
-    $this->drupalLogin($admin_user);
-
     // A few languages to switch to.
     // This one is unknown, should get the default lang version.
     $language_unknown = 'blah-blah';
@@ -1816,6 +1951,132 @@ class LocaleUILanguageNegotiationTest extends DrupalWebTestCase {
     }
     $this->drupalGet($test['path'], array(), $test['http_header']);
     $this->assertText($test['expect'], $test['message']);
+  }
+
+  /**
+   * Test URL language detection when the requested URL has no language.
+   */
+  function testUrlLanguageFallback() {
+    // Add the Italian language.
+    $language_browser_fallback = 'it';
+    locale_add_language($language_browser_fallback);
+    $languages = language_list();
+
+    // Enable the path prefix for the default language: this way any unprefixed
+    // URL must have a valid fallback value.
+    $edit = array('prefix' => 'en');
+    $this->drupalPost('admin/config/regional/language/edit/en', $edit, t('Save language'));
+
+    // Enable browser and URL language detection.
+    $edit = array(
+      'language[enabled][locale-browser]' => TRUE,
+      'language[enabled][locale-url]' => TRUE,
+      'language[weight][locale-browser]' => -8,
+      'language[weight][locale-url]' => -10,
+    );
+    $this->drupalPost('admin/config/regional/language/configure', $edit, t('Save settings'));
+    $this->drupalGet('admin/config/regional/language/configure');
+
+    // Enable the language switcher block.
+    $edit = array('blocks[locale_language][region]' => 'sidebar_first');
+    $this->drupalPost('admin/structure/block', $edit, t('Save blocks'));
+
+    // Access the front page without specifying any valid URL language prefix
+    // and having as browser language preference a non-default language.
+    $http_header = array("Accept-Language: $language_browser_fallback;q=1");
+    $this->drupalGet('', array(), $http_header);
+
+    // Check that the language switcher active link matches the given browser
+    // language.
+    $args = array(':url' => base_path() . (!empty($GLOBALS['conf']['clean_url']) ? $language_browser_fallback : "?q=$language_browser_fallback"));
+    $fields = $this->xpath('//div[@id="block-locale-language"]//a[@class="language-link active" and @href=:url]', $args);
+    $this->assertTrue($fields[0] == $languages[$language_browser_fallback]->native, t('The browser language is the URL active language'));
+
+    // Check that URLs are rewritten using the given browser language.
+    $fields = $this->xpath('//div[@id="site-name"]//a[@rel="home" and @href=:url]//span', $args);
+    $this->assertTrue($fields[0] == 'Drupal', t('URLs are rewritten using the browser language.'));
+  }
+}
+
+/**
+ * Test that URL rewriting works as expected.
+ */
+class LocaleUrlRewritingTest extends DrupalWebTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'URL rewriting',
+      'description' => 'Test that URL rewriting works as expected.',
+      'group' => 'Locale',
+    );
+  }
+
+  function setUp() {
+    parent::setUp('locale');
+
+    // Create and login user.
+    $this->web_user = $this->drupalCreateUser(array('administer languages', 'access administration pages'));
+    $this->drupalLogin($this->web_user);
+
+    // Install French language.
+    $edit = array();
+    $edit['langcode'] = 'fr';
+    $this->drupalPost('admin/config/regional/language/add', $edit, t('Add language'));
+
+    // Install Italian language.
+    $edit = array();
+    $edit['langcode'] = 'it';
+    $this->drupalPost('admin/config/regional/language/add', $edit, t('Add language'));
+
+    // Disable Italian language.
+    $edit = array('enabled[it]' => FALSE);
+    $this->drupalPost('admin/config/regional/language', $edit, t('Save configuration'));
+
+    // Enable URL language detection and selection.
+    $edit = array('language[enabled][locale-url]' => 1);
+    $this->drupalPost('admin/config/regional/language/configure', $edit, t('Save settings'));
+
+    // Reset static caching.
+    drupal_static_reset('language_list');
+    drupal_static_reset('locale_url_outbound_alter');
+    drupal_static_reset('locale_language_url_rewrite_url');
+  }
+
+  /**
+   * Check that disabled or non-installed languages are not considered.
+   */
+  function testUrlRewritingEdgeCases() {
+    // Check URL rewriting with a disabled language.
+    $languages = language_list();
+    $this->checkUrl($languages['it'], t('Path language is ignored if language is disabled.'), t('URL language negotiation does not work with disabled languages'));
+
+    // Check URL rewriting with a non-installed language.
+    $non_existing = language_default();
+    $non_existing->language = $this->randomName();
+    $non_existing->prefix = $this->randomName();
+    $this->checkUrl($non_existing, t('Path language is ignored if language is not installed.'), t('URL language negotiation does not work with non-installed languages'));
+  }
+
+  /**
+   * Check URL rewriting for the given language.
+   *
+   * The test is performed with a fixed URL (the default front page) to simply
+   * check that language prefixes are not added to it and that the prefixed URL
+   * is actually not working.
+   */
+  private function checkUrl($language, $message1, $message2) {
+    $options = array('language' => $language);
+    $base_path = trim(base_path(), '/');
+    $rewritten_path = trim(str_replace(array('?q=', $base_path), '', url('node', $options)), '/');
+    $segments = explode('/', $rewritten_path, 2);
+    $prefix = $segments[0];
+    $path = isset($segments[1]) ? $segments[1] : $prefix;
+    // If the rewritten URL has not a language prefix we pick the right one from
+    // the language object so we can always check the prefixed URL.
+    if ($this->assertNotEqual($language->prefix, $prefix, $message1)) {
+      $prefix = $language->prefix;
+    }
+    $this->drupalGet("$prefix/$path");
+    $this->assertResponse(404, $message2);
   }
 }
 
@@ -2088,4 +2349,3 @@ class LocaleDateFormatsFunctionalTest extends DrupalWebTestCase {
     $this->assertText($french_date, t('French date format appears'));
   }
 }
-

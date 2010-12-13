@@ -1,5 +1,5 @@
 <?php
-// $Id: user.api.php,v 1.24 2010/10/03 01:15:34 dries Exp $
+// $Id: user.api.php,v 1.27 2010/12/11 19:16:42 webchick Exp $
 
 /**
  * @file
@@ -38,6 +38,9 @@ function hook_user_load($users) {
  * removed from the user tables in the database, and before
  * field_attach_delete() is called.
  *
+ * Modules should additionally implement hook_user_cancel() to process stored
+ * user data for other account cancellation methods.
+ *
  * @param $account
  *   The account that is being deleted.
  *
@@ -52,11 +55,17 @@ function hook_user_delete($account) {
 /**
  * Act on user account cancellations.
  *
- * The user account is being canceled. Depending on the account cancellation
- * method, the module should either do nothing, unpublish content, or anonymize
- * content.
+ * This hook is invoked from user_cancel() before a user account is canceled.
+ * Depending on the account cancellation method, the module should either do
+ * nothing, unpublish content, or anonymize content. See user_cancel_methods()
+ * for the list of default account cancellation methods provided by User module.
+ * Modules may add further methods via hook_user_cancel_methods_alter().
  *
- * Expensive operations should be added to the global batch with batch_set().
+ * This hook is NOT invoked for the 'user_cancel_delete' account cancellation
+ * method. To react on this method, implement hook_user_delete() instead.
+ *
+ * Expensive operations should be added to the global account cancellation batch
+ * by using batch_set().
  *
  * @param $edit
  *   The array of form values submitted by the user.
@@ -67,7 +76,6 @@ function hook_user_delete($account) {
  *
  * @see user_cancel_methods()
  * @see hook_user_cancel_methods_alter()
- * @see user_cancel()
  */
 function hook_user_cancel($edit, $account, $method) {
   switch ($method) {
@@ -284,8 +292,8 @@ function hook_user_update(&$edit, $account, $category) {
  */
 function hook_user_login(&$edit, $account) {
   // If the user has a NULL time zone, notify them to set a time zone.
-  if (!$user->timezone && variable_get('configurable_timezones', 1) && variable_get('empty_timezone_message', 0)) {
-    drupal_set_message(t('Configure your <a href="@user-edit">account time zone setting</a>.', array('@user-edit' => url("user/$user->uid/edit", array('query' => drupal_get_destination(), 'fragment' => 'edit-timezone')))));
+  if (!$account->timezone && variable_get('configurable_timezones', 1) && variable_get('empty_timezone_message', 0)) {
+    drupal_set_message(t('Configure your <a href="@user-edit">account time zone setting</a>.', array('@user-edit' => url("user/$account->uid/edit", array('query' => drupal_get_destination(), 'fragment' => 'edit-timezone')))));
   }
 }
 
@@ -316,6 +324,9 @@ function hook_user_logout($account) {
  *   View mode, e.g. 'full'.
  * @param $langcode
  *   The language code used for rendering.
+ *
+ * @see hook_user_view_alter()
+ * @see hook_entity_view()
  */
 function hook_user_view($account, $view_mode, $langcode) {
   if (user_access('create blog content', $account)) {
@@ -344,6 +355,7 @@ function hook_user_view($account, $view_mode, $langcode) {
  *   A renderable array representing the user.
  *
  * @see user_view()
+ * @see hook_entity_view_alter()
  */
 function hook_user_view_alter(&$build) {
   // Check for the existence of a field added by another module.

@@ -1,5 +1,5 @@
 <?php
-// $Id: user.module,v 1.1212 2010/10/23 03:20:40 webchick Exp $
+// $Id: user.module,v 1.1225 2010/12/11 02:13:56 dries Exp $
 
 /**
  * @file
@@ -177,6 +177,18 @@ function user_uri($user) {
 }
 
 /**
+ * Implements hook_field_info_alter().
+ */
+function user_field_info_alter(&$info) {
+  // Add the 'user_register_form' instance setting to all field types.
+  foreach ($info as $field_type => $field_type_info) {
+    $info[$field_type]['instance_settings'] += array(
+      'user_register_form' => FALSE,
+    );
+  }
+}
+
+/**
  * Implements hook_field_extra_fields().
  */
 function user_field_extra_fields() {
@@ -235,11 +247,15 @@ function user_external_load($authname) {
  * @param $uids
  *   An array of user IDs.
  * @param $conditions
- *   An array of conditions to match against the {users} table. These
- *   should be supplied in the form array('field_name' => 'field_value').
+ *   (deprecated) An associative array of conditions on the {users}
+ *   table, where the keys are the database fields and the values are the
+ *   values those fields must have. Instead, it is preferable to use
+ *   EntityFieldQuery to retrieve a list of entity IDs loadable by
+ *   this function.
  * @param $reset
  *   A boolean indicating that the internal cache should be reset. Use this if
  *   loading a user object which has been altered during the page request.
+ *
  * @return
  *   An array of user objects, indexed by uid.
  *
@@ -247,6 +263,9 @@ function user_external_load($authname) {
  * @see user_load()
  * @see user_load_by_mail()
  * @see user_load_by_name()
+ * @see EntityFieldQuery
+ *
+ * @todo Remove $conditions in Drupal 8.
  */
 function user_load_multiple($uids = array(), $conditions = array(), $reset = FALSE) {
   return entity_load('user', $uids, $conditions, $reset);
@@ -398,6 +417,11 @@ function user_save($account, $edit = array(), $category = 'account') {
       unset($edit['pass']);
     }
 
+    // Load the stored entity, if any.
+    if (!empty($account->uid) && !isset($account->original)) {
+      $account->original = entity_load_unchanged('user', $account->uid);
+    }
+
     // Presave field allowing changing of $edit.
     $edit = (object) $edit;
     field_attach_presave('user', $edit);
@@ -417,12 +441,6 @@ function user_save($account, $edit = array(), $category = 'account') {
     user_module_invoke('presave', $edit, $account, $category);
 
     if (is_object($account) && !$account->is_new) {
-      // Consider users edited by an administrator as logged in, if they haven't
-      // already, so anonymous users can view the profile (if allowed).
-      if (empty($edit['access']) && empty($account->access) && user_access('administer users')) {
-        $edit['access'] = REQUEST_TIME;
-      }
-
       // Process picture uploads.
       if (!$delete_previous_picture = empty($edit['picture']->fid)) {
         $picture = $edit['picture'];
@@ -502,6 +520,10 @@ function user_save($account, $edit = array(), $category = 'account') {
 
       // Refresh user object.
       $user = user_load($account->uid, TRUE);
+      // Make the original, unchanged user account available to update hooks.
+      if (isset($account->original)) {
+        $user->original = $account->original;
+      }
 
       // Send emails after we have the new user object.
       if (isset($edit['status']) && $edit['status'] != $account->status) {
@@ -512,6 +534,7 @@ function user_save($account, $edit = array(), $category = 'account') {
 
       user_module_invoke('update', $edit, $user, $category);
       module_invoke_all('entity_update', $user, 'user');
+      unset($user->original);
     }
     else {
       // Allow 'uid' to be set by the caller. There is no danger of writing an
@@ -523,12 +546,6 @@ function user_save($account, $edit = array(), $category = 'account') {
       if (!isset($edit['created'])) {
         $edit['created'] = REQUEST_TIME;
       }
-      // Consider users created by an administrator as already logged in, so
-      // anonymous users can view the profile (if allowed).
-      if (empty($edit['access']) && user_access('administer users')) {
-        $edit['access'] = REQUEST_TIME;
-      }
-
       $edit['mail'] = trim($edit['mail']);
       $success = drupal_write_record('users', $edit);
       if ($success === FALSE) {
@@ -879,7 +896,7 @@ function user_search_execute($keys = NULL, $conditions = NULL) {
   // Replace wildcards with MySQL/PostgreSQL wildcards.
   $keys = preg_replace('!\*+!', '%', $keys);
   $query = db_select('users')->extend('PagerDefault');
-  $query->fields('users', array('name', 'uid'));
+  $query->fields('users', array('uid'));
   if (user_access('administer users')) {
     // Administrators can also search in the otherwise private email field.
     $query->fields('users', array('mail'));
@@ -890,20 +907,25 @@ function user_search_execute($keys = NULL, $conditions = NULL) {
   else {
     $query->condition('name', '%' . db_like($keys) . '%', 'LIKE');
   }
-  $result = $query
+  $uids = $query
     ->limit(15)
-    ->execute();
-  if (user_access('administer users')) {
-    foreach ($result as $account) {
-      $find[] = array('title' => $account->name . ' (' . $account->mail . ')', 'link' => url('user/' . $account->uid, array('absolute' => TRUE)));
+    ->execute()
+    ->fetchCol();
+  $accounts = user_load_multiple($uids);
+
+  $results = array();
+  foreach ($accounts as $account) {
+    $result = array(
+      'title' => format_username($account),
+      'link' => url('user/' . $account->uid, array('absolute' => TRUE)),
+    );
+    if (user_access('administer users')) {
+      $result['title'] .= ' (' . $account->mail . ')';
     }
+    $results[] = $result;
   }
-  else {
-    foreach ($result as $account) {
-      $find[] = array('title' => $account->name, 'link' => url('user/' . $account->uid, array('absolute' => TRUE)));
-    }
-  }
-  return $find;
+
+  return $results;
 }
 
 /**
@@ -1127,8 +1149,6 @@ function user_account_form(&$form, &$form_state) {
  * @see user_account_form()
  */
 function user_validate_current_pass(&$form, &$form_state) {
-  global $user;
-
   $account = $form['#user'];
   foreach ($form_state['values']['current_pass_required_values'] as $key => $name) {
     // This validation only works for required textfields (like mail) or
@@ -1136,7 +1156,7 @@ function user_validate_current_pass(&$form, &$form_state) {
     // that prevent them from being empty if they are changed.
     if ((strlen(trim($form_state['values'][$key])) > 0) && ($form_state['values'][$key] != $account->$key)) {
       require_once DRUPAL_ROOT . '/' . variable_get('password_inc', 'includes/password.inc');
-      $current_pass_failed = empty($form_state['values']['current_pass']) || !user_check_password($form_state['values']['current_pass'], $user);
+      $current_pass_failed = empty($form_state['values']['current_pass']) || !user_check_password($form_state['values']['current_pass'], $account);
       if ($current_pass_failed) {
         form_set_error('current_pass', t("Your current password is missing or incorrect; it's required to change the %name.", array('%name' => $name)));
         form_set_error($key);
@@ -1273,10 +1293,13 @@ function user_block_info() {
   $blocks['login']['cache'] = DRUPAL_NO_CACHE;
 
   $blocks['new']['info'] = t('Who\'s new');
+  $blocks['new']['properties']['administrative'] = TRUE;
 
   // Too dynamic to cache.
   $blocks['online']['info'] = t('Who\'s online');
   $blocks['online']['cache'] = DRUPAL_NO_CACHE;
+  $blocks['online']['properties']['administrative'] = TRUE;
+
   return $blocks;
 }
 
@@ -1461,7 +1484,6 @@ function user_register_access() {
   return user_is_anonymous() && variable_get('user_register', USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL);
 }
 
-
 /**
  * User view access callback.
  *
@@ -1469,7 +1491,6 @@ function user_register_access() {
  *   Can either be a full user object or a $uid.
  */
 function user_view_access($account) {
-
   $uid = is_object($account) ? $account->uid : (int) $account;
 
   // Never allow access to view the anonymous user account.
@@ -1483,7 +1504,7 @@ function user_view_access($account) {
       if (!is_object($account)) {
         $account = user_load($uid);
       }
-      return (is_object($account) && $account->access && $account->status);
+      return (is_object($account) && $account->status);
     }
   }
   return FALSE;
@@ -1933,7 +1954,7 @@ function user_page_title($account) {
  *   An associative array with module as key and username as value.
  */
 function user_get_authmaps($authname = NULL) {
-  $authmaps = db_query("SELECT authname, module FROM {authmap} WHERE authname = :authname", array(':authname' => $authname))->fetchAllKeyed();
+  $authmaps = db_query("SELECT module, authname FROM {authmap} WHERE authname = :authname", array(':authname' => $authname))->fetchAllKeyed();
   return count($authmaps) ? $authmaps : 0;
 }
 
@@ -2372,23 +2393,30 @@ function user_delete_multiple(array $uids) {
   if (!empty($uids)) {
     $accounts = user_load_multiple($uids, array());
 
-    foreach ($accounts as $uid => $account) {
-      module_invoke_all('user_delete', $account);
-      module_invoke_all('entity_delete', $account, 'user');
-      field_attach_delete('user', $account);
-      drupal_session_destroy_uid($account->uid);
+    $transaction = db_transaction();
+    try {
+      foreach ($accounts as $uid => $account) {
+        module_invoke_all('user_delete', $account);
+        module_invoke_all('entity_delete', $account, 'user');
+        field_attach_delete('user', $account);
+        drupal_session_destroy_uid($account->uid);
+      }
+
+      db_delete('users')
+        ->condition('uid', $uids, 'IN')
+        ->execute();
+      db_delete('users_roles')
+        ->condition('uid', $uids, 'IN')
+        ->execute();
+      db_delete('authmap')
+        ->condition('uid', $uids, 'IN')
+        ->execute();
     }
-
-    db_delete('users')
-      ->condition('uid', $uids, 'IN')
-      ->execute();
-    db_delete('users_roles')
-      ->condition('uid', $uids, 'IN')
-      ->execute();
-    db_delete('authmap')
-      ->condition('uid', $uids, 'IN')
-      ->execute();
-
+    catch (Exception $e) {
+      $transaction->rollback();
+      watchdog_exception('user', $e);
+      throw $e;
+    }
     entity_get_controller('user')->resetCache();
   }
 }
@@ -2452,7 +2480,8 @@ function user_view($account, $view_mode = 'full', $langcode = NULL) {
   );
 
   // Allow modules to modify the structured user.
-  drupal_alter('user_view', $build);
+  $type = 'user';
+  drupal_alter(array('user_view', 'entity_view'), $build, $type);
 
   return $build;
 }
@@ -2483,6 +2512,7 @@ function user_build_content($account, $view_mode = 'full', $langcode = NULL) {
 
   // Populate $account->content with a render() array.
   module_invoke_all('user_view', $account, $view_mode, $langcode);
+  module_invoke_all('entity_view', $account, 'user', $view_mode, $langcode);
 }
 
 /**
@@ -2651,7 +2681,9 @@ Your account on [site:name] has been canceled.
   }
 
   if ($replace) {
-    return token_replace($text, $variables, array('language' => $language, 'callback' => 'user_mail_tokens'));
+    // We do not sanitize the token replacement, since the output of this
+    // replacement is intended for an e-mail message, not a web browser.
+    return token_replace($text, $variables, array('language' => $language, 'callback' => 'user_mail_tokens', 'sanitize' => FALSE));
   }
 
   return $text;
@@ -3042,6 +3074,9 @@ function user_user_operations_block($accounts) {
   foreach ($accounts as $account) {
     // Skip blocking user if they are already blocked.
     if ($account !== FALSE && $account->status == 1) {
+      // For efficiency manually save the original account before applying any
+      // changes.
+      $account->original = clone $account;
       user_save($account, array('status' => 0));
     }
   }
@@ -3062,6 +3097,9 @@ function user_multiple_role_edit($accounts, $operation, $rid) {
         // Skip adding the role to the user if they already have it.
         if ($account !== FALSE && !isset($account->roles[$rid])) {
           $roles = $account->roles + array($rid => $role_name);
+          // For efficiency manually save the original account before applying
+          // any changes.
+          $account->original = clone $account;
           user_save($account, array('roles' => $roles));
         }
       }
@@ -3072,6 +3110,9 @@ function user_multiple_role_edit($accounts, $operation, $rid) {
         // Skip removing the role from the user if they already don't have it.
         if ($account !== FALSE && isset($account->roles[$rid])) {
           $roles = array_diff($account->roles, array($rid => $role_name));
+          // For efficiency manually save the original account before applying
+          // any changes.
+          $account->original = clone $account;
           user_save($account, array('roles' => $roles));
         }
       }
@@ -3508,6 +3549,55 @@ function user_block_user_action(&$entity, $context = array()) {
 }
 
 /**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Add a checkbox for the 'user_register_form' instance settings on the 'Edit
+ * field instance' form.
+ */
+function user_form_field_ui_field_edit_form_alter(&$form, &$form_state, $form_id) {
+  $instance = $form['#instance'];
+
+  if ($instance['entity_type'] == 'user') {
+    $form['instance']['settings']['user_register_form'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Display on user registration form.'),
+      '#description' => t("This is compulsory for 'required' fields."),
+      // Field instances created in D7 beta releases before the setting was
+      // introduced might be set as 'required' and 'not shown on user_register
+      // form'. We make sure the checkbox comes as 'checked' for those.
+      '#default_value' => $instance['settings']['user_register_form'] || $instance['required'],
+      // Display just below the 'required' checkbox.
+      '#weight' => $form['instance']['required']['#weight'] + .1,
+      // Disabled when the 'required' checkbox is checked.
+      '#states' => array(
+        'enabled' => array('input[name="instance[required]"]' => array('checked' => FALSE)),
+      ),
+      // Checked when the 'required' checkbox is checked. This is done through
+      // a custom behavior, since the #states system would also synchronize on
+      // uncheck.
+      '#attached' => array(
+        'js' => array(drupal_get_path('module', 'user') . '/user.js'),
+      ),
+    );
+
+    array_unshift($form['#submit'], 'user_form_field_ui_field_edit_form_submit');
+  }
+}
+
+/**
+ * Additional submit handler for the 'Edit field instance' form.
+ *
+ * Make sure the 'user_register_form' setting is set for required fields.
+ */
+function user_form_field_ui_field_edit_form_submit($form, &$form_state) {
+  $instance = $form_state['values']['instance'];
+
+  if (!empty($instance['required'])) {
+    form_set_value($form['instance']['settings']['user_register_form'], 1, $form_state);
+  }
+}
+
+/**
  * Form builder; the user registration form.
  *
  * @ingroup forms
@@ -3528,11 +3618,20 @@ function user_register_form($form, &$form_state) {
   $form['#user'] = drupal_anonymous_user();
   $form['#user_category'] = 'register';
 
-  $form['#attached']['library'][] = array('system', 'cookie');
+  $form['#attached']['library'][] = array('system', 'jquery.cookie');
   $form['#attributes']['class'][] = 'user-info-from-cookie';
 
   // Start with the default user account fields.
   user_account_form($form, $form_state);
+
+  // Attach field widgets, and hide the ones where the 'user_register_form'
+  // setting is not on.
+  field_attach_form('user', $form['#user'], $form, $form_state);
+  foreach (field_info_instances('user', 'user') as $field_name => $instance) {
+    if (empty($instance['settings']['user_register_form'])) {
+      $form[$field_name]['#access'] = FALSE;
+    }
+  }
 
   if ($admin) {
     // Redirect back to page which initiated the create request;
@@ -3546,10 +3645,18 @@ function user_register_form($form, &$form_state) {
     '#value' => t('Create new account'),
   );
 
+  $form['#validate'][] = 'user_register_validate';
   // Add the final user registration form submit handler.
   $form['#submit'][] = 'user_register_submit';
 
   return $form;
+}
+
+/**
+ * Validation function for the user registration form.
+ */
+function user_register_validate($form, &$form_state) {
+  entity_form_field_validate('user', $form, $form_state);
 }
 
 /**
@@ -3571,13 +3678,21 @@ function user_register_submit($form, &$form_state) {
   }
   $notify = !empty($form_state['values']['notify']);
 
+  // Remove unneeded values.
   form_state_values_clean($form_state);
 
   $form_state['values']['pass'] = $pass;
   $form_state['values']['init'] = $form_state['values']['mail'];
 
   $account = $form['#user'];
-  $account = user_save($account, $form_state['values']);
+
+  entity_form_submit_build_entity('user', $account, $form, $form_state);
+
+  // Populate $edit with the properties of $account, which have been edited on
+  // this form by taking over all values, which appear in the form values too.
+  $edit = array_intersect_key((array) $account, $form_state['values']);
+  $account = user_save($account, $edit);
+
   // Terminate if an error occurred during user_save().
   if (!$account) {
     drupal_set_message(t("Error saving user account."), 'error');
@@ -3734,13 +3849,13 @@ function user_file_download_access($field, $entity_type, $entity) {
  *
  * To prevent new Drupal 7 sites from installing Profile module, and
  * unwittingly ending up with two completely different and incompatible methods
- * of extending users, remove it from the available modules by setting it to
- * hidden if the profile_* tables are not already present.
+ * of extending users, only make the Profile module available if the profile_*
+ * tables are present.
  *
  * @todo: Remove in D8, pending upgrade path.
  */
 function user_system_info_alter(&$info, $file, $type) {
-  if ($type == 'module' && $file->name == 'profile' && !db_table_exists('profile_field')) {
-    $info['hidden'] = TRUE;
+  if ($type == 'module' && $file->name == 'profile' && db_table_exists('profile_field')) {
+    $info['hidden'] = FALSE;
   }
 }

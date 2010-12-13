@@ -1,5 +1,5 @@
 <?php
-// $Id: node.api.php,v 1.78 2010/10/22 00:35:35 dries Exp $
+// $Id: node.api.php,v 1.82 2010/11/20 04:33:56 webchick Exp $
 
 /**
  * @file
@@ -142,6 +142,38 @@
  * makes no distinction between published and unpublished nodes. It is the
  * module's responsibility to provide appropriate realms to limit access to
  * unpublished content.
+ *
+ * Node access records are stored in the {node_access} table and define which
+ * grants are required to access a node. There is a special case for the view
+ * operation -- a record with node ID 0 corresponds to a "view all" grant for
+ * the realm and grant ID of that record. If there are no node access modules
+ * enabled, the core node module adds a node ID 0 record for realm 'all'. Node
+ * access modules can also grant "view all" permission on their custom realms;
+ * for example, a module could create a record in {node_access} with:
+ * @code
+ * $record = array(
+ *   'nid' => 0,
+ *   'gid' => 888,
+ *   'realm' => 'example_realm',
+ *   'grant_view' => 1,
+ *   'grant_update' => 0,
+ *   'grant_delete' => 0,
+ * );
+ * drupal_write_record('node_access', $record);
+ * @endcode
+ * And then in its hook_node_grants() implementation, it would need to return:
+ * @code
+ * if ($op == 'view') {
+ *   $grants['example_realm'] = array(888);
+ * }
+ * @endcode
+ * If you decide to do this, be aware that the node_access_rebuild() function
+ * will erase any node ID 0 entry when it is called, so you will need to make
+ * sure to restore your {node_access} record after node_access_rebuild() is
+ * called.
+ *
+ * @see node_access_view_all_nodes()
+ * @see node_access_rebuild()
  *
  * @param $account
  *   The user object whose grants are requested.
@@ -759,6 +791,8 @@ function hook_node_submit($node, $form, &$form_state) {
  * @param $langcode
  *   The language code used for rendering.
  *
+ * @see hook_entity_view()
+ *
  * @ingroup node_api_hooks
  */
 function hook_node_view($node, $view_mode, $langcode) {
@@ -785,6 +819,7 @@ function hook_node_view($node, $view_mode, $langcode) {
  *   A renderable array representing the node content.
  *
  * @see node_view()
+ * @see hook_entity_view_alter()
  *
  * @ingroup node_api_hooks
  */
@@ -840,8 +875,6 @@ function hook_node_view_alter(&$build) {
  * All attributes of a node type that are defined through this hook (except for
  * 'locked') can be edited by a site administrator. This includes the
  * machine-readable name of a node type, if 'locked' is set to FALSE.
- *
- * For a detailed usage example, see node_example.module.
  *
  * @ingroup node_api_hooks
  */
@@ -1221,7 +1254,7 @@ function hook_view($node, $view_mode) {
   }
 
   $node->content['myfield'] = array(
-    '#value' => theme('mymodule_myfield', $node->myfield),
+    '#markup' => theme('mymodule_myfield', $node->myfield),
     '#weight' => 1,
   );
 

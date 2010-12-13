@@ -1,5 +1,5 @@
 <?php
-// $Id: system.test,v 1.149 2010/10/16 00:00:17 webchick Exp $
+// $Id: system.test,v 1.153 2010/12/01 00:23:36 webchick Exp $
 
 /**
  * Helper class for module test cases.
@@ -349,6 +349,40 @@ class ModuleDependencyTestCase extends ModuleTestCase {
 
     // Check the actual order which is saved by module_test_modules_enabled().
     $this->assertIdentical(variable_get('test_module_enable_order', FALSE), $expected_order, t('Modules enabled in the correct order.'));
+  }
+
+  /**
+   * Tests attempting to uninstall a module that has installed dependents.
+   */
+  function testUninstallDependents() {
+    // Enable the forum module.
+    $edit = array('modules[Core][forum][enable]' => 'forum');
+    $this->drupalPost('admin/modules', $edit, t('Save configuration'));
+    $this->assertModules(array('forum'), TRUE);
+
+    // Disable forum and taxonomy. Both should now be installed but disabled.
+    $edit = array('modules[Core][forum][enable]' => FALSE);
+    $this->drupalPost('admin/modules', $edit, t('Save configuration'));
+    $this->assertModules(array('forum'), FALSE);
+    $edit = array('modules[Core][taxonomy][enable]' => FALSE);
+    $this->drupalPost('admin/modules', $edit, t('Save configuration'));
+    $this->assertModules(array('taxonomy'), FALSE);
+
+    // Check that the taxonomy module cannot be uninstalled.
+    $this->drupalGet('admin/modules/uninstall');
+    $checkbox = $this->xpath('//input[@type="checkbox" and @disabled="disabled" and @name="uninstall[taxonomy]"]');
+    $this->assert(count($checkbox) == 1, t('Checkbox for uninstalling the taxonomy module is disabled.'));
+
+    // Uninstall the forum module, and check that taxonomy now can also be
+    // uninstalled.
+    $edit = array('uninstall[forum]' => 'forum');
+    $this->drupalPost('admin/modules/uninstall', $edit, t('Uninstall'));
+    $this->drupalPost(NULL, NULL, t('Uninstall'));
+    $this->assertText(t('The selected modules have been uninstalled.'), t('Modules status has been updated.'));
+    $edit = array('uninstall[taxonomy]' => 'taxonomy');
+    $this->drupalPost('admin/modules/uninstall', $edit, t('Uninstall'));
+    $this->drupalPost(NULL, NULL, t('Uninstall'));
+    $this->assertText(t('The selected modules have been uninstalled.'), t('Modules status has been updated.'));
   }
 }
 
@@ -1321,7 +1355,7 @@ class SystemThemeFunctionalTest extends DrupalWebTestCase {
   function setUp() {
     parent::setUp();
 
-    $this->admin_user = $this->drupalCreateUser(array('access administration pages', 'administer themes', 'bypass node access'));
+    $this->admin_user = $this->drupalCreateUser(array('access administration pages', 'view the administration theme', 'administer themes', 'bypass node access'));
     $this->drupalLogin($this->admin_user);
     $this->node = $this->drupalCreateNode();
   }
@@ -1578,7 +1612,7 @@ class TokenReplaceTestCase extends DrupalWebTestCase {
     $tests['[site:slogan]'] = check_plain(variable_get('site_slogan', ''));
     $tests['[site:mail]'] = 'simpletest@example.com';
     $tests['[site:url]'] = url('<front>', $url_options);
-    $tests['[site:url-brief]'] = preg_replace('!^https?://!', '', url('<front>', $url_options));
+    $tests['[site:url-brief]'] = preg_replace(array('!^https?://!', '!/$!'), '', url('<front>', $url_options));
     $tests['[site:login-url]'] = url('user', $url_options);
 
     // Test to make sure that we generated something for each token.
@@ -2056,5 +2090,58 @@ class SystemAdminTestCase extends DrupalWebTestCase {
     $this->assertEqual($this->cookies['Drupal.visitor.admin_compact_mode']['value'], 'deleted', t('Compact mode remains off after a repeat call.'));
     $this->drupalGet('');
     $this->assertTrue($this->cookies['Drupal.visitor.admin_compact_mode']['value'], t('Compact mode persists on new requests.'));
+  }
+}
+
+/**
+ * Tests authorize.php and related hooks.
+ */
+class SystemAuthorizeCase extends DrupalWebTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Authorize API',
+      'description' => 'Tests the authorize.php script and related API.',
+      'group' => 'System',
+    );
+  }
+
+  function setUp() {
+    parent::setUp(array('system_test'));
+
+    variable_set('allow_authorize_operations', TRUE);
+
+    // Create an administrator user.
+    $this->admin_user = $this->drupalCreateUser(array('administer software updates'));
+    $this->drupalLogin($this->admin_user);
+  }
+
+  /**
+   * Helper function to initialize authorize.php and load it via drupalGet().
+   *
+   * Initializing authorize.php needs to happen in the child Drupal
+   * installation, not the parent. So, we visit a menu callback provided by
+   * system_test.module which calls system_authorized_init() to initialize the
+   * $_SESSION inside the test site, not the framework site. This callback
+   * redirects to authorize.php when it's done initializing.
+   *
+   * @see system_authorized_init().
+   */
+  function drupalGetAuthorizePHP($page_title = 'system-test-auth') {
+    $this->drupalGet('system-test/authorize-init/' . $page_title);
+  }
+
+  /**
+   * Tests the FileTransfer hooks
+   */
+  function testFileTransferHooks() {
+    $page_title = $this->randomName(16);
+    $this->drupalGetAuthorizePHP($page_title);
+    $this->assertTitle(strtr('@title | Drupal', array('@title' => $page_title)), 'authorize.php page title is correct.');
+    $this->assertNoText('It appears you have reached this page in error.');
+    $this->assertText('To continue, provide your server connection details');
+    // Make sure we see the new connection method added by system_test.
+    $this->assertRaw('System Test FileTransfer');
+    // Make sure the settings form callback works.
+    $this->assertText('System Test Username');
   }
 }

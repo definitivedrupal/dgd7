@@ -1,9 +1,10 @@
-; $Id: taxonomy.info,v 1.11 2009/11/17 21:24:18 dries Exp $
+; $Id: taxonomy.info,v 1.12 2010/10/25 15:48:41 webchick Exp $
 name = Taxonomy
 description = Enables the categorization of content.
 package = Core
 version = VERSION
 core = 7.x
+dependencies[] = options
 files[] = taxonomy.module
 files[] = taxonomy.admin.inc
 files[] = taxonomy.pages.inc
@@ -12,8 +13,8 @@ files[] = taxonomy.test
 files[] = taxonomy.tokens.inc
 configure = admin/structure/taxonomy
 
-; Information added by drupal.org packaging script on 2010-10-23
-version = "7.0-beta2"
+; Information added by drupal.org packaging script on 2010-12-11
+version = "7.0-rc2"
 project = "drupal"
-datestamp = "1287812130"
+datestamp = "1292101844"
 

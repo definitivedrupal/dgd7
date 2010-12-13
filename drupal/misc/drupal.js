@@ -1,4 +1,4 @@
-// $Id: drupal.js,v 1.69 2010/07/28 01:38:28 dries Exp $
+// $Id: drupal.js,v 1.71 2010/11/22 04:33:02 webchick Exp $
 
 var Drupal = Drupal || { 'settings': {}, 'behaviors': {}, 'locale': {} };
 
@@ -114,11 +114,14 @@ Drupal.detachBehaviors = function (context, settings, trigger) {
  * Encode special characters in a plain-text string for display as HTML.
  */
 Drupal.checkPlain = function (str) {
+  var character, regex,
+      replace = { '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;' };
   str = String(str);
-  var replace = { '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;' };
-  for (var character in replace) {
-    var regex = new RegExp(character, 'g');
-    str = str.replace(regex, replace[character]);
+  for (character in replace) {
+    if (replace.hasOwnProperty(character)) {
+      regex = new RegExp(character, 'g');
+      str = str.replace(regex, replace[character]);
+    }
   }
   return str;
 };
@@ -228,8 +231,9 @@ Drupal.formatPlural = function (count, singular, plural, args) {
  * theme does not provide an override function, the generic theme function is
  * called.
  *
- * For example, to retrieve the HTML that is output by theme_placeholder(text),
- * call Drupal.theme('placeholder', text).
+ * For example, to retrieve the HTML for text that should be emphasized and
+ * displayed as a placeholder inside a sentence, call
+ * Drupal.theme('placeholder', text).
  *
  * @param func
  *   The name of the theme function to call.
@@ -240,9 +244,7 @@ Drupal.formatPlural = function (count, singular, plural, args) {
  *   but also a complex object.
  */
 Drupal.theme = function (func) {
-  for (var i = 1, args = []; i < arguments.length; i++) {
-    args.push(arguments[i]);
-  }
+  var args = Array.prototype.slice.apply(arguments, [1]);
 
   return (Drupal.theme[func] || Drupal.theme.prototype[func]).apply(this, args);
 };
@@ -364,7 +366,7 @@ Drupal.theme.prototype = {
    *   The formatted text (html).
    */
   placeholder: function (str) {
-    return '<em>' + Drupal.checkPlain(str) + '</em>';
+    return '<em class="placeholder">' + Drupal.checkPlain(str) + '</em>';
   }
 };
 

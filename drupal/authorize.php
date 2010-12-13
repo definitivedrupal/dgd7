@@ -1,5 +1,5 @@
 <?php
-// $Id: authorize.php,v 1.8 2010/04/22 10:16:24 webchick Exp $
+// $Id: authorize.php,v 1.11 2010/12/01 00:23:36 webchick Exp $
 
 /**
  * @file
@@ -125,7 +125,7 @@ if (authorize_access_allowed()) {
     // Clear the session out.
     unset($_SESSION['authorize_results']);
     unset($_SESSION['authorize_operation']);
-    unset($_SESSION['authorize_filetransfer_backends']);
+    unset($_SESSION['authorize_filetransfer_info']);
 
     if (!empty($results['page_title'])) {
       drupal_set_title(check_plain($results['page_title']));
@@ -140,20 +140,21 @@ if (authorize_access_allowed()) {
     if (is_array($results['tasks'])) {
       $links += $results['tasks'];
     }
-
-    $links = array_merge($links, array(
-      l(t('Administration pages'), 'admin'),
-      l(t('Front page'), '<front>'),
-    ));
-
-    $output .= theme('item_list', array('items' => $links));
+    else {
+      $links = array_merge($links, array(
+        l(t('Administration pages'), 'admin'),
+        l(t('Front page'), '<front>'),
+      ));
+    }
+	
+    $output .= theme('item_list', array('items' => $links, 'title' => t('Next steps')));
   }
   // If a batch is running, let it run.
   elseif (isset($_GET['batch'])) {
     $output = _batch_page();
   }
   else {
-    if (empty($_SESSION['authorize_operation']) || empty($_SESSION['authorize_filetransfer_backends'])) {
+    if (empty($_SESSION['authorize_operation']) || empty($_SESSION['authorize_filetransfer_info'])) {
       $output = t('It appears you have reached this page in error.');
     }
     elseif (!$batch = batch_get()) {

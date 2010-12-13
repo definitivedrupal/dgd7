@@ -1,4 +1,4 @@
-/* $Id: style-rtl.css,v 1.12 2010/10/07 17:59:01 webchick Exp $ */
+/* $Id: style-rtl.css,v 1.17 2010/12/06 19:55:44 webchick Exp $ */
 
 /* ------------------ Reset Styles ------------------ */
 
@@ -30,6 +30,7 @@ blockquote:after {
 ul.tips {
   padding: 0 1.25em 0 0;
 }
+.block ol,
 .block ul {
   padding: 0 1em 0.25em 0;
 }
@@ -37,7 +38,7 @@ ul.tips {
 /* ------------------ Header ------------------ */
 
 #logo {
-  padding: 15px 10px 15px 30px;
+  padding: 15px 10px 15px 15px;
 }
 #logo,
 #name-and-slogan,
@@ -45,6 +46,9 @@ ul.tips {
 .region-header #block-user-login .form-item,
 .region-header #block-user-login .item-list li {
   float: right;
+}
+#name-and-slogan {
+  margin: 0 15px 30px 0;
 }
 .region-header .form-text {
   margin-left: 2px;
@@ -84,12 +88,13 @@ ul.tips {
   margin-left: 5px;
   margin-right: 0;
 }
-.field-type-taxonomy-term-reference .field-label,
-.field-type-taxonomy-term-reference .field-items,
-.field-type-taxonomy-term-reference .field-item {
-  float: right;
-  padding-left: 10px;
+.field-type-taxonomy-term-reference .field-label {
+  padding-left: 5px;
   padding-right: 0;
+}
+.field-type-taxonomy-term-reference ul.links li {
+  padding: 0 0 0 1em;
+  float: right;
 }
 .link-wrapper {
   margin-right: 236px;
@@ -103,14 +108,12 @@ ul.tips {
 }
 .comment .attribution {
   float: right;
+  padding: 0 0 0 30px;
 }
 .comment .comment-arrow {
-  background: url(../images/comment-arrow-rtl.png);
-  margin-right: -45px;
-}
-.comment .comment-text {
-  margin-right: 140px;
+  background-image: url(../images/comment-arrow-rtl.gif);
   margin-left: 0;
+  margin-right: -47px;
 }
 .comment .indented {
   margin-right: 40px;
@@ -118,6 +121,11 @@ ul.tips {
 }
 .comment ul.links li {
   padding: 0 0 0.5em;
+}
+.comment-unpublished {
+  margin-left: 5px;
+  margin-right: 0;
+  padding: 5px 5px 5px 2px;
 }
 
 /* -------------- Password Meter  ------------- */

@@ -1,5 +1,5 @@
 <?php
-// $Id: user.test,v 1.104 2010/10/23 03:20:40 webchick Exp $
+// $Id: user.test,v 1.110 2010/12/11 02:13:56 dries Exp $
 
 class UserRegistrationTestCase extends DrupalWebTestCase {
   public static function getInfo() {
@@ -8,6 +8,10 @@ class UserRegistrationTestCase extends DrupalWebTestCase {
       'description' => 'Test registration of user under different configurations.',
       'group' => 'User'
     );
+  }
+
+  function setUp() {
+    parent::setUp('field_test');
   }
 
   function testRegistrationWithEmailVerification() {
@@ -136,6 +140,91 @@ class UserRegistrationTestCase extends DrupalWebTestCase {
     $this->assertEqual($new_user->language, '', t('Correct language field.'));
     $this->assertEqual($new_user->picture, '', t('Correct picture field.'));
     $this->assertEqual($new_user->init, $mail, t('Correct init field.'));
+  }
+
+  /**
+   * Tests Field API fields on user registration forms.
+   */
+  function testRegistrationWithUserFields() {
+    // Create a field, and an instance on 'user' entity type.
+    $field = array(
+      'type' => 'test_field',
+      'field_name' => 'test_user_field',
+      'cardinality' => 1,
+    );
+    field_create_field($field);
+    $instance = array(
+      'field_name' => 'test_user_field',
+      'entity_type' => 'user',
+      'label' => 'Some user field',
+      'bundle' => 'user',
+      'required' => TRUE,
+      'settings' => array('user_register_form' => FALSE),
+    );
+    field_create_instance($instance);
+
+    // Check that the field does not appear on the registration form.
+    $this->drupalGet('user/register');
+    $this->assertNoText($instance['label'], t('The field does not appear on user registration form'));
+
+    // Have the field appear on the registration form.
+    $instance['settings']['user_register_form'] = TRUE;
+    field_update_instance($instance);
+    $this->drupalGet('user/register');
+    $this->assertText($instance['label'], t('The field appears on user registration form'));
+
+    // Check that validation errors are correctly reported.
+    $edit = array();
+    $edit['name'] = $name = $this->randomName();
+    $edit['mail'] = $mail = $edit['name'] . '@example.com';
+    // Missing input in required field.
+    $edit['test_user_field[und][0][value]'] = '';
+    $this->drupalPost(NULL, $edit, t('Create new account'));
+    $this->assertRaw(t('@name field is required.', array('@name' => $instance['label'])), t('Field validation error was correctly reported.'));
+    // Invalid input.
+    $edit['test_user_field[und][0][value]'] = '-1';
+    $this->drupalPost(NULL, $edit, t('Create new account'));
+    $this->assertRaw(t('%name does not accept the value -1.', array('%name' => $instance['label'])), t('Field validation error was correctly reported.'));
+
+    // Submit with valid data.
+    $value = rand(1, 255);
+    $edit['test_user_field[und][0][value]'] = $value;
+    $this->drupalPost(NULL, $edit, t('Create new account'));
+    // Check user fields.
+    $accounts = user_load_multiple(array(), array('name' => $name, 'mail' => $mail));
+    $new_user = reset($accounts);
+    $this->assertEqual($new_user->test_user_field[LANGUAGE_NONE][0]['value'], $value, t('The field value was correclty saved.'));
+
+    // Check that the 'add more' button works.
+    $field['cardinality'] = FIELD_CARDINALITY_UNLIMITED;
+    field_update_field($field);
+    foreach (array('js', 'nojs') as $js) {
+      $this->drupalGet('user/register');
+      // Add two inputs.
+      $value = rand(1, 255);
+      $edit = array();
+      $edit['test_user_field[und][0][value]'] = $value;
+      if ($js == 'js') {
+        $this->drupalPostAJAX(NULL, $edit, 'test_user_field_add_more');
+        $this->drupalPostAJAX(NULL, $edit, 'test_user_field_add_more');
+      }
+      else {
+        $this->drupalPost(NULL, $edit, t('Add another item'));
+        $this->drupalPost(NULL, $edit, t('Add another item'));
+      }
+      // Submit with three values.
+      $edit['test_user_field[und][1][value]'] = $value + 1;
+      $edit['test_user_field[und][2][value]'] = $value + 2;
+      $edit['name'] = $name = $this->randomName();
+      $edit['mail'] = $mail = $edit['name'] . '@example.com';
+      $this->drupalPost(NULL, $edit, t('Create new account'));
+      // Check user fields.
+      $accounts = user_load_multiple(array(), array('name' => $name, 'mail' => $mail));
+      $new_user = reset($accounts);
+      $this->assertEqual($new_user->test_user_field[LANGUAGE_NONE][0]['value'], $value, t('@js : The field value was correclty saved.', array('@js' => $js)));
+      $this->assertEqual($new_user->test_user_field[LANGUAGE_NONE][1]['value'], $value + 1, t('@js : The field value was correclty saved.', array('@js' => $js)));
+      $this->assertEqual($new_user->test_user_field[LANGUAGE_NONE][2]['value'], $value + 2, t('@js : The field value was correclty saved.', array('@js' => $js)));
+    }
   }
 }
 
@@ -1416,7 +1505,7 @@ class UserCreateTestCase extends DrupalWebTestCase {
   public static function getInfo() {
     return array(
       'name' => 'User create',
-      'description' => 'Test the creat user administration page.',
+      'description' => 'Test the create user administration page.',
       'group' => 'User',
     );
   }
@@ -1549,8 +1638,8 @@ class UserSignatureTestCase extends DrupalWebTestCase {
     variable_set('user_signatures', 1);
 
     // Prefetch text formats.
-    $this->full_html_format = db_query_range('SELECT * FROM {filter_format} WHERE name = :name', 0, 1, array(':name' => 'Full HTML'))->fetchObject();
-    $this->plain_text_format = db_query_range('SELECT * FROM {filter_format} WHERE name = :name', 0, 1, array(':name' => 'Plain text'))->fetchObject();
+    $this->full_html_format = filter_format_load('full_html');
+    $this->plain_text_format = filter_format_load('plain_text');
 
     // Create regular and administrative users.
     $this->web_user = $this->drupalCreateUser(array());
@@ -1658,7 +1747,7 @@ class UserRoleAdminTestCase extends DrupalWebTestCase {
   public static function getInfo() {
     return array(
       'name' => 'User role administration',
-      'description' => 'Test adding, editing and deleting user roles.',
+      'description' => 'Test adding, editing and deleting user roles and changing role weights.',
       'group' => 'User',
     );
   }
@@ -1711,6 +1800,28 @@ class UserRoleAdminTestCase extends DrupalWebTestCase {
     $this->drupalGet('admin/people/permissions/roles/edit/' . DRUPAL_AUTHENTICATED_RID);
     $this->assertResponse(403, t('Access denied when trying to edit the built-in authenticated role.'));
   }
+
+  /**
+   * Test user role weight change operation.
+   */
+  function testRoleWeightChange() {
+    $this->drupalLogin($this->admin_user);
+
+    // Pick up a random role and get its weight.
+    $rid = array_rand(user_roles());
+    $role = user_role_load($rid);
+    $old_weight = $role->weight;
+
+    // Change the role weight and submit the form.
+    $edit = array('roles['. $rid .'][weight]' => $old_weight + 1);
+    $this->drupalPost('admin/people/permissions/roles', $edit, t('Save order'));
+    $this->assertText(t('The role settings have been updated.'), t('The role settings form submitted successfully.'));
+
+    // Retrieve the saved role and compare its weight.
+    $role = user_role_load($rid);
+    $new_weight = $role->weight;
+    $this->assertTrue(($old_weight + 1) == $new_weight, t('Role weight updated successfully.'));
+  }
 }
 
 /**
@@ -1743,12 +1854,12 @@ class UserTokenReplaceTestCase extends DrupalWebTestCase {
     $this->drupalLogin($user2);
 
     $account = user_load($user1->uid);
-    global $user;
+    $global_account = user_load($GLOBALS['user']->uid);
 
     // Generate and test sanitized tokens.
     $tests = array();
     $tests['[user:uid]'] = $account->uid;
-    $tests['[user:name]'] = filter_xss($account->name);
+    $tests['[user:name]'] = check_plain(format_username($account));
     $tests['[user:mail]'] = check_plain($account->mail);
     $tests['[user:url]'] = url("user/$account->uid", $url_options);
     $tests['[user:edit-url]'] = url("user/$account->uid/edit", $url_options);
@@ -1756,7 +1867,7 @@ class UserTokenReplaceTestCase extends DrupalWebTestCase {
     $tests['[user:last-login:short]'] = format_date($account->login, 'short', '', NULL, $language->language);
     $tests['[user:created]'] = format_date($account->created, 'medium', '', NULL, $language->language);
     $tests['[user:created:short]'] = format_date($account->created, 'short', '', NULL, $language->language);
-    $tests['[current-user:name]'] = check_plain($user->name);
+    $tests['[current-user:name]'] = check_plain(format_username($global_account));
 
     // Test to make sure that we generated something for each token.
     $this->assertFalse(in_array(0, array_map('strlen', $tests)), t('No empty tokens generated.'));
@@ -1767,9 +1878,9 @@ class UserTokenReplaceTestCase extends DrupalWebTestCase {
     }
 
     // Generate and test unsanitized tokens.
-    $tests['[user:name]'] = $account->name;
+    $tests['[user:name]'] = format_username($account);
     $tests['[user:mail]'] = $account->mail;
-    $tests['[current-user:name]'] = $user->name;
+    $tests['[current-user:name]'] = format_username($global_account);
 
     foreach ($tests as $input => $expected) {
       $output = token_replace($input, array('user' => $account), array('language' => $language, 'sanitize' => FALSE));
@@ -1899,3 +2010,107 @@ class UserRolesAssignmentTestCase extends DrupalWebTestCase {
   }
 }
 
+
+/**
+ * Unit test for authmap assignment.
+ */
+class UserAuthmapAssignmentTestCase extends DrupalWebTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => t('Authmap assignment'),
+      'description' => t('Tests that users can be assigned and unassigned authmaps.'),
+      'group' => t('User')
+    );
+  }
+
+  /**
+   * Test authmap assignment and retrieval.
+   */
+  function testAuthmapAssignment()  {
+    $account = $this->drupalCreateUser();
+
+    // Assign authmaps to the user.
+    $authmaps = array(
+      'authname_poll' => 'external username one',
+      'authname_book' => 'external username two',
+    );
+    user_set_authmaps($account, $authmaps);
+
+    // Test for expected authmaps.
+    $expected_authmaps = array(
+      'external username one' => array(
+        'poll' => 'external username one',
+      ),
+      'external username two' => array(
+        'book' => 'external username two',
+      ),
+    );
+    foreach ($expected_authmaps as $authname => $expected_output) {
+      $this->assertIdentical(user_get_authmaps($authname), $expected_output, t('Authmap for authname %authname was set correctly.', array('%authname' => $authname)));
+    }
+
+    // Remove authmap for module poll, add authmap for module blog.
+    $authmaps = array(
+      'authname_poll' => NULL,
+      'authname_blog' => 'external username three',
+    );
+    user_set_authmaps($account, $authmaps);
+
+    // Assert that external username one does not have authmaps.
+    $remove_username = 'external username one';
+    unset($expected_authmaps[$remove_username]);
+    $this->assertFalse(user_get_authmaps($remove_username), t('Authmap for %authname was removed.', array('%authname' => $remove_username)));
+
+    // Assert that a new authmap was created for external username three, and
+    // existing authmaps for external username two were unchanged.
+    $expected_authmaps['external username three'] = array('blog' => 'external username three');
+    foreach ($expected_authmaps as $authname => $expected_output) {
+      $this->assertIdentical(user_get_authmaps($authname), $expected_output, t('Authmap for authname %authname was set correctly.', array('%authname' => $authname)));
+    }
+  }
+}
+
+/**
+ * Tests user_validate_current_pass on a custom form.
+ */
+class UserValidateCurrentPassCustomForm extends DrupalWebTestCase {
+
+  public static function getInfo() {
+    return array(
+      'name' => 'User validate current pass custom form',
+      'description' => 'Test that user_validate_current_pass is usable on a custom form.',
+      'group' => 'User',
+    );
+  }
+
+  /**
+   * User with permission to view content.
+   */
+  protected $accessUser;
+
+  /**
+   * User permission to administer users.
+   */
+  protected $adminUser;
+
+  function setUp() {
+    parent::setUp('user_form_test');
+    // Create two users
+    $this->accessUser = $this->drupalCreateUser(array('access content'));
+    $this->adminUser = $this->drupalCreateUser(array('administer users'));
+  }
+
+  /**
+   * Tests that user_validate_current_pass can be reused on a custom form.
+   */
+  function testUserValidateCurrentPassCustomForm() {
+    $this->drupalLogin($this->adminUser);
+
+    // Submit the custom form with the admin user using the access user's password.
+    $edit = array();
+    $edit['user_form_test_field'] = $this->accessUser->name;
+    $edit['current_pass'] = $this->accessUser->pass_raw;
+    $this->drupalPost('user_form_test_current_password/' . $this->accessUser->uid, $edit, t('Test'));
+    $this->assertText(t('The password has been validated and the form submitted successfully.'));
+  }
+}

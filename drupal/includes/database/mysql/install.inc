@@ -1,5 +1,5 @@
 <?php
-// $Id: install.inc,v 1.4 2010/07/30 01:59:14 dries Exp $
+// $Id: install.inc,v 1.7 2010/11/26 21:36:43 webchick Exp $
 
 /**
  * @file
@@ -10,7 +10,6 @@
  * Specifies installation tasks for MySQL and equivalent databases.
  */
 class DatabaseTasks_mysql extends DatabaseTasks {
-
   /**
    * The PDO driver name for MySQL and equivalent databases.
    *
@@ -22,7 +21,14 @@ class DatabaseTasks_mysql extends DatabaseTasks {
    * Returns a human-readable name string for MySQL and equivalent databases.
    */
   public function name() {
-    return 'MySQL, MariaDB, or equivalent';
+    return st('MySQL, MariaDB, or equivalent');
+  }
+
+  /**
+   * Returns the minimum version for MySQL.
+   */
+  public function minimumVersion() {
+    return '5.0.15';
   }
 }
 

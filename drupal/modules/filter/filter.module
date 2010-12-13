@@ -1,5 +1,5 @@
 <?php
-// $Id: filter.module,v 1.355 2010/10/22 16:36:14 webchick Exp $
+// $Id: filter.module,v 1.361 2010/12/09 02:04:16 dries Exp $
 
 /**
  * @file
@@ -173,6 +173,8 @@ function filter_format_load($format_id) {
  *     to save. If this corresponds to an existing text format, that format
  *     will be updated; otherwise, a new format will be created.
  *   - 'name': The title of the text format.
+ *   - 'status': (optional) An integer indicating whether the text format is
+ *     enabled (1) or not (0). Defaults to 1.
  *   - 'weight': (optional) The weight of the text format, which controls its
  *     placement in text format lists. If omitted, the weight is set to 0.
  *   - 'filters': (optional) An associative, multi-dimensional array of filters
@@ -356,15 +358,6 @@ function filter_permission_name($format) {
     return 'use text format ' . $format->format;
   }
   return FALSE;
-}
-
-/**
- * Implements hook_cron().
- *
- * Expire outdated filter cache entries
- */
-function filter_cron() {
-  cache_clear_all(NULL, 'cache_filter');
 }
 
 /**
@@ -1046,8 +1039,9 @@ function _filter_tips($format_id, $long = FALSE) {
  *   A DOMDocument that represents the loaded (X)HTML snippet.
  */
 function filter_dom_load($text) {
+  $dom_document = new DOMDocument();
   // Ignore warnings during HTML soup loading.
-  $dom_document = @DOMDocument::loadHTML('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8" /></head><body>' . $text . '</body></html>');
+  @$dom_document->loadHTML('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8" /></head><body>' . $text . '</body></html>');
 
   return $dom_document;
 }
@@ -1201,22 +1195,24 @@ function filter_filter_info() {
  * Settings callback for the HTML filter.
  */
 function _filter_html_settings($form, &$form_state, $filter, $format, $defaults) {
+  $filter->settings += $defaults;
+
   $settings['allowed_html'] = array(
     '#type' => 'textfield',
     '#title' => t('Allowed HTML tags'),
-    '#default_value' => isset($filter->settings['allowed_html']) ? $filter->settings['allowed_html'] : $defaults['allowed_html'],
+    '#default_value' => $filter->settings['allowed_html'],
     '#maxlength' => 1024,
     '#description' => t('A list of HTML tags that can be used. JavaScript event attributes, JavaScript URLs, and CSS are always stripped.'),
   );
   $settings['filter_html_help'] = array(
     '#type' => 'checkbox',
     '#title' => t('Display basic HTML help in long filter tips'),
-    '#default_value' => isset($filter->settings['filter_html_help']) ? $filter->settings['filter_html_help'] : $defaults['filter_html_help'],
+    '#default_value' => $filter->settings['filter_html_help'],
   );
   $settings['filter_html_nofollow'] = array(
     '#type' => 'checkbox',
     '#title' => t('Add rel="nofollow" to all links'),
-    '#default_value' => isset($filter->settings['filter_html_nofollow']) ? $filter->settings['filter_html_nofollow'] : $defaults['filter_html_nofollow'],
+    '#default_value' => $filter->settings['filter_html_nofollow'],
   );
   return $settings;
 }
@@ -1265,7 +1261,7 @@ function _filter_html_tips($filter, $format, $long = FALSE) {
     'a' => array(t('Anchors are used to make links to other pages.'), '<a href="' . $base_url . '">' . check_plain(variable_get('site_name', 'Drupal')) . '</a>'),
     'br' => array(t('By default line break tags are automatically added, so use this tag to add additional ones. Use of this tag is different because it is not used with an open/close pair like all the others. Use the extra " /" inside the tag to maintain XHTML 1.0 compatibility'), t('Text with <br />line break')),
     'p' => array(t('By default paragraph tags are automatically added, so use this tag to add additional ones.'), '<p>' . t('Paragraph one.') . '</p> <p>' . t('Paragraph two.') . '</p>'),
-    'strong' => array(t('Strong'), '<strong>' . t('Strong') . '</strong>'),
+    'strong' => array(t('Strong', array(), array('context' => 'Font weight')), '<strong>' . t('Strong', array(), array('context' => 'Font weight')) . '</strong>'),
     'em' => array(t('Emphasized'), '<em>' . t('Emphasized') . '</em>'),
     'cite' => array(t('Cited'), '<cite>' . t('Cited') . '</cite>'),
     'code' => array(t('Coded text used to show programming source code'), '<code>' . t('Coded') . '</code>'),
@@ -1301,14 +1297,12 @@ function _filter_html_tips($filter, $format, $long = FALSE) {
   $header = array(t('Tag Description'), t('You Type'), t('You Get'));
   preg_match_all('/<([a-z0-9]+)[^a-z0-9]/i', $allowed_html, $out);
   foreach ($out[1] as $tag) {
-    if (array_key_exists($tag, $tips)) {
-      if ($tips[$tag]) {
-        $rows[] = array(
-          array('data' => $tips[$tag][0], 'class' => array('description')),
-          array('data' => '<code>' . check_plain($tips[$tag][1]) . '</code>', 'class' => array('type')),
-          array('data' => $tips[$tag][1], 'class' => array('get'))
-        );
-      }
+    if (!empty($tips[$tag])) {
+      $rows[] = array(
+        array('data' => $tips[$tag][0], 'class' => array('description')),
+        array('data' => '<code>' . check_plain($tips[$tag][1]) . '</code>', 'class' => array('type')),
+        array('data' => $tips[$tag][1], 'class' => array('get'))
+      );
     }
     else {
       $rows[] = array(
@@ -1344,10 +1338,12 @@ function _filter_html_tips($filter, $format, $long = FALSE) {
  * Settings callback for URL filter.
  */
 function _filter_url_settings($form, &$form_state, $filter, $format, $defaults) {
+  $filter->settings += $defaults;
+
   $settings['filter_url_length'] = array(
     '#type' => 'textfield',
     '#title' => t('Maximum link text length'),
-    '#default_value' => isset($filter->settings['filter_url_length']) ? $filter->settings['filter_url_length'] : $defaults['filter_url_length'],
+    '#default_value' => $filter->settings['filter_url_length'],
     '#size' => 5,
     '#maxlength' => 4,
     '#field_suffix' => t('characters'),

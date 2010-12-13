@@ -1,5 +1,5 @@
 <?php
-// $Id: block.api.php,v 1.13 2010/08/13 12:25:14 dries Exp $
+// $Id: block.api.php,v 1.15 2010/11/23 16:12:15 webchick Exp $
 
 /**
  * @file
@@ -57,6 +57,12 @@
  *     - DRUPAL_CACHE_GLOBAL: The block is the same for every user on every
  *       page where it is visible.
  *     - DRUPAL_NO_CACHE: The block should not get cached.
+ *   - 'properties': (optional) Array of additional metadata to add to the
+ *     block. Common properties include:
+ *     - 'administrative': Boolean which categorizes this block as usable in
+ *       an administrative context. This might include blocks which help an
+ *       administrator approve/deny comments, or view recently created
+ *       user accounts.
  *   - 'weight': (optional) Initial value for the ordering weight of this block.
  *     Most modules do not provide an initial value, and any value provided can
  *     be modified by a user on the block configuration screen.
@@ -187,9 +193,11 @@ function hook_block_save($delta = '', $edit = array()) {
  *   within the module, defined in hook_block_info().
  *
  * @return
- *   An array containing required elements 'subject' (the block's localized
- *   title) and 'content' (the block's body). The 'content' element may be a
- *   renderable array (preferable) or rendered HTML content.
+ *   An array containing the following elements:
+ *   - subject: The default localized title of the block. If the block does not
+ *     have a default title, this should be set to NULL.
+ *   - content: The content of the block's body. This may be a renderable array
+ *     (preferable) or a string containing rendered HTML content.
  *
  * For a detailed usage example, see block_example.module.
  *
@@ -236,7 +244,7 @@ function hook_block_view($delta = '') {
  * @param $data
  *   An array of data, as returned from the hook_block_view() implementation of
  *   the module that defined the block:
- *   - subject: The localized title of the block.
+ *   - subject: The default localized title of the block.
  *   - content: Either a string or a renderable array representing the content
  *     of the block. You should check that the content is an array before trying
  *     to modify parts of the renderable structure.

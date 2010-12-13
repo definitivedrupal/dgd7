@@ -1,5 +1,5 @@
 <?php
-// $Id: menu_test.module,v 1.18 2010/10/15 04:46:59 webchick Exp $
+// $Id: menu_test.module,v 1.21 2010/12/02 17:34:24 webchick Exp $
 
 /**
  * @file
@@ -56,6 +56,11 @@ function menu_test_menu() {
     'title' => 'Page that tests theme callback inheritance.',
     'page callback' => 'menu_test_theme_page_callback',
     'page arguments' => array(TRUE),
+    'access arguments' => array('access content'),
+  );
+  $items['menu-test/no-theme-callback'] = array(
+    'title' => 'Page that displays different themes without using a theme callback.',
+    'page callback' => 'menu_test_theme_page_callback',
     'access arguments' => array('access content'),
   );
   // Path containing "exotic" characters.
@@ -255,7 +260,72 @@ function menu_test_menu() {
    'page callback' => 'menu_test_callback',
   );
 
+  // Load arguments inheritance test.
+  $items['menu-test/arguments/%menu_test_argument/%'] = array(
+    'title' => 'Load arguments inheritance test',
+    'load arguments' => array(3),
+    'page callback' => 'menu_test_callback',
+    'access callback' => TRUE,
+  );
+  $items['menu-test/arguments/%menu_test_argument/%/default'] = array(
+    'title' => 'Default local task',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+  $items['menu-test/arguments/%menu_test_argument/%/task'] = array(
+    'title' => 'Local task',
+    'page callback' => 'menu_test_callback',
+    'access callback' => TRUE,
+    'type' => MENU_LOCAL_TASK,
+  );
+  // For this path, load arguments should be inherited for the first loader only.
+  $items['menu-test/arguments/%menu_test_argument/%menu_test_other_argument/common-loader'] = array(
+    'title' => 'Local task',
+    'page callback' => 'menu_test_callback',
+    'access callback' => TRUE,
+    'type' => MENU_LOCAL_TASK,
+  );
+  // For these paths, no load arguments should be inherited.
+  // Not on the same position.
+  $items['menu-test/arguments/%/%menu_test_argument/different-loaders-1'] = array(
+    'title' => 'An item not sharing the same loader',
+    'page callback' => 'menu_test_callback',
+    'access callback' => TRUE,
+  );
+  // Not the same loader.
+  $items['menu-test/arguments/%menu_test_other_argument/%/different-loaders-2'] = array(
+    'title' => 'An item not sharing the same loader',
+    'page callback' => 'menu_test_callback',
+    'access callback' => TRUE,
+  );
+  // Not the same loader.
+  $items['menu-test/arguments/%/%/different-loaders-3'] = array(
+    'title' => 'An item not sharing the same loader',
+    'page callback' => 'menu_test_callback',
+    'access callback' => TRUE,
+  );
+  // Explict load arguments should not be overriden (even if empty).
+  $items['menu-test/arguments/%menu_test_argument/%/explicit-arguments'] = array(
+    'title' => 'An item defining explicit load arguments',
+    'load arguments' => array(),
+    'page callback' => 'menu_test_callback',
+    'access callback' => TRUE,
+  );
+
   return $items;
+}
+
+/**
+ * Dummy argument loader for hook_menu() to point to.
+ */
+function menu_test_argument_load($arg1) {
+  return FALSE;
+}
+
+/**
+ * Dummy argument loader for hook_menu() to point to.
+ */
+function menu_test_other_argument_load($arg1) {
+  return FALSE;
 }
 
 /**
