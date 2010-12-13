@@ -1,4 +1,4 @@
-; $Id: standard.info,v 1.1 2010/01/04 23:08:34 webchick Exp $
+; $Id: standard.info,v 1.2 2010/10/25 15:48:41 webchick Exp $
 name = Standard
 description = Install with commonly used features pre-configured.
 version = VERSION
@@ -10,7 +10,10 @@ dependencies[] = contextual
 dependencies[] = dashboard
 dependencies[] = help
 dependencies[] = image
+dependencies[] = list
 dependencies[] = menu
+dependencies[] = number
+dependencies[] = options
 dependencies[] = path
 dependencies[] = taxonomy
 dependencies[] = dblog
@@ -23,8 +26,8 @@ dependencies[] = file
 dependencies[] = rdf
 files[] = standard.profile
 
-; Information added by drupal.org packaging script on 2010-10-23
-version = "7.0-beta2"
+; Information added by drupal.org packaging script on 2010-12-11
+version = "7.0-rc2"
 project = "drupal"
-datestamp = "1287812130"
+datestamp = "1292101844"
 

@@ -1,5 +1,5 @@
 <?php
-// $Id: ajax.inc,v 1.37 2010/10/21 19:31:39 dries Exp $
+// $Id: ajax.inc,v 1.39 2010/11/30 17:16:37 dries Exp $
 
 /**
  * @file
@@ -604,8 +604,8 @@ function ajax_pre_render_element($element) {
 
   // Attach JavaScript settings to the element.
   if (isset($element['#ajax']['event'])) {
-    $element['#attached']['library'][] = array('system', 'form');
-    $element['#attached']['js']['misc/ajax.js'] = array('group' => JS_LIBRARY, 'weight' => 2);
+    $element['#attached']['library'][] = array('system', 'jquery.form');
+    $element['#attached']['library'][] = array('system', 'drupal.ajax');
 
     $settings = $element['#ajax'];
 
@@ -666,10 +666,6 @@ function ajax_pre_render_element($element) {
     if (isset($settings['progress']['path'])) {
       $settings['progress']['url'] = url($settings['progress']['path']);
       unset($settings['progress']['path']);
-    }
-    // Add progress.js if we're doing a bar display.
-    if ($settings['progress']['type'] == 'bar') {
-      $element['#attached']['js']['misc/progress.js'] = array('cache' => FALSE);
     }
 
     $element['#attached']['js'][] = array(
@@ -1002,7 +998,7 @@ function ajax_command_changed($selector, $asterisk = '') {
  * The 'css' command will instruct the client to use the jQuery css() method
  * to apply the CSS arguments to elements matched by the given selector.
  *
- * This command is implemented by Drupal.ajax.prototype.commands.insert()
+ * This command is implemented by Drupal.ajax.prototype.commands.css()
  * defined in misc/ajax.js.
  *
  * @param $selector
@@ -1084,6 +1080,37 @@ function ajax_command_data($selector, $name, $value) {
     'selector' => $selector,
     'name' => $name,
     'value' => $value,
+  );
+}
+
+/**
+ * Creates a Drupal AJAX 'invoke' command.
+ *
+ * The 'invoke' command will instruct the client to invoke the given jQuery
+ * method with the supplied arguments on the elements matched by the given
+ * selector. Intended for simple jQuery commands, such as attr(), addClass(),
+ * removeClass(), toggleClass(), etc.
+ *
+ * This command is implemented by Drupal.ajax.prototype.commands.invoke()
+ * defined in misc/ajax.js.
+ *
+ * @param $selector
+ *   A jQuery selector string. If the command is a response to a request from
+ *   an #ajax form element then this value can be NULL.
+ * @param $method
+ *   The jQuery method to invoke.
+ * @param $arguments
+ *   (optional) A list of arguments to the jQuery $method, if any.
+ *
+ * @return
+ *   An array suitable for use with the ajax_render() function.
+ */
+function ajax_command_invoke($selector, $method, array $arguments = array()) {
+  return array(
+    'command' => 'invoke',
+    'selector' => $selector,
+    'method' => $method,
+    'arguments' => $arguments,
   );
 }
 

@@ -1,5 +1,5 @@
 <?php
-// $Id: install.inc,v 1.142 2010/08/22 15:31:18 dries Exp $
+// $Id: install.inc,v 1.150 2010/11/29 04:45:10 webchick Exp $
 
 /**
  * Indicates that a module has not been installed yet.
@@ -175,6 +175,9 @@ function drupal_set_installed_schema_version($module, $version) {
     ->fields(array('schema_version' => $version))
     ->condition('name', $module)
     ->execute();
+
+  // Reset the static cache of module schema versions.
+  drupal_get_installed_schema_version(NULL, TRUE);
 }
 
 /**
@@ -227,6 +230,22 @@ function drupal_detect_baseurl($file = 'install.php') {
  *  An array of database types compiled into PHP.
  */
 function drupal_detect_database_types() {
+  $databases = drupal_get_database_types();
+
+  foreach ($databases as $driver => $installer) {
+    $databases[$driver] = $installer->name();
+  }
+
+  return $databases;
+}
+
+/**
+ * Return all supported database installer objects that are compiled into PHP.
+ *
+ * @return
+ *  An array of database installer objects compiled into PHP.
+ */
+function drupal_get_database_types() {
   $databases = array();
 
   // We define a driver as a directory in /includes/database that in turn
@@ -235,7 +254,6 @@ function drupal_detect_database_types() {
   // Because we have no registry yet, we need to also include the install.inc
   // file for the driver explicitly.
   require_once DRUPAL_ROOT . '/includes/database/database.inc';
-  spl_autoload_register('db_autoload');
   foreach (file_scan_directory(DRUPAL_ROOT . '/includes/database', '/^[a-z]*$/i', array('recurse' => FALSE)) as $file) {
     if (file_exists($file->uri . '/database.inc') && file_exists($file->uri . '/install.inc')) {
       $drivers[$file->filename] = $file->uri;
@@ -243,10 +261,9 @@ function drupal_detect_database_types() {
   }
 
   foreach ($drivers as $driver => $file) {
-    $class = 'DatabaseTasks_' . $driver;
-    $installer = new $class();
+    $installer = db_installer_object($driver);
     if ($installer->installable()) {
-      $databases[$driver] = $installer->name();
+      $databases[$driver] = $installer;
     }
   }
 
@@ -276,6 +293,10 @@ abstract class DatabaseTasks {
    * to call (optional) and any arguments to be passed to the function.
    */
   protected $tasks = array(
+    array(
+      'function'    => 'checkEngineVersion',
+      'arguments'   => array(),
+    ),
     array(
       'arguments'   => array(
         'CREATE TABLE drupal_install_test (id int NULL)',
@@ -348,7 +369,21 @@ abstract class DatabaseTasks {
     return $this->hasPdoDriver() && empty($this->error);
   }
 
+  /**
+   * Return the human-readable name of the driver.
+   */
   abstract public function name();
+
+  /**
+   * Return the minimum required version of the engine.
+   *
+   * @return
+   *   A version string. If not NULL, it will be checked against the version
+   *   reported by the Database engine using version_compare().
+   */
+  public function minimumVersion() {
+    return NULL;
+  }
 
   /**
    * Run database tasks and tests to see if Drupal can run on the database.
@@ -415,7 +450,125 @@ abstract class DatabaseTasks {
       return !$fatal;
     }
   }
+
+  /**
+   * Check the engine version.
+   */
+  protected function checkEngineVersion() {
+    if ($this->minimumVersion() && version_compare(Database::getConnection()->version(), $this->minimumVersion(), '<')) {
+      $this->fail(st("The database version %version is less than the minimum required version %minimum_version.", array('%version' => Database::getConnection()->version(), '%minimum_version' => $this->minimumVersion())));
+    }
+  }
+
+  /**
+   * Return driver specific configuration options.
+   *
+   * @param $database
+   *  An array of driver specific configuration options.
+   *
+   * @return
+   *   The options form array.
+   */
+  public function getFormOptions($database) {
+    $form['database'] = array(
+      '#type' => 'textfield',
+      '#title' => st('Database name'),
+      '#default_value' => empty($database['database']) ? '' : $database['database'],
+      '#size' => 45,
+      '#required' => TRUE,
+      '#description' => st('The name of the database your @drupal data will be stored in. It must exist on your server before @drupal can be installed.', array('@drupal' => drupal_install_profile_distribution_name())),
+    );
+
+    $form['username'] = array(
+      '#type' => 'textfield',
+      '#title' => st('Database username'),
+      '#default_value' => empty($database['username']) ? '' : $database['username'],
+      '#required' => TRUE,
+      '#size' => 45,
+    );
+
+    $form['password'] = array(
+      '#type' => 'password',
+      '#title' => st('Database password'),
+      '#default_value' => empty($database['password']) ? '' : $database['password'],
+      '#required' => FALSE,
+      '#size' => 45,
+    );
+
+    $form['advanced_options'] = array(
+      '#type' => 'fieldset',
+      '#title' => st('Advanced options'),
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+      '#description' => st("These options are only necessary for some sites. If you're not sure what you should enter here, leave the default settings or check with your hosting provider."),
+      '#weight' => 10,
+    );
+
+    $profile = drupal_get_profile();
+    $db_prefix = ($profile == 'standard') ? 'drupal_' : $profile . '_';
+    $form['advanced_options']['db_prefix'] = array(
+      '#type' => 'textfield',
+      '#title' => st('Table prefix'),
+      '#default_value' => '',
+      '#size' => 45,
+      '#description' => st('If more than one application will be sharing this database, enter a table prefix such as %prefix for your @drupal site here.', array('@drupal' => drupal_install_profile_distribution_name(), '%prefix' => $db_prefix)),
+      '#weight' => 10,
+    );
+
+    $form['advanced_options']['host'] = array(
+      '#type' => 'textfield',
+      '#title' => st('Database host'),
+      '#default_value' => empty($database['host']) ? 'localhost' : $database['host'],
+      '#size' => 45,
+      // Hostnames can be 255 characters long.
+      '#maxlength' => 255,
+      '#required' => TRUE,
+      '#description' => st('If your database is located on a different server, change this.'),
+    );
+
+    $form['advanced_options']['port'] = array(
+      '#type' => 'textfield',
+      '#title' => st('Database port'),
+      '#default_value' => empty($database['port']) ? '' : $database['port'],
+      '#size' => 45,
+      // The maximum port number is 65536, 5 digits.
+      '#maxlength' => 5,
+      '#description' => st('If your database server is listening to a non-standard port, enter its number.'),
+    );
+
+    return $form;
+  }
+
+  /**
+   * Validates driver specific configuration settings.
+   *
+   * Checks to ensure correct basic database settings and that a proper
+   * connection to the database can be established.
+   *
+   * @param $database
+   *   An array of driver specific configuration options.
+   * 
+   * @return
+   *   An array of driver configuration errors, keyed by form element name.
+   */
+  public function validateDatabaseSettings($database) {
+    $errors = array();
+
+    // Verify the table prefix.
+    if (!empty($database['prefix']) && is_string($database['prefix']) && !preg_match('/^[A-Za-z0-9_.]+$/', $database['prefix'])) {
+      $errors[$database['driver'] . '][advanced_options][db_prefix'] = st('The database table prefix you have entered, %prefix, is invalid. The table prefix can only contain alphanumeric characters, periods, or underscores.', array('%prefix' => $database['prefix']));
+    }
+
+    // Verify the database port.
+    if (!empty($database['port']) && !is_numeric($database['port'])) {
+      $errors[$database['driver'] . '][advanced_options][port'] =  st('Database port must be a number.');
+    }
+
+    return $errors;
+  }
+
 }
+
 /**
  * @class Exception class used to throw error if the DatabaseInstaller fails.
  */
@@ -524,7 +677,7 @@ function drupal_verify_profile($install_state) {
 
   // Get a list of modules that exist in Drupal's assorted subdirectories.
   $present_modules = array();
-  foreach (drupal_system_listing('/\.module$/', 'modules', 'name', 0) as $present_module) {
+  foreach (drupal_system_listing('/^' . DRUPAL_PHP_FUNCTION_PATTERN . '\.module$/', 'modules', 'name', 0) as $present_module) {
     $present_modules[] = $present_module->name;
   }
 
@@ -581,12 +734,53 @@ function drupal_install_system() {
 }
 
 /**
- * Calls the uninstall function and updates the system table for a given module.
+ * Uninstalls a given list of modules.
  *
  * @param $module_list
  *   The modules to uninstall.
+ * @param $uninstall_dependents
+ *   If TRUE, the function will check that all modules which depend on the
+ *   passed-in module list either are already uninstalled or contained in the
+ *   list, and it will ensure that the modules are uninstalled in the correct
+ *   order. This incurs a significant performance cost, so use FALSE if you
+ *   know $module_list is already complete and in the correct order.
+ *
+ * @return
+ *   FALSE if one or more dependent modules are missing from the list, TRUE
+ *   otherwise.
  */
-function drupal_uninstall_modules($module_list = array()) {
+function drupal_uninstall_modules($module_list = array(), $uninstall_dependents = TRUE) {
+  if ($uninstall_dependents) {
+    // Get all module data so we can find dependents and sort.
+    $module_data = system_rebuild_module_data();
+    // Create an associative array with weights as values.
+    $module_list = array_flip(array_values($module_list));
+
+    $profile = drupal_get_profile();
+    while (list($module) = each($module_list)) {
+      if (!isset($module_data[$module]) || drupal_get_installed_schema_version($module) == SCHEMA_UNINSTALLED) {
+        // This module doesn't exist or is already uninstalled, skip it.
+        unset($module_list[$module]);
+        continue;
+      }
+      $module_list[$module] = $module_data[$module]->sort;
+
+      // If the module has any dependents which are not already uninstalled and
+      // not included in the passed-in list, abort. It is not safe to uninstall
+      // them automatically because uninstalling a module is a destructive
+      // operation.
+      foreach (array_keys($module_data[$module]->required_by) as $dependent) {
+        if (!isset($module_list[$dependent]) && drupal_get_installed_schema_version($dependent) != SCHEMA_UNINSTALLED && $dependent != $profile) {
+          return FALSE;
+        }
+      }
+    }
+
+    // Sort the module list by pre-calculated weights.
+    asort($module_list);
+    $module_list = array_keys($module_list);
+  }
+
   foreach ($module_list as $module) {
     // First, retrieve all the module's menu paths from db.
     drupal_load('module', $module);
@@ -633,6 +827,8 @@ function drupal_uninstall_modules($module_list = array()) {
     // Call hook_module_uninstall to let other modules act
     module_invoke_all('modules_uninstalled', $module_list);
   }
+
+  return TRUE;
 }
 
 /**
@@ -1050,8 +1246,18 @@ function install_profile_info($profile, $locale = 'en') {
  * encoding.
  */
 function db_run_tasks($driver) {
-  $task_class = 'DatabaseTasks_' . $driver;
-  $DatabaseTasks = new $task_class();
-  $DatabaseTasks->runTasks();
+  db_installer_object($driver)->runTasks();
   return TRUE;
+}
+
+/**
+ * Returns a database installer object.
+ *
+ * @param $driver
+ *   The name of the driver.
+ */
+function db_installer_object($driver) {
+  Database::loadDriverFile($driver, array('install.inc'));
+  $task_class = 'DatabaseTasks_' . $driver;
+  return new $task_class();
 }

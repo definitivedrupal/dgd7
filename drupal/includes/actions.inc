@@ -1,5 +1,5 @@
 <?php
-// $Id: actions.inc,v 1.39 2010/08/22 11:04:09 dries Exp $
+// $Id: actions.inc,v 1.41 2010/12/11 02:09:00 dries Exp $
 
 /**
  * @file
@@ -278,7 +278,7 @@ function actions_synchronize($delete_orphans = FALSE) {
     // user adds the action.
     if (!$array['configurable']) {
       // If we already have an action ID for this action, no need to assign aid.
-      if (array_key_exists($callback, $actions_in_db)) {
+      if (isset($actions_in_db[$callback])) {
         unset($actions_in_db[$callback]);
       }
       else {
@@ -312,7 +312,7 @@ function actions_synchronize($delete_orphans = FALSE) {
       $link = l(t('Remove orphaned actions'), 'admin/config/system/actions/orphan');
       $count = count($actions_in_db);
       $orphans = implode(', ', $orphaned);
-      watchdog('actions', format_plural($count, 'One orphaned action (%orphans) exists in the actions table. !link', '@count orphaned actions (%orphans) exist in the actions table. !link'), array('@count' => $count, '%orphans' => $orphans, '!link' => $link), WATCHDOG_WARNING);
+      watchdog('actions', '@count orphaned actions (%orphans) exist in the actions table. !link', array('@count' => $count, '%orphans' => $orphans, '!link' => $link), WATCHDOG_WARNING);
     }
   }
 }

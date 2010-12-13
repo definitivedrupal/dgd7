@@ -1,4 +1,4 @@
-// $Id: autocomplete.js,v 1.37 2010/06/13 05:31:02 dries Exp $
+// $Id: autocomplete.js,v 1.39 2010/11/20 07:49:56 webchick Exp $
 (function ($) {
 
 /**
@@ -12,10 +12,16 @@ Drupal.behaviors.autocomplete = {
       if (!acdb[uri]) {
         acdb[uri] = new Drupal.ACDB(uri);
       }
-      var input = $('#' + this.id.substr(0, this.id.length - 13))
-        .attr('autocomplete', 'OFF')[0];
-      $(input.form).submit(Drupal.autocompleteSubmit);
-      new Drupal.jsAC(input, acdb[uri]);
+      var $input = $('#' + this.id.substr(0, this.id.length - 13))
+        .attr('autocomplete', 'OFF')
+        .attr('aria-autocomplete', 'list');
+      $($input[0].form).submit(Drupal.autocompleteSubmit);
+      $input.parent()
+        .attr('role', 'application')
+        .append($('<span class="element-invisible" aria-live="assertive"></span>')
+          .attr('id', $input.attr('id') + '-autocomplete-aria-live')
+        );
+      new Drupal.jsAC($input, acdb[uri]);
     });
   }
 };
@@ -33,12 +39,13 @@ Drupal.autocompleteSubmit = function () {
 /**
  * An AutoComplete object.
  */
-Drupal.jsAC = function (input, db) {
+Drupal.jsAC = function ($input, db) {
   var ac = this;
-  this.input = input;
+  this.input = $input[0];
+  this.ariaLive = $('#' + $input.attr('id') + '-autocomplete-aria-live');
   this.db = db;
 
-  $(this.input)
+  $input
     .keydown(function (event) { return ac.onkeydown(this, event); })
     .keyup(function (event) { ac.onkeyup(this, event); })
     .blur(function () { ac.hidePopup(); ac.db.cancel(); });
@@ -141,6 +148,7 @@ Drupal.jsAC.prototype.highlight = function (node) {
   }
   $(node).addClass('selected');
   this.selected = node;
+  $(this.ariaLive).html($(this.selected).html());
 };
 
 /**
@@ -149,6 +157,7 @@ Drupal.jsAC.prototype.highlight = function (node) {
 Drupal.jsAC.prototype.unhighlight = function (node) {
   $(node).removeClass('selected');
   this.selected = false;
+  $(this.ariaLive).empty();
 };
 
 /**
@@ -166,12 +175,15 @@ Drupal.jsAC.prototype.hidePopup = function (keycode) {
     $(popup).fadeOut('fast', function () { $(popup).remove(); });
   }
   this.selected = false;
+  $(this.ariaLive).empty();
 };
 
 /**
  * Positions the suggestions popup and starts a search.
  */
 Drupal.jsAC.prototype.populatePopup = function () {
+  var $input = $(this.input);
+  var position = $input.position();
   // Show popup.
   if (this.popup) {
     $(this.popup).remove();
@@ -180,11 +192,12 @@ Drupal.jsAC.prototype.populatePopup = function () {
   this.popup = $('<div id="autocomplete"></div>')[0];
   this.popup.owner = this;
   $(this.popup).css({
-    marginTop: this.input.offsetHeight + 'px',
-    width: (this.input.offsetWidth - 4) + 'px',
+    top: parseInt(position.top + this.input.offsetHeight, 10) + 'px',
+    left: parseInt(position.left, 10) + 'px',
+    width: $input.innerWidth() + 'px',
     display: 'none'
   });
-  $(this.input).before(this.popup);
+  $input.before(this.popup);
 
   // Do search.
   this.db.owner = this;
@@ -217,6 +230,7 @@ Drupal.jsAC.prototype.found = function (matches) {
   if (this.popup) {
     if (ul.children().size()) {
       $(this.popup).empty().append(ul).show();
+      $(this.ariaLive).html(Drupal.t('Autocomplete popup'));
     }
     else {
       $(this.popup).css({ visibility: 'hidden' });
@@ -229,6 +243,7 @@ Drupal.jsAC.prototype.setStatus = function (status) {
   switch (status) {
     case 'begin':
       $(this.input).addClass('throbbing');
+      $(this.ariaLive).html(Drupal.t('Searching for matches...'));
       break;
     case 'cancel':
     case 'error':

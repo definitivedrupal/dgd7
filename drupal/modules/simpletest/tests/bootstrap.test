@@ -1,5 +1,5 @@
 <?php
-// $Id: bootstrap.test,v 1.33 2010/08/05 23:53:38 webchick Exp $
+// $Id: bootstrap.test,v 1.35 2010/11/23 03:08:34 dries Exp $
 
 class BootstrapIPAddressTestCase extends DrupalWebTestCase {
 
@@ -426,3 +426,75 @@ class BootstrapResettableStaticTestCase extends DrupalUnitTestCase {
     $this->assertEqual($var, 'foo', t('Variable was reset after second invocation of global reset.'));
   }
 }
+
+/**
+ * Test miscellaneous functions in bootstrap.inc.
+ */
+class BootstrapMiscTestCase extends DrupalUnitTestCase {
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Miscellaneous bootstrap unit tests',
+      'description' => 'Test miscellaneous functions in bootstrap.inc.',
+      'group' => 'Bootstrap',
+    );
+  }
+
+  /**
+   * Test miscellaneous functions in bootstrap.inc.
+   */
+  function testMisc() {
+    // Test drupal_array_merge_deep().
+    $link_options_1 = array('fragment' => 'x', 'attributes' => array('title' => 'X', 'class' => array('a', 'b')), 'language' => 'en');
+    $link_options_2 = array('fragment' => 'y', 'attributes' => array('title' => 'Y', 'class' => array('c', 'd')), 'html' => TRUE);
+    $expected = array('fragment' => 'y', 'attributes' => array('title' => 'Y', 'class' => array('a', 'b', 'c', 'd')), 'language' => 'en', 'html' => TRUE);
+    $this->assertIdentical(drupal_array_merge_deep($link_options_1, $link_options_2), $expected, t('drupal_array_merge_deep() returned a properly merged array.'));
+  }
+}
+
+/**
+ * Tests for overriding server variables via the API.
+ */
+class BootstrapOverrideServerVariablesTestCase extends DrupalUnitTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Overriding server variables',
+      'description' => 'Test that drupal_override_server_variables() works correctly.',
+      'group' => 'Bootstrap',
+    );
+  }
+
+  /**
+   * Test providing a direct URL to to drupal_override_server_variables().
+   */
+  function testDrupalOverrideServerVariablesProvidedURL() {
+    $tests = array(
+      'http://example.com' => array(
+        'HTTP_HOST' => 'example.com',
+        'SCRIPT_NAME' => isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : NULL,
+      ),
+      'http://example.com/index.php' => array(
+        'HTTP_HOST' => 'example.com',
+        'SCRIPT_NAME' => '/index.php',
+      ),
+      'http://example.com/subdirectory/index.php' => array(
+        'HTTP_HOST' => 'example.com',
+        'SCRIPT_NAME' => '/subdirectory/index.php',
+      ),
+    );
+    foreach ($tests as $url => $expected_server_values) {
+      // Remember the original value of $_SERVER, since the function call below
+      // will modify it.
+      $original_server = $_SERVER;
+      // Call drupal_override_server_variables() and ensure that all expected
+      // $_SERVER variables were modified correctly.
+      drupal_override_server_variables(array('url' => $url));
+      foreach ($expected_server_values as $key => $value) {
+        $this->assertIdentical($_SERVER[$key], $value);
+      }
+      // Restore the original value of $_SERVER.
+      $_SERVER = $original_server;
+    }
+  }
+}
+

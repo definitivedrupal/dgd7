@@ -1,5 +1,5 @@
 <?php
-// $Id: user.pages.inc,v 1.75 2010/08/27 11:28:45 webchick Exp $
+// $Id: user.pages.inc,v 1.78 2010/12/01 00:29:41 webchick Exp $
 
 /**
  * @file
@@ -260,10 +260,9 @@ function user_profile_form($form, &$form_state, $account, $category = 'account')
 
   if ($category == 'account') {
     user_account_form($form, $form_state);
+    // Attach field widgets.
+    field_attach_form('user', $account, $form, $form_state);
   }
-
-  // Attach field widgets.
-  field_attach_form('user', $account, $form, $form_state);
 
   $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array(
@@ -454,7 +453,7 @@ function user_cancel_confirm_form_submit($form, &$form_state) {
 /**
  * Helper function to return available account cancellation methods.
  *
- * Please refer to the documentation of hook_user_cancel_methods_alter().
+ * See documentation of hook_user_cancel_methods_alter().
  *
  * @return
  *   An array containing all account cancellation methods as form elements.
@@ -467,19 +466,19 @@ function user_cancel_confirm_form_submit($form, &$form_state) {
 function user_cancel_methods() {
   $methods = array(
     'user_cancel_block' => array(
-      'title' => t('Disable the account and keep all content.'),
+      'title' => t('Disable the account and keep its content.'),
       'description' => t('Your account will be blocked and you will no longer be able to log in. All of your content will remain attributed to your user name.'),
     ),
     'user_cancel_block_unpublish' => array(
-      'title' => t('Disable the account and unpublish all content.'),
+      'title' => t('Disable the account and unpublish its content.'),
       'description' => t('Your account will be blocked and you will no longer be able to log in. All of your content will be hidden from everyone but administrators.'),
     ),
     'user_cancel_reassign' => array(
-      'title' => t('Delete the account and make all content belong to the %anonymous-name user.', array('%anonymous-name' => variable_get('anonymous', t('Anonymous')))),
+      'title' => t('Delete the account and make its content belong to the %anonymous-name user.', array('%anonymous-name' => variable_get('anonymous', t('Anonymous')))),
       'description' => t('Your account will be removed and all account information deleted. All of your content will be assigned to the %anonymous-name user.', array('%anonymous-name' => variable_get('anonymous', t('Anonymous')))),
     ),
     'user_cancel_delete' => array(
-      'title' => t('Delete the account and all content.'),
+      'title' => t('Delete the account and its content.'),
       'description' => t('Your account will be removed and all account information deleted. All of your content will also be deleted.'),
       'access' => user_access('administer users'),
     ),

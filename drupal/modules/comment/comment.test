@@ -1,5 +1,5 @@
 <?php
-// $Id: comment.test,v 1.90 2010/10/05 06:17:28 webchick Exp $
+// $Id: comment.test,v 1.95 2010/12/09 02:16:21 dries Exp $
 
 class CommentHelperCase extends DrupalWebTestCase {
   protected $admin_user;
@@ -226,7 +226,7 @@ class CommentHelperCase extends DrupalWebTestCase {
 
     if ($operation == 'delete') {
       $this->drupalPost(NULL, array(), t('Delete comments'));
-      $this->assertRaw(t('Deleted @count comments.', array('@count' => 1)), t('Operation "' . $operation . '" was performed on comment.'));
+      $this->assertRaw(format_plural(1, 'Deleted 1 comment.', 'Deleted @count comments.'), t('Operation "' . $operation . '" was performed on comment.'));
     }
     else {
       $this->assertText(t('The update has been performed.'), t('Operation "' . $operation . '" was performed on comment.'));
@@ -389,6 +389,89 @@ class CommentInterfaceTest extends CommentHelperCase {
     $this->drupalLogout();
     $this->drupalLogin($this->admin_user);
     $this->setCommentForm(FALSE);
+  }
+
+  /**
+   * Tests the node comment statistics.
+   */
+  function testCommentNodeCommentStatistics() {
+    $langcode = LANGUAGE_NONE;
+    // Set comments to have subject and preview disabled.
+    $this->drupalLogin($this->admin_user);
+    $this->setCommentPreview(DRUPAL_DISABLED);
+    $this->setCommentForm(TRUE);
+    $this->setCommentSubject(FALSE);
+    $this->setCommentSettings('comment_default_mode', COMMENT_MODE_THREADED, t('Comment paging changed.'));
+    $this->drupalLogout();
+
+    // Creates a second user to post comments.
+    $this->web_user2 = $this->drupalCreateUser(array('access comments', 'post comments', 'create article content', 'edit own comments'));
+
+    // Checks the initial values of node comment statistics with no comment.
+    $node = node_load($this->node->nid);
+    $this->assertEqual($node->last_comment_timestamp, $this->node->created, t('The initial value of node last_comment_timestamp is the node created date.'));
+    $this->assertEqual($node->last_comment_name, NULL, t('The initial value of node last_comment_name is NULL.'));
+    $this->assertEqual($node->last_comment_uid, $this->web_user->uid, t('The initial value of node last_comment_uid is the node uid.'));
+    $this->assertEqual($node->comment_count, 0, t('The initial value of node comment_count is zero.'));
+
+    // Post comment #1 as web_user2.
+    $this->drupalLogin($this->web_user2);
+    $comment_text = $this->randomName();
+    $comment = $this->postComment($this->node, $comment_text);
+    $comment_loaded = comment_load($comment->id);
+
+    // Checks the new values of node comment statistics with comment #1.
+    // The node needs to be reloaded with a node_load_multiple cache reset.
+    $node = node_load($this->node->nid, NULL, TRUE);
+    $this->assertEqual($node->last_comment_name, NULL, t('The value of node last_comment_name is NULL.'));
+    $this->assertEqual($node->last_comment_uid, $this->web_user2->uid, t('The value of node last_comment_uid is the comment #1 uid.'));
+    $this->assertEqual($node->comment_count, 1, t('The value of node comment_count is 1.'));
+
+    // Prepare for anonymous comment submission (comment approval enabled).
+    variable_set('user_register', USER_REGISTER_VISITORS);
+    $this->drupalLogin($this->admin_user);
+    user_role_change_permissions(DRUPAL_ANONYMOUS_RID, array(
+      'access comments' => TRUE,
+      'post comments' => TRUE,
+      'skip comment approval' => FALSE,
+    ));
+    // Ensure that the poster can leave some contact info.
+    $this->setCommentAnonymous('1');
+    $this->drupalLogout();
+
+    // Post comment #2 as anonymous (comment approval enabled).
+    $this->drupalGet('comment/reply/' . $this->node->nid);
+    $anonymous_comment = $this->postComment($this->node, $this->randomName(), '', TRUE);
+    $comment_unpublished_loaded = comment_load($anonymous_comment->id);
+
+    // Checks the new values of node comment statistics with comment #2 and
+    // ensure they haven't changed since the comment has not been moderated.
+    // The node needs to be reloaded with a node_load_multiple cache reset.
+    $node = node_load($this->node->nid, NULL, TRUE);
+    $this->assertEqual($node->last_comment_name, NULL, t('The value of node last_comment_name is still NULL.'));
+    $this->assertEqual($node->last_comment_uid, $this->web_user2->uid, t('The value of node last_comment_uid is still the comment #1 uid.'));
+    $this->assertEqual($node->comment_count, 1, t('The value of node comment_count is still 1.'));
+
+    // Prepare for anonymous comment submission (no approval required).
+    $this->drupalLogin($this->admin_user);
+    user_role_change_permissions(DRUPAL_ANONYMOUS_RID, array(
+      'access comments' => TRUE,
+      'post comments' => TRUE,
+      'skip comment approval' => TRUE,
+    ));
+    $this->drupalLogout();
+
+    // Post comment #3 as anonymous.
+    $this->drupalGet('comment/reply/' . $this->node->nid);
+    $anonymous_comment = $this->postComment($this->node, $this->randomName(), '', array('name' => $this->randomName()));
+    $comment_loaded = comment_load($anonymous_comment->id);
+
+    // Checks the new values of node comment statistics with comment #3.
+    // The node needs to be reloaded with a node_load_multiple cache reset.
+    $node = node_load($this->node->nid, NULL, TRUE);
+    $this->assertEqual($node->last_comment_name, $comment_loaded->name, t('The value of node last_comment_name is the name of the anonymous user.'));
+    $this->assertEqual($node->last_comment_uid, 0, t('The value of node last_comment_uid is zero.'));
+    $this->assertEqual($node->comment_count, 2, t('The value of node comment_count is 2.'));
   }
 }
 
@@ -873,6 +956,75 @@ class CommentPagerTest extends CommentHelperCase {
   }
 }
 
+/**
+ * Tests comments with node access.
+ *
+ * See http://drupal.org/node/886752 -- verify there is no PostgreSQL error when
+ * viewing a node with threaded comments (a comment and a reply), if a node
+ * access module is in use.
+ */
+class CommentNodeAccessTest extends CommentHelperCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Comment node access',
+      'description' => 'Test comment viewing with node access.',
+      'group' => 'Comment',
+    );
+  }
+
+  function setUp() {
+    DrupalWebTestCase::setUp('comment', 'search', 'node_access_test');
+    node_access_rebuild();
+
+    // Create users and test node.
+    $this->admin_user = $this->drupalCreateUser(array('administer content types', 'administer comments', 'administer blocks'));
+    $this->web_user = $this->drupalCreateUser(array('access comments', 'post comments', 'create article content', 'edit own comments', 'node test view'));
+    $this->node = $this->drupalCreateNode(array('type' => 'article', 'promote' => 1, 'uid' => $this->web_user->uid));
+  }
+
+  /**
+   * Test that threaded comments can be viewed.
+   */
+  function testThreadedCommentView() {
+    $langcode = LANGUAGE_NONE;
+    // Set comments to have subject required and preview disabled.
+    $this->drupalLogin($this->admin_user);
+    $this->setCommentPreview(DRUPAL_DISABLED);
+    $this->setCommentForm(TRUE);
+    $this->setCommentSubject(TRUE);
+    $this->setCommentSettings('comment_default_mode', COMMENT_MODE_THREADED, t('Comment paging changed.'));
+    $this->drupalLogout();
+
+    // Post comment.
+    $this->drupalLogin($this->web_user);
+    $comment_text = $this->randomName();
+    $comment_subject = $this->randomName();
+    $comment = $this->postComment($this->node, $comment_text, $comment_subject);
+    $comment_loaded = comment_load($comment->id);
+    $this->assertTrue($this->commentExists($comment), t('Comment found.'));
+
+    // Check comment display.
+    $this->drupalGet('node/' . $this->node->nid . '/' . $comment->id);
+    $this->assertText($comment_subject, t('Individual comment subject found.'));
+    $this->assertText($comment_text, t('Individual comment body found.'));
+
+    // Reply to comment, creating second comment.
+    $this->drupalGet('comment/reply/' . $this->node->nid . '/' . $comment->id);
+    $reply_text = $this->randomName();
+    $reply_subject = $this->randomName();
+    $reply = $this->postComment(NULL, $reply_text, $reply_subject, TRUE);
+    $reply_loaded = comment_load($reply->id);
+    $this->assertTrue($this->commentExists($reply, TRUE), t('Reply found.'));
+
+    // Go to the node page and verify comment and reply are visible.
+    $this->drupalGet('node/' . $this->node->nid);
+    $this->assertText($comment_text);
+    $this->assertText($comment_subject);
+    $this->assertText($reply_text);
+    $this->assertText($reply_subject);
+  }
+}
+
 class CommentApprovalTest extends CommentHelperCase {
   public static function getInfo() {
     return array(
@@ -1255,5 +1407,74 @@ class CommentTokenReplaceTestCase extends CommentHelperCase {
       $output = token_replace($input, array('node' => $node), array('language' => $language));
       $this->assertFalse(strcmp($output, $expected), t('Node comment token %token replaced.', array('%token' => $input)));
     }
+  }
+}
+
+/**
+ * Test actions provided by the comment module.
+ */
+class CommentActionsTestCase extends CommentHelperCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Comment actions',
+      'description' => 'Test actions provided by the comment module.',
+      'group' => 'Comment',
+    );
+  }
+
+  /**
+   * Test comment publish and unpublish actions.
+   */
+  function testCommentPublishUnpublishActions() {
+    $this->drupalLogin($this->web_user);
+    $comment_text = $this->randomName();
+    $subject = $this->randomName();
+    $comment = $this->postComment($this->node, $comment_text, $subject);
+    $comment = comment_load($comment->id);
+
+    // Unpublish a comment (direct form: doesn't actually save the comment).
+    comment_unpublish_action($comment);
+    $this->assertEqual($comment->status, COMMENT_NOT_PUBLISHED, t('Comment was unpublished'));
+    $this->assertWatchdogMessage('Unpublished comment %subject.', array('%subject' => $subject), t('Found watchdog message'));
+    $this->clearWatchdog();
+
+    // Unpublish a comment (indirect form: modify the comment in the database).
+    comment_unpublish_action(NULL, array('cid' => $comment->cid));
+    $this->assertEqual(comment_load($comment->cid)->status, COMMENT_NOT_PUBLISHED, t('Comment was unpublished'));
+    $this->assertWatchdogMessage('Unpublished comment %subject.', array('%subject' => $subject), t('Found watchdog message'));
+
+    // Publish a comment (direct form: doesn't actually save the comment).
+    comment_publish_action($comment);
+    $this->assertEqual($comment->status, COMMENT_PUBLISHED, t('Comment was published'));
+    $this->assertWatchdogMessage('Published comment %subject.', array('%subject' => $subject), t('Found watchdog message'));
+    $this->clearWatchdog();
+
+    // Publish a comment (indirect form: modify the comment in the database).
+    comment_publish_action(NULL, array('cid' => $comment->cid));
+    $this->assertEqual(comment_load($comment->cid)->status, COMMENT_PUBLISHED, t('Comment was published'));
+    $this->assertWatchdogMessage('Published comment %subject.', array('%subject' => $subject), t('Found watchdog message'));
+    $this->clearWatchdog();
+  }
+
+  /**
+   * Verify that a watchdog message has been entered.
+   *
+   * @param $watchdog_message
+   *   The watchdog message.
+   * @param $variables
+   *   The array of variables passed to watchdog().
+   * @param $message
+   *   The assertion message.
+   */
+  function assertWatchdogMessage($watchdog_message, $variables, $message) {
+    $status = (bool) db_query_range("SELECT 1 FROM {watchdog} WHERE message = :message AND variables = :variables", 0, 1, array(':message' => $watchdog_message, ':variables' => serialize($variables)))->fetchField();
+    return $this->assert($status, $message);
+  }
+
+  /**
+   * Helper function: clear the watchdog.
+   */
+  function clearWatchdog() {
+    db_truncate('watchdog')->execute();
   }
 }

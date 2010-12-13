@@ -1,5 +1,5 @@
 <?php
-// $Id: menu.test,v 1.38 2010/10/15 04:46:58 webchick Exp $
+// $Id: menu.test,v 1.42 2010/12/02 17:34:24 webchick Exp $
 
 /**
  * @file
@@ -159,26 +159,35 @@ class MenuRouterTestCase extends DrupalWebTestCase {
   }
 
   /**
-   * Test that the result of hook_custom_theme() overrides the theme callback.
+   * Test that hook_custom_theme() can control the theme of a page.
    */
   function testHookCustomTheme() {
     // Trigger hook_custom_theme() to dynamically request the Stark theme for
     // the requested page.
     variable_set('menu_test_hook_custom_theme_name', 'stark');
-
-    // Request a page whose theme callback returns the Seven theme. Since Stark
-    // is not a currently enabled theme, our above request should be ignored,
-    // and Seven should still be used.
-    $this->drupalGet('menu-test/theme-callback/use-admin-theme');
-    $this->assertText('Custom theme: seven. Actual theme: seven.', t('The result of hook_custom_theme() does not override a theme callback when it returns a theme that is not enabled.'));
-    $this->assertRaw('seven/style.css', t("The Seven theme's CSS appears on the page."));
-
-    // Now enable the Stark theme and request the same page as above. This
-    // time, we expect hook_custom_theme() to prevail.
     theme_enable(array('stark'));
-    $this->drupalGet('menu-test/theme-callback/use-admin-theme');
-    $this->assertText('Custom theme: stark. Actual theme: stark.', t('The result of hook_custom_theme() overrides what was set in a theme callback.'));
+
+    // Visit a page that does not implement a theme callback. The above request
+    // should be honored.
+    $this->drupalGet('menu-test/no-theme-callback');
+    $this->assertText('Custom theme: stark. Actual theme: stark.', t('The result of hook_custom_theme() is used as the theme for the current page.'));
     $this->assertRaw('stark/layout.css', t("The Stark theme's CSS appears on the page."));
+  }
+
+  /**
+   * Test that the theme callback wins out over hook_custom_theme().
+   */
+  function testThemeCallbackHookCustomTheme() {
+    // Trigger hook_custom_theme() to dynamically request the Stark theme for
+    // the requested page.
+    variable_set('menu_test_hook_custom_theme_name', 'stark');
+    theme_enable(array('stark'));
+
+    // The menu "theme callback" should take precedence over a value set in
+    // hook_custom_theme().
+    $this->drupalGet('menu-test/theme-callback/use-admin-theme');
+    $this->assertText('Custom theme: seven. Actual theme: seven.', t('The result of hook_custom_theme() does not override what was set in a theme callback.'));
+    $this->assertRaw('seven/style.css', t("The Seven theme's CSS appears on the page."));
   }
 
   /**
@@ -464,6 +473,283 @@ class MenuRouterTestCase extends DrupalWebTestCase {
     $asserted_title = $override ? 'Alternative example title - Case ' . $case_no : 'Example title - Case ' . $case_no;
     $this->assertTitle($asserted_title . ' | Drupal', t('Menu title is') . ': ' . $asserted_title, 'Menu');
   }
+
+  /**
+   * Load the router for a given path.
+   */
+  protected function menuLoadRouter($router_path) {
+    return db_query('SELECT * FROM {menu_router} WHERE path = :path', array(':path' => $router_path))->fetchAssoc();
+  }
+
+  /**
+   * Tests inheritance of 'load arguments'.
+   */
+  function testMenuLoadArgumentsInheritance() {
+    $expected = array(
+      'menu-test/arguments/%/%' => array(
+        2 => array('menu_test_argument_load' => array(3)),
+        3 => NULL,
+      ),
+      // Arguments are inherited to normal children.
+      'menu-test/arguments/%/%/default' => array(
+        2 => array('menu_test_argument_load' => array(3)),
+        3 => NULL,
+      ),
+      // Arguments are inherited to tab children.
+      'menu-test/arguments/%/%/task' => array(
+        2 => array('menu_test_argument_load' => array(3)),
+        3 => NULL,
+      ),
+      // Arguments are only inherited to the same loader functions.
+      'menu-test/arguments/%/%/common-loader' => array(
+        2 => array('menu_test_argument_load' => array(3)),
+        3 => 'menu_test_other_argument_load',
+      ),
+      // Arguments are not inherited to children not using the same loader
+      // function.
+      'menu-test/arguments/%/%/different-loaders-1' => array(
+        2 => NULL,
+        3 => 'menu_test_argument_load',
+      ),
+      'menu-test/arguments/%/%/different-loaders-2' => array(
+        2 => 'menu_test_other_argument_load',
+        3 => NULL,
+      ),
+      'menu-test/arguments/%/%/different-loaders-3' => array(
+        2 => NULL,
+        3 => NULL,
+      ),
+      // Explicit loader arguments should not be overriden by parent.
+      'menu-test/arguments/%/%/explicit-arguments' => array(
+        2 => array('menu_test_argument_load' => array()),
+        3 => NULL,
+      ),
+    );
+
+    foreach ($expected as $router_path => $load_functions) {
+      $router_item = $this->menuLoadRouter($router_path);
+      $this->assertIdentical(unserialize($router_item['load_functions']), $load_functions, t('Expected load functions for router %router_path' , array('%router_path' => $router_path)));
+    }
+  }
+}
+
+/**
+ * Tests for menu links.
+ */
+class MenuLinksUnitTestCase extends DrupalWebTestCase {
+  // Use the lightweight testing profile for this test.
+  protected $profile = 'testing';
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Menu links',
+      'description' => 'Test handling of menu links hierarchies.',
+      'group' => 'Menu',
+    );
+  }
+
+  /**
+   * Create a simple hierarchy of links.
+   */
+  function createLinkHierarchy($module = 'menu_test') {
+    // First remove all the menu links.
+    db_truncate('menu_links')->execute();
+
+    // Then create a simple link hierarchy:
+    // - $parent
+    //   - $child-1
+    //      - $child-1-1
+    //      - $child-1-2
+    //   - $child-2
+    $base_options = array(
+      'link_title' => 'Menu link test',
+      'module' => $module,
+      'menu_name' => 'menu_test',
+    );
+
+    $links['parent'] = $base_options + array(
+      'link_path' => 'menu-test/parent',
+    );
+    menu_link_save($links['parent']);
+
+    $links['child-1'] = $base_options + array(
+      'link_path' => 'menu-test/parent/child-1',
+      'plid' => $links['parent']['mlid'],
+    );
+    menu_link_save($links['child-1']);
+
+    $links['child-1-1'] = $base_options + array(
+      'link_path' => 'menu-test/parent/child-1/child-1-1',
+      'plid' => $links['child-1']['mlid'],
+    );
+    menu_link_save($links['child-1-1']);
+
+    $links['child-1-2'] = $base_options + array(
+      'link_path' => 'menu-test/parent/child-1/child-1-2',
+      'plid' => $links['child-1']['mlid'],
+    );
+    menu_link_save($links['child-1-2']);
+
+    $links['child-2'] = $base_options + array(
+      'link_path' => 'menu-test/parent/child-2',
+      'plid' => $links['parent']['mlid'],
+    );
+    menu_link_save($links['child-2']);
+
+    return $links;
+  }
+
+  /**
+   * Assert that at set of links is properly parented.
+   */
+  function assertMenuLinkParents($links, $expected_hierarchy) {
+    foreach ($expected_hierarchy as $child => $parent) {
+      $mlid = $links[$child]['mlid'];
+      $plid = $parent ? $links[$parent]['mlid'] : 0;
+
+      $menu_link = menu_link_load($mlid);
+      menu_link_save($menu_link);
+      $this->assertEqual($menu_link['plid'], $plid, t('Menu link %mlid has parent of %plid, expected %expected_plid.', array('%mlid' => $mlid, '%plid' => $menu_link['plid'], '%expected_plid' => $plid)));
+    }
+  }
+
+  /**
+   * Test automatic reparenting of menu links.
+   */
+  function testMenuLinkReparenting($module = 'menu_test') {
+    // Check the initial hierarchy.
+    $links = $this->createLinkHierarchy($module);
+
+    $expected_hierarchy = array(
+      'parent' => FALSE,
+      'child-1' => 'parent',
+      'child-1-1' => 'child-1',
+      'child-1-2' => 'child-1',
+      'child-2' => 'parent',
+    );
+    $this->assertMenuLinkParents($links, $expected_hierarchy);
+
+    // Start over, and move child-1 under child-2, and check that all the
+    // childs of child-1 have been moved too.
+    $links = $this->createLinkHierarchy($module);
+    $links['child-1']['plid'] = $links['child-2']['mlid'];
+    menu_link_save($links['child-1']);
+
+    $expected_hierarchy = array(
+      'parent' => FALSE,
+      'child-1' => 'child-2',
+      'child-1-1' => 'child-1',
+      'child-1-2' => 'child-1',
+      'child-2' => 'parent',
+    );
+    $this->assertMenuLinkParents($links, $expected_hierarchy);
+
+    // Start over, and delete child-1, and check that the children of child-1
+    // have been reassigned to the parent. menu_link_delete() will cowardly
+    // refuse to delete a menu link defined by the system module, so skip the
+    // test in that case.
+    if ($module != 'system') {
+      $links = $this->createLinkHierarchy($module);
+      menu_link_delete($links['child-1']['mlid']);
+
+      $expected_hierarchy = array(
+        'parent' => FALSE,
+        'child-1-1' => 'parent',
+        'child-1-2' => 'parent',
+        'child-2' => 'parent',
+      );
+      $this->assertMenuLinkParents($links, $expected_hierarchy);
+    }
+
+    // Start over, forcefully delete child-1 from the database, simulating a
+    // database crash. Check that the children of child-1 have been reassigned
+    // to the parent, going up on the old path hierarchy stored in each of the
+    // links.
+    $links = $this->createLinkHierarchy($module);
+    // Don't do that at home.
+    db_delete('menu_links')
+      ->condition('mlid', $links['child-1']['mlid'])
+      ->execute();
+
+    $expected_hierarchy = array(
+      'parent' => FALSE,
+      'child-1-1' => 'parent',
+      'child-1-2' => 'parent',
+      'child-2' => 'parent',
+    );
+    $this->assertMenuLinkParents($links, $expected_hierarchy);
+
+    // Start over, forcefully delete the parent from the database, simulating a
+    // database crash. Check that the children of parent are now top-level.
+    $links = $this->createLinkHierarchy($module);
+    // Don't do that at home.
+    db_delete('menu_links')
+      ->condition('mlid', $links['parent']['mlid'])
+      ->execute();
+
+    $expected_hierarchy = array(
+      'child-1-1' => 'child-1',
+      'child-1-2' => 'child-1',
+      'child-2' => FALSE,
+    );
+    $this->assertMenuLinkParents($links, $expected_hierarchy);
+  }
+
+  /**
+   * Test automatic reparenting of menu links derived from menu routers.
+   */
+  function testMenuLinkRouterReparenting() {
+    // Run all the standard parenting tests on menu links derived from
+    // menu routers.
+    $this->testMenuLinkReparenting('system');
+
+    // Additionnaly, test reparenting based on path.
+    $links = $this->createLinkHierarchy('system');
+
+    // Move child-1-2 has a child of child-2, making the link hierarchy
+    // inconsistent with the path hierarchy.
+    $links['child-1-2']['plid'] = $links['child-2']['mlid'];
+    menu_link_save($links['child-1-2']);
+
+    // Check the new hierarchy.
+    $expected_hierarchy = array(
+      'parent' => FALSE,
+      'child-1' => 'parent',
+      'child-1-1' => 'child-1',
+      'child-2' => 'parent',
+      'child-1-2' => 'child-2',
+    );
+    $this->assertMenuLinkParents($links, $expected_hierarchy);
+
+    // Now delete 'parent' directly from the database, simulating a database
+    // crash. 'child-1' and 'child-2' should get moved to the
+    // top-level.
+    // Don't do that at home.
+    db_delete('menu_links')
+      ->condition('mlid', $links['parent']['mlid'])
+      ->execute();
+    $expected_hierarchy = array(
+      'child-1' => FALSE,
+      'child-1-1' => 'child-1',
+      'child-2' => FALSE,
+      'child-1-2' => 'child-2',
+    );
+    $this->assertMenuLinkParents($links, $expected_hierarchy);
+
+    // Now delete 'child-2' directly from the database, simulating a database
+    // crash. 'child-1-2' will get reparented under 'child-1' based on its
+    // path.
+    // Don't do that at home.
+    db_delete('menu_links')
+      ->condition('mlid', $links['child-2']['mlid'])
+      ->execute();
+    $expected_hierarchy = array(
+      'child-1' => FALSE,
+      'child-1-1' => 'child-1',
+      'child-1-2' => 'child-1',
+    );
+    $this->assertMenuLinkParents($links, $expected_hierarchy);
+  }
 }
 
 /**
@@ -576,6 +862,19 @@ class MenuBreadcrumbTestCase extends DrupalWebTestCase {
     $perms = array_keys(module_invoke_all('permission'));
     $this->admin_user = $this->drupalCreateUser($perms);
     $this->drupalLogin($this->admin_user);
+
+    // This test puts menu links in the Navigation menu and then tests for
+    // their presence on the page, so we need to ensure that the Navigation
+    // block will be displayed in all active themes.
+    db_update('block')
+      ->fields(array(
+        // Use a region that is valid for all themes.
+        'region' => 'content',
+        'status' => 1,
+      ))
+      ->condition('module', 'system')
+      ->condition('delta', 'navigation')
+      ->execute();
   }
 
   /**

@@ -1,5 +1,5 @@
 <?php
-// $Id: text.module,v 1.66 2010/10/22 00:42:42 dries Exp $
+// $Id: text.module,v 1.68 2010/11/13 07:39:35 webchick Exp $
 
 /**
  * @file
@@ -170,8 +170,8 @@ function text_field_load($entity_type, $entities, $field, $instances, $langcode,
  * Implements hook_field_is_empty().
  */
 function text_field_is_empty($item, $field) {
-  if (empty($item['value']) && (string) $item['value'] !== '0') {
-    return TRUE;
+  if (!isset($item['value']) || $item['value'] === '') {
+    return !isset($item['summary']) || $item['summary'] === '';
   }
   return FALSE;
 }

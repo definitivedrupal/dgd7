@@ -1,5 +1,5 @@
 <?php
-// $Id: theme.inc,v 1.620 2010/10/21 19:31:39 dries Exp $
+// $Id: theme.inc,v 1.626 2010/12/11 02:06:25 dries Exp $
 
 /**
  * @file
@@ -402,7 +402,7 @@ function _theme_process_registry(&$cache, $name, $type, $theme, $path) {
       // that themes don't need to specify this information, since the module
       // that registered the theme hook already has.
       foreach (array('variables', 'render element', 'pattern', 'base hook') as $key) {
-        if (!array_key_exists($key, $info) && isset($cache[$hook][$key])) {
+        if (!isset($info[$key]) && isset($cache[$hook][$key])) {
           $result[$hook][$key] = $cache[$hook][$key];
         }
       }
@@ -1375,32 +1375,34 @@ function theme_link($variables) {
  *
  * @param $variables
  *   An associative array containing:
- *   - links: A keyed array of links to be themed. The key for each link is used
- *     as its css class. Each link should be itself an array, with the following
- *     keys:
- *     - title: the link text
- *     - href: the link URL. If omitted, the 'title' is shown as a plain text
+ *   - links: An associative array of links to be themed. The key for each link
+ *     is used as its css class. Each link should be itself an array, with the
+ *     following elements:
+ *     - title: The link text.
+ *     - href: The link URL. If omitted, the 'title' is shown as a plain text
  *       item in the links list.
- *     - html: (optional) set this to TRUE if 'title' is HTML so it will be
- *       escaped.
- *     Array items are passed on to the l() function's $options parameter when
- *     creating the link.
- *   - attributes: A keyed array of attributes.
- *   - heading: An optional keyed array or a string for a heading to precede the
- *     links. When using an array the following keys can be used:
- *     - text: the heading text
- *     - level: the heading level (e.g. 'h2', 'h3')
- *     - class: (optional) an array of the CSS classes for the heading
+ *     - html: (optional) Whether or not 'title' is HTML. If set, the title
+ *       will not be passed through check_plain().
+ *     - attributes: (optional) Attributes for the anchor, or for the <span> tag
+ *       used in its place if no 'href' is supplied.
+ *     If the 'href' element is supplied, the entire link array is passed to l()
+ *     as its $options parameter.
+ *   - attributes: A keyed array of attributes for the UL containing the
+ *     list of links.
+ *   - heading: (optional) A heading to precede the links. May be an associative
+ *     array or a string. If it's an array, it can have the following elements:
+ *     - text: The heading text.
+ *     - level: The heading level (e.g. 'h2', 'h3').
+ *     - class: (optional) An array of the CSS classes for the heading.
  *     When using a string it will be used as the text of the heading and the
- *     level will default to 'h2'.
- *
- *     Headings should be used on navigation menus and any list of links that
- *     consistently appears on multiple pages. To make the heading invisible
- *     use the 'element-invisible' CSS class. Do not use 'display:none', which
- *     removes it from screen-readers and assistive technology. Headings allow
- *     screen-reader and keyboard only users to navigate to or skip the links.
- *     See http://juicystudio.com/article/screen-readers-display-none.php
- *     and http://www.w3.org/TR/WCAG-TECHS/H42.html for more information.
+ *     level will default to 'h2'. Headings should be used on navigation menus
+ *     and any list of links that consistently appears on multiple pages. To
+ *     make the heading invisible use the 'element-invisible' CSS class. Do not
+ *     use 'display:none', which removes it from screen-readers and assistive
+ *     technology. Headings allow screen-reader and keyboard only users to
+ *     navigate to or skip the links. See
+ *     http://juicystudio.com/article/screen-readers-display-none.php and
+ *     http://www.w3.org/TR/WCAG-TECHS/H42.html for more information.
  */
 function theme_links($variables) {
   $links = $variables['links'];
@@ -1864,7 +1866,8 @@ function theme_more_help_link($variables) {
  *
  * @param $variables
  *   An associative array containing:
- *   - url: The url of the feed.
+ *   - url: An internal system path or a fully qualified external URL of the
+ *     feed.
  *   - title: A descriptive title of the feed.
  */
 function theme_feed_icon($variables) {
@@ -2192,14 +2195,18 @@ function template_preprocess_html(&$variables) {
 
   // Construct page title.
   if (drupal_get_title()) {
-    $head_title = array(strip_tags(drupal_get_title()), check_plain(variable_get('site_name', 'Drupal')));
+    $head_title = array(
+      'title' => strip_tags(drupal_get_title()),
+      'name' => check_plain(variable_get('site_name', 'Drupal')),
+    );
   }
   else {
-    $head_title = array(check_plain(variable_get('site_name', 'Drupal')));
+    $head_title = array('name' => check_plain(variable_get('site_name', 'Drupal')));
     if (variable_get('site_slogan', '')) {
-      $head_title[] = filter_xss_admin(variable_get('site_slogan', ''));
+      $head_title['slogan'] = filter_xss_admin(variable_get('site_slogan', ''));
     }
   }
+  $variables['head_title_array'] = $head_title;
   $variables['head_title'] = implode(' | ', $head_title);
 
   // Populate the page template suggestions.
@@ -2250,13 +2257,12 @@ function template_preprocess_page(&$variables) {
   $variables['language']          = $GLOBALS['language'];
   $variables['language']->dir     = $GLOBALS['language']->direction ? 'rtl' : 'ltr';
   $variables['logo']              = theme_get_setting('logo');
-  $variables['messages']          = $variables['show_messages'] ? theme('status_messages') : '';
   $variables['main_menu']         = theme_get_setting('toggle_main_menu') ? menu_main_menu() : array();
   $variables['secondary_menu']    = theme_get_setting('toggle_secondary_menu') ? menu_secondary_menu() : array();
   $variables['action_links']      = menu_local_actions();
   $variables['site_name']         = (theme_get_setting('toggle_name') ? filter_xss_admin(variable_get('site_name', 'Drupal')) : '');
   $variables['site_slogan']       = (theme_get_setting('toggle_slogan') ? filter_xss_admin(variable_get('site_slogan', '')) : '');
-  $variables['tabs']              = theme('menu_local_tasks');
+  $variables['tabs']              = menu_local_tabs();
 
   if ($node = menu_get_object()) {
     $variables['node'] = $node;
@@ -2287,6 +2293,12 @@ function template_process_page(&$variables) {
   }
   if (!isset($variables['title'])) {
     $variables['title'] = drupal_get_title();
+  }
+
+  // Generate messages last in order to capture as many as possible for the
+  // current page.
+  if (!isset($variables['messages'])) {
+    $variables['messages'] = $variables['show_messages'] ? theme('status_messages') : '';
   }
 }
 
@@ -2417,18 +2429,22 @@ function template_preprocess_maintenance_page(&$variables) {
 
   // Construct page title
   if (drupal_get_title()) {
-    $head_title = array(strip_tags(drupal_get_title()), variable_get('site_name', 'Drupal'));
+    $head_title = array(
+      'title' => strip_tags(drupal_get_title()),
+      'name' => variable_get('site_name', 'Drupal'),
+    );
   }
   else {
-    $head_title = array(variable_get('site_name', 'Drupal'));
+    $head_title = array('name' => variable_get('site_name', 'Drupal'));
     if (variable_get('site_slogan', '')) {
-      $head_title[] = variable_get('site_slogan', '');
+      $head_title['slogan'] = variable_get('site_slogan', '');
     }
   }
 
   // set the default language if necessary
   $language = isset($GLOBALS['language']) ? $GLOBALS['language'] : language_default();
 
+  $variables['head_title_array']  = $head_title;
   $variables['head_title']        = implode(' | ', $head_title);
   $variables['base_path']         = base_path();
   $variables['front_page']        = url();

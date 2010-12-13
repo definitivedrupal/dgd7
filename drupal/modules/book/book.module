@@ -1,5 +1,5 @@
 <?php
-// $Id: book.module,v 1.554 2010/10/18 05:53:34 webchick Exp $
+// $Id: book.module,v 1.557 2010/11/27 20:25:44 dries Exp $
 
 /**
  * @file
@@ -112,7 +112,11 @@ function book_node_view_link($node, $view_mode) {
   }
 
   if (!empty($links)) {
-    $node->content['links']['#links'] = array_merge($node->content['links']['#links'], $links);
+    $node->content['links']['book'] = array(
+      '#theme' => 'links__node__book',
+      '#links' => $links,
+      '#attributes' => array('class' => array('links', 'inline')),
+    );
   }
 }
 
@@ -170,7 +174,6 @@ function book_menu() {
     'page arguments' => array(1),
     'access callback' => '_book_outline_access',
     'access arguments' => array(1),
-    'theme callback' => '_node_custom_theme',
     'type' => MENU_LOCAL_TASK,
     'weight' => 2,
     'file' => 'book.pages.inc',
@@ -181,7 +184,6 @@ function book_menu() {
     'page arguments' => array('book_remove_form', 1),
     'access callback' => '_book_outline_remove_access',
     'access arguments' => array(1),
-    'theme callback' => '_node_custom_theme',
     'file' => 'book.pages.inc',
   );
 
@@ -206,11 +208,13 @@ function _book_outline_remove_access($node) {
  * Implements hook_admin_paths().
  */
 function book_admin_paths() {
-  $paths = array(
-    'node/*/outline' => TRUE,
-    'node/*/outline/remove' => TRUE,
-  );
-  return $paths;
+  if (variable_get('node_admin_theme')) {
+    $paths = array(
+      'node/*/outline' => TRUE,
+      'node/*/outline/remove' => TRUE,
+    );
+    return $paths;
+  }
 }
 
 /**
@@ -488,6 +492,9 @@ function _book_add_form_elements(&$form, &$form_state, $node) {
     '#collapsible' => TRUE,
     '#collapsed' => TRUE,
     '#group' => 'additional_settings',
+    '#attributes' => array(
+      'class' => array('book-form'),
+    ),
     '#attached' => array(
       'js' => array(drupal_get_path('module', 'book') . '/book.js'),
     ),
@@ -503,12 +510,11 @@ function _book_add_form_elements(&$form, &$form_state, $node) {
 
   $form['book']['plid'] = _book_parent_select($node->book);
 
-  // @see _book_admin_table_tree(). The weight may be larger than 15.
   $form['book']['weight'] = array(
     '#type' => 'weight',
     '#title' => t('Weight'),
     '#default_value' => $node->book['weight'],
-    '#delta' => max(15, abs($node->book['weight'])),
+    '#delta' => 15,
     '#weight' => 5,
     '#description' => t('Pages at a given level are ordered first by weight and then by title.'),
   );

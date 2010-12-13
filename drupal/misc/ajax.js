@@ -1,4 +1,4 @@
-// $Id: ajax.js,v 1.25 2010/10/21 19:31:39 dries Exp $
+// $Id: ajax.js,v 1.32 2010/12/04 01:49:21 webchick Exp $
 (function ($) {
 
 /**
@@ -37,6 +37,8 @@ Drupal.behaviors.AJAX = {
     // Bind AJAX behaviors to all items showing the class.
     $('.use-ajax:not(.ajax-processed)').addClass('ajax-processed').each(function () {
       var element_settings = {};
+      // Clicked links look better with the throbber than the progress bar.
+      element_settings.progress = { 'type': 'throbber' };
 
       // For anchor tags, these will go to the target of the anchor rather
       // than the usual location.
@@ -112,10 +114,20 @@ Drupal.ajax = function (base, element, element_settings) {
   $.extend(this, defaults, element_settings);
 
   this.element = element;
+  this.element_settings = element_settings;
 
   // Replacing 'nojs' with 'ajax' in the URL allows for an easy method to let
   // the server detect when it needs to degrade gracefully.
-  this.url = element_settings.url.replace(/\/nojs(\/|$)/g, '/ajax$1');
+  // There are five scenarios to check for:
+  // 1. /nojs/
+  // 2. /nojs$ - The end of a URL string.
+  // 3. /nojs? - Followed by a query (with clean URLs enabled).
+  //      E.g.: path/nojs?destination=foobar
+  // 4. /nojs& - Followed by a query (without clean URLs enabled).
+  //      E.g.: ?q=path/nojs&destination=foobar
+  // 5. /nojs# - Followed by a fragment.
+  //      E.g.: path/nojs#myfragment
+  this.url = element_settings.url.replace(/\/nojs(\/|$|\?|&|#)/g, '/ajax$1');
   this.wrapper = '#' + element_settings.wrapper;
 
   // If there isn't a form, jQuery.ajax() will be used instead, allowing us to
@@ -137,6 +149,10 @@ Drupal.ajax = function (base, element, element_settings) {
       ajax.ajaxing = true;
       return ajax.beforeSubmit(form_values, element_settings, options);
     },
+    beforeSend: function (xmlhttprequest) {
+      ajax.ajaxing = true;
+      return ajax.beforeSend(xmlhttprequest, ajax.options);
+    },
     success: function (response, status) {
       // Sanity check for browser support (object expected).
       // When using iFrame uploads, responses must be returned as a string.
@@ -156,35 +172,8 @@ Drupal.ajax = function (base, element, element_settings) {
   };
 
   // Bind the ajaxSubmit function to the element event.
-  $(this.element).bind(element_settings.event, function () {
-    if (ajax.ajaxing) {
-      return false;
-    }
-
-    try {
-      if (ajax.form) {
-        // If setClick is set, we must set this to ensure that the button's
-        // value is passed.
-        if (ajax.setClick) {
-          // Mark the clicked button. 'form.clk' is a special variable for
-          // ajaxSubmit that tells the system which element got clicked to
-          // trigger the submit. Without it there would be no 'op' or
-          // equivalent.
-          this.form.clk = this;
-        }
-
-        ajax.form.ajaxSubmit(ajax.options);
-      }
-      else {
-        ajax.beforeSerialize(ajax.element, ajax.options);
-        $.ajax(ajax.options);
-      }
-    }
-    catch (e) {
-      alert("An error occurred while attempting to process " + ajax.options.url + ": " + e.message);
-    }
-
-    return false;
+  $(ajax.element).bind(element_settings.event, function (event) {
+    return ajax.eventResponse(this, event);
   });
 
   // If necessary, enable keyboard submission so that AJAX behaviors
@@ -192,19 +181,87 @@ Drupal.ajax = function (base, element, element_settings) {
   // action.
   if (element_settings.keypress) {
     $(element_settings.element).keypress(function (event) {
-      // Detect enter key.
-      if (event.keyCode == 13) {
-        $(element_settings.element).trigger(element_settings.event);
-        return false;
-      }
+      return ajax.keypressResponse(this, event);
     });
   }
 };
 
 /**
+ * Handle a key press.
+ *
+ * The AJAX object will, if instructed, bind to a key press response. This
+ * will test to see if the key press is valid to trigger this event and
+ * if it is, trigger it for us and prevent other keypresses from triggering.
+ */
+Drupal.ajax.prototype.keypressResponse = function (element, event) {
+  // Create a synonym for this to reduce code confusion.
+  var ajax = this;
+
+  // Detect enter key and space bar.
+  if (event.which == 13 || event.which == 32) {
+    $(ajax.element_settings.element).trigger(ajax.element_settings.event);
+    return false;
+  }
+};
+
+/**
+ * Handle an event that triggers an AJAX response.
+ *
+ * When an event that triggers an AJAX response happens, this method will
+ * perform the actual AJAX call. It is bound to the event using
+ * bind() in the constructor, and it uses the options specified on the
+ * ajax object.
+ */
+Drupal.ajax.prototype.eventResponse = function (element, event) {
+  // Create a synonym for this to reduce code confusion.
+  var ajax = this;
+
+  // Do not perform another ajax command if one is already in progress.
+  if (ajax.ajaxing) {
+    return false;
+  }
+
+  try {
+    if (ajax.form) {
+      // If setClick is set, we must set this to ensure that the button's
+      // value is passed.
+      if (ajax.setClick) {
+        // Mark the clicked button. 'form.clk' is a special variable for
+        // ajaxSubmit that tells the system which element got clicked to
+        // trigger the submit. Without it there would be no 'op' or
+        // equivalent.
+        element.form.clk = element;
+      }
+
+      ajax.form.ajaxSubmit(ajax.options);
+    }
+    else {
+      ajax.beforeSerialize(ajax.element, ajax.options);
+      $.ajax(ajax.options);
+    }
+  }
+  catch (e) {
+    // Unset the ajax.ajaxing flag here because it won't be unset during
+    // the complete response.
+    ajax.ajaxing = false;
+    alert("An error occurred while attempting to process " + ajax.options.url + ": " + e.message);
+  }
+
+  // For radio/checkbox, allow the default event. On IE, this means letting
+  // it actually check the box.
+  if (typeof element.type != 'undefined' && (element.type == 'checkbox' || element.type == 'radio')) {
+    return true;
+  }
+  else {
+    return false;
+  }
+
+};
+
+/**
  * Handler for the form serialization.
  *
- * Runs before the beforeSubmit() handler (see below), and unlike that one, runs
+ * Runs before the beforeSend() handler (see below), and unlike that one, runs
  * before field data is collected.
  */
 Drupal.ajax.prototype.beforeSerialize = function (element, options) {
@@ -241,9 +298,17 @@ Drupal.ajax.prototype.beforeSerialize = function (element, options) {
 };
 
 /**
- * Handler for the form redirection submission.
+ * Modify form values prior to form submission.
  */
 Drupal.ajax.prototype.beforeSubmit = function (form_values, element, options) {
+  // This function is left empty to make it simple to override for modules
+  // that wish to add functionality here.
+}
+
+/**
+ * Prepare the AJAX request before it is sent.
+ */
+Drupal.ajax.prototype.beforeSend = function (xmlhttprequest, options) {
   // Disable the element that received the change.
   $(this.element).addClass('progress-disabled').attr('disabled', true);
 
@@ -280,7 +345,7 @@ Drupal.ajax.prototype.success = function (response, status) {
   if (this.progress.object) {
     this.progress.object.stopMonitoring();
   }
-  $(this.element).removeClass('progress-disabled').attr('disabled', false);
+  $(this.element).removeClass('progress-disabled').removeAttr('disabled');
 
   Drupal.freezeHeight();
 
@@ -348,7 +413,7 @@ Drupal.ajax.prototype.error = function (response, uri) {
   // Undo hide.
   $(this.wrapper).show();
   // Re-enable the element.
-  $(this.element).removeClass('progress-disabled').attr('disabled', false);
+  $(this.element).removeClass('progress-disabled').removeAttr('disabled');
   // Reattach behaviors, if they were detached in beforeSerialize().
   if (this.form) {
     var settings = response.settings || this.settings || Drupal.settings;
@@ -484,6 +549,14 @@ Drupal.ajax.prototype.commands = {
    */
   data: function (ajax, response, status) {
     $(response.selector).data(response.name, response.value);
+  },
+
+  /**
+   * Command to apply a jQuery method.
+   */
+  invoke: function (ajax, response, status) {
+    var $element = $(response.selector);
+    $element[response.method].apply($element, response.arguments);
   },
 
   /**

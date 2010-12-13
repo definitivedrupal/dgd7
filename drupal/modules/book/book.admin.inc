@@ -175,10 +175,6 @@ function _book_admin_table($node, &$form) {
  * @see book_admin_edit()
  */
 function _book_admin_table_tree($tree, &$form) {
-  // The delta must be big enough to give each node a distinct value.
-  $count = count($tree);
-  $delta = ($count < 30) ? 15 : intval($count / 2) + 1;
-
   foreach ($tree as $data) {
     $form['book-admin-' . $data['link']['nid']] = array(
       '#item' => $data['link'],
@@ -194,7 +190,7 @@ function _book_admin_table_tree($tree, &$form) {
       'weight' => array(
         '#type' => 'weight',
         '#default_value' => $data['link']['weight'],
-        '#delta' => $delta,
+        '#delta' => 15,
         '#title' => t('Weight for @title', array('@title' => $data['link']['title'])),
         '#title_display' => 'invisible',
       ),

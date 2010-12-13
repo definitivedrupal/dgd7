@@ -1,5 +1,5 @@
 <?php
-// $Id: taxonomy.test,v 1.96 2010/10/13 13:43:21 dries Exp $
+// $Id: taxonomy.test,v 1.99 2010/12/07 05:20:08 webchick Exp $
 
 /**
  * @file
@@ -376,6 +376,43 @@ class TaxonomyTermUnitTest extends TaxonomyWebTestCase {
 
     // Delete an invalid term. Should not throw any notices.
     taxonomy_term_delete(42);
+  }
+}
+
+/**
+ * Test for legacy node bug.
+ */
+class TaxonomyLegacyTestCase extends TaxonomyWebTestCase {
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Test for legacy node bug.',
+      'description' => 'Posts an article with a taxonomy term and a date prior to 1970.',
+      'group' => 'Taxonomy',
+    );
+  }
+
+  function setUp() {
+    parent::setUp('taxonomy');
+    $this->admin_user = $this->drupalCreateUser(array('administer taxonomy', 'administer nodes', 'bypass node access'));
+    $this->drupalLogin($this->admin_user);
+  }
+
+  /**
+   * Test taxonomy functionality with nodes prior to 1970.
+   */
+  function testTaxonomyLegacyNode() {
+    // Posts an article with a taxonomy term and a date prior to 1970.
+    $langcode = LANGUAGE_NONE;
+    $edit = array();
+    $edit['title'] = $this->randomName();
+    $edit['date'] = '1969-01-01 00:00:00 -0500';
+    $edit["body[$langcode][0][value]"] = $this->randomName();
+    $edit["field_tags[$langcode]"] = $this->randomName();
+    $this->drupalPost('node/add/article', $edit, t('Save'));
+    // Checks that the node has been saved.
+    $node = $this->drupalGetNodeByTitle($edit['title']);
+    $this->assertEqual($node->created, strtotime($edit['date']), t('Legacy node was saved with the right date.'));
   }
 }
 
@@ -1129,5 +1166,52 @@ class TaxonomyTokenReplaceTestCase extends TaxonomyWebTestCase {
       $output = token_replace($input, array('vocabulary' => $this->vocabulary), array('language' => $language, 'sanitize' => FALSE));
       $this->assertFalse(strcmp($output, $expected), t('Unsanitized taxonomy vocabulary token %token replaced.', array('%token' => $input)));
     }
+  }
+}
+
+/**
+ * Tests for verifying that taxonomy pages use the correct theme.
+ */
+class TaxonomyThemeTestCase extends TaxonomyWebTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Taxonomy theme switching',
+      'description' => 'Verifies that various taxonomy pages use the expected theme.',
+      'group' => 'Taxonomy',
+    );
+  }
+
+  function setUp() {
+    parent::setUp();
+
+    // Make sure we are using distinct default and administrative themes for
+    // the duration of these tests.
+    variable_set('theme_default', 'bartik');
+    variable_set('admin_theme', 'seven');
+
+    // Create and log in as a user who has permission to add and edit taxonomy
+    // terms and view the administrative theme.
+    $admin_user = $this->drupalCreateUser(array('administer taxonomy', 'view the administration theme'));
+    $this->drupalLogin($admin_user);
+  }
+
+  /**
+   * Test the theme used when adding, viewing and editing taxonomy terms.
+   */
+  function testTaxonomyTermThemes() {
+    // Adding a term to a vocabulary is considered an administrative action and
+    // should use the administrative theme.
+    $vocabulary = $this->createVocabulary();
+    $this->drupalGet('admin/structure/taxonomy/' . $vocabulary->machine_name . '/add');
+    $this->assertRaw('seven/style.css', t("The administrative theme's CSS appears on the page for adding a taxonomy term."));
+
+    // Viewing a taxonomy term should use the default theme.
+    $term = $this->createTerm($vocabulary);
+    $this->drupalGet('taxonomy/term/' . $term->tid);
+    $this->assertRaw('bartik/css/style.css', t("The default theme's CSS appears on the page for viewing a taxonomy term."));
+
+    // Editing a taxonomy term should use the same theme as adding one.
+    $this->drupalGet('taxonomy/term/' . $term->tid . '/edit');
+    $this->assertRaw('seven/style.css', t("The administrative theme's CSS appears on the page for editing a taxonomy term."));
   }
 }

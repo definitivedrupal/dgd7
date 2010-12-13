@@ -1,5 +1,5 @@
 <?php
-// $Id: entity.inc,v 1.16 2010/10/09 02:36:46 webchick Exp $
+// $Id: entity.inc,v 1.19 2010/11/30 19:31:46 dries Exp $
 
 /**
  * Interface for entity controller classes.
@@ -24,8 +24,12 @@ interface DrupalEntityControllerInterface {
 
   /**
    * Resets the internal, static entity cache.
+   *
+   * @param $ids
+   *   (optional) If specified, the cache is reset for the entities with the
+   *   given ids only.
    */
-  public function resetCache();
+  public function resetCache(array $ids = NULL);
 
   /**
    * Loads one or more entities.
@@ -139,8 +143,15 @@ class DrupalDefaultEntityController implements DrupalEntityControllerInterface {
   /**
    * Implements DrupalEntityControllerInterface::resetCache().
    */
-  public function resetCache() {
-    $this->entityCache = array();
+  public function resetCache(array $ids = NULL) {
+    if (isset($ids)) {
+      foreach ($ids as $id) {
+        unset($this->entityCache[$id]);
+      }
+    }
+    else {
+      $this->entityCache = array();
+    }
   }
 
   /**
@@ -419,6 +430,16 @@ class EntityFieldQuery {
   const RETURN_ALL = NULL;
 
   /**
+   * TRUE if the query has already been altered, FALSE if it hasn't.
+   *
+   * Used in alter hooks to check for cloned queries that have already been
+   * altered prior to the clone (for example, the pager count query).
+   *
+   * @var boolean
+   */
+  public $altered = FALSE;
+
+  /**
    * Associative array of entity-generic metadata conditions.
    *
    * @var array
@@ -460,6 +481,15 @@ class EntityFieldQuery {
    * @see EntityFieldQuery::range()
    */
   public $range = array();
+
+  /**
+   * The query pager data.
+   *
+   * @var array
+   *
+   * @see EntityFieldQuery::pager()
+   */
+  public $pager = array();
 
   /**
    * Query behavior for deleted data.
@@ -548,6 +578,10 @@ class EntityFieldQuery {
    * the type as a string for $value, and no $operator (it's disregarded).
    *
    * 'bundle', 'revision_id' and 'entity_id' have no such restrictions.
+   *
+   * Note: The "comment" and "taxonomy_term" entity types don't support bundle
+   * conditions. For "taxonomy_term", propertyCondition('vid') can be used
+   * instead.
    *
    * @param $name
    *   'entity_type', 'bundle', 'revision_id' or 'entity_id'.
@@ -680,6 +714,9 @@ class EntityFieldQuery {
    * If called multiple times, the query will order by each specified column in
    * the order this method is called.
    *
+   * Note: The "comment" and "taxonomy_term" entity types don't support ordering
+   * by bundle. For "taxonomy_term", propertyOrderBy('vid') can be used instead.
+   *
    * @param $name
    *   'entity_type', 'bundle', 'revision_id' or 'entity_id'.
    * @param $direction
@@ -788,6 +825,68 @@ class EntityFieldQuery {
       'start' => $start,
       'length' => $length,
     );
+    return $this;
+  }
+
+  /**
+   * Enable a pager for the query.
+   *
+   * @param $limit
+   *   An integer specifying the number of elements per page.  If passed a false
+   *   value (FALSE, 0, NULL), the pager is disabled.
+   * @param $element
+   *   An optional integer to distinguish between multiple pagers on one page.
+   *   If not provided, one is automatically calculated.
+   *
+   * @return EntityFieldQuery
+   *   The called object.
+   */
+  public function pager($limit = 10, $element = NULL) {
+    if (!isset($element)) {
+      $element = PagerDefault::$maxElement++;
+    }
+    elseif ($element >= PagerDefault::$maxElement) {
+      PagerDefault::$maxElement = $element + 1;
+    }
+
+    $this->pager = array(
+      'limit' => $limit,
+      'element' => $element,
+    );
+    return $this;
+  }
+
+  /**
+   * Enable sortable tables for this query.
+   *
+   * @param $headers
+   *   An EFQ Header array based on which the order clause is added to the query.
+   *
+   * @return EntityFieldQuery
+   *   The called object.
+   */
+  public function tableSort(&$headers) {
+    // If 'field' is not initialized, the header columns aren't clickable
+    foreach ($headers as $key =>$header) {
+      if (is_array($header) && isset($header['specifier'])) {
+        $headers[$key]['field'] = '';
+      }
+    }
+
+    $order = tablesort_get_order($headers);
+    $direction = tablesort_get_sort($headers);
+    foreach ($headers as $header) {
+      if (is_array($header) && ($header['data'] == $order['name'])) {
+        if ($header['type'] == 'field') {
+          $this->fieldOrderBy($header['specifier']['field'], $header['specifier']['column'], $direction);
+        }
+        else {
+          $header['direction'] = $direction;
+          $this->order[] = $header;
+        }
+      }
+    }
+
     return $this;
   }
 
@@ -904,6 +1003,10 @@ class EntityFieldQuery {
   public function execute() {
     // Give a chance to other modules to alter the query.
     drupal_alter('entity_query', $this);
+    $this->altered = TRUE;
+
+    // Initialize the pager.
+    $this->initializePager();
 
     // Execute the query using the correct callback.
     $result = call_user_func($this->queryCallback(), $this);
@@ -959,12 +1062,12 @@ class EntityFieldQuery {
       throw new EntityFieldQueryException(t('For this query an entity type must be specified.'));
     }
     $entity_type = $this->entityConditions['entity_type']['value'];
-    unset($this->entityConditions['entity_type']);
     $entity_info = entity_get_info($entity_type);
     if (empty($entity_info['base table'])) {
       throw new EntityFieldQueryException(t('Entity %entity has no base table.', array('%entity' => $entity_type)));
     }
     $base_table = $entity_info['base table'];
+    $base_table_schema = drupal_get_schema($base_table);
     $select_query = db_select($base_table);
     $select_query->addExpression(':entity_type', 'entity_type', array(':entity_type' => $entity_type));
     // Process the property conditions.
@@ -997,8 +1100,11 @@ class EntityFieldQuery {
     // Handle bundles.
     if (!empty($entity_info['entity keys']['bundle'])) {
       $sql_field = $entity_info['entity keys']['bundle'];
-      $select_query->addField($base_table, $sql_field, 'bundle');
       $having = FALSE;
+
+      if (!empty($base_table_schema['fields'][$sql_field])) {
+        $select_query->addField($base_table, $sql_field, 'bundle');
+      }
     }
     else {
       $sql_field = 'bundle';
@@ -1025,6 +1131,24 @@ class EntityFieldQuery {
     }
 
     return $this->finishQuery($select_query);
+  }
+
+  /**
+   * Get the total number of results and initialize a pager for the query.
+   *
+   * This query can be detected by checking for ($this->pager && $this->count),
+   * which allows a driver to return 0 from the count query and disable
+   * the pager.
+   */
+  function initializePager() {
+    if ($this->pager && !$this->count) {
+      $page = pager_find_page($this->pager['element']);
+      $count_query = clone $this;
+      $this->pager['total'] = $count_query->count()->execute();
+      $this->pager['start'] = $page * $this->pager['limit'];
+      pager_default_initialize($this->pager['total'], $this->pager['limit'], $this->pager['element']);
+      $this->range($this->pager['start'], $this->pager['limit']);
+    }
   }
 
   /**
@@ -1057,7 +1181,8 @@ class EntityFieldQuery {
     }
     $return = array();
     foreach ($select_query->execute() as $partial_entity) {
-      $entity = entity_create_stub_entity($partial_entity->entity_type, array($partial_entity->entity_id, $partial_entity->revision_id, $partial_entity->bundle));
+      $bundle = isset($partial_entity->bundle) ? $partial_entity->bundle : NULL;
+      $entity = entity_create_stub_entity($partial_entity->entity_type, array($partial_entity->entity_id, $partial_entity->revision_id, $bundle));
       $return[$partial_entity->entity_type][$partial_entity->$id_key] = $entity;
       $this->ordered_results[] = $partial_entity;
     }

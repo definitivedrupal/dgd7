@@ -1,5 +1,5 @@
 <?php
-// $Id: system.admin.inc,v 1.323 2010/10/20 16:19:24 webchick Exp $
+// $Id: system.admin.inc,v 1.326 2010/11/23 02:54:13 dries Exp $
 
 /**
  * @file
@@ -90,7 +90,7 @@ function system_admin_index() {
     // Only display a section if there are any available tasks.
     if ($admin_tasks = system_get_module_admin_tasks($module, $info->info)) {
       // Sort links by title.
-      uasort($admin_tasks, 'system_sort_by_title');
+      uasort($admin_tasks, 'drupal_sort_title');
       // Move 'Configure permissions' links to the bottom of each section.
       $permission_key = "admin/people/permissions#module-$module";
       if (isset($admin_tasks[$permission_key])) {
@@ -903,19 +903,6 @@ function system_modules($form, $form_state = array()) {
 }
 
 /**
- * Array sorting callback; sorts elements by 'title' key.
- */
-function system_sort_by_title($a, $b) {
-  if (!isset($b['title'])) {
-    return -1;
-  }
-  if (!isset($a['title'])) {
-    return 1;
-  }
-  return strcasecmp($a['title'], $b['title']);
-}
-
-/**
  * Array sorting callback; sorts modules or themes by their name.
  */
 function system_sort_modules_by_info_name($a, $b) {
@@ -1226,30 +1213,42 @@ function system_modules_uninstall($form, $form_state = NULL) {
     return $confirm_form;
   }
 
-  // Pull all disabled modules from the system table.
-  $disabled_modules = db_query("SELECT name, filename, info FROM {system} WHERE type = 'module' AND status = 0 AND schema_version > :schema ORDER BY name", array(':schema' => SCHEMA_UNINSTALLED));
-  foreach ($disabled_modules as $module) {
-    // Grab the module info
-    $info = unserialize($module->info);
-
-    // Load the .install file, and check for an uninstall or schema hook.
-    // If the hook exists, the module can be uninstalled.
-    module_load_install($module->name);
-    if (module_hook($module->name, 'uninstall') || module_hook($module->name, 'schema')) {
-      $form['modules'][$module->name]['name'] = array('#markup' => $info['name'] ? $info['name'] : $module->name);
-      $form['modules'][$module->name]['description'] = array('#markup' => t($info['description']));
-      $options[$module->name] = '';
+  // Get a list of disabled, installed modules.
+  $all_modules = system_rebuild_module_data();
+  $disabled_modules = array();
+  foreach ($all_modules as $name => $module) {
+    if (empty($module->status) && $module->schema_version > SCHEMA_UNINSTALLED) {
+      $disabled_modules[$name] = $module;
     }
   }
 
-  // Only build the rest of the form if there are any modules available to uninstall.
-  if (!empty($options)) {
-    $form['uninstall'] = array(
-      '#type' => 'checkboxes',
-      '#title' => t('Modules'),
-      '#title_display' => 'invisible',
-      '#options' => $options,
-    );
+  // Only build the rest of the form if there are any modules available to
+  // uninstall.
+  if (!empty($disabled_modules)) {
+    $profile = drupal_get_profile();
+    uasort($disabled_modules, 'system_sort_modules_by_info_name');
+    $form['uninstall'] = array('#tree' => TRUE);
+    foreach ($disabled_modules as $module) {
+      $module_name = $module->info['name'] ? $module->info['name'] : $module->name;
+      $form['modules'][$module->name]['#module_name'] = $module_name;
+      $form['modules'][$module->name]['name']['#markup'] = $module_name;
+      $form['modules'][$module->name]['description']['#markup'] = t($module->info['description']);
+      $form['uninstall'][$module->name] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Uninstall @module module', array('@module' => $module_name)),
+        '#title_display' => 'invisible',
+      );
+      // All modules which depend on this one must be uninstalled first, before
+      // we can allow this module to be uninstalled. (The install profile is
+      // excluded from this list.)
+      foreach (array_keys($module->required_by) as $dependent) {
+        if ($dependent != $profile && drupal_get_installed_schema_version($dependent) != SCHEMA_UNINSTALLED) {
+          $dependent_name = isset($all_modules[$dependent]->info['name']) ? $all_modules[$dependent]->info['name'] : $dependent;
+          $form['modules'][$module->name]['#required_by'][] = $dependent_name;
+          $form['uninstall'][$module->name]['#disabled'] = TRUE;
+        }
+      }
+    }
     $form['actions'] = array('#type' => 'actions');
     $form['actions']['submit'] = array(
       '#type' => 'submit',
@@ -1696,13 +1695,13 @@ function system_performance_settings() {
   );
   $form['bandwidth_optimization']['preprocess_css'] = array(
     '#type' => 'checkbox',
-    '#title' => t('Aggregate and compress CSS files into one file.'),
+    '#title' => t('Aggregate and compress CSS files.'),
     '#default_value' => intval(variable_get('preprocess_css', 0) && $is_writable),
     '#disabled' => $disabled,
   );
   $form['bandwidth_optimization']['preprocess_js'] = array(
     '#type' => 'checkbox',
-    '#title' => t('Aggregate JavaScript files into one file.'),
+    '#title' => t('Aggregate JavaScript files.'),
     '#default_value' => intval(variable_get('preprocess_js', 0) && $is_writable),
     '#disabled' => $disabled,
   );
@@ -2599,10 +2598,20 @@ function theme_system_modules_uninstall($variables) {
   // Display table.
   $rows = array();
   foreach (element_children($form['modules']) as $module) {
+    if (!empty($form['modules'][$module]['#required_by'])) {
+      $disabled_message = format_plural(count($form['modules'][$module]['#required_by']),
+        'To uninstall @module, the following module must be uninstalled first: @required_modules',
+        'To uninstall @module, the following modules must be uninstalled first: @required_modules',
+        array('@module' => $form['modules'][$module]['#module_name'], '@required_modules' => implode(', ', $form['modules'][$module]['#required_by'])));
+      $disabled_message = '<div class="admin-requirements">' . $disabled_message . '</div>';
+    }
+    else {
+      $disabled_message = '';
+    }
     $rows[] = array(
       array('data' => drupal_render($form['uninstall'][$module]), 'align' => 'center'),
       '<strong><label for="' . $form['uninstall'][$module]['#id'] . '">' . drupal_render($form['modules'][$module]['name']) . '</label></strong>',
-      array('data' => drupal_render($form['modules'][$module]['description']), 'class' => array('description')),
+      array('data' => drupal_render($form['modules'][$module]['description']) . $disabled_message, 'class' => array('description')),
     );
   }
 

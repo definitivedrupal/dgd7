@@ -1,5 +1,5 @@
 <?php
-// $Id: user.admin.inc,v 1.120 2010/10/20 01:31:07 dries Exp $
+// $Id: user.admin.inc,v 1.123 2010/11/17 04:10:52 dries Exp $
 
 /**
  * @file
@@ -678,11 +678,11 @@ function user_admin_permissions($form, $form_state, $rid = NULL) {
   // display name.
   $modules = array();
   foreach (module_implements('permission') as $module) {
-    $modules[$module_info[$module]['name']] = $module;
+    $modules[$module] = $module_info[$module]['name'];
   }
-  ksort($modules);
+  asort($modules);
 
-  foreach ($modules as $display_name => $module) {
+  foreach ($modules as $module => $display_name) {
     if ($permissions = module_invoke($module, 'permission')) {
       $form['permission'][] = array(
         '#markup' => $module_info[$module]['name'],
@@ -767,7 +767,7 @@ function theme_user_admin_permissions($variables) {
         'class' => array('permission'),
       );
       foreach (element_children($form['checkboxes']) as $rid) {
-        $form['checkboxes'][$rid][$key]['#title'] = $roles[$rid] . ': ' . t($key);
+        $form['checkboxes'][$rid][$key]['#title'] = $roles[$rid] . ': ' . $form['permission'][$key]['#markup'];
         $form['checkboxes'][$rid][$key]['#title_display'] = 'invisible';
         $row[] = array('data' => drupal_render($form['checkboxes'][$rid][$key]), 'class' => array('checkbox'));
       }
@@ -878,6 +878,7 @@ function user_admin_roles_order_submit($form, &$form_state) {
     $role->weight = $role_values['weight'];
     user_role_save($role);
   }
+  drupal_set_message(t('The role settings have been updated.'));
 }
 
 /**

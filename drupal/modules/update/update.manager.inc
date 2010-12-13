@@ -1,5 +1,5 @@
 <?php
-// $Id: update.manager.inc,v 1.24 2010/07/29 02:27:43 dries Exp $
+// $Id: update.manager.inc,v 1.29 2010/12/06 06:50:08 webchick Exp $
 
 /**
  * @file
@@ -112,7 +112,7 @@ function update_manager_update_form($form, $form_state = array(), $context) {
     }
 
     $recommended_release = $project['releases'][$project['recommended']];
-    $recommended_version = $recommended_release['version'] . ' ' . l(t('(Release notes)'), $recommended_release['release_link'], array('attributes' => array('title' => t('Release notes for @project_name', array('@project_name' => $project_name)))));
+    $recommended_version = $recommended_release['version'] . ' ' . l(t('(Release notes)'), $recommended_release['release_link'], array('attributes' => array('title' => t('Release notes for @project_title', array('@project_title' => $project['title'])))));
     if ($recommended_release['version_major'] != $project['existing_major']) {
       $recommended_version .= '<div title="Major upgrade warning" class="update-major-version-warning">' . t('This update is a major version update which means that it may not be backwards compatible with your currently running version.  It is recommended that you read the release notes and proceed at your own risk.') . '</div>';
     }
@@ -357,7 +357,7 @@ function update_manager_update_ready_form($form, &$form_state) {
     '#suffix' => '</strong>',
   );
 
-  $form['site_offline'] = array(
+  $form['maintenance_mode'] = array(
     '#title' => t('Perform updates with site in maintenance mode (strongly recommended)'),
     '#type' => 'checkbox',
     '#default_value' => TRUE,
@@ -386,8 +386,8 @@ function update_manager_update_ready_form($form, &$form_state) {
  * @see system_authorized_get_url()
  */
 function update_manager_update_ready_form_submit($form, &$form_state) {
-  if ($form_state['values']['site_offline'] == TRUE) {
-    variable_set('site_offline', TRUE);
+  if ($form_state['values']['maintenance_mode'] == TRUE) {
+    variable_set('maintenance_mode', TRUE);
   }
 
   if (!empty($_SESSION['update_manager_update_projects'])) {
@@ -425,7 +425,7 @@ function update_manager_update_ready_form_submit($form, &$form_state) {
     // credentials and invoke update_authorize_run_update() indirectly with
     // whatever FileTransfer object authorize.php creates for us.
     else {
-      system_authorized_init('update_authorize_run_update', drupal_get_path('module', 'update') . '/update.authorize.inc', array($updates));
+      system_authorized_init('update_authorize_run_update', drupal_get_path('module', 'update') . '/update.authorize.inc', array($updates), t('Update manager'));
       $form_state['redirect'] = system_authorized_get_url();
     }
   }
@@ -557,11 +557,16 @@ function update_manager_install_form_submit($form, &$form_state) {
   // Unfortunately, we can only use the directory name for this. :(
   $project = drupal_substr($files[0], 0, -1);
 
-  try {
-    update_manager_archive_verify($project, $local_cache, $directory);
-  }
-  catch (Exception $e) {
-    form_set_error($field, $e->getMessage());
+  $archive_errors = update_manager_archive_verify($project, $local_cache, $directory);
+  if (!empty($archive_errors)) {
+    form_set_error($field, array_shift($archive_errors));
+    // @todo: Fix me in D8: We need a way to set multiple errors on the same
+    // form element and have all of them appear!
+    if (!empty($archive_errors)) {
+      foreach ($archive_errors as $error) {
+        drupal_set_message($error, 'error');
+      }
+    }
     return;
   }
 
@@ -602,7 +607,7 @@ function update_manager_install_form_submit($form, &$form_state) {
   // credentials and invoke update_authorize_run_install() indirectly with
   // whatever FileTransfer object authorize.php creates for us.
   else {
-    system_authorized_init('update_authorize_run_install', drupal_get_path('module', 'update') . '/update.authorize.inc', $arguments);
+    system_authorized_init('update_authorize_run_install', drupal_get_path('module', 'update') . '/update.authorize.inc', $arguments, t('Update manager'));
     $form_state['redirect'] = system_authorized_get_url();
   }
 }
@@ -654,6 +659,18 @@ function update_manager_archive_extract($file, $directory) {
   if (!$archiver) {
     throw new Exception(t('Cannot extract %file, not a valid archive.', array ('%file' => $file)));
   }
+
+  // Remove the directory if it exists, otherwise it might contain a mixture of
+  // old files mixed with the new files (e.g. in cases where files were removed
+  // from a later release).
+  $files = $archiver->listContents();
+  // Unfortunately, we can only use the directory name for this. :(
+  $project = drupal_substr($files[0], 0, -1);
+  $extract_location = $directory . '/' . $project;
+  if (file_exists($extract_location)) {
+    file_unmanaged_delete_recursive($extract_location);
+  }
+
   $archiver->extract($directory);
   return $archiver;
 }
@@ -670,15 +687,13 @@ function update_manager_archive_extract($file, $directory) {
  * @param string $directory
  *   The directory that the archive was extracted into.
  *
- * @return void
- * @throws Exception on failure.
+ * @return array
+ *   An array of error messages to display if the archive was invalid. If
+ *   there are no errors, it will be an empty array.
  *
  */
 function update_manager_archive_verify($project, $archive_file, $directory) {
-  $failures = module_invoke_all('verify_update_archive', $project, $archive_file, $directory);
-  if (!empty($failures)) {
-    throw new Exception(t('Unable to extract %file', array('%file' => $archive_file)));
-  }
+  return module_invoke_all('verify_update_archive', $project, $archive_file, $directory);
 }
 
 /**
@@ -758,11 +773,13 @@ function update_manager_batch_project_get($project, $url, &$context) {
   }
 
   // Verify it.
-  try {
-    update_manager_archive_verify($project, $local_cache, $extract_directory);
-  }
-  catch (Exception $e) {
-    $context['results']['errors'][$project] = $e->getMessage();
+  $archive_errors = update_manager_archive_verify($project, $local_cache, $extract_directory);
+  if (!empty($archive_errors)) {
+    // We just need to make sure our array keys don't collide, so use the
+    // numeric keys from the $archive_errors array.
+    foreach ($archive_errors as $key => $error) {
+      $context['results']['errors']["$project-$key"] = $error;
+    }
     return;
   }
 

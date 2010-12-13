@@ -1,5 +1,5 @@
 <?php
-// $Id: taxonomy.admin.inc,v 1.114 2010/10/20 01:31:07 dries Exp $
+// $Id: taxonomy.admin.inc,v 1.116 2010/11/20 06:49:47 webchick Exp $
 
 /**
  * @file
@@ -642,7 +642,6 @@ function taxonomy_form_term($form, &$form_state, $edit = array(), $vocabulary = 
   $form['#term'] = (array) $term;
   $form['#term']['parent'] = $parent;
   $form['#vocabulary'] = $vocabulary;
-  $form['#builder_function'] = 'taxonomy_form_term_submit_builder';
 
   // Check for confirmation forms.
   if (isset($form_state['confirm_delete'])) {
@@ -792,7 +791,7 @@ function taxonomy_form_term_submit($form, &$form_state) {
     return;
   }
 
-  $term = $form['#builder_function']($form, $form_state);
+  $term = taxonomy_form_term_submit_build_taxonomy_term($form, $form_state);
 
   $status = taxonomy_term_save($term);
   switch ($status) {
@@ -835,7 +834,7 @@ function taxonomy_form_term_submit($form, &$form_state) {
 /**
  * Updates the form state's term entity by processing this submission's values.
  */
-function taxonomy_form_term_submit_builder($form, &$form_state) {
+function taxonomy_form_term_submit_build_taxonomy_term($form, &$form_state) {
   $term = $form_state['term'];
   entity_form_submit_build_entity('taxonomy_term', $term, $form, $form_state);
 
@@ -902,6 +901,7 @@ function taxonomy_term_confirm_delete_submit($form, &$form_state) {
   drupal_set_message(t('Deleted term %name.', array('%name' => $form_state['values']['name'])));
   watchdog('taxonomy', 'Deleted term %name.', array('%name' => $form_state['values']['name']), WATCHDOG_NOTICE);
   $form_state['redirect'] = 'admin/structure/taxonomy';
+  cache_clear_all();
   return;
 }
 
@@ -941,6 +941,7 @@ function taxonomy_vocabulary_confirm_delete_submit($form, &$form_state) {
   drupal_set_message(t('Deleted vocabulary %name.', array('%name' => $form_state['values']['name'])));
   watchdog('taxonomy', 'Deleted vocabulary %name.', array('%name' => $form_state['values']['name']), WATCHDOG_NOTICE);
   $form_state['redirect'] = 'admin/structure/taxonomy';
+  cache_clear_all();
   return;
 }
 

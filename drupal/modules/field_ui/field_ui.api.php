@@ -1,5 +1,5 @@
 <?php
-// $Id: field_ui.api.php,v 1.8 2010/07/17 19:19:39 dries Exp $
+// $Id: field_ui.api.php,v 1.10 2010/11/12 03:10:38 dries Exp $
 
 /**
  * @file
@@ -172,6 +172,10 @@ function hook_field_formatter_settings_form($field, $instance, $view_mode, $form
 
 /**
  * Returns a short summary for the current formatter settings of an instance.
+ *
+ * If an empty result is returned, the formatter is assumed to have no
+ * configurable settings, and no UI will be provided to display a settings
+ * form.
  *
  * @param $field
  *   The field structure.

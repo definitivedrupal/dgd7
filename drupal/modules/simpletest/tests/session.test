@@ -1,5 +1,5 @@
 <?php
-// $Id: session.test,v 1.33 2010/10/15 04:15:41 webchick Exp $
+// $Id: session.test,v 1.35 2010/11/13 17:40:09 webchick Exp $
 
 /**
  * @file
@@ -223,6 +223,30 @@ class SessionTestCase extends DrupalWebTestCase {
   }
 
   /**
+   * Test that empty session IDs are not allowed.
+   */
+  function testEmptySessionID() {
+    $user = $this->drupalCreateUser(array('access content'));
+    $this->drupalLogin($user);
+    $this->drupalGet('session-test/is-logged-in');
+    $this->assertResponse(200, t('User is logged in.'));
+
+    // Reset the sid in {sessions} to a blank string. This may exist in the
+    // wild in some cases, although we normally prevent it from happening.
+    db_query("UPDATE {sessions} SET sid = '' WHERE uid = :uid", array(':uid' => $user->uid));
+    // Send a blank sid in the session cookie, and the session should no longer
+    // be valid. Closing the curl handler will stop the previous session ID
+    // from persisting.
+    $this->curlClose();
+    $this->additionalCurlOptions[CURLOPT_COOKIE] = rawurlencode($this->session_name) . '=;';
+    $this->drupalGet('session-test/id-from-cookie');
+    $this->assertRaw("session_id:\n", t('Session ID is blank as sent from cookie header.'));
+    // Assert that we have an anonymous session now.
+    $this->drupalGet('session-test/is-logged-in');
+    $this->assertResponse(403, t('An empty session ID is not allowed.'));
+  }
+
+  /**
    * Reset the cookie file so that it refers to the specified user.
    *
    * @param $uid User id to set as the active session.
@@ -316,7 +340,7 @@ class SessionHttpsTestCase extends DrupalWebTestCase {
     // Check insecure cookie is not set.
     $this->assertFalse(isset($this->cookies[$insecure_session_name]));
     $ssid = $this->cookies[$secure_session_name]['value'];
-    $this->assertSessionIds('', $ssid, 'Session has NULL for SID and a correct secure SID.');
+    $this->assertSessionIds($ssid, $ssid, 'Session has a non-empty SID and a correct secure SID.');
     $cookie = $secure_session_name . '=' . $ssid;
 
     // Verify that user is logged in on secure URL.
@@ -326,12 +350,36 @@ class SessionHttpsTestCase extends DrupalWebTestCase {
     $this->assertResponse(200);
 
     // Verify that user is not logged in on non-secure URL.
-    if (!$is_https) {
-      $this->curlClose();
-      $this->drupalGet('admin/config', array(), array('Cookie: ' . $cookie));
-      $this->assertNoText(t('Configuration'));
-      $this->assertResponse(403);
-    }
+    $this->curlClose();
+    $this->drupalGet($this->httpUrl('admin/config'), array(), array('Cookie: ' . $cookie));
+    $this->assertNoText(t('Configuration'));
+    $this->assertResponse(403);
+
+    // Verify that empty SID cannot be used on the non-secure site.
+    $this->curlClose();
+    $cookie = $insecure_session_name . '=';
+    $this->drupalGet($this->httpUrl('admin/config'), array(), array('Cookie: ' . $cookie));
+    $this->assertResponse(403);
+
+    // Test HTTP session handling by altering the form action to submit the
+    // login form through http.php, which creates a mock HTTP request on HTTPS
+    // test environments.
+    $this->curlClose();
+    $this->drupalGet('user');
+    $form = $this->xpath('//form[@id="user-login"]');
+    $form[0]['action'] = $this->httpUrl('user');
+    $edit = array('name' => $user->name, 'pass' => $user->pass_raw);
+    $this->drupalPost(NULL, $edit, t('Log in'));
+    $this->drupalGet($this->httpUrl('admin/config'));
+    $this->assertResponse(200);
+    $sid = $this->cookies[$insecure_session_name]['value'];
+    $this->assertSessionIds($sid, '', 'Session has the correct SID and an empty secure SID.');
+
+    // Verify that empty secure SID cannot be used on the secure site.
+    $this->curlClose();
+    $cookie = $secure_session_name . '=';
+    $this->drupalGet($this->httpsUrl('admin/config'), array(), array('Cookie: ' . $cookie));
+    $this->assertResponse(403);
 
     // Clear browser cookie jar.
     $this->cookies = array();
@@ -458,9 +506,32 @@ class SessionHttpsTestCase extends DrupalWebTestCase {
     return $this->assertTrue(db_query('SELECT timestamp FROM {sessions} WHERE sid = :sid AND ssid = :ssid', $args)->fetchField(), $assertion_text);
   }
 
+  /**
+   * Builds a URL for submitting a mock HTTPS request to HTTP test environments.
+   *
+   * @param $url
+   *   A Drupal path such as 'user'.
+   *
+   * @return
+   *   An absolute URL.
+   */
   protected function httpsUrl($url) {
     global $base_url;
     return $base_url . '/modules/simpletest/tests/https.php?q=' . $url;
+  }
+
+  /**
+   * Builds a URL for submitting a mock HTTP request to HTTPS test environments.
+   *
+   * @param $url
+   *   A Drupal path such as 'user'.
+   *
+   * @return
+   *   An absolute URL.
+   */
+  protected function httpUrl($url) {
+    global $base_url;
+    return $base_url . '/modules/simpletest/tests/http.php?q=' . $url;
   }
 }
 

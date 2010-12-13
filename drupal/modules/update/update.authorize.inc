@@ -1,5 +1,5 @@
 <?php
-// $Id: update.authorize.inc,v 1.4 2010/04/10 09:49:49 dries Exp $
+// $Id: update.authorize.inc,v 1.8 2010/12/01 07:02:14 webchick Exp $
 
 /**
  * @file
@@ -131,7 +131,7 @@ function update_authorize_batch_copy_project($project, $updater_name, $local_url
   unset($filetransfer->connection);
 
   if (!empty($context['results']['log'][$project]['#abort'])) {
-    $context['#finished'] = 1;
+    $context['finished'] = 1;
     return;
   }
 
@@ -176,14 +176,14 @@ function update_authorize_update_batch_finished($success, $results) {
       $success = FALSE;
     }
   }
-  $offline = variable_get('site_offline', FALSE);
+  $offline = variable_get('maintenance_mode', FALSE);
   if ($success) {
     // Now that the update completed, we need to clear the cache of available
     // update data and recompute our status, so prevent show bogus results.
     _update_authorize_clear_update_status();
 
     if ($offline) {
-      variable_set('site_offline', FALSE);
+      variable_set('maintenance_mode', FALSE);
       $page_message = array(
         'message' => t('Update was completed successfully. Your site has been taken out of maintenance mode.'),
         'type' => 'status',
@@ -218,6 +218,7 @@ function update_authorize_update_batch_finished($success, $results) {
   $_SESSION['authorize_results']['page_message'] = $page_message;
   $_SESSION['authorize_results']['messages'] = $results['log'];
   $_SESSION['authorize_results']['tasks'] = $results['tasks'];
+  $_SESSION['authorize_operation']['page_title'] = t('Update manager');
 }
 
 /**
@@ -233,9 +234,9 @@ function update_authorize_install_batch_finished($success, $results) {
       $success = FALSE;
     }
   }
-  $offline = variable_get('site_offline', FALSE);
+  $offline = variable_get('maintenance_mode', FALSE);
   if ($success && $offline) {
-    variable_set('site_offline', FALSE);
+    variable_set('maintenance_mode', FALSE);
     $page_message = array(
       'message' => t('Installation was completed successfully. Your site has been taken out of maintenance mode.'),
       'type' => 'status',
@@ -265,6 +266,7 @@ function update_authorize_install_batch_finished($success, $results) {
   $_SESSION['authorize_results']['page_message'] = $page_message;
   $_SESSION['authorize_results']['messages'] = $results['log'];
   $_SESSION['authorize_results']['tasks'] = $results['tasks'];
+  $_SESSION['authorize_operation']['page_title'] = t('Update manager');
 }
 
 /**

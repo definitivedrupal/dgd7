@@ -1,5 +1,5 @@
 <?php
-// $Id: page.tpl.php,v 1.7 2010/10/05 01:48:11 dries Exp $
+// $Id: page.tpl.php,v 1.9 2010/11/07 21:48:56 dries Exp $
 
 /**
  * @file
@@ -146,7 +146,7 @@
           'links' => $secondary_menu,
           'attributes' => array(
             'id' => 'secondary-menu-links',
-            'class' => array('links', 'clearfix'),
+            'class' => array('links', 'inline', 'clearfix'),
           ),
           'heading' => array(
             'text' => t('Secondary menu'),

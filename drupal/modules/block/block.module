@@ -1,5 +1,5 @@
 <?php
-// $Id: block.module,v 1.431 2010/09/28 03:30:37 webchick Exp $
+// $Id: block.module,v 1.435 2010/11/23 16:12:15 webchick Exp $
 
 /**
  * @file
@@ -240,8 +240,9 @@ function block_block_save($delta = 0, $edit = array()) {
  *
  * Generates the administrator-defined blocks for display.
  */
-function block_block_view($delta = 0, $edit = array()) {
+function block_block_view($delta = '') {
   $block = db_query('SELECT body, format FROM {block_custom} WHERE bid = :bid', array(':bid' => $delta))->fetchObject();
+  $data['subject'] = NULL;
   $data['content'] = check_markup($block->body, $block->format, '', TRUE);
   return $data;
 }
@@ -559,7 +560,7 @@ function block_form_user_profile_form_alter(&$form, &$form_state) {
         $blocks[$block->module][$block->delta] = array(
           '#type' => 'checkbox',
           '#title' => check_plain($data[$block->delta]['info']),
-          '#default_value' => isset($account->block[$block->module][$block->delta]) ? $account->block[$block->module][$block->delta] : ($block->custom == 1),
+          '#default_value' => isset($account->data['block'][$block->module][$block->delta]) ? $account->data['block'][$block->module][$block->delta] : ($block->custom == 1),
         );
       }
     }
@@ -575,6 +576,15 @@ function block_form_user_profile_form_alter(&$form, &$form_state) {
       );
       $form['block'] += $blocks;
     }
+  }
+}
+
+/**
+ * Implements hook_user_presave().
+ */
+function block_user_presave(&$edit, $account, $category) {
+  if (isset($edit['block'])) {
+    $edit['data']['block'] = $edit['block'];
   }
 }
 
@@ -607,7 +617,7 @@ function block_theme_initialize($theme) {
     $result = db_query("SELECT * FROM {block} WHERE theme = :theme", array(':theme' => $default_theme), array('fetch' => PDO::FETCH_ASSOC));
     foreach ($result as $block) {
       // If the region isn't supported by the theme, assign the block to the theme's default region.
-      if ($block['status'] && !array_key_exists($block['region'], $regions)) {
+      if ($block['status'] && !isset($regions[$block['region']])) {
         $block['region'] = system_default_region($theme);
       }
       $block['theme'] = $theme;
@@ -741,8 +751,8 @@ function block_block_list_alter(&$blocks) {
 
     // Use the user's block visibility setting, if necessary.
     if ($block->custom != BLOCK_CUSTOM_FIXED) {
-      if ($user->uid && isset($user->block[$block->module][$block->delta])) {
-        $enabled = $user->block[$block->module][$block->delta];
+      if ($user->uid && isset($user->data['block'][$block->module][$block->delta])) {
+        $enabled = $user->data['block'][$block->module][$block->delta];
       }
       else {
         $enabled = ($block->custom == BLOCK_CUSTOM_ENABLED);

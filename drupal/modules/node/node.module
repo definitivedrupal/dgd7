@@ -1,5 +1,5 @@
 <?php
-// $Id: node.module,v 1.1309 2010/10/20 08:15:33 webchick Exp $
+// $Id: node.module,v 1.1330 2010/12/02 23:58:21 dries Exp $
 
 /**
  * @file
@@ -255,16 +255,18 @@ function node_uri($node) {
  * Implements hook_admin_paths().
  */
 function node_admin_paths() {
-  $paths = array(
-    'node/*/edit' => TRUE,
-    'node/*/delete' => TRUE,
-    'node/*/revisions' => TRUE,
-    'node/*/revisions/*/revert' => TRUE,
-    'node/*/revisions/*/delete' => TRUE,
-    'node/add' => TRUE,
-    'node/add/*' => TRUE,
-  );
-  return $paths;
+  if (variable_get('node_admin_theme')) {
+    $paths = array(
+      'node/*/edit' => TRUE,
+      'node/*/delete' => TRUE,
+      'node/*/revisions' => TRUE,
+      'node/*/revisions/*/revert' => TRUE,
+      'node/*/revisions/*/delete' => TRUE,
+      'node/add' => TRUE,
+      'node/add/*' => TRUE,
+    );
+    return $paths;
+  }
 }
 
 /**
@@ -376,7 +378,7 @@ function _node_extract_type($node) {
  * See _node_types_build() for details.
  *
  * @return
- *   An array of node types, keyed by the type.
+ *   An array of node types, as objects, keyed by the type.
  *
  * @see node_type_get_type()
  */
@@ -533,7 +535,7 @@ function node_type_save($info) {
   }
 
   // Clear the node type cache.
-  drupal_static_reset('_node_types_build');
+  node_type_cache_reset();
 
   return $status;
 }
@@ -624,7 +626,7 @@ function node_type_delete($type) {
   module_invoke_all('node_type_delete', $info);
 
   // Clear the node type cache.
-  drupal_static_reset('_node_types_build');
+  node_type_cache_reset();
 }
 
 /**
@@ -669,14 +671,20 @@ function node_type_update_nodes($old_type, $type) {
  *   type object by $type->disabled being set to TRUE.
  */
 function _node_types_build($rebuild = FALSE) {
+  $cid = 'node_types:' . $GLOBALS['language']->language;
+
   if (!$rebuild) {
     $_node_types = &drupal_static(__FUNCTION__);
-    if (is_object($_node_types)) {
+    if (isset($_node_types)) {
+      return $_node_types;
+    }
+    if ($cache = cache_get($cid)) {
+      $_node_types = $cache->data;
       return $_node_types;
     }
   }
 
-  $_node_types = (object)array('types' => array(), 'names' => array());
+  $_node_types = (object) array('types' => array(), 'names' => array());
 
   foreach (module_implements('node_info') as $module) {
     $info_array = module_invoke($module, 'node_info');
@@ -732,7 +740,17 @@ function _node_types_build($rebuild = FALSE) {
 
   asort($_node_types->names);
 
+  cache_set($cid, $_node_types);
+
   return $_node_types;
+}
+
+/**
+ * Clears the node type cache.
+ */
+function node_type_cache_reset() {
+  cache_clear_all('node_types:', 'cache', TRUE);
+  drupal_static_reset('_node_types_build');
 }
 
 /**
@@ -746,33 +764,26 @@ function _node_types_build($rebuild = FALSE) {
  *   An object or array containing values to override the defaults.
  *
  * @return
- *  A node type object.
+ *   A node type object.
  */
 function node_type_set_defaults($info = array()) {
-  $type = &drupal_static(__FUNCTION__);
-
-  if (!isset($type)) {
-    $type = new stdClass();
-    $type->type = '';
-    $type->name = '';
-    $type->base = '';
-    $type->description = '';
-    $type->help = '';
-    $type->custom = 0;
-    $type->modified = 0;
-    $type->locked = 1;
-    $type->disabled = 0;
-    $type->is_new = 1;
-
-    $type->has_title = 1;
-    $type->title_label = 'Title';
-  }
-
-  $new_type = clone $type;
   $info = (array) $info;
-  foreach ($info as $key => $data) {
-    $new_type->$key = $data;
-  }
+  $new_type = $info + array(
+    'type' => '',
+    'name' => '',
+    'base' => '',
+    'description' => '',
+    'help' => '',
+    'custom' => 0,
+    'modified' => 0,
+    'locked' => 1,
+    'disabled' => 0,
+    'is_new' => 1,
+    'has_title' => 1,
+    'title_label' => 'Title',
+  );
+  $new_type = (object) $new_type;
+
   // If the type has no title, set an empty label.
   if (!$new_type->has_title) {
     $new_type->title_label = '';
@@ -875,16 +886,23 @@ function node_invoke($node, $hook, $a2 = NULL, $a3 = NULL, $a4 = NULL) {
  * database access if loaded again during the same page request.
  *
  * @see entity_load()
+ * @see EntityFieldQuery
  *
  * @param $nids
  *   An array of node IDs.
  * @param $conditions
- *   An array of conditions on the {node} table in the form 'field' => $value.
+ *   (deprecated) An associative array of conditions on the {node}
+ *   table, where the keys are the database fields and the values are the
+ *   values those fields must have. Instead, it is preferable to use
+ *   EntityFieldQuery to retrieve a list of entity IDs loadable by
+ *   this function.
  * @param $reset
  *   Whether to reset the internal node_load cache.
  *
  * @return
  *   An array of node objects indexed by nid.
+ *
+ * @todo Remove $conditions in Drupal 8.
  */
 function node_load_multiple($nids = array(), $conditions = array(), $reset = FALSE) {
   return entity_load('node', $nids, $conditions, $reset);
@@ -1014,6 +1032,11 @@ function node_save($node) {
   $transaction = db_transaction();
 
   try {
+    // Load the stored entity, if any.
+    if (!empty($node->nid) && !isset($node->original)) {
+      $node->original = entity_load_unchanged('node', $node->nid);
+    }
+
     field_attach_presave('node', $node);
     global $user;
 
@@ -1117,13 +1140,16 @@ function node_save($node) {
 
     // Clear internal properties.
     unset($node->is_new);
+    unset($node->original);
+    // Clear the static loading cache.
+    entity_get_controller('node')->resetCache(array($node->nid));
 
     // Ignore slave server temporarily to give time for the
     // saved node to be propagated to the slave.
     db_ignore_slave();
   }
   catch (Exception $e) {
-    $transaction->rollback('node');
+    $transaction->rollback();
     watchdog_exception('node', $e);
     throw $e;
   }
@@ -1164,41 +1190,48 @@ function node_delete($nid) {
  *   An array of node IDs.
  */
 function node_delete_multiple($nids) {
+  $transaction = db_transaction();
   if (!empty($nids)) {
     $nodes = node_load_multiple($nids, array());
 
-    foreach ($nodes as $nid => $node) {
-      // Call the node-specific callback (if any):
-      node_invoke($node, 'delete');
-      module_invoke_all('node_delete', $node);
-      module_invoke_all('entity_delete', $node, 'node');
-      field_attach_delete('node', $node);
+    try {
+      foreach ($nodes as $nid => $node) {
+        // Call the node-specific callback (if any):
+        node_invoke($node, 'delete');
+        module_invoke_all('node_delete', $node);
+        module_invoke_all('entity_delete', $node, 'node');
+        field_attach_delete('node', $node);
 
-      // Remove this node from the search index if needed.
-      // This code is implemented in node module rather than in search module,
-      // because node module is implementing search module's API, not the other
-      // way around.
-      if (module_exists('search')) {
-        search_reindex($nid, 'node');
+        // Remove this node from the search index if needed.
+        // This code is implemented in node module rather than in search module,
+        // because node module is implementing search module's API, not the other
+        // way around.
+        if (module_exists('search')) {
+          search_reindex($nid, 'node');
+        }
       }
+
+      // Delete after calling hooks so that they can query node tables as needed.
+      db_delete('node')
+        ->condition('nid', $nids, 'IN')
+        ->execute();
+      db_delete('node_revision')
+        ->condition('nid', $nids, 'IN')
+        ->execute();
+      db_delete('history')
+        ->condition('nid', $nids, 'IN')
+        ->execute();
+      db_delete('node_access')
+       ->condition('nid', $nids, 'IN')
+       ->execute();
+    }
+    catch (Exception $e) {
+      $transaction->rollback();
+      watchdog_exception('node', $e);
+      throw $e;
     }
 
-    // Delete after calling hooks so that they can query node tables as needed.
-    db_delete('node')
-      ->condition('nid', $nids, 'IN')
-      ->execute();
-    db_delete('node_revision')
-      ->condition('nid', $nids, 'IN')
-      ->execute();
-    db_delete('history')
-      ->condition('nid', $nids, 'IN')
-      ->execute();
-    db_delete('node_access')
-      ->condition('nid', $nids, 'IN')
-      ->execute();
-
     // Clear the page and block and node_load_multiple caches.
-    cache_clear_all();
     entity_get_controller('node')->resetCache();
   }
 }
@@ -1270,7 +1303,8 @@ function node_view($node, $view_mode = 'full', $langcode = NULL) {
   }
 
   // Allow modules to modify the structured node.
-  drupal_alter('node_view', $build);
+  $type = 'node';
+  drupal_alter(array('node_view', 'entity_view'), $build, $type);
 
   return $build;
 }
@@ -1328,21 +1362,29 @@ function node_build_content($node, $view_mode = 'full', $langcode = NULL) {
   // Always display a read more link on teasers because we have no way
   // to know when a teaser view is different than a full view.
   $links = array();
-  if ($view_mode == 'teaser') {
-    $links['node-readmore'] = array(
-      'title' => t('Read more'),
-      'href' => 'node/' . $node->nid,
-      'attributes' => array('rel' => 'tag', 'title' => strip_tags($node->title))
-    );
-  }
   $node->content['links'] = array(
     '#theme' => 'links__node',
+    '#pre_render' => array('drupal_pre_render_links'),
+    '#attributes' => array('class' => array('links', 'inline')),
+  );
+  if ($view_mode == 'teaser') {
+    $node_title_stripped = strip_tags($node->title);
+    $links['node-readmore'] = array(
+      'title' => t('Read more<span class="element-invisible"> about @title</span>', array('@title' => $node_title_stripped)),
+      'href' => 'node/' . $node->nid,
+      'html' => TRUE,
+      'attributes' => array('rel' => 'tag', 'title' => $node_title_stripped),
+    );
+  }
+  $node->content['links']['node'] = array(
+    '#theme' => 'links__node__node',
     '#links' => $links,
     '#attributes' => array('class' => array('links', 'inline')),
   );
 
   // Allow modules to make their own additions to the node.
   module_invoke_all('node_view', $node, $view_mode, $langcode);
+  module_invoke_all('entity_view', $node, 'node', $view_mode, $langcode);
 }
 
 /**
@@ -1425,10 +1467,12 @@ function template_preprocess_node(&$variables) {
   // Display post information only on certain node types.
   if (variable_get('node_submitted_' . $node->type, TRUE)) {
     $variables['display_submitted'] = TRUE;
+    $variables['submitted'] = t('Submitted by !username on !datetime', array('!username' => $variables['name'], '!datetime' => $variables['date']));
     $variables['user_picture'] = theme_get_setting('toggle_node_user_picture') ? theme('user_picture', array('account' => $node)) : '';
   }
   else {
     $variables['display_submitted'] = FALSE;
+    $variables['submitted'] = '';
     $variables['user_picture'] = '';
   }
 
@@ -1460,6 +1504,11 @@ function template_preprocess_node(&$variables) {
  */
 function node_permission() {
   $perms = array(
+    'bypass node access' => array(
+      'title' => t('Bypass content access control'),
+      'description' => t('View, edit and delete all content regardless of permission restrictions.'),
+      'restrict access' => TRUE,
+    ),
     'administer content types' => array(
       'title' => t('Administer content types'),
       'restrict access' => TRUE,
@@ -1468,16 +1517,14 @@ function node_permission() {
       'title' => t('Administer content'),
       'restrict access' => TRUE,
     ),
-    'access content' => array(
-      'title' => t('View published content'),
-    ),
     'access content overview' => array(
       'title' => t('Access the content overview page'),
     ),
-    'bypass node access' => array(
-      'title' => t('Bypass content access control'),
-      'description' => t('View, edit and delete all content regardless of permission restrictions.'),
-      'restrict access' => TRUE,
+    'access content' => array(
+      'title' => t('View published content'),
+    ),
+    'view own unpublished content' => array(
+      'title' => t('View own unpublished content'),
     ),
     'view revisions' => array(
       'title' => t('View content revisions'),
@@ -1487,9 +1534,6 @@ function node_permission() {
     ),
     'delete revisions' => array(
       'title' => t('Delete content revisions'),
-    ),
-    'view own unpublished content' => array(
-      'title' => t('View own unpublished content'),
     ),
   );
 
@@ -1640,6 +1684,7 @@ function node_search_execute($keys = NULL, $conditions = NULL) {
       'extra' => $extra,
       'score' => $item->calculated_score,
       'snippet' => search_excerpt($keys, $node->rendered),
+      'language' => $node->language,
     );
   }
   return $results;
@@ -1834,7 +1879,6 @@ function node_menu() {
   );
   $items['admin/content/node'] = array(
     'title' => 'Content',
-    'description' => "Administer content",
     'type' => MENU_DEFAULT_LOCAL_TASK,
     'weight' => -10,
   );
@@ -1893,16 +1937,13 @@ function node_menu() {
   $items['node'] = array(
     'page callback' => 'node_page_default',
     'access arguments' => array('access content'),
-    // Required to make 'node/add' appear on the top-level of 'navigation' menu.
-    'menu_name' => '',
+    'menu_name' => 'navigation',
     'type' => MENU_CALLBACK,
   );
   $items['node/add'] = array(
     'title' => 'Add content',
     'page callback' => 'node_add_page',
     'access callback' => '_node_add_access',
-    'menu_name' => 'navigation',
-    'theme callback' => '_node_custom_theme',
     'file' => 'node.pages.inc',
   );
   $items['rss.xml'] = array(
@@ -1914,7 +1955,7 @@ function node_menu() {
   // @todo Remove this loop when we have a 'description callback' property.
   // Reset internal static cache of _node_types_build(), forces to rebuild the
   // node type information.
-  drupal_static_reset('_node_types_build');
+  node_type_cache_reset();
   foreach (node_type_get_types() as $type) {
     $type_url_str = str_replace('_', '-', $type->type);
     $items['node/add/' . $type_url_str] = array(
@@ -1949,7 +1990,6 @@ function node_menu() {
     'page arguments' => array(1),
     'access callback' => 'node_access',
     'access arguments' => array('update', 1),
-    'theme callback' => '_node_custom_theme',
     'weight' => 0,
     'type' => MENU_LOCAL_TASK,
     'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
@@ -1961,7 +2001,6 @@ function node_menu() {
     'page arguments' => array('node_delete_confirm', 1),
     'access callback' => 'node_access',
     'access arguments' => array('delete', 1),
-    'theme callback' => '_node_custom_theme',
     'weight' => 1,
     'type' => MENU_LOCAL_TASK,
     'context' => MENU_CONTEXT_INLINE,
@@ -1973,7 +2012,6 @@ function node_menu() {
     'page arguments' => array(1),
     'access callback' => '_node_revision_access',
     'access arguments' => array(1),
-    'theme callback' => '_node_custom_theme',
     'weight' => 2,
     'type' => MENU_LOCAL_TASK,
     'file' => 'node.pages.inc',
@@ -1993,7 +2031,6 @@ function node_menu() {
     'page arguments' => array('node_revision_revert_confirm', 1),
     'access callback' => '_node_revision_access',
     'access arguments' => array(1, 'update'),
-    'theme callback' => '_node_custom_theme',
     'file' => 'node.pages.inc',
   );
   $items['node/%node/revisions/%/delete'] = array(
@@ -2003,7 +2040,6 @@ function node_menu() {
     'page arguments' => array('node_revision_delete_confirm', 1),
     'access callback' => '_node_revision_access',
     'access arguments' => array(1, 'delete'),
-    'theme callback' => '_node_custom_theme',
     'file' => 'node.pages.inc',
   );
   return $items;
@@ -2039,17 +2075,6 @@ function node_page_title($node) {
   return $node->title;
 }
 
-/**
- * Theme callback for creating and editing nodes.
- */
-function _node_custom_theme() {
-  // Use the administration theme if the site is configured to use it for
-  // nodes.
-  if (variable_get('node_admin_theme')) {
-    return variable_get('admin_theme');
-  }
-}
-
 function node_last_changed($nid) {
   return db_query('SELECT changed FROM {node} WHERE nid = :nid', array(':nid' => $nid))->fetch()->changed;
 }
@@ -2076,6 +2101,7 @@ function node_block_info() {
   $blocks['syndicate']['cache'] = DRUPAL_NO_CACHE;
 
   $blocks['recent']['info'] = t('Recent content');
+  $blocks['recent']['properties']['administrative'] = TRUE;
 
   return $blocks;
 }
@@ -2521,8 +2547,8 @@ function node_page_default() {
     $nodes = node_load_multiple($nids);
     $build = node_view_multiple($nodes);
 
-    $feed_url = url('rss.xml', array('absolute' => TRUE));
-    drupal_add_feed($feed_url, variable_get('site_name', 'Drupal') . ' ' . t('RSS'));
+    // 'rss.xml' is a path, not a file, registered in node_menu().
+    drupal_add_feed('rss.xml', variable_get('site_name', 'Drupal') . ' ' . t('RSS'));
     $build['pager'] = array(
       '#theme' => 'pager',
       '#weight' => 5,
@@ -2660,12 +2686,15 @@ function node_form_search_form_alter(&$form, $form_state) {
       '#value' => t('Advanced search'),
       '#prefix' => '<div class="action">',
       '#suffix' => '</div>',
+      '#weight' => 100,
     );
 
     // Languages:
     $language_options = array();
     foreach (language_list('language') as $key => $entity) {
-      $language_options[$key] = $entity->name;
+      if ($entity->enabled) {
+        $language_options[$key] = $entity->name;
+      }
     }
     if (count($language_options) > 1) {
       $form['advanced']['language'] = array(
@@ -2701,8 +2730,11 @@ function node_search_validate($form, &$form_state) {
   if (isset($form_state['values']['term']) && is_array($form_state['values']['term']) && count($form_state['values']['term'])) {
     $keys = search_expression_insert($keys, 'term', implode(',', $form_state['values']['term']));
   }
-  if (isset($form_state['values']['language']) && is_array($form_state['values']['language']) && count($form_state['values']['language'])) {
-    $keys = search_expression_insert($keys, 'language', implode(',', array_filter($form_state['values']['language'])));
+  if (isset($form_state['values']['language']) && is_array($form_state['values']['language'])) {
+    $languages = array_filter($form_state['values']['language']);
+    if (count($languages)) {
+      $keys = search_expression_insert($keys, 'language', implode(',', $languages));
+    }
   }
   if ($form_state['values']['or'] != '') {
     if (preg_match_all('/ ("[^"]+"|[^" ]+)/i', ' ' . $form_state['values']['or'], $matches)) {
@@ -2923,19 +2955,19 @@ function node_list_permissions($type) {
   // Build standard list of node permissions for this type.
   $perms = array(
     "create $type content" => array(
-      'title' => t('Create new %type_name content', array('%type_name' => $info->name)),
+      'title' => t('%type_name: Create new content', array('%type_name' => $info->name)),
     ),
     "edit own $type content" => array(
-      'title' => t('Edit own %type_name content', array('%type_name' => $info->name)),
+      'title' => t('%type_name: Edit own content', array('%type_name' => $info->name)),
     ),
     "edit any $type content" => array(
-      'title' => t('Edit any %type_name content', array('%type_name' => $info->name)),
+      'title' => t('%type_name: Edit any content', array('%type_name' => $info->name)),
     ),
     "delete own $type content" => array(
-      'title' => t('Delete own %type_name content', array('%type_name' => $info->name)),
+      'title' => t('%type_name: Delete own content', array('%type_name' => $info->name)),
     ),
     "delete any $type content" => array(
-      'title' => t('Delete any %type_name content', array('%type_name' => $info->name)),
+      'title' => t('%type_name: Delete any content', array('%type_name' => $info->name)),
     ),
   );
 
@@ -3004,42 +3036,68 @@ function node_access_grants($op, $account = NULL) {
 }
 
 /**
- * Determine whether the user has a global viewing grant for all nodes.
+ * Determines whether the user has a global viewing grant for all nodes.
+ *
+ * Checks to see whether any module grants global 'view' access to a user
+ * account; global 'view' access is encoded in the {node_access} table as a
+ * grant with nid=0. If no node access modules are enabled, node.module defines
+ * such a global 'view' access grant.
+ *
+ * This function is called when a node listing query is tagged with
+ * 'node_access'; when this function returns TRUE, no node access joins are
+ * added to the query.
+ *
+ * @param $account
+ *   The user object for the user whose access is being checked. If omitted,
+ *   the current user is used.
+ *
+ * @return
+ *   TRUE if 'view' access to all nodes is granted, FALSE otherwise.
+ *
+ * @see hook_node_grants()
+ * @see _node_query_node_access_alter()
  */
-function node_access_view_all_nodes() {
-  $access = &drupal_static(__FUNCTION__);
-
-  if (!isset($access)) {
-    // If no modules implement the node access system, access is always true.
-    if (!module_implements('node_grants')) {
-      $access = TRUE;
-    }
-    else {
-      $query = db_select('node_access');
-      $query->addExpression('COUNT(*)');
-      $query
-        ->condition('nid', 0)
-        ->condition('grant_view', 1, '>=');
-
-      $grants = db_or();
-      foreach (node_access_grants('view') as $realm => $gids) {
-        foreach ($gids as $gid) {
-          $grants->condition(db_and()
-            ->condition('gid', $gid)
-            ->condition('realm', $realm)
-          );
-        }
-      }
-      if (count($grants) > 0 ) {
-        $query->condition($grants);
-      }
-      $access = $query
-        ->execute()
-        ->fetchField();
-      }
+function node_access_view_all_nodes($account = NULL) {
+  global $user;
+  if (!$account) {
+    $account = $user;
   }
 
-  return $access;
+  // Statically cache results in an array keyed by $account->uid.
+  $access = &drupal_static(__FUNCTION__);
+  if (isset($access[$account->uid])) {
+    return $access[$account->uid];
+  }
+
+  // If no modules implement the node access system, access is always TRUE.
+  if (!module_implements('node_grants')) {
+    $access[$account->uid] = TRUE;
+  }
+  else {
+    $query = db_select('node_access');
+    $query->addExpression('COUNT(*)');
+    $query
+      ->condition('nid', 0)
+      ->condition('grant_view', 1, '>=');
+
+    $grants = db_or();
+    foreach (node_access_grants('view', $account) as $realm => $gids) {
+      foreach ($gids as $gid) {
+        $grants->condition(db_and()
+          ->condition('gid', $gid)
+          ->condition('realm', $realm)
+        );
+      }
+    }
+    if (count($grants) > 0 ) {
+      $query->condition($grants);
+    }
+    $access[$account->uid] = $query
+      ->execute()
+      ->fetchField();
+  }
+
+  return $access[$account->uid];
 }
 
 
@@ -3090,12 +3148,16 @@ function _node_query_node_access_alter($query, $base_table, $type) {
     $op = 'view';
   }
 
-  // If $account can bypass node access, or there are no node access
-  // modules, we don't need to alter the query.
+  // If $account can bypass node access, or there are no node access modules,
+  // or the operation is 'view' and the $acount has a global view grant (i.e.,
+  // a view grant for node ID 0), we don't need to alter the query.
   if (user_access('bypass node access', $account)) {
     return;
   }
   if (!count(module_implements('node_grants'))) {
+    return;
+  }
+  if ($op == 'view' && node_access_view_all_nodes($account)) {
     return;
   }
 
@@ -3792,7 +3854,10 @@ class NodeController extends DrupalDefaultEntityController {
         $function($nodes_of_type);
       }
     }
-    $this->hookLoadArguments[] = array_keys($typed_nodes);
+    // Besides the list of nodes, pass one additional argument to
+    // hook_node_load(), containing a list of node types that were loaded.
+    $argument = array_keys($typed_nodes);
+    $this->hookLoadArguments = array($argument);
     parent::attachLoad($nodes, $revision_id);
   }
 

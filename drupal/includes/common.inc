@@ -1,5 +1,5 @@
 <?php
-// $Id: common.inc,v 1.1244 2010/10/21 19:31:39 dries Exp $
+// $Id: common.inc,v 1.1272 2010/12/11 02:22:37 dries Exp $
 
 /**
  * @file
@@ -348,7 +348,7 @@ function drupal_get_html_head() {
  * This function can be called as long the HTML header hasn't been sent.
  *
  * @param $url
- *   A url for the feed.
+ *   An internal system path or a fully qualified external URL of the feed.
  * @param $title
  *   The title of the feed.
  */
@@ -358,10 +358,14 @@ function drupal_add_feed($url = NULL, $title = '') {
   if (isset($url)) {
     $stored_feed_links[$url] = theme('feed_icon', array('url' => $url, 'title' => $title));
 
-    drupal_add_html_head_link(array('rel' => 'alternate',
-                          'type' => 'application/rss+xml',
-                          'title' => $title,
-                          'href' => $url));
+    drupal_add_html_head_link(array(
+      'rel' => 'alternate',
+      'type' => 'application/rss+xml',
+      'title' => $title,
+      // Force the URL to be absolute, for consistency with other <link> tags
+      // output by Drupal.
+      'href' => url($url, array('absolute' => TRUE)),
+    ));
   }
   return $stored_feed_links;
 }
@@ -726,46 +730,35 @@ function drupal_access_denied() {
  *
  * @param $url
  *   A string containing a fully qualified URI.
- * @param $options
- *   (optional) An array which can have one or more of following keys:
- *   - headers
- *       An array containing request headers to send as name/value pairs.
- *   - method
- *       A string containing the request method. Defaults to 'GET'.
- *   - data
- *       A string containing the request body. Defaults to NULL.
- *   - max_redirects
- *       An integer representing how many times a redirect may be followed.
- *       Defaults to 3.
- *   - timeout
- *       A float representing the maximum number of seconds the function call
- *       may take. The default is 30 seconds. If a timeout occurs, the error
- *       code is set to the HTTP_REQUEST_TIMEOUT constant.
- *   - context
- *       A context resource created with stream_context_create().
- * @return
- *   An object which can have one or more of the following parameters:
- *   - request
- *       A string containing the request body that was sent.
- *   - code
- *       An integer containing the response status code, or the error code if
- *       an error occurred.
- *   - protocol
- *       The response protocol (e.g. HTTP/1.1 or HTTP/1.0).
- *   - status_message
- *       The status message from the response, if a response was received.
- *   - redirect_code
- *       If redirected, an integer containing the initial response status code.
- *   - redirect_url
- *       If redirected, a string containing the redirection location.
- *   - error
- *       If an error occurred, the error message. Otherwise not set.
- *   - headers
- *       An array containing the response headers as name/value pairs. HTTP
- *       header names are case-insensitive (RFC 2616, section 4.2), so for easy
- *       access the array keys are returned in lower case.
- *   - data
- *       A string containing the response body that was received.
+ * @param array $options
+ *   (optional) An array that can have one or more of the following elements:
+ *   - headers: An array containing request headers to send as name/value pairs.
+ *   - method: A string containing the request method. Defaults to 'GET'.
+ *   - data: A string containing the request body, formatted as
+ *     'param=value&param=value&...'. Defaults to NULL.
+ *   - max_redirects: An integer representing how many times a redirect
+ *     may be followed. Defaults to 3.
+ *   - timeout: A float representing the maximum number of seconds the function
+ *     call may take. The default is 30 seconds. If a timeout occurs, the error
+ *     code is set to the HTTP_REQUEST_TIMEOUT constant.
+ *   - context: A context resource created with stream_context_create().
+ *
+ * @return object
+ *   An object that can have one or more of the following components:
+ *   - request: A string containing the request body that was sent.
+ *   - code: An integer containing the response status code, or the error code
+ *     if an error occurred.
+ *   - protocol: The response protocol (e.g. HTTP/1.1 or HTTP/1.0).
+ *   - status_message: The status message from the response, if a response was
+ *     received.
+ *   - redirect_code: If redirected, an integer containing the initial response
+ *     status code.
+ *   - redirect_url: If redirected, a string containing the redirection location.
+ *   - error: If an error occurred, the error message. Otherwise not set.
+ *   - headers: An array containing the response headers as name/value pairs.
+ *     HTTP header names are case-insensitive (RFC 2616, section 4.2), so for
+ *     easy access the array keys are returned in lower case.
+ *   - data: A string containing the response body that was received.
  */
 function drupal_http_request($url, array $options = array()) {
   $result = new stdClass();
@@ -1688,7 +1681,7 @@ function format_xml_elements($array) {
  *    - !variable: inserted as is
  *    - @variable: escape plain text to HTML (check_plain)
  *    - %variable: escape text and theme as a placeholder for user-submitted
- *      content (check_plain + theme_placeholder)
+ *      content (check_plain + drupal_placeholder)
  *   Note that you do not need to include @count in this array.
  *   This replacement is done automatically for the plural case.
  * @param $options
@@ -1826,26 +1819,29 @@ function format_interval($timestamp, $granularity = 2, $langcode = NULL) {
 }
 
 /**
- * Format a date with the given configured format or a custom format string.
- *
- * Drupal allows administrators to select formatting strings for 'short',
- * 'medium' and 'long' date formats. This function can handle these formats,
- * as well as any custom format.
+ * Formats a date, using a date type or a custom date format string.
  *
  * @param $timestamp
- *   The exact date to format, as a UNIX timestamp.
+ *   A UNIX timestamp to format.
  * @param $type
- *   The format to use. Can be "short", "medium" or "long" for the preconfigured
- *   date formats. If "custom" is specified, then $format is required as well.
+ *   (optional) The format to use, one of:
+ *   - 'short', 'medium', or 'long' (the corresponding built-in date formats).
+ *   - The name of a date type defined by a module in hook_date_format_types().
+ *   - The machine name of an administrator-defined date format.
+ *   - 'custom', to use $format.
+ *   Defaults to 'medium'.
  * @param $format
- *   A PHP date format string as required by date(). A backslash should be used
- *   before a character to avoid interpreting the character as part of a date
- *   format.
+ *   (optional) If $type is 'custom', a PHP date format string suitable for
+ *   input to date(). Use a backslash to escape ordinary text, so it does not
+ *   get interpreted as date format characters.
  * @param $timezone
- *   Time zone identifier; if omitted, the user's time zone is used.
+ *   (optional) Time zone identifier, as described at
+ *   http://php.net/manual/en/timezones.php Defaults to the time zone used to
+ *   display the page.
  * @param $langcode
- *   Optional language code to translate to a language other than what is used
- *   to display the page.
+ *   (optional) Language code to translate to. Defaults to the language used to
+ *   display the page.
+ *
  * @return
  *   A translated date string in the requested format.
  */
@@ -1876,15 +1872,26 @@ function format_date($timestamp, $type = 'medium', $format = '', $timezone = NUL
     case 'short':
       $format = variable_get('date_format_short', 'm/d/Y - H:i');
       break;
+
     case 'long':
       $format = variable_get('date_format_long', 'l, F j, Y - H:i');
       break;
+
     case 'custom':
       // No change to format.
       break;
+
     case 'medium':
     default:
-      $format = variable_get('date_format_medium', 'D, m/d/Y - H:i');
+      // Retrieve the format of the custom $type passed.
+      if ($type != 'medium') {
+        $format = variable_get('date_format_' . $type, '');
+      }
+      // Fall back to 'medium'.
+      if ($format === '') {
+        $format = variable_get('date_format_medium', 'D, m/d/Y - H:i');
+      }
+      break;
   }
 
   // Create a DateTime object from the timestamp.
@@ -2221,9 +2228,7 @@ function drupal_http_header_attributes(array $attributes = array()) {
  */
 function drupal_attributes(array $attributes = array()) {
   foreach ($attributes as $attribute => &$data) {
-    if (is_array($data)) {
-      $data = implode(' ', $data);
-    }
+    $data = implode(' ', (array) $data);
     $data = $attribute . '="' . check_plain($data) . '"';
   }
   return $attributes ? ' ' . implode(' ', $attributes) : '';
@@ -2248,7 +2253,9 @@ function drupal_attributes(array $attributes = array()) {
  * @param array $options
  *   An associative array of additional options, with the following elements:
  *   - 'attributes': An associative array of HTML attributes to apply to the
- *     anchor tag.
+ *     anchor tag. If element 'class' is included, it must be an array; 'title'
+ *     must be a string; other elements are more flexible, as they just need
+ *     to work in a call to drupal_attributes($options['attributes']).
  *   - 'html' (default FALSE): Whether $text is HTML or just plain-text. For
  *     example, to make an image tag into a link, this must be set to TRUE, or
  *     you will see the escaped HTML image tag.
@@ -3163,6 +3170,12 @@ function drupal_pre_render_styles($elements) {
   // URL changed.
   $query_string = variable_get('css_js_query_string', '0');
 
+  // For inline CSS to validate as XHTML, all CSS containing XHTML needs to be
+  // wrapped in CDATA. To make that backwards compatible with HTML 4, we need to
+  // comment out the CDATA-tag.
+  $embed_prefix = "\n<!--/*--><![CDATA[/*><!--*/\n";
+  $embed_suffix = "\n/*]]>*/-->\n";
+
   // Defaults for LINK and STYLE elements.
   $link_element_defaults = array(
     '#type' => 'html_tag',
@@ -3270,6 +3283,8 @@ function drupal_pre_render_styles($elements) {
         if (isset($group['data'])) {
           $element = $style_element_defaults;
           $element['#value'] = $group['data'];
+          $element['#value_prefix'] = $embed_prefix;
+          $element['#value_suffix'] = $embed_suffix;
           $element['#attributes']['media'] = $group['media'];
           $element['#browsers'] = $group['browsers'];
           $elements[] = $element;
@@ -3278,6 +3293,8 @@ function drupal_pre_render_styles($elements) {
           foreach ($group['items'] as $item) {
             $element = $style_element_defaults;
             $element['#value'] = $item['data'];
+            $element['#value_prefix'] = $embed_prefix;
+            $element['#value_suffix'] = $embed_suffix;
             $element['#attributes']['media'] = $item['media'];
             $element['#browsers'] = $group['browsers'];
             $elements[] = $element;
@@ -3340,10 +3357,19 @@ function drupal_build_css_cache($css) {
       // Only 'file' stylesheets can be aggregated.
       if ($stylesheet['type'] == 'file') {
         $contents = drupal_load_stylesheet($stylesheet['data'], TRUE);
-        // Return the path to where this CSS file originated from.
-        $base = base_path() . dirname($stylesheet['data']) . '/';
-        _drupal_build_css_path(NULL, $base);
-        // Prefix all paths within this CSS file, ignoring external and absolute paths.
+
+        // Build the base URL of this CSS file: start with the full URL.
+        $css_base_url = file_create_url($stylesheet['data']);
+        // Move to the parent.
+        $css_base_url = substr($css_base_url, 0, strrpos($css_base_url, '/'));
+        // Simplify to a relative URL if the stylesheet URL starts with the
+        // base URL of the website.
+        if (substr($css_base_url, 0, strlen($GLOBALS['base_root'])) == $GLOBALS['base_root']) {
+          $css_base_url = substr($css_base_url, strlen($GLOBALS['base_root']));
+        }
+
+        _drupal_build_css_path(NULL, $css_base_url . '/');
+        // Anchor all paths in the CSS with its base URL, ignoring external and absolute paths.
         $data .= preg_replace_callback('/url\(\s*[\'"]?(?![a-z]+:|\/+)([^\'")]+)[\'"]?\s*\)/i', '_drupal_build_css_path', $contents);
       }
     }
@@ -3419,34 +3445,40 @@ function _drupal_build_css_path($matches, $base = NULL) {
  *   Name of the stylesheet to be processed.
  * @param $optimize
  *   Defines if CSS contents should be compressed or not.
+ * @param $reset_basepath
+ *   Used internally to facilitate recursive resolution of @import commands.
+ *
  * @return
  *   Contents of the stylesheet, including any resolved @import commands.
  */
-function drupal_load_stylesheet($file, $optimize = NULL) {
-  // $_optimize does not use drupal_static as it is set by $optimize.
-  static $_optimize;
-  // Store optimization parameter for preg_replace_callback with nested @import loops.
+function drupal_load_stylesheet($file, $optimize = NULL, $reset_basepath = TRUE) {
+  // These statics are not cache variables, so we don't use drupal_static().
+  static $_optimize, $basepath;
+  if ($reset_basepath) {
+    $basepath = '';
+  }
+  // Store the value of $optimize for preg_replace_callback with nested
+  // @import loops.
   if (isset($optimize)) {
     $_optimize = $optimize;
   }
 
-  $contents = '';
-  if (file_exists($file)) {
-    // Load the local CSS stylesheet.
-    $contents = file_get_contents($file);
+  // Stylesheets are relative one to each other. Start by adding a base path
+  // prefix provided by the parent stylesheet (if necessary).
+  if ($basepath && !file_uri_scheme($file)) {
+    $file = $basepath . '/' . $file;
+  }
+  $basepath = dirname($file);
 
-    // Change to the current stylesheet's directory.
-    $cwd = getcwd();
-    chdir(dirname($file));
-
-    // Process the stylesheet.
-    $contents = drupal_load_stylesheet_content($contents, $_optimize);
-
-    // Change back directory.
-    chdir($cwd);
+  // Load the CSS stylesheet. We suppress errors because themes may specify
+  // stylesheets in their .info file that don't exist in the theme's path,
+  // but are merely there to disable certain module CSS files.
+  if ($contents = @file_get_contents($file)) {
+    // Return the processed stylesheet.
+    return drupal_load_stylesheet_content($contents, $_optimize);
   }
 
-  return $contents;
+  return '';
 }
 
 /**
@@ -3480,12 +3512,9 @@ function drupal_load_stylesheet_content($contents, $optimize = FALSE) {
     );
     // Remove certain whitespace.
     // There are different conditions for removing leading and trailing
-    // whitespace. To be able to use a single backreference in the replacement
-    // string, the outer pattern uses the ?| modifier, which makes all contained
-    // subpatterns appear in \1.
+    // whitespace.
     // @see http://php.net/manual/en/regexp.reference.subpatterns.php
-    $contents = preg_replace('<
-      (?|
+    $contents = preg_replace_callback('<
       # Strip leading and trailing whitespace.
         \s*([@{};,])\s*
       # Strip only leading whitespace from:
@@ -3495,12 +3524,12 @@ function drupal_load_stylesheet_content($contents, $optimize = FALSE) {
       # - Opening parenthesis: Retain "@media (bar) and foo".
       # - Colon: Retain :pseudo-selectors.
       | ([\(:])\s+
-      )
     >xS',
-      '\1',
+      '_drupal_load_stylesheet_content',
       $contents
     );
     // End the file with a new line.
+    $contents = trim($contents);
     $contents .= "\n";
   }
 
@@ -3508,6 +3537,16 @@ function drupal_load_stylesheet_content($contents, $optimize = FALSE) {
   // This happens recursively but omits external files.
   $contents = preg_replace_callback('/@import\s*(?:url\(\s*)?[\'"]?(?![a-z]+:)([^\'"\()]+)[\'"]?\s*\)?\s*;/', '_drupal_load_stylesheet', $contents);
   return $contents;
+}
+
+/**
+ * Helper for drupal_load_stylesheet_content().
+ */
+function _drupal_load_stylesheet_content($matches) {
+  // Discard the full match.
+  unset($matches[0]);
+  // Use the non-empty match.
+  return current(array_filter($matches));
 }
 
 /**
@@ -3519,7 +3558,7 @@ function drupal_load_stylesheet_content($contents, $optimize = FALSE) {
 function _drupal_load_stylesheet($matches) {
   $filename = $matches[1];
   // Load the imported stylesheet and replace @import commands in there as well.
-  $file = drupal_load_stylesheet($filename);
+  $file = drupal_load_stylesheet($filename, NULL, FALSE);
 
   // Determine the file's directory.
   $directory = dirname($filename);
@@ -3748,6 +3787,7 @@ function drupal_region_class($region) {
  *     array('type' => 'inline', 'scope' => 'footer', 'weight' => 5)
  *   );
  *   drupal_add_js('http://example.com/example.js', 'external');
+ *   drupal_add_js(array('myModule' => array('key' => 'value')), 'setting');
  * @endcode
  *
  * Calling drupal_static_reset('drupal_add_js') will clear all JavaScript added
@@ -3780,9 +3820,11 @@ function drupal_region_class($region) {
  *     hosted on the local server. These files will not be aggregated if
  *     JavaScript aggregation is enabled.
  *   - 'setting': An associative array with configuration options. The array is
- *     directly placed in Drupal.settings. All modules should wrap their actual
- *     configuration settings in another variable to prevent conflicts in the
- *     Drupal.settings namespace.
+ *     merged directly into Drupal.settings. All modules should wrap their
+ *     actual configuration settings in another variable to prevent conflicts in
+ *     the Drupal.settings namespace. Items added with a string key will replace
+ *     existing settings with that key; items with numeric array keys will be
+ *     added to the existing settings array.
  * @param $options
  *   (optional) A string defining the type of JavaScript that is being added in
  *   the $data parameter ('file'/'setting'/'inline'/'external'), or an
@@ -3909,7 +3951,7 @@ function drupal_add_js($data = NULL, $options = NULL) {
       );
       // Register all required libraries.
       drupal_add_library('system', 'jquery', TRUE);
-      drupal_add_library('system', 'once', TRUE);
+      drupal_add_library('system', 'jquery.once', TRUE);
     }
 
     switch ($options['type']) {
@@ -4067,7 +4109,7 @@ function drupal_get_js($scope = 'header', $javascript = NULL, $skip_alter = FALS
       case 'setting':
         $js_element = $element;
         $js_element['#value_prefix'] = $embed_prefix;
-        $js_element['#value'] = 'jQuery.extend(Drupal.settings, ' . drupal_json_encode(call_user_func_array('array_merge_recursive', $item['data'])) . ");";
+        $js_element['#value'] = 'jQuery.extend(Drupal.settings, ' . drupal_json_encode(drupal_array_merge_deep_array($item['data'])) . ");";
         $js_element['#value_suffix'] = $embed_suffix;
         $output .= theme('html_tag', array('element' => $js_element));
         break;
@@ -4140,12 +4182,12 @@ function drupal_get_js($scope = 'header', $javascript = NULL, $skip_alter = FALS
 }
 
 /**
- * Add to the page all structures attached to a render() structure.
+ * Adds attachments to a render() structure.
  *
  * Libraries, JavaScript, CSS and other types of custom structures are attached
- * to elements using the #attached property. The #attached property contains an
- * associative array, where the keys are the the types of the structure, and
- * the value the attached data. For example:
+ * to elements using the #attached property. The #attached property is an
+ * associative array, where the keys are the the attachment types and the values
+ * are the attached data. For example:
  * @code
  * $build['#attached'] = array(
  *   'js' => array(drupal_get_path('module', 'taxonomy') . '/taxonomy.js'),
@@ -4156,10 +4198,18 @@ function drupal_get_js($scope = 'header', $javascript = NULL, $skip_alter = FALS
  * 'js', 'css', and 'library' are types that get special handling.  For any
  * other kind of attached data, the array key must be the full name of the
  * callback function and each value an array of arguments. For example:
- *
  * @code
  * $build['#attached']['drupal_add_http_header'] = array(
  *   array('Content-Type', 'application/rss+xml; charset=utf-8'),
+ * );
+ * @endcode
+ *
+ * External 'js' and 'css' files can also be loaded. For example:
+ * @code
+ * $build['#attached']['js'] = array(
+ *   'http://code.jquery.com/jquery-1.4.2.min.js' => array(
+ *     'type' => 'external',
+ *   ),
  * );
  * @endcode
  *
@@ -4171,12 +4221,16 @@ function drupal_get_js($scope = 'header', $javascript = NULL, $skip_alter = FALS
  *   assigned to them.
  * @param $dependency_check
  *   When TRUE, will exit if a given library's dependencies are missing. When
- *   set to FALSE, will continue to add the libraries, even though one of the
+ *   set to FALSE, will continue to add the libraries, even though one or more
  *   dependencies are missing. Defaults to FALSE.
+ * @param $every_page
+ *   Set to TRUE to indicate that the attachments are added to every page on the
+ *   site. Only attachments with the every_page flag set to TRUE can participate
+ *   in JavaScript/CSS aggregation.
  *
  * @return
- *   Will return FALSE if there were any missing library dependencies. TRUE will
- *   be returned if all library dependencies were met.
+ *   FALSE if there were any missing library dependencies; TRUE if all library
+ *   dependencies were met.
  *
  * @see drupal_add_library()
  * @see drupal_add_js()
@@ -4374,7 +4428,7 @@ function drupal_process_attached($elements, $group = JS_DEFAULT, $dependency_che
  * @see form_example_states_form()
  */
 function drupal_process_states(&$elements) {
-  $elements['#attached']['js']['misc/states.js'] = array('group' => JS_LIBRARY, 'weight' => 1);
+  $elements['#attached']['library'][] = array('system', 'drupal.states');
   $elements['#attached']['js'][] = array(
     'type' => 'setting',
     'data' => array('states' => array('#' . $elements['#id'] => $elements['#states'])),
@@ -4388,16 +4442,20 @@ function drupal_process_states(&$elements) {
  * settings, and optionally requiring another library. For example, a library
  * can be a jQuery plugin, a JavaScript framework, or a CSS framework. This
  * function allows modules to load a library defined/shipped by itself or a
- * depending module; without having to add all files of the library separately.
+ * depending module, without having to add all files of the library separately.
  * Each library is only loaded once.
  *
  * @param $module
  *   The name of the module that registered the library.
  * @param $name
  *   The name of the library to add.
+ * @param $every_page
+ *   Set to TRUE if this library is added to every page on the site. Only items
+ *   with the every_page flag set to TRUE can participate in aggregation.
+ *
  * @return
- *   TRUE when the library was successfully added or FALSE if the library or one
- *   of its dependencies could not be added.
+ *   TRUE if the library was successfully added; FALSE if the library or one of
+ *   its dependencies could not be added.
  *
  * @see drupal_get_library()
  * @see hook_library()
@@ -4596,7 +4654,7 @@ function drupal_add_tabledrag($table_id, $action, $relationship, $group, $subgro
     // Add the table drag JavaScript to the page before the module JavaScript
     // to ensure that table drag behaviors are registered before any module
     // uses it.
-    drupal_add_js('misc/jquery.cookie.js', array('weight' => -2));
+    drupal_add_library('system', 'jquery.cookie');
     drupal_add_js('misc/tabledrag.js', array('weight' => -1));
     $js_added = TRUE;
   }
@@ -5247,6 +5305,97 @@ function drupal_pre_render_link($element) {
 }
 
 /**
+ * #pre_render callback that collects child links into a single array.
+ *
+ * This function can be added as a pre_render callback for a renderable array,
+ * usually one which will be themed by theme_links(). It iterates through all
+ * unrendered children of the element, collects any #links properties it finds,
+ * merges them into the parent element's #links array, and prevents those
+ * children from being rendered separately.
+ *
+ * The purpose of this is to allow links to be logically grouped into related
+ * categories, so that each child group can be rendered as its own list of
+ * links if drupal_render() is called on it, but calling drupal_render() on the
+ * parent element will still produce a single list containing all the remaining
+ * links, regardless of what group they were in.
+ *
+ * A typical example comes from node links, which are stored in a renderable
+ * array similar to this:
+ * @code
+ * $node->content['links'] = array(
+ *   '#theme' => 'links__node',
+ *   '#pre_render' = array('drupal_pre_render_links'),
+ *   'comment' => array(
+ *     '#theme' => 'links__node__comment',
+ *     '#links' => array(
+ *       // An array of links associated with node comments, suitable for
+ *       // passing in to theme_links().
+ *     ),
+ *   ),
+ *   'statistics' => array(
+ *     '#theme' => 'links__node__statistics',
+ *     '#links' => array(
+ *       // An array of links associated with node statistics, suitable for
+ *       // passing in to theme_links().
+ *     ),
+ *   ),
+ *   'translation' => array(
+ *     '#theme' => 'links__node__translation',
+ *     '#links' => array(
+ *       // An array of links associated with node translation, suitable for
+ *       // passing in to theme_links().
+ *     ),
+ *   ),
+ * );
+ * @endcode
+ *
+ * In this example, the links are grouped by functionality, which can be
+ * helpful to themers who want to display certain kinds of links independently.
+ * For example, adding this code to node.tpl.php will result in the comment
+ * links being rendered as a single list:
+ * @code
+ * print render($content['links']['comment']);
+ * @endcode
+ *
+ * (where $node->content has been transformed into $content before handing
+ * control to the node.tpl.php template).
+ *
+ * The pre_render function defined here allows the above flexibility, but also
+ * allows the following code to be used to render all remaining links into a
+ * single list, regardless of their group:
+ * @code
+ * print render($content['links']);
+ * @endcode
+ *
+ * In the above example, this will result in the statistics and translation
+ * links being rendered together in a single list (but not the comment links,
+ * which were rendered previously on their own).
+ *
+ * Because of the way this function works, the individual properties of each
+ * group (for example, a group-specific #theme property such as
+ * 'links__node__comment' in the example above, or any other property such as
+ * #attributes or #pre_render that is attached to it) are only used when that
+ * group is rendered on its own. When the group is rendered together with other
+ * children, these child-specific properties are ignored, and only the overall
+ * properties of the parent are used.
+ */
+function drupal_pre_render_links($element) {
+  $element += array('#links' => array());
+  foreach (element_children($element) as $key) {
+    $child = &$element[$key];
+    // If the child has links which have not been printed yet and the user has
+    // access to it, merge its links in to the parent.
+    if (isset($child['#links']) && empty($child['#printed']) && (!isset($child['#access']) || $child['#access'])) {
+      $element['#links'] += $child['#links'];
+      // Mark the child as having been printed already (so that its links
+      // cannot be mistakenly rendered twice).
+      $child['#printed'] = TRUE;
+    }
+  }
+  return $element;
+}
+
+/**
  * #pre_render callback to append contents in #markup to #children.
  *
  * This needs to be a #pre_render callback, because eventually assigned
@@ -5760,6 +5909,9 @@ function element_sort_by_title($a, $b) {
 
 /**
  * Retrieve the default properties for the defined element type.
+ *
+ * @param $type
+ *   An element type as defined by hook_element_info().
  */
 function element_info($type) {
   // Use the advanced drupal_static() pattern, since this is called very often.
@@ -5782,6 +5934,21 @@ function element_info($type) {
 }
 
 /**
+ * Retrieve a single property for the defined element type.
+ *
+ * @param $type
+ *   An element type as defined by hook_element_info().
+ * @param $property_name
+ *   The property within the element type that should be returned.
+ * @param $default
+ *   (Optional) The value to return if the element type does not specify a
+ *   value for the property. Defaults to NULL.
+ */
+function element_info_property($type, $property_name, $default = NULL) {
+  return (($info = element_info($type)) && array_key_exists($property_name, $info)) ? $info[$property_name] : $default;
+}
+
+/**
  * Function used by uasort to sort structured arrays by weight, without the property weight prefix.
  */
 function drupal_sort_weight($a, $b) {
@@ -5791,6 +5958,19 @@ function drupal_sort_weight($a, $b) {
     return 0;
   }
   return ($a_weight < $b_weight) ? -1 : 1;
+}
+
+/**
+ * Array sorting callback; sorts elements by 'title' key.
+ */
+function drupal_sort_title($a, $b) {
+  if (!isset($b['title'])) {
+    return -1;
+  }
+  if (!isset($a['title'])) {
+    return 1;
+  }
+  return strcasecmp($a['title'], $b['title']);
 }
 
 /**
@@ -5962,14 +6142,22 @@ function element_set_attributes(array &$element, array $map) {
  *   An array of parent keys, starting with the outermost key.
  * @param $value
  *   The value to set.
+ * @param $force
+ *   (Optional) If TRUE, the value is forced into the structure even if it
+ *   requires the deletion of an already existing non-array parent value. If
+ *   FALSE, PHP throws an error if trying to add into a value that is not an
+ *   array. Defaults to FALSE.
  *
  * @see drupal_array_get_nested_value()
  */
-function drupal_array_set_nested_value(array &$array, array $parents, $value) {
+function drupal_array_set_nested_value(array &$array, array $parents, $value, $force = FALSE) {
   $ref = &$array;
   foreach ($parents as $parent) {
-    // Note that PHP is fine with referencing a not existing array key - in this
-    // case it just creates an entry with NULL as value.
+    // PHP auto-creates container arrays and NULL entries without error if $ref
+    // is NULL, but throws an error if $ref is set, but not an array.
+    if ($force && isset($ref) && !is_array($ref)) {
+      $ref = array();
+    }
     $ref = &$ref[$parent];
   }
   $ref = $value;
@@ -6033,10 +6221,7 @@ function drupal_array_set_nested_value(array &$array, array $parents, $value) {
 function drupal_array_get_nested_value(array &$array, array $parents, &$key_exists = NULL) {
   $ref = &$array;
   foreach ($parents as $parent) {
-    // array_key_exists() is slower than isset() and triggers notices if the
-    // second argument is not an array, so only call it when absolutely
-    // necessary.
-    if (isset($ref[$parent]) || (is_array($ref) && array_key_exists($parent, $ref))) {
+    if (is_array($ref) && array_key_exists($parent, $ref)) {
       $ref = &$ref[$parent];
     }
     else {
@@ -6090,9 +6275,6 @@ function drupal_array_nested_key_exists(array $array, array $parents) {
 function drupal_common_theme() {
   return array(
     // theme.inc
-    'placeholder' => array(
-      'variables' => array('text' => NULL)
-    ),
     'html' => array(
       'render element' => 'page',
       'template' => 'html',
@@ -6207,10 +6389,6 @@ function drupal_common_theme() {
     'pager_link' => array(
       'variables' => array('text' => NULL, 'page_new' => NULL, 'element' => NULL, 'parameters' => array(), 'attributes' => array()),
     ),
-    // from locale.inc
-    'locale_admin_manage_screen' => array(
-      'render element' => 'form',
-    ),
     // from menu.inc
     'menu_link' => array(
       'render element' => 'element',
@@ -6225,7 +6403,7 @@ function drupal_common_theme() {
       'render element' => 'element',
     ),
     'menu_local_tasks' => array(
-      'variables' => array(),
+      'variables' => array('primary' => array(), 'secondary' => array()),
     ),
     // from form.inc
     'select' => array(
@@ -6283,7 +6461,7 @@ function drupal_common_theme() {
       'render element' => 'element',
     ),
     'form_required_marker' => array(
-      'arguments' => array('element' => NULL),
+      'render element' => 'element',
     ),
     'form_element_label' => array(
       'render element' => 'element',
@@ -6622,7 +6800,7 @@ function drupal_write_record($table, &$record, $primary_keys = array()) {
  * - name: The real name of the theme for display purposes
  * - description: Brief description
  * - screenshot: Path to screenshot relative to the theme's .info file.
- * - engine: Theme engine, typically: engine = phptemplate
+ * - engine: Theme engine; typically phptemplate.
  * - base: Name of a base theme, if applicable, eg: base = zen
  * - regions: Listed regions eg: region[left] = Left sidebar
  * - features: Features available eg: features[] = logo
@@ -7125,24 +7303,52 @@ function entity_create_stub_entity($entity_type, $ids) {
  * @see hook_entity_info()
  * @see DrupalEntityControllerInterface
  * @see DrupalDefaultEntityController
+ * @see EntityFieldQuery
  *
  * @param $entity_type
  *   The entity type to load, e.g. node or user.
  * @param $ids
  *   An array of entity IDs, or FALSE to load all entities.
  * @param $conditions
- *   An array of conditions in the form 'field' => $value.
+ *   (deprecated) An associative array of conditions on the base table, where
+ *   the keys are the database fields and the values are the values those
+ *   fields must have. Instead, it is preferable to use EntityFieldQuery to
+ *   retrieve a list of entity IDs loadable by this function.
  * @param $reset
  *   Whether to reset the internal cache for the requested entity type.
  *
  * @return
  *   An array of entity objects indexed by their ids.
+ *
+ * @todo Remove $conditions in Drupal 8.
  */
 function entity_load($entity_type, $ids = FALSE, $conditions = array(), $reset = FALSE) {
   if ($reset) {
     entity_get_controller($entity_type)->resetCache();
   }
   return entity_get_controller($entity_type)->load($ids, $conditions);
+}
+
+/**
+ * Loads the unchanged, i.e. not modified, entity from the database.
+ *
+ * Unlike entity_load() this function ensures the entity is directly loaded from
+ * the database, thus bypassing any static cache. In particular, this function
+ * is useful to determine changes by comparing the entity being saved to the
+ * stored entity.
+ *
+ * @param $entity_type
+ *   The entity type to load, e.g. node or user.
+ * @param $id
+ *   The id of the entity to load.
+ *
+ * @return
+ *   The unchanged entity, or FALSE if the entity cannot be loaded.
+ */
+function entity_load_unchanged($entity_type, $id) {
+  entity_get_controller($entity_type)->resetCache(array($id));
+  $result = entity_get_controller($entity_type)->load(array($id));
+  return reset($result);
 }
 
 /**
@@ -7254,13 +7460,16 @@ function entity_uri($entity_type, $entity) {
 /**
  * Returns the label of an entity.
  *
+ * See the 'label callback' component of the hook_entity_info() return value
+ * for more information.
+ *
  * @param $entity_type
- *   The entity type; e.g. 'node' or 'user'.
+ *   The entity type; e.g., 'node' or 'user'.
  * @param $entity
- *   The entity for which to generate a path.
+ *   The entity for which to generate the label.
  *
  * @return
- *   A string with the entity label (e.g. node title), or FALSE if not found.
+ *   The entity label, or FALSE if not found.
  */
 function entity_label($entity_type, $entity) {
   $label = FALSE;
@@ -7293,16 +7502,20 @@ function entity_form_field_validate($entity_type, $form, &$form_state) {
  *
  * During the submission handling of an entity form's "Save", "Preview", and
  * possibly other buttons, the form state's entity needs to be updated with the
- * submitted form values. Each entity form implements its own
- * $form['#builder_function'] for doing this, appropriate for the particular
- * entity and form. Many of these entity builder functions can call this helper
- * function to re-use its logic of copying $form_state['values'][PROPERTY]
- * values to $entity->PROPERTY for all entries in $form_state['values'] that are
- * not field data, and calling field_attach_submit() to copy field data.
+ * submitted form values. Each entity form implements its own builder function
+ * for doing this, appropriate for the particular entity and form, whereas
+ * modules may specify additional builder functions in $form['#entity_builders']
+ * for copying the form values of added form elements to entity properties.
+ * Many of the main entity builder functions can call this helper function to
+ * re-use its logic of copying $form_state['values'][PROPERTY] values to
+ * $entity->PROPERTY for all entries in $form_state['values'] that are not field
+ * data, and calling field_attach_submit() to copy field data. Apart from that
+ * this helper invokes any additional builder functions that have been specified
+ * in $form['#entity_builders'].
  *
  * For some entity forms (e.g., forms with complex non-field data and forms that
  * simultaneously edit multiple entities), this behavior may be inappropriate,
- * so the #builder_function for such forms needs to implement the required
+ * so the builder function for such forms needs to implement the required
  * functionality instead of calling this function.
  */
 function entity_form_submit_build_entity($entity_type, $entity, $form, &$form_state) {
@@ -7315,6 +7528,13 @@ function entity_form_submit_build_entity($entity_type, $entity, $form, &$form_st
   $values_excluding_fields = $info['fieldable'] ? array_diff_key($form_state['values'], field_info_instances($entity_type, $bundle)) : $form_state['values'];
   foreach ($values_excluding_fields as $key => $value) {
     $entity->$key = $value;
+  }
+
+  // Invoke all specified builders for copying form values to entity properties.
+  if (isset($form['#entity_builders'])) {
+    foreach ($form['#entity_builders'] as $function) {
+      $function($entity_type, $entity, $form, $form_state);
+    }
   }
 
   // Copy field values to the entity.
@@ -7457,4 +7677,40 @@ function drupal_get_updaters() {
     uasort($updaters, 'drupal_sort_weight');
   }
   return $updaters;
+}
+
+/**
+ * Drupal FileTransfer registry.
+ *
+ * @return
+ *   Returns the Drupal FileTransfer class registry.
+ *
+ * @see FileTransfer
+ * @see hook_filetransfer_info()
+ * @see hook_filetransfer_info_alter()
+ */
+function drupal_get_filetransfer_info() {
+  $info = &drupal_static(__FUNCTION__);
+  if (!isset($info)) {
+    // Since we have to manually set the 'file path' default for each
+    // module separately, we can't use module_invoke_all().
+    $info = array();
+    foreach (module_implements('filetransfer_info') as $module) {
+      $function = $module . '_filetransfer_info';
+      if (function_exists($function)) {
+        $result = $function();
+        if (isset($result) && is_array($result)) {
+          foreach ($result as &$values) {
+            if (empty($values['file path'])) {
+              $values['file path'] = drupal_get_path('module', $module);
+            }
+          }
+          $info = array_merge_recursive($info, $result);
+        }
+      }
+    }
+    drupal_alter('filetransfer_info', $info);
+    uasort($info, 'drupal_sort_weight');
+  }
+  return $info;
 }

@@ -1,5 +1,5 @@
 <?php
-// $Id: file.inc,v 1.239 2010/10/21 12:09:41 dries Exp $
+// $Id: file.inc,v 1.242 2010/11/30 19:31:46 dries Exp $
 
 /**
  * @file
@@ -519,15 +519,21 @@ function file_create_htaccess($directory, $private = TRUE) {
  * @param $fids
  *   An array of file IDs.
  * @param $conditions
- *   An array of conditions to match against the {file_managed} table.
- *   These should be supplied in the form array('field_name' =>
- *   'field_value').
+ *   (deprecated) An associative array of conditions on the {file_managed}
+ *   table, where the keys are the database fields and the values are the
+ *   values those fields must have. Instead, it is preferable to use
+ *   EntityFieldQuery to retrieve a list of entity IDs loadable by
+ *   this function.
  *
  * @return
  *   An array of file objects, indexed by fid.
  *
  * @see hook_file_load()
  * @see file_load()
+ * @see entity_load()
+ * @see EntityFieldQuery
+ *
+ * @todo Remove $conditions in Drupal 8.
  */
 function file_load_multiple($fids = array(), $conditions = array()) {
   return entity_load('file', $fids, $conditions);
@@ -568,6 +574,11 @@ function file_save(stdClass $file) {
   $file->timestamp = REQUEST_TIME;
   $file->filesize = filesize($file->uri);
 
+  // Load the stored entity, if any.
+  if (!empty($file->fid) && !isset($file->original)) {
+    $file->original = entity_load_unchanged('file', $file->fid);
+  }
+
   if (empty($file->fid)) {
     drupal_write_record('file_managed', $file);
     // Inform modules about the newly added file.
@@ -581,6 +592,7 @@ function file_save(stdClass $file) {
     module_invoke_all('entity_update', $file, 'file');
   }
 
+  unset($file->original);
   return $file;
 }
 
@@ -859,7 +871,7 @@ function file_unmanaged_copy($source, $destination = NULL, $replace = FILE_EXIST
     $dirname = drupal_dirname($destination);
     if (!file_prepare_directory($dirname)) {
       // The destination is not valid.
-      watchdog('file', 'File %file could not be copied, because the destination directory %directory is not configured correctly.', array('%file' => $original_source, '%destination' => drupal_realpath($dirname)));
+      watchdog('file', 'File %file could not be copied, because the destination directory %destination is not configured correctly.', array('%file' => $original_source, '%destination' => drupal_realpath($dirname)));
       drupal_set_message(t('The specified file %file could not be copied, because the destination directory is not properly configured. This may be caused by a problem with file or directory permissions. More information is available in the system log.', array('%file' => $original_source)), 'error');
       return FALSE;
     }
