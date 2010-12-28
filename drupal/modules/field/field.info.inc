@@ -1,5 +1,5 @@
 <?php
-// $Id: field.info.inc,v 1.56 2010/10/23 15:55:04 webchick Exp $
+// $Id: field.info.inc,v 1.58 2010/12/17 01:36:04 dries Exp $
 
 /**
  * @file
@@ -167,15 +167,15 @@ function _field_info_collate_types($reset = FALSE) {
  * @return
  *   If $reset is TRUE, nothing.
  *   If $reset is FALSE, an array containing the following elements:
- *   - fields: Array of existing fields, keyed by field name. This entry only
- *     lists non-deleted fields. Each field has an additional element,
- *     'bundles', which is an array of all non-deleted instances to which the
- *     field is assigned.
- *   - fields_id: Array of existing fields, keyed by field id. This entry lists
- *     both deleted and non-deleted fields. The bundles element is the same as
- *     for 'fields'.
+ *   - fields: Array of existing fields, keyed by field ID. This element
+ *     lists deleted and non-deleted fields, but not inactive ones.
+ *     Each field has an additional element, 'bundles', which is an array
+ *     of all non-deleted instances of that field.
+ *   - field_ids: Array of field IDs, keyed by field name. This element
+ *     only lists non-deleted, active fields.
  *   - instances: Array of existing instances, keyed by entity type, bundle
- *     name and field name. This entry only lists non-deleted instances.
+ *     name and field name. This element only lists non-deleted instances
+ *     whose field is active.
  */
 function _field_info_collate_fields($reset = FALSE) {
   static $info;
@@ -605,7 +605,8 @@ function field_info_fields() {
  *
  * @param $field_name
  *   The name of the field to retrieve. $field_name can only refer to a
- *   non-deleted field.
+ *   non-deleted, active field. Use field_read_fields() to retrieve information
+ *   on deleted or inactive fields.
  *
  * @return
  *   The field array, as returned by field_read_fields(), with an

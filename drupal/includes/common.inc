@@ -1,5 +1,5 @@
 <?php
-// $Id: common.inc,v 1.1272 2010/12/11 02:22:37 dries Exp $
+// $Id: common.inc,v 1.1279 2010/12/21 19:16:31 webchick Exp $
 
 /**
  * @file
@@ -37,7 +37,7 @@
  *   $my_substring = drupal_substr($original_string, 0, 5);
  * @endcode
  *
- * @} End of "defgroup php_wrappers".
+ * @}
  */
 
 /**
@@ -2215,16 +2215,40 @@ function drupal_http_header_attributes(array $attributes = array()) {
 }
 
 /**
- * Format an attribute string to insert in a tag.
+ * Converts an associative array to an attribute string for use in XML/HTML tags.
  *
- * Each array key and its value will be formatted into an HTML attribute string.
- * If a value is itself an array, then each array element is concatenated with a
- * space between each value (e.g. a multi-value class attribute).
+ * Each array key and its value will be formatted into an attribute string.
+ * If a value is itself an array, then its elements are concatenated to a single
+ * space-delimited string (for example, a class attribute with multiple values).
+ *
+ * Attribute values are sanitized by running them through check_plain().
+ * Attribute names are not automatically sanitized. When using user-supplied
+ * attribute names, it is strongly recommended to allow only white-listed names,
+ * since certain attributes carry security risks and can be abused.
+ *
+ * Examples of security aspects when using drupal_attributes:
+ * @code
+ *   // By running the value in the following statement through check_plain,
+ *   // the malicious script is neutralized.
+ *   drupal_attributes(array('title' => t('<script>steal_cookie();</script>')));
+ *
+ *   // The statement below demonstrates dangerous use of drupal_attributes, and
+ *   // will return an onmouseout attribute with javascript code that, when used
+ *   // as attribute in a tag, will cause users to be redirected to another site.
+ *   //
+ *   // In this case, the 'onmouseout' attribute should not be whitelisted --
+ *   // you don't want users to have the ability to add this attribute or others
+ *   // that take JavaScript commands.
+ *   drupal_attributes(array('onmouseout' => 'window.location="http://malicious.com/";')));
+ * @endcode
  *
  * @param $attributes
- *   An associative array of HTML attributes.
+ *   An associative array of key-value pairs to be converted to attributes.
+ *
  * @return
- *   An HTML string ready for insertion in a tag.
+ *   A string ready for insertion in a tag.
+ *
+ * @ingroup sanitization
  */
 function drupal_attributes(array $attributes = array()) {
   foreach ($attributes as $attribute => &$data) {
@@ -2924,7 +2948,7 @@ function drupal_get_css($css = NULL, $skip_alter = FALSE) {
  */
 function drupal_sort_css_js($a, $b) {
   // First order by group, so that, for example, all items in the CSS_SYSTEM
-  // group appear before items in the CSS_DEFAULT_GROUP, which appear before
+  // group appear before items in the CSS_DEFAULT group, which appear before
   // all items in the CSS_THEME group. Modules may create additional groups by
   // defining their own constants.
   if ($a['group'] < $b['group']) {
@@ -4499,10 +4523,14 @@ function drupal_add_library($module, $name, $every_page = NULL) {
  *
  * @param $module
  *   The name of a module that registered a library.
- * @param $library
- *   The name of a registered library.
+ * @param $name
+ *   (optional) The name of a registered library to retrieve. By default, all
+ *   libraries registered by $module are returned.
+ *
  * @return
- *   The definition of the requested library, if existent, or FALSE.
+ *   The definition of the requested library, if $name was passed and it exists,
+ *   or FALSE if it does not exist. If no $name was passed, an associative array
+ *   of libraries registered by $module is returned (which may be empty).
  *
  * @see drupal_add_library()
  * @see hook_library()
@@ -4511,7 +4539,7 @@ function drupal_add_library($module, $name, $every_page = NULL) {
  * @todo The purpose of drupal_get_*() is completely different to other page
  *   requisite API functions; find and use a different name.
  */
-function drupal_get_library($module, $name) {
+function drupal_get_library($module, $name = NULL) {
   $libraries = &drupal_static(__FUNCTION__, array());
 
   if (!isset($libraries[$module])) {
@@ -4534,11 +4562,13 @@ function drupal_get_library($module, $name) {
     }
     $libraries[$module] = $module_libraries;
   }
-  if (empty($libraries[$module][$name])) {
-    $libraries[$module][$name] = FALSE;
+  if (isset($name)) {
+    if (!isset($libraries[$module][$name])) {
+      $libraries[$module][$name] = FALSE;
+    }
+    return $libraries[$module][$name];
   }
-
-  return $libraries[$module][$name];
+  return $libraries[$module];
 }
 
 /**
@@ -5123,7 +5153,7 @@ function drupal_system_listing($mask, $directory, $key = 'name', $min_depth = 1)
     // compatible with Drupal core. This may occur during upgrades of Drupal
     // core when new modules exist in core while older contrib modules with the
     // same name exist in a directory such as sites/all/modules/.
-    foreach (array_intersect_key($files_to_add, $files) as $key => $file) {
+    foreach (array_intersect_key($files_to_add, $files) as $file_key => $file) {
       // If it has no info file, then we just behave liberally and accept the
       // new resource on the list for merging.
       if (file_exists($info_file = dirname($file->uri) . '/' . $file->name . '.info')) {
@@ -5134,7 +5164,7 @@ function drupal_system_listing($mask, $directory, $key = 'name', $min_depth = 1)
         // from the array for the current search directory, so it is not
         // overwritten when merged with the $files array.
         if (isset($info['core']) && $info['core'] != DRUPAL_CORE_COMPATIBILITY) {
-          unset($files_to_add[$key]);
+          unset($files_to_add[$file_key]);
         }
       }
     }

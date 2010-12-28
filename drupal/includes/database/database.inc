@@ -1,5 +1,5 @@
 <?php
-// $Id: database.inc,v 1.145 2010/11/30 07:16:24 webchick Exp $
+// $Id: database.inc,v 1.147 2010/12/22 07:48:56 webchick Exp $
 
 /**
  * @file
@@ -192,6 +192,17 @@ abstract class DatabaseConnection extends PDO {
    * @var string
    */
   protected $target = NULL;
+
+  /**
+   * The key representing this connection.
+   * 
+   * The key is a unique string which identifies a database connection. A
+   * connection can be a single server or a cluster of master and slaves (use
+   * target to pick between master and slave).
+   *
+   * @var string
+   */
+  protected $key = NULL;
 
   /**
    * The current database logging object for this connection.
@@ -467,6 +478,28 @@ abstract class DatabaseConnection extends PDO {
    */
   public function getTarget() {
     return $this->target;
+  }
+
+  /**
+   * Tells this connection object what its key is.
+   *
+   * @param $target
+   *   The key this connection is for.
+   */
+  public function setKey($key) {
+    if (!isset($this->key)) {
+      $this->key = $key;
+    }
+  }
+
+  /**
+   * Returns the key this connection is associated with.
+   *
+   * @return
+   *   The key of this connection.
+   */
+  public function getKey() {
+    return $this->key;
   }
 
   /**
@@ -1104,7 +1137,7 @@ abstract class DatabaseConnection extends PDO {
   }
 
   /**
-   * Returns the type of the database being accessed.
+   * Returns the name of the PDO driver for this connection.
    */
   abstract public function databaseType();
 
@@ -1539,6 +1572,7 @@ abstract class Database {
     require_once DRUPAL_ROOT . '/includes/database/' . $driver . '/database.inc';
     $new_connection = new $driver_class(self::$databaseInfo[$key][$target]);
     $new_connection->setTarget($target);
+    $new_connection->setKey($key);
 
     // If we have any active logging objects for this connection key, we need
     // to associate them with the connection we just opened.

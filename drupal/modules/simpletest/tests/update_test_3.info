@@ -1,15 +1,13 @@
-; $Id: update_test_3.info,v 1.1 2010/02/03 18:16:23 webchick Exp $
+; $Id: update_test_3.info,v 1.2 2010/12/20 19:59:43 webchick Exp $
 name = "Update test"
 description = "Support module for update testing."
 package = Testing
 version = VERSION
 core = 7.x
-files[] = update_test_3.module
-files[] = update_test_3.install
 hidden = TRUE
 
-; Information added by drupal.org packaging script on 2010-12-11
-version = "7.0-rc2"
+; Information added by drupal.org packaging script on 2010-12-23
+version = "7.0-rc3"
 project = "drupal"
-datestamp = "1292101844"
+datestamp = "1293099421"
 

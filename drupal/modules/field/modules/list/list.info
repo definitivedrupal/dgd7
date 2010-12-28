@@ -1,4 +1,4 @@
-; $Id: list.info,v 1.9 2010/10/25 15:48:41 webchick Exp $
+; $Id: list.info,v 1.10 2010/12/20 19:59:41 webchick Exp $
 name = List
 description = Defines list field types. Use with Options to create selection lists.
 package = Core
@@ -6,11 +6,10 @@ version = VERSION
 core = 7.x
 dependencies[] = field
 dependencies[] = options
-files[] = list.module
 files[] = tests/list.test
 
-; Information added by drupal.org packaging script on 2010-12-11
-version = "7.0-rc2"
+; Information added by drupal.org packaging script on 2010-12-23
+version = "7.0-rc3"
 project = "drupal"
-datestamp = "1292101844"
+datestamp = "1293099421"
 

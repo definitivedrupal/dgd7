@@ -1,4 +1,4 @@
-; $Id: forum.info,v 1.14 2010/09/05 02:21:38 dries Exp $
+; $Id: forum.info,v 1.15 2010/12/20 19:59:42 webchick Exp $
 name = Forum
 description = Provides discussion forums.
 dependencies[] = taxonomy
@@ -6,16 +6,12 @@ dependencies[] = comment
 package = Core
 version = VERSION
 core = 7.x
-files[] = forum.module
-files[] = forum.admin.inc
-files[] = forum.pages.inc
-files[] = forum.install
 files[] = forum.test
 configure = admin/structure/forum
 stylesheets[all][] = forum.css
 
-; Information added by drupal.org packaging script on 2010-12-11
-version = "7.0-rc2"
+; Information added by drupal.org packaging script on 2010-12-23
+version = "7.0-rc3"
 project = "drupal"
-datestamp = "1292101844"
+datestamp = "1293099421"
 

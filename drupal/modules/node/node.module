@@ -1,5 +1,5 @@
 <?php
-// $Id: node.module,v 1.1330 2010/12/02 23:58:21 dries Exp $
+// $Id: node.module,v 1.1333 2010/12/15 03:47:28 webchick Exp $
 
 /**
  * @file
@@ -711,10 +711,10 @@ function _node_types_build($rebuild = FALSE) {
     // Types defined by the node module in the database (rather than by a separate
     // module using hook_node_info) have a base value of 'node_content'. The isset()
     // check prevents errors on old (pre-Drupal 7) databases.
-    if (isset($type_object->base) && $type_object->base != 'node_content' && empty($info_array[$type_db])) {
+    if (isset($type_object->base) && $type_object->base != 'node_content' && empty($_node_types->types[$type_db])) {
       $type_object->disabled = TRUE;
     }
-    if (isset($info_array[$type_db])) {
+    if (isset($_node_types->types[$type_db])) {
       $type_object->disabled = FALSE;
     }
     if (!isset($_node_types->types[$type_db]) || $type_object->modified) {
@@ -1058,6 +1058,7 @@ function node_save($node) {
 
     // Let modules modify the node before it is saved to the database.
     module_invoke_all('node_presave', $node);
+    module_invoke_all('entity_presave', $node, 'node');
 
     if ($node->is_new || !empty($node->revision)) {
       // When inserting either a new node or a new node revision, $node->log
@@ -3236,13 +3237,12 @@ function _node_query_node_access_alter($query, $base_table, $type) {
   if ($type == 'entity' && count($entity_conditions->conditions())) {
     // All the node access conditions are only for field values belonging to
     // nodes.
-    $etid = variable_get('field_sql_storage_node_etid');
-    $entity_conditions->condition("$base_alias.etid", $etid);
+    $entity_conditions->condition("$base_alias.entity_type", 'node');
     $or = db_or();
     $or->condition($entity_conditions);
     // If the field value belongs to a non-node entity type then this function
     // does not do anything with it.
-    $or->condition("$base_alias.etid", $etid, '<>');
+    $or->condition("$base_alias.entity_type", 'node', '<>');
     // Add the compiled set of rules to the query.
     $query->condition($or);
   }

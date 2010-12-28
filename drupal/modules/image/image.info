@@ -1,20 +1,15 @@
-; $Id: image.info,v 1.5 2009/11/17 21:24:18 dries Exp $
+; $Id: image.info,v 1.6 2010/12/20 19:59:42 webchick Exp $
 name = Image
 description = Provides image manipulation tools.
 package = Core
 version = VERSION
 core = 7.x
 dependencies[] = file
-files[] = image.module
-files[] = image.admin.inc
-files[] = image.effects.inc
-files[] = image.field.inc
-files[] = image.install
 files[] = image.test
 configure = admin/config/media/image-styles
 
-; Information added by drupal.org packaging script on 2010-12-11
-version = "7.0-rc2"
+; Information added by drupal.org packaging script on 2010-12-23
+version = "7.0-rc3"
 project = "drupal"
-datestamp = "1292101844"
+datestamp = "1293099421"
 

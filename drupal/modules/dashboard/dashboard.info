@@ -1,16 +1,15 @@
-; $Id: dashboard.info,v 1.4 2010/06/04 23:04:32 webchick Exp $
+; $Id: dashboard.info,v 1.5 2010/12/20 19:59:41 webchick Exp $
 name = Dashboard
 description = Provides a dashboard page in the administrative interface for organizing administrative tasks and tracking information within your site.
 core = 7.x
 package = Core
 version = VERSION
-files[] = dashboard.module
 files[] = dashboard.test
 dependencies[] = block
 configure = admin/dashboard/customize
 
-; Information added by drupal.org packaging script on 2010-12-11
-version = "7.0-rc2"
+; Information added by drupal.org packaging script on 2010-12-23
+version = "7.0-rc3"
 project = "drupal"
-datestamp = "1292101844"
+datestamp = "1293099421"
 

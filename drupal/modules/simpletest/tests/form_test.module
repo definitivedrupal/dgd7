@@ -1,5 +1,5 @@
 <?php
-// $Id: form_test.module,v 1.56 2010/11/27 19:12:56 dries Exp $
+// $Id: form_test.module,v 1.58 2010/12/21 21:05:22 webchick Exp $
 
 /**
  * @file
@@ -57,6 +57,14 @@ function form_test_menu() {
     'title' => 'Tableselect js_select tests',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('_form_test_tableselect_js_select_form'),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['form_test/vertical-tabs'] = array(
+    'title' => 'Vertical tabs tests',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('_form_test_vertical_tabs_form'),
     'access arguments' => array('access content'),
     'type' => MENU_CALLBACK,
   );
@@ -535,6 +543,36 @@ function _form_test_tableselect_js_select_form($form, $form_state, $action) {
   }
 
   return _form_test_tableselect_form_builder($form, $form_state, $options);
+}
+
+/**
+ * Tests functionality of vertical tabs.
+ */
+function _form_test_vertical_tabs_form($form, &$form_state) {
+  $form['vertical_tabs'] = array(
+    '#type' => 'vertical_tabs',
+  );
+  $form['tab1'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Tab 1'),
+    '#collapsible' => TRUE,
+    '#group' => 'vertical_tabs',
+  );
+  $form['tab1']['field1'] = array(
+    '#title' => t('Field 1'),
+    '#type' => 'textfield',
+  );
+  $form['tab2'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Tab 2'),
+    '#collapsible' => TRUE,
+    '#group' => 'vertical_tabs',
+  );
+  $form['tab2']['field2'] = array(
+    '#title' => t('Field 2'),
+    '#type' => 'textfield',
+  );
+  return $form;
 }
 
 /**
@@ -1339,6 +1377,7 @@ function form_test_programmatic_form($form, &$form_state) {
     '#title' => 'Textfield',
     '#type' => 'textfield',
   );
+
   $form['checkboxes'] = array(
     '#type' => 'checkboxes',
     '#options' => array(
@@ -1349,6 +1388,39 @@ function form_test_programmatic_form($form, &$form_state) {
     // of programmatic form submissions to uncheck them.
     '#default_value' => array(1, 2),
   );
+
+  $form['field_to_validate'] = array(
+    '#type' => 'radios',
+    '#title' => 'Field to validate (in the case of limited validation)',
+    '#description' => 'If the form is submitted by clicking the "Submit with limited validation" button, then validation can be limited based on the value of this radio button.',
+    '#options' => array(
+      'all' => 'Validate all fields',
+      'textfield' => 'Validate the "Textfield" field',
+      'field_to_validate' => 'Validate the "Field to validate" field',
+    ),
+    '#default_value' => 'all',
+  );
+
+  // The main submit button for the form.
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => 'Submit',
+  );
+  // A secondary submit button that allows validation to be limited based on
+  // the value of the above radio selector.
+  $form['submit_limit_validation'] = array(
+    '#type' => 'submit',
+    '#value' => 'Submit with limited validation',
+    // Use the same submit handler for this button as for the form itself.
+    // (This must be set explicitly or otherwise the form API will ignore the
+    // #limit_validation_errors property.)
+    '#submit' => array('form_test_programmatic_form_submit'),
+  );
+  if (!empty($form_state['input']['field_to_validate']) && $form_state['input']['field_to_validate'] != 'all') {
+    $form['submit_limit_validation']['#limit_validation_errors'] = array(
+      array($form_state['input']['field_to_validate']),
+    );
+  }
 
   return $form;
 }

@@ -1,14 +1,13 @@
-; $Id: menu_test.info,v 1.1 2008/12/28 18:27:14 dries Exp $
+; $Id: menu_test.info,v 1.2 2010/12/20 19:59:43 webchick Exp $
 name = "Hook menu tests"
 description = "Support module for menu hook testing."
 package = Testing
 version = VERSION
 core = 7.x
-files[] = menu_test.module
 hidden = TRUE
 
-; Information added by drupal.org packaging script on 2010-12-11
-version = "7.0-rc2"
+; Information added by drupal.org packaging script on 2010-12-23
+version = "7.0-rc3"
 project = "drupal"
-datestamp = "1292101844"
+datestamp = "1293099421"
 

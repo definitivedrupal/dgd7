@@ -1,5 +1,5 @@
 <?php
-// $Id: select.inc,v 1.55 2010/11/29 04:45:10 webchick Exp $
+// $Id: select.inc,v 1.57 2010/12/23 09:31:56 webchick Exp $
 
 /**
  * @ingroup database
@@ -1362,7 +1362,7 @@ class SelectQuery extends Query implements SelectQueryInterface {
     // Create our new query object that we will mutate into a count query.
     $count = clone($this);
 
-    $group_by = array_keys($count->getGroupBy());
+    $group_by = drupal_map_assoc(array_values($count->getGroupBy()));
 
     if (!$count->distinct) {
       // When not executing a distinct query, we can zero-out existing fields
@@ -1370,14 +1370,14 @@ class SelectQuery extends Query implements SelectQueryInterface {
       // the GROUP BY clause need to be present in the query.
       $fields =& $count->getFields();
       foreach (array_keys($fields) as $field) {
-        if (!empty($group_by[$field])) {
+        if (empty($group_by[$field])) {
           unset($fields[$field]);
         }
       }
       $expressions =& $count->getExpressions();
       foreach (array_keys($expressions) as $field) {
-        if (!empty($group_by[$field])) {
-          unset($fields[$field]);
+        if (empty($group_by[$field])) {
+          unset($expressions[$field]);
         }
       }
 

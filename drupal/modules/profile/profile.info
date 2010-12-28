@@ -1,13 +1,9 @@
-; $Id: profile.info,v 1.11 2010/11/26 10:14:09 webchick Exp $
+; $Id: profile.info,v 1.12 2010/12/20 19:59:42 webchick Exp $
 name = Profile
 description = Supports configurable user profiles.
 package = Core
 version = VERSION
 core = 7.x
-files[] = profile.module
-files[] = profile.admin.inc
-files[] = profile.pages.inc
-files[] = profile.install
 files[] = profile.test
 configure = admin/config/people/profile
 ; The Profile module is deprecated, and included in Drupal 7 for legacy
@@ -16,8 +12,8 @@ configure = admin/config/people/profile
 ; See user_system_info_alter().
 hidden = TRUE
 
-; Information added by drupal.org packaging script on 2010-12-11
-version = "7.0-rc2"
+; Information added by drupal.org packaging script on 2010-12-23
+version = "7.0-rc3"
 project = "drupal"
-datestamp = "1292101844"
+datestamp = "1293099421"
 

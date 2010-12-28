@@ -1,5 +1,5 @@
 <?php
-// $Id: form.test,v 1.76 2010/11/21 10:14:25 webchick Exp $
+// $Id: form.test,v 1.78 2010/12/21 21:05:22 webchick Exp $
 
 /**
  * @file
@@ -835,6 +835,36 @@ class FormsElementsTableSelectFunctionalTest extends DrupalWebTestCase {
 }
 
 /**
+ * Test the vertical_tabs form element for expected behavior.
+ */
+class FormsElementsVerticalTabsFunctionalTest extends DrupalWebTestCase {
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Vertical tabs form element type test',
+      'description' => 'Test the vertical_tabs element for expected behavior',
+      'group' => 'Form API',
+    );
+  }
+
+  function setUp() {
+    parent::setUp('form_test');
+  }
+
+  /**
+   * Ensures that vertical-tabs.js is included before collapse.js.
+   *
+   * Otherwise, collapse.js adds "SHOW" or "HIDE" labels to the tabs.
+   */
+  function testJavaScriptOrdering() {
+    $this->drupalGet('form_test/vertical-tabs');
+    $position1 = strpos($this->content, 'misc/vertical-tabs.js');
+    $position2 = strpos($this->content, 'misc/collapse.js');
+    $this->assertTrue($position1 !== FALSE && $position2 !== FALSE && $position1 < $position2, t('vertical-tabs.js is included before collapse.js'));
+  }
+}
+
+/**
  * Test the form storage on a multistep form.
  *
  * The tested form puts data into the storage during the initial form
@@ -1191,6 +1221,15 @@ class FormsProgrammaticTestCase extends DrupalWebTestCase {
     $this->submitForm(array('textfield' => 'dummy value', 'checkboxes' => array(1 => 1, 2 => NULL)), TRUE);
     $this->submitForm(array('textfield' => 'dummy value', 'checkboxes' => array(1 => NULL, 2 => 2)), TRUE);
     $this->submitForm(array('textfield' => 'dummy value', 'checkboxes' => array(1 => NULL, 2 => NULL)), TRUE);
+
+    // Test that a programmatic form submission can correctly click a button
+    // that limits validation errors based on user input. Since we do not
+    // submit any values for "textfield" here and the textfield is required, we
+    // only expect form validation to pass when validation is limited to a
+    // different field.
+    $this->submitForm(array('op' => 'Submit with limited validation', 'field_to_validate' => 'all'), FALSE);
+    $this->submitForm(array('op' => 'Submit with limited validation', 'field_to_validate' => 'textfield'), FALSE);
+    $this->submitForm(array('op' => 'Submit with limited validation', 'field_to_validate' => 'field_to_validate'), TRUE);
 
     // Restore the current batch status.
     $batch = $current_batch;

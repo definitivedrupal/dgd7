@@ -1,4 +1,4 @@
-// $Id: ajax.js,v 1.32 2010/12/04 01:49:21 webchick Exp $
+// $Id: ajax.js,v 1.35 2010/12/23 04:26:31 webchick Exp $
 (function ($) {
 
 /**
@@ -25,6 +25,9 @@ Drupal.behaviors.AJAX = {
       if (!$('#' + base + '.ajax-processed').length) {
         var element_settings = settings.ajax[base];
 
+        if (typeof element_settings.selector == 'undefined') {
+          element_settings.selector = '#' + base;
+        }
         $(element_settings.selector).each(function () {
           element_settings.element = this;
           Drupal.ajax[base] = new Drupal.ajax(base, this, element_settings);
@@ -100,11 +103,11 @@ Drupal.ajax = function (base, element, element_settings) {
     keypress: true,
     selector: '#' + base,
     effect: 'none',
-    speed: 'slow',
+    speed: 'none',
     method: 'replaceWith',
     progress: {
-      type: 'bar',
-      message: 'Please wait...'
+      type: 'throbber',
+      message: Drupal.t('Please wait...')
     },
     submit: {
       'js': true
@@ -149,9 +152,9 @@ Drupal.ajax = function (base, element, element_settings) {
       ajax.ajaxing = true;
       return ajax.beforeSubmit(form_values, element_settings, options);
     },
-    beforeSend: function (xmlhttprequest) {
+    beforeSend: function (xmlhttprequest, options) {
       ajax.ajaxing = true;
-      return ajax.beforeSend(xmlhttprequest, ajax.options);
+      return ajax.beforeSend(xmlhttprequest, options);
     },
     success: function (response, status) {
       // Sanity check for browser support (object expected).
@@ -192,13 +195,19 @@ Drupal.ajax = function (base, element, element_settings) {
  * The AJAX object will, if instructed, bind to a key press response. This
  * will test to see if the key press is valid to trigger this event and
  * if it is, trigger it for us and prevent other keypresses from triggering.
+ * In this case we're handling RETURN and SPACEBAR keypresses (event codes 13
+ * and 32. RETURN is often used to submit a form when in a textfield, and 
+ * SPACE is often used to activate an element without submitting. 
  */
 Drupal.ajax.prototype.keypressResponse = function (element, event) {
   // Create a synonym for this to reduce code confusion.
   var ajax = this;
 
-  // Detect enter key and space bar.
-  if (event.which == 13 || event.which == 32) {
+  // Detect enter key and space bar and allow the standard response for them,
+  // except for form elements of type 'text' and 'textarea', where the 
+  // spacebar activation causes inappropriate activation if #ajax['keypress'] is 
+  // TRUE. On a text-type widget a space should always be a space.
+  if (event.which == 13 || (event.which == 32 && element.type != 'text' && element.type != 'textarea')) {
     $(ajax.element_settings.element).trigger(ajax.element_settings.event);
     return false;
   }
@@ -309,7 +318,20 @@ Drupal.ajax.prototype.beforeSubmit = function (form_values, element, options) {
  * Prepare the AJAX request before it is sent.
  */
 Drupal.ajax.prototype.beforeSend = function (xmlhttprequest, options) {
-  // Disable the element that received the change.
+  // Disable the element that received the change to prevent user interface
+  // interaction while the AJAX request is in progress. ajax.ajaxing prevents
+  // the element from triggering a new request, but does not prevent the user
+  // from changing its value.
+  // Forms without file inputs are already serialized before this function is
+  // called. Forms with file inputs use an IFRAME to perform a POST request
+  // similar to a browser, so disabled elements are not contained in the
+  // submitted values. Therefore, we manually add the element's value to
+  // options.extraData.
+  var v = $.fieldValue(this.element);
+  if (v !== null) {
+    options.extraData = options.extraData || {};
+    options.extraData[this.element.name] = v;
+  }
   $(this.element).addClass('progress-disabled').attr('disabled', true);
 
   // Insert progressbar or throbber.

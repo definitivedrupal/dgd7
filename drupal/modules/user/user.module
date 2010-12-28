@@ -1,5 +1,5 @@
 <?php
-// $Id: user.module,v 1.1225 2010/12/11 02:13:56 dries Exp $
+// $Id: user.module,v 1.1228 2010/12/20 16:27:35 webchick Exp $
 
 /**
  * @file
@@ -181,8 +181,9 @@ function user_uri($user) {
  */
 function user_field_info_alter(&$info) {
   // Add the 'user_register_form' instance setting to all field types.
-  foreach ($info as $field_type => $field_type_info) {
-    $info[$field_type]['instance_settings'] += array(
+  foreach ($info as $field_type => &$field_type_info) {
+    $field_type_info += array('instance_settings' => array());
+    $field_type_info['instance_settings'] += array(
       'user_register_form' => FALSE,
     );
   }
@@ -397,6 +398,8 @@ function user_load_by_name($name) {
  *
  * @return
  *   A fully-loaded $user object upon successful save or FALSE if the save failed.
+ *
+ * @todo D8: Drop $edit and fix user_save() to be consistent with others.
  */
 function user_save($account, $edit = array(), $category = 'account') {
   $transaction = db_transaction();
@@ -422,11 +425,6 @@ function user_save($account, $edit = array(), $category = 'account') {
       $account->original = entity_load_unchanged('user', $account->uid);
     }
 
-    // Presave field allowing changing of $edit.
-    $edit = (object) $edit;
-    field_attach_presave('user', $edit);
-    $edit = (array) $edit;
-
     if (empty($account)) {
       $account = new stdClass();
     }
@@ -438,7 +436,27 @@ function user_save($account, $edit = array(), $category = 'account') {
     if (!empty($account->data)) {
       $edit['data'] = !empty($edit['data']) ? array_merge($account->data, $edit['data']) : $account->data;
     }
+
+    // Invoke hook_user_presave() for all modules.
     user_module_invoke('presave', $edit, $account, $category);
+
+    // Invoke presave operations of Field Attach API and Entity API. Those APIs
+    // require a fully-fledged (and updated) entity object, so $edit is not
+    // necessarily sufficient, as it technically contains submitted form values
+    // only. Therefore, we need to clone $account into a new object and copy any
+    // new property values of $edit into it.
+    $account_updated = clone $account;
+    foreach ($edit as $key => $value) {
+      $account_updated->$key = $value;
+    }
+    field_attach_presave('user', $account_updated);
+    module_invoke_all('entity_presave', $account_updated, 'user');
+    // Update $edit with any changes modules might have applied to the account.
+    foreach ($account_updated as $key => $value) {
+      if (!property_exists($account, $key) || $value !== $account->$key) {
+        $edit[$key] = $value;
+      }
+    }
 
     if (is_object($account) && !$account->is_new) {
       // Process picture uploads.
@@ -2152,7 +2170,7 @@ function user_login_final_validate($form, &$form_state) {
 function user_authenticate($name, $password) {
   $uid = FALSE;
   if (!empty($name) && !empty($password)) {
-    $account = db_query("SELECT * FROM {users} WHERE name = :name AND status = 1", array(':name' => $name))->fetchObject();
+    $account = user_load_by_name($name);
     if ($account) {
       // Allow alternate password hashing schemes.
       require_once DRUPAL_ROOT . '/' . variable_get('password_inc', 'includes/password.inc');
@@ -2164,10 +2182,7 @@ function user_authenticate($name, $password) {
         if (user_needs_new_hash($account)) {
           $new_hash = user_hash_password($password);
           if ($new_hash) {
-            db_update('users')
-              ->fields(array('pass' => $new_hash))
-              ->condition('uid', $account->uid)
-              ->execute();
+            user_save($account, array('pass' => $new_hash));
           }
         }
       }
