@@ -6,8 +6,8 @@ version = VERSION
 core = 7.x
 files[] = help.test
 
-; Information added by drupal.org packaging script on 2010-12-23
-version = "7.0-rc3"
+; Information added by drupal.org packaging script on 2010-12-30
+version = "7.0-rc4"
 project = "drupal"
-datestamp = "1293099421"
+datestamp = "1293684080"
 
