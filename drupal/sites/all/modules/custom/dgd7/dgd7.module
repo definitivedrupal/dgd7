@@ -1,5 +1,22 @@
 <?php
-// $Id$
+/**
+ * @file
+ * Site-specific code for DefinitiveDrupal.org.
+ */
+
+/**
+ * Implements hook_boot().
+ *
+ * Another approach would allow http://example.com/53/edit to work:
+ * if (is_numeric(substr($_GET['q'], strpos($_GET['q'], '/')))) {
+ *
+ * @TODO replace with http://drupal.org/node/933888 when it lands.
+ */
+function dgd7_boot() {
+  if (is_numeric($_GET['q'])) {
+    $_GET['q'] = 'node/' . $_GET['q'];
+  }
+}
 
 /**
  * Implements hook_remarkup_defaults().
