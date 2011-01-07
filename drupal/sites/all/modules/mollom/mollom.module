@@ -1,5 +1,5 @@
 <?php
-// $Id: mollom.module,v 1.92 2010/10/18 12:31:06 sun Exp $
+// $Id: mollom.module,v 1.94 2010/11/03 14:52:06 sun Exp $
 
 /**
  * @file
@@ -2159,7 +2159,7 @@ function node_mollom_form_info($form_id) {
   $type = node_type_get_type($nodetype);
   $form_info = array(
     // @todo This is incompatible with node access.
-    'bypass access' => array('bypass node access', 'edit any ' . $type->type . ' content'),
+    'bypass access' => array('bypass node access'),
     'bundle' => $type->type,
     'moderation callback' => 'node_mollom_form_moderation',
     'elements' => array(),
@@ -2168,6 +2168,11 @@ function node_mollom_form_info($form_id) {
       'author_name' => 'name',
     ),
   );
+  // @see node_permission()
+  if (in_array($type->type, node_permissions_get_configured_types())) {
+    $form_info['bypass access'][] = 'edit any ' . $type->type . ' content';
+    $form_info['bypass access'][] = 'delete any ' . $type->type . ' content';
+  }
   // @see node_content_form()
   if ($type->has_title) {
     $form_info['elements']['title'] = check_plain($type->title_label);
@@ -2411,7 +2416,7 @@ function contact_mollom_form_info($form_id) {
     case 'contact_site_form':
       $form_info = array(
         'mode' => MOLLOM_MODE_ANALYSIS,
-        'bypass access' => array('administer site-wide contact form'),
+        'bypass access' => array('administer contact forms'),
         'mail ids' => array('contact_page_mail'),
         'elements' => array(
           'subject' => t('Subject'),

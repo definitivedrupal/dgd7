@@ -1,4 +1,4 @@
-// $Id: README.txt,v 1.3 2010/05/16 20:59:55 quicksketch Exp $
+// $Id: README.txt,v 1.4 2010/12/02 18:12:49 quicksketch Exp $
 
 This filter makes it easy to resize images, especially when combined with a
 WYSIWYG editor such as tinyMCE or FCKeditor. Users never have to worry about
@@ -31,7 +31,10 @@ Install
    "Image resize filter" is run BEFORE the "HTML filter".
 
    If using the Image Resize Filter with BBCode or some other non-HTML filter,
-   the "Image resize filter" must be run AFTER the BBCode filter.
+   the "Image resize filter" must be run AFTER the BBCode filter. If using
+   Pathologic (http://drupal.org/project/pathologic), Image Resize Filter must
+   be run AFTER the Pathologic filter too, since Pathologic must correct image
+   path locations for Image Resize Filter to find the images.
 
 5) Optional. Click the Image resize filter tab underneath "Filter settings" to
    set additional configuration for the the image resize filter.

@@ -1,5 +1,5 @@
 <?php
-// $Id: mollom.install,v 1.33 2010/10/16 18:00:29 sun Exp $
+// $Id: mollom.install,v 1.34 2010/12/16 14:50:04 sun Exp $
 
 /**
  * @file
@@ -713,26 +713,27 @@ function mollom_update_7007() {
     }
   }
   // If {mollom}.form_id already exists, only update 'comment_form' form_ids.
+  // Also, in this case, {mollom}.did has been renamed to .id already.
   else {
     $query = db_select('mollom', 'm');
-    $query->join('comment', 'c', 'c.cid = m.did');
+    $query->join('comment', 'c', 'c.cid = m.id');
     $query->join('node', 'n', 'n.nid = c.nid');
     $result = $query
       ->fields('n', array('type'))
-      ->fields('m', array('did'))
+      ->fields('m', array('id'))
       ->condition('m.entity', 'comment')
       ->condition('m.form_id', 'comment_form')
       ->execute()
       ->fetchAll();
     $ids = array();
     foreach ($result as $row) {
-      $ids[$row->type][] = $row->did;
+      $ids[$row->type][] = $row->id;
     }
     foreach ($ids as $type => $cids) {
       db_update('mollom')
         ->fields(array('form_id' => "comment_node_{$type}_form"))
         ->condition('entity', 'comment')
-        ->condition('did', $cids)
+        ->condition('id', $cids)
         ->execute();
     }
   }
@@ -742,8 +743,8 @@ function mollom_update_7007() {
  * Rename {mollom}.did to .id, and {mollom}.session to .session_id.
  */
 function mollom_update_7008() {
-  db_drop_primary_key('mollom');
   if (!db_field_exists('mollom', 'id')) {
+    db_drop_primary_key('mollom');
     db_change_field('mollom', 'did', 'id', array(
       'description' => 'Unique entity ID of the content.',
       'type' => 'varchar',
@@ -751,11 +752,11 @@ function mollom_update_7008() {
       'not null' => TRUE,
       'default' => '',
     ));
+    db_add_primary_key('mollom', array('entity', 'id'));
   }
-  db_add_primary_key('mollom', array('entity', 'id'));
 
-  db_drop_index('mollom', 'session');
   if (!db_field_exists('mollom', 'session_id')) {
+    db_drop_index('mollom', 'session');
     db_change_field('mollom', 'session', 'session_id', array(
       'description' => 'Session hash returned by Mollom.',
       'type' => 'varchar',
@@ -763,8 +764,8 @@ function mollom_update_7008() {
       'not null' => TRUE,
       'default' => '',
     ));
+    db_add_index('mollom', 'session_id', array('session_id'));
   }
-  db_add_index('mollom', 'session_id', array('session_id'));
 }
 
 /**
