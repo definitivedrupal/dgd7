@@ -1,5 +1,5 @@
 <?php
-// $Id: menu.inc,v 1.429 2010/12/17 01:08:15 dries Exp $
+// $Id: menu.inc,v 1.431 2011/01/04 06:20:30 dries Exp $
 
 /**
  * @file
@@ -125,8 +125,10 @@ define('MENU_IS_LOCAL_ACTION', 0x0100);
 /**
  * @defgroup menu_item_types Menu item types
  * @{
+ * Definitions for various menu types.
+ *
  * Menu item definitions provide one of these constants, which are shortcuts for
- * combinations of the above flags.
+ * combinations of @link menu_flags Menu flags @endlink.
  */
 
 /**
@@ -251,7 +253,7 @@ define('MENU_SITE_ONLINE', 5);
 /**
  * @defgroup menu_tree_parameters Menu tree parameters
  * @{
- * Menu tree
+ * Parameters for a menu tree.
  */
 
  /**
@@ -2377,13 +2379,15 @@ function menu_link_get_preferred($path = NULL) {
     $query->leftJoin('menu_router', 'm', 'm.path = ml.router_path');
     $query->fields('ml');
     // Weight must be taken from {menu_links}, not {menu_router}.
-    $query->fields('m', array_diff(drupal_schema_fields_sql('menu_router'), array('weight')));
+    $query->addField('ml', 'weight', 'link_weight');
+    $query->fields('m');
     $query->condition('ml.menu_name', $menu_names, 'IN');
     $query->condition('ml.link_path', $path_candidates, 'IN');
 
     // Sort candidates by link path and menu name.
     $candidates = array();
     foreach ($query->execute() as $candidate) {
+      $candidate['weight'] = $candidate['link_weight'];
       $candidates[$candidate['link_path']][$candidate['menu_name']] = $candidate;
     }
 
@@ -2503,9 +2507,11 @@ function menu_link_load($mlid) {
     $query->leftJoin('menu_router', 'm', 'm.path = ml.router_path');
     $query->fields('ml');
     // Weight should be taken from {menu_links}, not {menu_router}.
-    $query->fields('m', array_diff(drupal_schema_fields_sql('menu_router'), array('weight')));
+    $query->addField('ml', 'weight', 'link_weight');
+    $query->fields('m');
     $query->condition('ml.mlid', $mlid);
     if ($item = $query->execute()->fetchAssoc()) {
+      $item['weight'] = $item['link_weight'];
       _menu_link_translate($item);
       return $item;
     }

@@ -1,5 +1,5 @@
 <?php
-// $Id: common.inc,v 1.1279 2010/12/21 19:16:31 webchick Exp $
+// $Id: common.inc,v 1.1283 2011/01/03 06:51:00 webchick Exp $
 
 /**
  * @file
@@ -1549,6 +1549,10 @@ function filter_xss_bad_protocol($string, $decode = TRUE) {
   // @todo Remove the $decode parameter in Drupal 8, and always assume an HTML
   //   string that needs decoding.
   if ($decode) {
+    if (!function_exists('decode_entities')) {
+      require_once DRUPAL_ROOT . '/includes/unicode.inc';
+    }
+
     $string = decode_entities($string);
   }
   return check_plain(drupal_strip_dangerous_protocols($string));
@@ -1826,7 +1830,8 @@ function format_interval($timestamp, $granularity = 2, $langcode = NULL) {
  * @param $type
  *   (optional) The format to use, one of:
  *   - 'short', 'medium', or 'long' (the corresponding built-in date formats).
- *   - The name of a date type defined by a module in hook_date_format_types().
+ *   - The name of a date type defined by a module in hook_date_format_types(),
+ *     if it's been assigned a format.
  *   - The machine name of an administrator-defined date format.
  *   - 'custom', to use $format.
  *   Defaults to 'medium'.
@@ -3831,7 +3836,7 @@ function drupal_region_class($region) {
  * all typical visitors and most pages of a site. It is critical that all
  * preprocessed files are added unconditionally on every page, even if the
  * files are not needed on a page. This is normally done by calling
- * drupal_add_css() in a hook_init() implementation.
+ * drupal_add_js() in a hook_init() implementation.
  *
  * Non-preprocessed files should only be added to the page when they are
  * actually needed.
@@ -5842,9 +5847,6 @@ function drupal_render_cache_by_query($query, $function, $expire = CACHE_TEMPORA
     ),
   );
 }
-
-/**
-
 
 /**
  * Helper function for building cache ids.

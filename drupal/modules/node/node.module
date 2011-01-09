@@ -1,5 +1,5 @@
 <?php
-// $Id: node.module,v 1.1334 2010/12/30 03:47:36 webchick Exp $
+// $Id: node.module,v 1.1336 2011/01/03 18:03:54 webchick Exp $
 
 /**
  * @file
@@ -3491,8 +3491,9 @@ function _node_access_rebuild_batch_finished($success, $results, $operations) {
 
 
 /**
- * @defgroup node_content Hook implementations for user-created content types.
+ * @defgroup node_content Hook implementations for user-created content types
  * @{
+ * Functions that implement hooks for user-created content types.
  */
 
 /**

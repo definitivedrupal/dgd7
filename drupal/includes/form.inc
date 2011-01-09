@@ -1,5 +1,5 @@
 <?php
-// $Id: form.inc,v 1.516 2010/12/21 21:05:22 webchick Exp $
+// $Id: form.inc,v 1.520 2011/01/04 16:46:24 webchick Exp $
 
 /**
  * @defgroup forms Form builder functions
@@ -2658,6 +2658,9 @@ function theme_fieldset($variables) {
 /**
  * Returns HTML for a radio button form element.
  *
+ * Note: The input "name" attribute needs to be sanitized before output, which
+ *       is currently done by passing all attributes to drupal_attributes().
+ *
  * @param $variables
  *   An associative array containing:
  *   - element: An associative array containing the properties of the element.
@@ -2671,7 +2674,7 @@ function theme_radio($variables) {
   $element['#attributes']['type'] = 'radio';
   element_set_attributes($element, array('id', 'name', '#return_value' => 'value'));
 
-  if (isset($element['#return_value']) && check_plain($element['#value']) == $element['#return_value']) {
+  if (isset($element['#return_value']) && $element['#value'] !== FALSE && $element['#value'] == $element['#return_value']) {
     $element['#attributes']['checked'] = 'checked';
   }
   _form_set_class($element, array('form-radio'));
@@ -2890,7 +2893,9 @@ function form_process_radios($element) {
       $element[$key] += array(
         '#type' => 'radio',
         '#title' => $choice,
-        '#return_value' => check_plain($key),
+        // The key is sanitized in drupal_attributes() during output from the
+        // theme function.
+        '#return_value' => $key,
         '#default_value' => isset($element['#default_value']) ? $element['#default_value'] : NULL,
         '#attributes' => $element['#attributes'],
         '#parents' => $element['#parents'],
@@ -3363,7 +3368,7 @@ function form_validate_machine_name(&$element, &$form_state) {
   // Verify that the machine name is unique.
   if ($element['#default_value'] !== $element['#value']) {
     $function = $element['#machine_name']['exists'];
-    if ($function($element['#value'])) {
+    if ($function($element['#value'], $element, $form_state)) {
       form_error($element, t('The machine-readable name is already in use. It must be unique.'));
     }
   }
@@ -3981,6 +3986,8 @@ function _form_set_class(&$element, $class = array()) {
 /**
  * @defgroup batch Batch operations
  * @{
+ * Create and process batch operations.
+ *
  * Functions allowing forms processing to be spread out over several page
  * requests, thus ensuring that the processing does not get interrupted
  * because of a PHP timeout, while allowing the user to receive feedback
