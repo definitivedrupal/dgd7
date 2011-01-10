@@ -1,5 +1,5 @@
 <?php
-// $Id: image_resize_filter.module,v 1.52 2010/12/05 23:19:34 quicksketch Exp $
+// $Id: image_resize_filter.module,v 1.53 2011/01/05 06:42:54 quicksketch Exp $
 
 /**
  * @file image_resize_filter.module
@@ -544,8 +544,8 @@ function image_resize_filter_image_tag($image = NULL, $settings = NULL) {
     if (!empty($settings['rel'])) {
       $image['link']['attributes']['rel'] = $settings['rel'];
     }
-    if (!empty($image['title'])) {
-      $image['link']['attributes']['title'] = $image['title'];
+    if (!empty($image['attributes']['title'])) {
+      $image['link']['attributes']['title'] = $image['attributes']['title'];
     }
   }
 
