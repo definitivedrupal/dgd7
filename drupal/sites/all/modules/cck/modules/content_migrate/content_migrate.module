@@ -1,5 +1,5 @@
 <?php
-// $Id: content_migrate.module,v 1.3 2010/04/24 18:30:42 karens Exp $
+// $Id: content_migrate.module,v 1.9 2011/01/09 12:22:21 karens Exp $
 /**
  * @file
  * Code For D6 to D7 field update.
@@ -44,17 +44,39 @@ function content_migrate_get_field_values($field_name = NULL) {
     $query = db_select('content_node_field', 'nf', array('fetch' => PDO::FETCH_ASSOC));
     $node_instance_alias = $query->join('content_node_field_instance', 'ni', 'ni.field_name=nf.field_name');
     $result = $query
-      ->fields($node_instance_alias, array('widget_type'))
+      ->fields($node_instance_alias, array('widget_module', 'widget_type', 'widget_settings', 'display_settings'))
       ->fields('nf')
+      //->range(0, 1) // There could be multiple results for a shared field, get the first.
       ->execute();
     
     foreach ($result as $row) {
       $field_value = $row;
     
+      // Pass instance settings to the field, in case they are needed.
+      $instance_value = array(
+        'widget' => array(
+          'type' => $row['widget_type'],
+          'module' => $row['widget_module'],
+          'settings' => unserialize($row['widget_settings']),
+        ),
+        'display' => array(
+           'settings' => unserialize($row['display_settings']),
+        ),
+      );
+      unset($field_value['widget_type'], $field_value['widget_module'], $field_value['widget_settings'], $field_value['display_settings']);
+      
       // All Drupal 6 fields were attached to nodes.
-      $field_value['entity_types'] = array('node');
-    
-      $field_value['cardinality'] = $field_value['multiple'] != 1 ? $field_value['multiple'] : FIELD_CARDINALITY_UNLIMITED;
+      $field_value['entity_types'] = array();
+      
+      if ($field_value['multiple'] == 0) {
+        $field_value['cardinality'] = 1;
+      }
+      elseif ($field_value['multiple'] == 1) {
+        $field_value['cardinality'] = FIELD_CARDINALITY_UNLIMITED;
+      }
+      else {
+        $field_value['cardinality'] = $field_value['multiple'];
+      }
       
       // We need column information for the old table.
       $field_value['columns'] = unserialize($field_value['db_columns']);
@@ -66,13 +88,9 @@ function content_migrate_get_field_values($field_name = NULL) {
       unset($field_value['multiple'], $field_value['global_settings'], $field_value['required'], $field_value['db_columns']);
             
       // Let modules change these values.
-      drupal_alter('content_migrate_field', $field_value);
+      drupal_alter('content_migrate_field', $field_value, $instance_value);
       
-      // We left the widget type in the $field_value so modules
-      // could adjust the field based on that information.
-      // Needed so optionwidgets can change the field type
-      // from text or numeric to list. 
-      unset($field_value['widget_type'], $field_value['allowed_values_php']);
+      unset($field_value['allowed_values_php']);
       
       // We retain $field_value['columns'] and $field_value['db_storage']
       // even though they are not used or different in D7 
@@ -106,20 +124,22 @@ function content_migrate_get_instance_values($bundle = NULL, $field_name = NULL)
     $node_field_alias = $query->join('content_node_field', 'nf', 'ni.field_name=nf.field_name');
     $result = $query
       ->fields('ni')
-      ->fields($node_field_alias, array('required'))
+      ->fields($node_field_alias, array('type', 'module', 'required', 'global_settings'))
       ->orderBy('label', 'ASC')
       ->execute();
     
     foreach ($result as $row) { 
       $instance_value = $row;
       
-      // The instance has the same module as the field,
-      // not the widget. May have been altered
-      // from the original values, so get the altered
-      // field values.
-      $field_value = content_migrate_get_field_values($row['field_name']);
-      $instance_value['module'] = $field_value['module'];
-    
+      // Pass field settings to the instance, in case they are needed.
+      $field_value = array(
+        'require' => $instance_value['required'],
+        'type' => $instance_value['type'],
+        'module' => $instance_value['module'],
+        'settings' => unserialize($instance_value['global_settings']),
+      );
+      unset($instance_value['type'], $instance_value['module'], $instance_value['required'], $instance_value['global_settings']);      
+
       // All Drupal 6 instances were attached to nodes.
       $instance_value['entity_type'] = 'node';
     
@@ -127,17 +147,18 @@ function content_migrate_get_instance_values($bundle = NULL, $field_name = NULL)
       foreach (array('widget_settings', 'display_settings', 'global_settings') as $key) {
         $instance_value[$key] = (!empty($instance_value[$key])) ? (array) unserialize($instance_value[$key]) : array();
       }
-    
+
       // Build instance values.
       $instance_value['bundle'] = $instance_value['type_name'];
-      $instance_value['active'] = $instance_value['widget_active'];
-      $instance_value['default_value'] = $instance_value['widget_settings']['default_value'];
+      $instance_value['default_value'] = !empty($instance_value['widget_settings']['default_value']) ? $instance_value['widget_settings']['default_value'] : '';
       
       // Core does not support this, but retain it so 
       // another module can do something with it
       // in drupal_alter.
-      $instance_value['settings']['default_value_php'] = $instance_value['widget_settings']['default_value_php'];
-    
+      if (isset($instance_value['widget_settings']['default_value_php'])) {
+        $instance_value['widget']['settings']['default_value_php'] = $instance_value['widget_settings']['default_value_php'];
+      }
+
       // Build widget values.
       $instance_value['widget'] = array();
       
@@ -145,40 +166,47 @@ function content_migrate_get_instance_values($bundle = NULL, $field_name = NULL)
       $instance_value['widget']['type']     = $instance_value['widget_type'];
       $instance_value['widget']['weight']   = $instance_value['weight'];
       $instance_value['widget']['module']   = $instance_value['widget_module'];
-    
+      $instance_value['widget']['active']   = $instance_value['widget_active'];
+      
       $default_settings = field_info_widget_settings($field_value['type']);
       $instance_value['widget']['settings'] = array_merge($default_settings, $instance_value['widget_settings']);
     
       // Build display values.
-      $instance_value['display'] = $instance_value['display_settings'];
-      $label = $instance_value['display']['label'];
-      unset($instance_value['display']['label']);
-      foreach ($instance_value['display'] as $context => $settings) {
+      $instance_value['display'] = array();
+      $label = $instance_value['display_settings']['label'];
+      foreach ($instance_value['display_settings'] as $context => $settings) {
+
+        // @TODO Multigroup fields have some unexpected elements, we need to work out what should happen to them.
+        if ($context == 'parent' || $context == 'weight') {
+          continue;
+        }
         $instance_value['display'][$context]['label'] = $label['format'];
         
         // The format used in D6 may not match the formatter in D7.
         // Fix it using drupal_alter().
         $instance_value['display'][$context]['type'] = $settings['format'];
         $instance_value['display'][$context]['settings'] = field_info_formatter_settings($settings['format']);
-        unset($instance_value['display'][$context]['exclude'], $instance_value['display'][$context]['format']);
+
       }
-    
+      
       // Unset unneeded values.
-      unset($instance_value['type_name'], $instance_value['global_settings'], $instance_value['widget_settings'], $instance_value['display_settings'], $instance_value['widget_module'], $instance_value['widget_active'], $instance_value['widget']['settings']['default_value'], $instance_value['widget']['settings']['default_value_php']);
-    
+      unset($instance_value['type_name'], $instance_value['global_settings'], $instance_value['widget_settings'], $instance_value['display_settings'], $instance_value['widget_module'], $instance_value['widget_active']);
+      
+      // Unset some values that don't exist on all fields.
+      if (isset($instance_value['widget']['settings']['default_value'])) unset($instance_value['widget']['settings']['default_value']);
+
       // Let modules change these values.
-      drupal_alter('content_migrate_instance', $instance_value);
+      drupal_alter('content_migrate_instance', $instance_value, $field_value);
       
       // Get rid of this value once CCK or some other module has handled it.
-      unset($instance_value['settings']['default_value_php']);
-    
+      if (isset($instance_value['widget']['settings']['default_value_php'])) unset($instance_value['widget']['settings']['default_value_php']);
+
       // Add instance information to instance array.
       $instance_values['instances'][$instance_value['bundle']][$instance_value['field_name']] = $instance_value;
       $instance_values['fields'][$instance_value['field_name']][$instance_value['bundle']] = $instance_value;
       
     }
   }
-  
   if (!empty($bundle)) {
     if (!empty($field_name)) {
       return $instance_values['instances'][$bundle][$field_name];
@@ -224,7 +252,7 @@ function content_migrate_storage_type($field_value) {
   if (isset($field_value['db_storage'])) {
     return $field_value['db_storage'];
   }
-  elseif ($field_value['cardinality'] > 0 || $field_value['cardinality'] == FIELD_CARDINALITY_UNLIMITED) {
+  elseif ($field_value['cardinality'] > 1 || $field_value['cardinality'] == FIELD_CARDINALITY_UNLIMITED) {
     $storage = CONTENT_DB_STORAGE_PER_FIELD;
   }
   else {
@@ -308,28 +336,49 @@ function content_migrate_new_columns($field) {
  * $field_value['widget_type'] is available to
  * see what widget type was originally used.
  */
-function content_migrate_content_migrate_field_alter(&$field_value) {
-  
+function content_migrate_content_migrate_field_alter(&$field_value, $instance_value) {
+
   switch ($field_value['type']) {
     case 'text':
-      
+
+      // Text fields are translatable.      
+      $field_value['translatable'] = TRUE;
+
       // The max_length field can no longer be empty 
       // or it will create a SQL error.
       if (empty($field_value['settings']['max_length'])) {
         $field_value['settings']['max_length'] = 255;
       }
+
+      // The allowed values list should now be stored as an array.
+      $allowed_values = array();
+      if (!empty($field_value['settings']['allowed_values'])) {
+        $allowed_values;
+        foreach (explode("\n", $field_value['settings']['allowed_values']) as $value) {
+          if (empty($value)) continue;
+          if (strstr($value, '|')) {
+            $parts = explode('|', $value);
+            $allowed_values[trim($parts[0])] = trim($parts[1]);
+          }
+          else {
+            $allowed_values[] = trim($value);
+          }
+        }
+      }
       
       // Text fields using optionwidgets are
       // now List fields.
-      switch ($field_value['widget_type']) {
+      switch ($instance_value['widget']['type']) {
         case 'optionwidgets_buttons':
         case 'optionwidgets_select':
           $field_value['type'] = 'list_text';
           $field_value['module'] = 'list';
+          $field_value['settings']['allowed_values'] = $allowed_values;
           break;
         case 'optionwidgets_onoff':
           $field_value['type'] = 'list_boolean';
           $field_value['module'] = 'list';
+          $field_value['settings']['allowed_values'] = $allowed_values;
           break;  
         case 'text_textarea':
           $field_value['type'] = 'text_long';
@@ -355,7 +404,7 @@ function content_migrate_content_migrate_field_alter(&$field_value) {
       
       // Number fields using optionwidgets are
       // now List fields.
-      switch ($field_value['widget_type']) {
+      switch ($instance_value['widget']['type']) {
         case 'optionwidgets_buttons':
         case 'optionwidgets_select':
           $field_value['type'] = 'list_number';
@@ -368,6 +417,17 @@ function content_migrate_content_migrate_field_alter(&$field_value) {
       }
       break;  
   }
+
+  switch ($instance_value['widget']['module']) {
+    case 'imagefield':
+      // Module names and types changed.
+      $field_value['module'] = 'image';
+      $field_value['type'] = 'image';
+      // default_image is now a field setting.
+      $field_value['settings']['default_image'] = $instance_value['widget']['settings']['default_image'];
+
+      break;
+  }
 }
 
 /**
@@ -378,9 +438,8 @@ function content_migrate_content_migrate_field_alter(&$field_value) {
  * situations not handled by basic conversion, as when
  * formatter or widget names or settings are changed.
  */
-function content_migrate_content_migrate_instance_alter(&$instance_value) {
-  //$field = content_migrate_get_field_values($instance_value['field_name']);
-  
+function content_migrate_content_migrate_instance_alter(&$instance_value, $field_value) {
+
   switch ($instance_value['widget']['module']) {
     // Optionswidgets module became Options module
     // and widget type names changed.
@@ -393,9 +452,44 @@ function content_migrate_content_migrate_instance_alter(&$instance_value) {
       $instance_value['widget']['module'] = 'options';
       $instance_value['widget']['type'] = strtr($instance_value['widget']['type'], $replace);
       break;
-  }
   
-  switch ($instance_value['module']) {
+    case 'imagefield':
+      // Module names and types changed.
+      $instance_value['widget']['module'] = 'image';
+      $instance_value['widget']['type'] = 'image';
+
+      // Most settings became instance settings instead of widget settings, with a couple name changes.
+      $instance_value['settings']['file_directory'] = $instance_value['widget']['settings']['file_path'];
+      unset($instance_value['widget']['settings']['file_path']);
+      $instance_value['settings']['file_extensions'] = $instance_value['widget']['settings']['file_extensions'];
+      unset($instance_value['widget']['settings']['file_extensions']);
+      $instance_value['settings']['max_filesize'] = $instance_value['widget']['settings']['max_filesize_per_file'];
+      unset($instance_value['widget']['settings']['max_filesize_per_file']);
+      $instance_value['settings']['max_resolution'] = $instance_value['widget']['settings']['max_resolution'];
+      unset($instance_value['widget']['settings']['max_resolution']);
+      $instance_value['settings']['min_resolution'] = $instance_value['widget']['settings']['min_resolution'];
+      unset($instance_value['widget']['settings']['min_resolution']);
+
+      // What is the difference between alt and custom_alt on the old field?
+      $instance_value['settings']['alt_field'] = $instance_value['widget']['settings']['custom_alt'];
+      unset($instance_value['widget']['settings']['custom_alt']);
+      $instance_value['settings']['title_field'] = $instance_value['widget']['settings']['custom_title'];
+      unset($instance_value['widget']['settings']['custom_title']);
+
+      // Many settings have no place in the new field array.
+      unset($instance_value['widget']['settings']['title']);
+      unset($instance_value['widget']['settings']['alt']);
+      unset($instance_value['widget']['settings']['max_filesize_per_node']);
+      unset($instance_value['widget']['settings']['title_type']);
+               
+      // default_image is now a field setting.
+      unset($instance_value['widget']['settings']['default_image']);
+      
+      break;
+  }
+ 
+  // Switch 
+  switch ($instance_value['widget']['module']) {
     case 'text':
       // The formatter names changed, all are prefixed
       // with 'text_'.

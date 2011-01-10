@@ -1,5 +1,5 @@
 <?php
-// $Id: cck.module,v 1.31 2010/04/24 20:27:30 karens Exp $
+// $Id: cck.module,v 1.33 2011/01/08 15:17:13 yched Exp $
 /**
  * @file
  * Allows administrators to use php code snippets to
@@ -52,14 +52,14 @@ function cck_form_alter(&$form, $form_state, $form_id) {
  * users to input a function or a PHP snippet
  * that will return the allowed values.
  */
-function cck_allowed_values_form(&$form, $form_state, $field) { 
+function cck_allowed_values_form(&$form, $form_state, $field) {
   $php_code = cck_field_get_setting('allowed_values_php', 'field', $field);
   $allowed_values_function = $form['field']['settings']['allowed_values_function']['#value'];
   if (!empty($php_code)) {
     $allowed_values_function = 'cck_allowed_values_php';
   }
-  
-  // Add a field where users can specify a function 
+
+  // Add a field where users can specify a function
   // to return the allowed values list.
   $form['field']['settings']['allowed_values_function'] = array(
     '#type' => 'textfield',
@@ -67,14 +67,15 @@ function cck_allowed_values_form(&$form, $form_state, $field) {
     '#default_value' => $allowed_values_function,
     '#description' => t('The name of a function that will return the allowed values list.'),
   );
-        
+
   // Add a field where users can specify some PHP
   // code that will return the allowed values list.
-  $function = $field['module'] . '_field_schema';
-  $schema = $function($field);
-  $columns = array_keys($schema['columns']);  
+  module_load_include('install', $field['module']);
+  $schema = module_invoke($field['module'], 'field_schema', $field);
+  $columns = array_keys($schema['columns']);
+
   $sample = t("return array(\n  0 => array(@columns),\n  // You'll usually want to stop here. Provide more values\n  // if you want your 'default value' to be multi-valued:\n  1 => array(@columns),\n  2 => ...\n);", array('@columns' => implode(', ', $columns)));
-            
+
   $form['field']['settings']['allowed_values_php'] = array(
     '#access' => user_access('Use PHP input for field settings (dangerous - grant with care)'),
     '#type' => 'textarea',
@@ -85,7 +86,7 @@ function cck_allowed_values_form(&$form, $form_state, $field) {
       '@link_devel' => 'http://www.drupal.org/project/devel',
     )),
   );
-    
+
 }
 
 /**
@@ -93,16 +94,16 @@ function cck_allowed_values_form(&$form, $form_state, $field) {
  * users to input a function or a PHP snippet
  * that will return the default values.
  */
-function cck_default_value_form(&$form, $form_state, $field) { 
+function cck_default_value_form(&$form, $form_state, $field) {
   $instance = field_info_instance($form['instance']['entity_type']['#value'], $field['field_name'], $form['instance']['bundle']['#value']);
   $langcode = $form['instance']['default_value_widget'][$field['field_name']]['#language'];
+  $default_value_function = $instance['settings']['default_value_function'];
   $php_code = cck_field_get_setting('default_value_php', 'instance', $field, $instance, $langcode);
-  $default_value_function = $instance['default_value_function'];
   if (!empty($php_code)) {
     $default_value_function = 'cck_default_value_php';
   }
-  
-  // Add a field where users can specify a function 
+
+  // Add a field where users can specify a function
   // to return the default value.
   $form['instance']['default_value_widget']['default_value_function'] = array(
     '#type' => 'textfield',
@@ -110,14 +111,14 @@ function cck_default_value_form(&$form, $form_state, $field) {
     '#default_value' => $default_value_function,
     '#description' => t('The name of a function that will return the default value.'),
   );
-        
+
   // Add a field where users can specify some PHP
   // code that will return the default value.
-  $function = $field['module'] . '_field_schema';
-  $schema = $function($field);
-  $columns = array_keys($schema['columns']);  
+  module_load_include('install', $field['module']);
+  $schema = module_invoke($field['module'], 'field_schema', $field);
+  $columns = array_keys($schema['columns']);
   $sample = t("return array(\n  0 => array(@columns),\n  // You'll usually want to stop here. Provide more values\n  // if you want your 'default value' to be multi-valued:\n  1 => array(@columns),\n  2 => ...\n);", array('@columns' => implode(', ', $columns)));
-            
+
   $form['instance']['default_value_widget']['default_value_php'] = array(
     '#access' => user_access('Use PHP input for field settings (dangerous - grant with care)'),
     '#type' => 'textarea',
@@ -128,14 +129,15 @@ function cck_default_value_form(&$form, $form_state, $field) {
       '@link_devel' => 'http://www.drupal.org/project/devel',
     )),
   );
-    
+
 }
 
 /**
  * Validation handler to store php allowed values.
  */
 function cck_allowed_values_validate(&$element, &$form_state) {
-  $field = $form_state['values']['field'];
+  $field = $form['#field'];
+
   $php_code = $form_state['values']['field']['settings']['allowed_values_php'];
   $allowed_values_function = $form_state['values']['field']['settings']['allowed_values_function'];
   if (!empty($php_code)) {
@@ -152,9 +154,11 @@ function cck_allowed_values_validate(&$element, &$form_state) {
  * Validation handler to store php default values.
  */
 function cck_default_value_validate(&$element, &$form_state) {
-  $field = $form_state['values']['field'];
-  $php_code = $form_state['values']['instance']['default_value_widget']['default_value_php'];
+  $field = $form['#field'];
+  $instance = $form['#instance'];
+
   $default_value_function = $form_state['values']['instance']['default_value_function'];
+  $php_code = $form_state['values']['instance']['default_value_widget']['default_value_php'];
   if (!empty($php_code)) {
     $default_value_function = 'cck_default_value_php';
   }
@@ -162,7 +166,7 @@ function cck_default_value_validate(&$element, &$form_state) {
     $default_value_function = '';
   }
   form_set_value($element['instance']['default_value_widget']['default_value_function'], $default_value_function, $form_state);
-  cck_field_set_setting('default_value_php', 'instance', $php_code, $field, $instance, $langcode);
+  cck_field_set_setting('default_value_php', 'instance', $php_code, $field, $instance);
 }
 
 
@@ -281,7 +285,7 @@ function cck_default_value_php($entity_type, $entity, $field, $instance, $langco
     $allowed_values = $result;
   }
   ob_end_clean();
-  return $allowed_values;  
+  return $allowed_values;
 }
 
 /**
@@ -327,12 +331,12 @@ function cck_array_flatten($array) {
 
 /**
  * Implements hook_content_migrate_field_alter().
- * 
+ *
  * Use this to tweak the conversion of field settings
  * from the D6 style to the D7 style for specific
  * situations not handled by basic conversion,
  * as when field types or settings are changed.
- * 
+ *
  * $field_value['widget_type'] is available to
  * see what widget type was originally used.
  */
@@ -345,7 +349,7 @@ function cck_content_migrate_field_alter(&$field_value) {
 
 /**
  * Implements hook_content_migrate_instance_alter().
- * 
+ *
  * Use this to tweak the conversion of instance or widget settings
  * from the D6 style to the D7 style for specific
  * situations not handled by basic conversion, as when

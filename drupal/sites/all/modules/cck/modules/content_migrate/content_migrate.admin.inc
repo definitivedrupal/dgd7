@@ -1,5 +1,5 @@
 <?php
-// $Id: content_migrate.admin.inc,v 1.3 2010/04/24 18:30:42 karens Exp $
+// $Id: content_migrate.admin.inc,v 1.8 2011/01/05 18:11:19 karens Exp $
 /*
 
 /**
@@ -193,25 +193,31 @@ function _content_migrate_batch_process_create_fields($field_names) {
   foreach ($field_names as $field_name) {
     $context['message'] = "creating field $field_name";
     $field_value = content_migrate_get_field_values($field_name);
-    
+
     // Create the field and store the new field 
     // definition in $context so we can retrieve it later. 
     try {
-      unset($data['field']['columns']);
-      unset($data['field']['db_storage']); 
-      $field = field_create_field($field_value);
-      $context['fields'][$field_name] = $field;
-      drupal_set_message(t("Created field @field_name", array('@field_name' => $field_name))); 
-      
+      // A shared field may already have been created, check first.
+      $field = field_info_field('node', $field_value['field_name']);
+      if (empty($field)) {
+        unset($field_value['columns']);
+        unset($field_value['db_storage']);   
+        $field = field_create_field($field_value);
+        $context['fields'][$field_name] = $field;
+        drupal_set_message(t("Created field @field_name", array('@field_name' => $field_name)));
+      }
+ 
       // Create each of the new instances and store 
       // the new instance definitions in $context.
       $instance_values = content_migrate_get_instance_values(NULL, $field_name);
+
       foreach ($instance_values as $bundle => $instance_value) {
         try {
           $instance = field_create_instance($instance_value); 
-          $context['instances'][$fieldname][$instance['bundle']] = $instance;
+          $context['instances'][$field_name][$instance['bundle']] = $instance;
           drupal_set_message(t("Created instance of @field_name in bundle @bundle.", array(
             '@field_name' => $field_name, '@bundle' => $type_names[$instance['bundle']])));
+          
         }
         catch (Exception $e) {
           drupal_set_message(t('Error creating instance of @field_name in bundle @bundle.', array(
@@ -240,7 +246,7 @@ function _content_migrate_batch_process_migrate_data($field_name) {
   
   $field = field_info_field($field_name);
   //$instances = field_read_instances(array('field_id' => $field['id']));
-  foreach ($instance_values as $instance_value) {
+  foreach ($instance_values as $bundle => $instance_value) {
     
     $old_table          = content_migrate_old_table($field_value, $instance_value);
     $old_cols           = content_migrate_old_columns($field_value, $instance_value);
@@ -248,34 +254,37 @@ function _content_migrate_batch_process_migrate_data($field_name) {
     $new_revision_table = content_migrate_new_revision($field);
     $new_columns        = content_migrate_new_columns($field);
     
-    $query = db_select($old_table, 'old');
+    $query = db_select($old_table, 'old_table');
+    $query->join('node', 'n', 'old_table.nid=n.nid');
+    $query->condition('type', $bundle);
     
-    // We need a new columns for bundle name, entity type, and language.
-    $query->addExpression("'". $instance_value['bundle'] ."'", 'bundle');
-    $query->addExpression(1, 'etid');
+    // We need new columns for bundle name, entity type, and language.
+    $query->addExpression("'$bundle'", 'bundle');
+    $query->addExpression("'node'", 'entity_type');
     $query->addExpression("'". LANGUAGE_NONE ."'", 'language');
     
     // There are new names for what were the nid and vid columns.
-    $query->addField('old', 'nid', 'entity_id');
-    $query->addField('old', 'vid', 'revision_id');
+    $query->addField('old_table', 'nid', 'entity_id');
+    $query->addField('old_table', 'vid', 'revision_id');
     
     // Add the field columns to the select query.
     // Use the new column names as aliases in case the 
     // name changed, hopefully none did.
     foreach ($old_cols as $key => $col) {
-      $query->addField('old', $col, $new_columns[$key]);
+      $query->addField('old_table', $col, $new_columns[$key]);
     }
     
     // Add delta, or construct it if missing.
-    if (content_migrate_storage_type($field_value, $instance_value) == CONTENT_DB_STORAGE_PER_FIELD) {
-      $query->addField('old', 'delta', 'delta');
+    // Shared, non-multiple fields do not have a delta but are still in per-field tables.
+    if ($field_value['cardinality'] != 1 && content_migrate_storage_type($field_value, $instance_value) == CONTENT_DB_STORAGE_PER_FIELD) {
+      $query->addField('old_table', 'delta', 'delta');
     }
     else {
       $query->addExpression(0, 'delta');
     }
-    
+
     // Now copy the data to the new field tables.
-    try {
+//    try {
       db_insert($new_table)
         ->from($query)
         ->execute();
@@ -283,12 +292,12 @@ function _content_migrate_batch_process_migrate_data($field_name) {
         ->from($query)
         ->execute();
       drupal_set_message(t('Data migrated for field @field_name in bundle @bundle.', array(
-        '@field_name' => $field_name, '@bundle' => $instance_value['bundle'])));
-    }
+        '@field_name' => $field_name, '@bundle' => $bundle)));
+/*    }
     catch (Exception $e) {
       drupal_set_message(t('Data could not be migrated for field @field_name in bundle @bundle.', array(
         '@field_name' => $field_name, '@bundle' => $instance_value['bundle'])), 'error');
       drupal_set_message($e, 'error');
-    }
+    } */
   }
 }
