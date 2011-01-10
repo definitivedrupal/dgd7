@@ -1,9 +1,9 @@
 <?php
-// $Id: logintoboggan_rules.module,v 1.2 2010/03/25 20:07:20 thehunmonkgroup Exp $
+// $Id: logintoboggan_rules.module,v 1.3 2011/01/06 07:04:44 thehunmonkgroup Exp $
 
 
 /**
- * @file 
+ * @file
  * Logintoboggan Rules module
  *
  * This module provides integration of LoginToboggan module with Rules module
@@ -13,12 +13,11 @@
 
 /**
  * Implement hook_user()
- * 
+ *
  */
-function logintoboggan_rules_user($op, &$edit, &$user_edit, $category = NULL) {
-  if ($op == 'update') {
-    if (!empty($user_edit->logintoboggan_email_validated)) {
-      rules_invoke_event('logintoboggan_validated', $user_edit);
-    }
+function logintoboggan_rules_user_update(&$edit, $account) {
+  if (!empty($account->logintoboggan_email_validated)) {
+    rules_invoke_event('logintoboggan_validated', $account);
   }
 }
+

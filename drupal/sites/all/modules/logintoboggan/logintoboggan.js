@@ -1,4 +1,4 @@
-// $Id: logintoboggan.js,v 1.3 2009/10/19 17:48:25 thehunmonkgroup Exp $
+// $Id: logintoboggan.js,v 1.4 2011/01/06 06:52:19 thehunmonkgroup Exp $
 
 (function ($) {
   Drupal.behaviors.LoginToboggan = {
@@ -20,3 +20,4 @@
     );
   };
 })(jQuery);
+

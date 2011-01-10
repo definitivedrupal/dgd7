@@ -1,8 +1,8 @@
-// $Id: logintoboggan.permissions.js,v 1.1 2009/10/20 14:55:44 thehunmonkgroup Exp $
+// $Id: logintoboggan.permissions.js,v 1.3 2011/01/06 06:52:19 thehunmonkgroup Exp $
 
 /**
  * This is a custom implementation of user.permissions.js, which is necessary
- * because LoginToboggan needs it's pre-auth role to not be explicitly tied to
+ * because LoginToboggan needs its pre-auth role to not be explicitly tied to
  * the auth role.  The change is minor -- simply exclude the pre-auth role from
  * all the auto-checking as the anon and auth user roles are.
  */
@@ -24,8 +24,8 @@ Drupal.behaviors.permissions = {
         $(this).addClass('real-checkbox');
         $('<input type="checkbox" class="dummy-checkbox" disabled="disabled" checked="checked" />')
           .attr('title', Drupal.t("This permission is inherited from the authenticated user role."))
-          .hide()
-          .insertAfter(this);
+          .insertAfter(this)
+          .hide();
       });
 
       // Helper function toggles all dummy checkboxes based on the checkboxes'
@@ -46,3 +46,4 @@ Drupal.behaviors.permissions = {
 };
 
 })(jQuery);
+
