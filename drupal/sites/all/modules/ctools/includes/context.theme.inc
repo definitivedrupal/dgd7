@@ -1,5 +1,5 @@
 <?php
-// $Id: context.theme.inc,v 1.14 2010/10/11 22:18:22 sdboyer Exp $
+// $Id: context.theme.inc,v 1.15 2011/01/05 19:56:46 merlinofchaos Exp $
 
 /**
  * @file
@@ -137,7 +137,7 @@ function theme_ctools_context_item_form($vars) {
 function theme_ctools_context_list($vars) {
   $object = $vars['object'];
   $header = $vars['header'];
-  $description = $vars['description'];
+  $description = (!empty($vars['description'])) ? $vars['description'] : NULL;
   $titles = array();
   $output = '';
   $count  = 1;

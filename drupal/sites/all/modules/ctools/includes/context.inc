@@ -1,5 +1,5 @@
 <?php
-// $Id: context.inc,v 1.41 2010/10/11 22:18:22 sdboyer Exp $
+// $Id: context.inc,v 1.44 2011/01/05 20:34:46 merlinofchaos Exp $
 
 /**
  * @file
@@ -453,7 +453,7 @@ function _ctools_context_get_converters($id, $plugin_name) {
     $converters = $plugin['convert list'];
   }
   else if ($function = ctools_plugin_get_function($plugin, 'convert list')) {
-    $converters = (array) $function();
+    $converters = (array) $function($plugin);
   }
 
   foreach (module_implements('ctools_context_convert_list_alter') as $module) {
@@ -491,6 +491,11 @@ function ctools_context_get_all_converters() {
  * Let the context convert an argument based upon the converter that was given.
  */
 function ctools_context_convert_context($context, $converter) {
+  // Contexts without plugins might be optional placeholders.
+  if (empty($context->plugin)) {
+    return;
+  }
+
   $value = $context->argument;
   if ($function = ctools_plugin_load_function('ctools', 'contexts', $context->plugin, 'convert')) {
     $value = $function($context, $converter);
@@ -554,8 +559,9 @@ function _ctools_context_select($contexts, $required, $context) {
  */
 function ctools_context_create($type, $data = NULL, $conf = FALSE) {
   ctools_include('plugins');
+  $plugin = ctools_get_context($type);
   if ($function = ctools_plugin_load_function('ctools', 'contexts', $type, 'context')) {
-    return $function(FALSE, $data, $conf);
+    return $function(FALSE, $data, $conf, $plugin);
   }
 }
 
@@ -574,8 +580,9 @@ function ctools_context_create($type, $data = NULL, $conf = FALSE) {
  *   A $context or NULL if one could not be created.
  */
 function ctools_context_create_empty($type) {
-  if ($function = ctools_plugin_load_function('ctools', 'contexts', $type, 'context')) {
-    $context = $function(TRUE);
+  $plugin = ctools_get_context($type);
+  if ($function = ctools_plugin_get_function($plugin, 'context')) {
+    $context = $function(TRUE, NULL, FALSE, $plugin);
     if (is_object($context)) {
       $context->empty = TRUE;
     }
@@ -616,7 +623,7 @@ function ctools_context_keyword_substitute($string, $keywords, $contexts) {
 
       // Figure out our keyword and converter, if specified.
       if (strpos($keyword, ':')) {
-        list($context, $converter) = explode(':', $keyword);
+        list($context, $converter) = explode(':', $keyword, 2);
       }
       else {
         $context = $keyword;
@@ -1031,7 +1038,7 @@ function ctools_context_get_context_from_context($context, $type = 'context', $a
       $context[$plugin['placeholder name']] = $argument;
     }
 
-    $return = $function($type == 'requiredcontext', $context, TRUE);
+    $return = $function($type == 'requiredcontext', $context, TRUE, $plugin);
     if ($return) {
       $return->identifier = $context['identifier'];
       $return->page_title = isset($context['title']) ? $context['title'] : '';
@@ -1343,7 +1350,7 @@ function ctools_get_relevant_access_plugins($contexts) {
  */
 function ctools_access_get_loggedin_context() {
   global $user;
-  $context = ctools_context_create('user', $user);
+  $context = ctools_context_create('entity:user', $user);
   $context->identifier = t('Logged in user');
   $context->keyword    = 'viewer';
   $context->id         = 0;

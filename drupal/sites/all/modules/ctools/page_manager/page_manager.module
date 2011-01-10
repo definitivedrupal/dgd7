@@ -1,5 +1,5 @@
 <?php
-// $Id: page_manager.module,v 1.25 2010/10/11 22:18:23 sdboyer Exp $
+// $Id: page_manager.module,v 1.26 2010/11/03 00:08:04 merlinofchaos Exp $
 
 /**
  * @file
@@ -206,7 +206,7 @@ function page_manager_theme() {
 
   $items = array(
     'page_manager_handler_rearrange' => array(
-      'variables' => array('form' => NULL),
+      'render element' => 'form',
     ) + $base,
     'page_manager_edit_page' => array(
       'template' => 'page-manager-edit-page',

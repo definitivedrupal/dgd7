@@ -1,5 +1,5 @@
 <?php
-// $Id: term.inc,v 1.5 2010/10/11 22:18:22 sdboyer Exp $
+// $Id: term.inc,v 1.8 2011/01/05 20:34:46 merlinofchaos Exp $
 
 /**
  * @file
@@ -19,7 +19,7 @@ $plugin = array(
   'settings form validation' => 'ctools_term_ctools_access_settings_validate',
   'settings form submit' => 'ctools_term_ctools_access_settings_submit',
   'summary' => 'ctools_term_ctools_access_summary',
-  'required context' => new ctools_context_required(t('Term'), array('term', 'terms')),
+  'required context' => new ctools_context_required(t('Term'), array('taxonomy_term', 'terms')),
 );
 
 /**
@@ -108,17 +108,17 @@ function ctools_term_ctools_access_check($conf, $context) {
   if (!isset($conf[$vid])) {
     return FALSE;
   }
-  $terms = array_filter($conf[$vid]);
 
   $return = FALSE;
   // Tags get saved as an imploded array of strings.
-  if (!is_array($terms)) {
-    $terms = expand(', ', $terms);
+  if (!is_array($conf[$vid])) {
+    $terms = explode(', ', $conf[$vid]);
     // For multi-term with names, we'll only accept the first term because
     // that is the name we have.
     return in_array($context->data->name, $terms);
   }
   else {
+    $terms = array_filter($conf[$vid]);
     // For multi-term if any terms coincide, let's call that good enough:
     if (isset($context->tids)) {
       return (bool) array_intersect($terms, $context->tids);

@@ -1,5 +1,5 @@
 <?php
-// $Id: ctools_ajax_sample.module,v 1.2 2010/10/11 22:18:23 sdboyer Exp $
+// $Id: ctools_ajax_sample.module,v 1.5 2010/12/31 23:58:52 merlinofchaos Exp $
 
 /**
  * @file
@@ -129,7 +129,7 @@ function ctools_ajax_sample_page() {
       ),
       'animation' => 'fadeIn',
       'modalTheme' => 'CToolsSampleModal',
-      'throbber' => theme('image', ctools_image_path('ajax-loader.gif', 'ctools_ajax_sample'), t('Loading...'), t('Loading')),
+      'throbber' => theme('image', array('path' => ctools_image_path('ajax-loader.gif', 'ctools_ajax_sample'), 'alt' => t('Loading...'), 'title' => t('Loading'))),
     ),
   );
 
@@ -180,7 +180,7 @@ function ctools_ajax_sample_page() {
     );
   }
 
-  $output .= theme('table', array('header' => $header, 'rows' => $rows, array('class' => 'ajax-sample-table')));
+  $output .= theme('table', array('header' => $header, 'rows' => $rows, array('class' => array('ajax-sample-table'))));
 
   // Show examples of ctools javascript widgets
   $output .= '<h2>'. t('CTools Javascript Widgets') .'</h2>';
@@ -690,6 +690,7 @@ function ctools_ajax_sample_configure_raptor($form, &$form_state) {
 function ctools_ajax_sample_configure_raptor_submit(&$form, &$form_state) {
   $form_state['object']->name = $form_state['values']['name'];
   $form_state['object']->raptor = $form_state['values']['raptor'];
+  $form_state['object']->domesticated = $form_state['values']['domesticated'];
 }
 
 /**

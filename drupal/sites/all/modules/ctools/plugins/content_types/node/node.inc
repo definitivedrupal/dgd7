@@ -1,5 +1,5 @@
 <?php
-// $Id: node.inc,v 1.10 2010/10/11 22:18:23 sdboyer Exp $
+// $Id: node.inc,v 1.11 2010/12/31 21:09:56 merlinofchaos Exp $
 
 /**
  * @file
@@ -146,22 +146,10 @@ function ctools_node_content_type_edit_form($form, &$form_state) {
     '#description' => t('This identifier will be added as a template suggestion to display this node: node-panel-IDENTIFIER.tpl.php. Please see the Drupal theming guide for information about template suggestions.'),
   );
 
-  // CCK holds the registry of available build modes, but can hardly
-  // push them as options for the build mode options, so we break the normal
-  // rule of not directly relying on non-core modules.
-  if ($modes = module_invoke('content', 'build_modes')) {
-    $build_mode_options = array();
-    foreach ($modes as $key => $value) {
-      if (isset($value['views style']) && $value['views style']) {
-        $build_mode_options[$key] = $value['title'];
-      }
-    }
-  }
-  else {
-    $build_mode_options = array(
-      'teaser' => t('Teaser'),
-      'full' => t('Full node')
-    );
+  $entity = entity_get_info('node');
+  $build_mode_options = array();
+  foreach ($entity['view modes'] as $mode => $option) {
+    $build_mode_options[$mode] = $option['label'];
   }
 
   // Handle existing configurations with the deprecated 'teaser' option.

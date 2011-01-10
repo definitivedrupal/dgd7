@@ -1,5 +1,5 @@
 <?php
-// $Id: ctools_access_ruleset.module,v 1.2 2010/10/11 22:18:24 sdboyer Exp $
+// $Id: ctools_access_ruleset.module,v 1.3 2011/01/05 22:57:26 merlinofchaos Exp $
 
 /**
  * @file
@@ -70,7 +70,7 @@ function ctools_access_ruleset_panels_dashboard_blocks(&$vars) {
   }
 
   if ($rows) {
-    $content = theme('table', array(), $rows, array('class' => 'panels-manage'));
+    $content = theme('table', array('rows' => $rows, 'attributes' => array('class' => 'panels-manage')));
   }
   else {
     $content = '<p>' . t('There are no custom rulesets.') . '</p>';

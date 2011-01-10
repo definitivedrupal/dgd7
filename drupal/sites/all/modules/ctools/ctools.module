@@ -1,5 +1,5 @@
 <?php
-// $Id: ctools.module,v 1.37 2010/10/11 22:18:22 sdboyer Exp $
+// $Id: ctools.module,v 1.40 2011/01/05 20:06:57 merlinofchaos Exp $
 
 /**
  * @file
@@ -107,8 +107,11 @@ function ctools_api_version($minimum, $maximum = NULL) {
  */
 function ctools_include($file, $module = 'ctools', $dir = 'includes') {
   static $used = array();
+
+  $dir = '/' . ($dir ? $dir . '/' : '');
+
   if (!isset($used[$module][$dir][$file])) {
-    require_once DRUPAL_ROOT . '/' . drupal_get_path('module', $module) . "/$dir/$file.inc";
+    require_once DRUPAL_ROOT . '/' . drupal_get_path('module', $module) . "$dir$file.inc";
     $used[$module][$dir][$file] = true;
   }
 }
@@ -299,6 +302,18 @@ function ctools_set_callback_token($token, $callback) {
   return $string;
 }
 
+/**
+ * Tell CTools that sidebar blocks should not be rendered.
+ *
+ * It is often desirable to not display sidebars when rendering a page,
+ * particularly when using Panels. This informs CTools to alter out any
+ * sidebar regions during block render.
+ */
+function ctools_set_no_blocks($blocks = FALSE) {
+  $status = &drupal_static(__FUNCTION__, TRUE);
+  $status = $blocks;
+}
+
 // -----------------------------------------------------------------------
 // Drupal core hooks
 
@@ -473,12 +488,16 @@ function ctools_preprocess_node(&$vars) {
   }
 }
 
+function ctools_page_alter(&$page) {
+  $page['#post_render'][] = 'ctools_page_token_processing';
+}
+
 /**
- * A theme preprocess function to allow content type plugins to use page
+ * A theme post_render callback to allow content type plugins to use page
  * template variables which are not yet available when the content type is
  * rendered.
  */
-function ctools_preprocess_page(&$variables) {
+function ctools_page_token_processing($children, $elements) {
   $tokens = ctools_set_page_token();
   if (!empty($tokens)) {
     foreach ($tokens as $token => $key) {
@@ -499,8 +518,9 @@ function ctools_preprocess_page(&$variables) {
           break;
       }
     }
-    $variables['content'] = strtr($variables['content'], $tokens);
+    $children = strtr($children, $tokens);
   }
+  return $children;
 }
 
 // -----------------------------------------------------------------------
@@ -702,3 +722,22 @@ function ctools_menu_local_tasks_alter(&$data, $router_item, $root_path) {
   ctools_include('menu');
   _ctools_menu_add_dynamic_items($data, $router_item, $root_path);
 }
+
+/**
+ * Implement hook_block_list_alter() to potentially remove blocks.
+ *
+ * This exists in order to replicate Drupal 6's "no blocks" functionality.
+ */
+function ctools_block_list_alter(&$blocks) {
+  $check = drupal_static('ctools_set_no_blocks', TRUE);
+  if (!$check) {
+    foreach ($blocks as $block_id => $block) {
+      // @todo -- possibly we can set configuration for this so that users can
+      // specify which blocks will not get rendered.
+      if (substr_compare($block->region, 'sidebar', 0)) {
+        unset($blocks[$block_id]);
+      }
+    }
+  }
+}
+

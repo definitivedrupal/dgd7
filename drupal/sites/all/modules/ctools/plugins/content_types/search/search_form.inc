@@ -1,5 +1,5 @@
 <?php
-// $Id: search_form.inc,v 1.4 2010/10/11 22:18:24 sdboyer Exp $
+// $Id: search_form.inc,v 1.5 2010/12/31 21:24:40 merlinofchaos Exp $
 
 if (module_exists('search')) {
   /**
@@ -60,7 +60,7 @@ function ctools_search_form_content_type_render($subtype, $conf, $panel_args, $c
   $form_state = array(
     'no_redirect' => TRUE,
     'build_info' => array(
-      'args' => array(url($path), $keys, $conf['type'], $prompt),
+      'args' => array($path, $keys, $conf['type'], $prompt),
     ),
   );
 

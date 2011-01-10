@@ -1,5 +1,5 @@
 <?php
-// $Id: page.admin.inc,v 1.29 2010/10/11 22:18:23 sdboyer Exp $
+// $Id: page.admin.inc,v 1.30 2011/01/05 22:35:46 merlinofchaos Exp $
 
 /**
  * @file
@@ -395,8 +395,12 @@ function page_manager_page_form_basic($form, &$form_state) {
   );
 
   $form['name'] = array(
-    '#type' => 'textfield',
+    '#type' => 'machine_name',
     '#title' => t('Machine name'),
+    '#machine_name' => array(
+      'exists' => 'page_manager_page_load',
+      'source' => array('admin_title'),
+    ),
     '#description' => t('The machine readable name of this page. It must be unique, and it must contain only alphanumeric characters and underscores. Once created, you will not be able to change this value!'),
     '#default_value' => $page->name,
   );
@@ -1389,17 +1393,22 @@ function page_manager_page_form_clone($form, &$form_state) {
 
   // This provides its own button because it does something totally different.
   unset($form['buttons']);
-  $form['name'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Page name'),
-    '#description' => t('Enter the name to the new page It must be unique and contain only alphanumeric characters and underscores.'),
-  );
 
   $form['admin_title'] = array(
     '#type' => 'textfield',
     '#title' => t('Administrative title'),
     '#description' => t('The name of this page. This will appear in the administrative interface to easily identify it.'),
     '#default_value' => $page->admin_title,
+  );
+  
+  $form['name'] = array(
+    '#type' => 'machine_name',
+    '#title' => t('Page name'),
+    '#machine_name' => array(
+      'exists' => 'page_manager_page_load',
+      'source' => array('admin_title'),
+    ),
+    '#description' => t('Enter the name to the new page It must be unique and contain only alphanumeric characters and underscores.'),
   );
 
   // path

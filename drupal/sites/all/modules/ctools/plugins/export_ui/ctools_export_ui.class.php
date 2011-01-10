@@ -1,5 +1,5 @@
 <?php
-// $Id: ctools_export_ui.class.php,v 1.2 2010/10/11 22:18:22 sdboyer Exp $
+// $Id: ctools_export_ui.class.php,v 1.5 2011/01/05 22:35:46 merlinofchaos Exp $
 
 /**
  * Base class for export UI.
@@ -57,20 +57,21 @@ class ctools_export_ui {
 
     $prefix = ctools_export_ui_plugin_base_path($this->plugin);
 
-    $my_items = array();
-    foreach ($this->plugin['menu']['items'] as $item) {
-      // Add menu item defaults.
-      $item += array(
-        'file' => 'export-ui.inc',
-        'file path' => drupal_get_path('module', 'ctools') . '/includes',
-      );
+    if (isset($this->plugin['menu']['items']) && is_array($this->plugin['menu']['items'])) {
+      $my_items = array();
+      foreach ($this->plugin['menu']['items'] as $item) {
+        // Add menu item defaults.
+        $item += array(
+          'file' => 'export-ui.inc',
+          'file path' => drupal_get_path('module', 'ctools') . '/includes',
+        );
 
-      $path = !empty($item['path']) ? $prefix . '/' . $item['path'] : $prefix;
-      unset($item['path']);
-      $my_items[$path] = $item;
+        $path = !empty($item['path']) ? $prefix . '/' . $item['path'] : $prefix;
+        unset($item['path']);
+        $my_items[$path] = $item;
+      }
+      $items += $my_items;
     }
-
-    $items += $my_items;
   }
 
   /**
@@ -991,12 +992,17 @@ class ctools_export_ui {
       '#maxlength' => 255,
     );
 
+    if (!empty($this->plugin['export']['admin_title'])) {
+      $form['info'][$export_key]['#type'] = 'machine_name';
+      $form['info'][$export_key]['#machine_name'] = array(
+        'exists' => 'ctools_export_ui_edit_name_exists',
+        'source' => array('info', $this->plugin['export']['admin_title']),
+      );
+    }
+
     if ($form_state['op'] === 'edit') {
       $form['info'][$export_key]['#disabled'] = TRUE;
       $form['info'][$export_key]['#value'] = $item->{$export_key};
-    }
-    else {
-      $form['info'][$export_key]['#element_validate'] = array('ctools_export_ui_edit_name_validate');
     }
 
     if (!empty($this->plugin['export']['admin_description'])) {
@@ -1333,6 +1339,15 @@ function ctools_export_ui_edit_name_validate($element, &$form_state) {
 }
 
 /**
+ * Test for #machine_name type to see if an export exists.
+ */
+function ctools_export_ui_edit_name_exists($name, $element, &$form_state) {
+  $plugin = $form_state['plugin'];
+
+  return (empty($form_state['item']->export_ui_allow_overwrite) && ctools_export_crud_load($plugin['schema'], $name));
+}
+
+/**
  * Delete/Revert confirm form.
  *
  * @todo -- call back into the object instead.
@@ -1364,7 +1379,7 @@ function ctools_export_ui_delete_confirm_form($form, &$form_state) {
  *
  * This simply loads the object defined in the plugin and hands it off.
  */
-function ctools_export_ui_edit_item_wizard_form(&$form, &$form_state) {
+function ctools_export_ui_edit_item_wizard_form($form, &$form_state) {
   $method = 'edit_form_' . $form_state['step'];
   if (!method_exists($form_state['object'], $method)) {
     $method = 'edit_form';

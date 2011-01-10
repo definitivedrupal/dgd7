@@ -1,5 +1,5 @@
 <?php
-// $Id: stylizer_ui.class.php,v 1.2 2010/10/11 22:18:22 sdboyer Exp $
+// $Id: stylizer_ui.class.php,v 1.3 2011/01/05 22:35:46 merlinofchaos Exp $
 
 /**
  * UI class for Stylizer.
@@ -207,7 +207,7 @@ class stylizer_ui extends ctools_export_ui {
       $form_state['type'] = $form_state['item']->style_type;
     }
 
-    $form_state['plugin'] = $plugin;
+    $form_state['base_style_plugin'] = $plugin;
     $form_state['settings'] = $form_state['item']->settings;
     return $form_info;
   }

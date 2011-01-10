@@ -1,5 +1,5 @@
 <?php
-// $Id: views_content.module,v 1.7 2010/10/11 22:18:23 sdboyer Exp $
+// $Id: views_content.module,v 1.8 2010/11/01 18:51:22 merlinofchaos Exp $
 
 /**
  * @file views_content.module
@@ -16,7 +16,7 @@ function views_content_menu() {
   $items = array();
 
   if (!module_exists('panels')) {
-    $items['admin/settings/content-views'] = array(
+    $items['admin/config/content-views'] = array(
       'title' => 'Views panes',
       'access arguments' => array('administer views content plugin'),
       'page callback' => 'drupal_get_form',

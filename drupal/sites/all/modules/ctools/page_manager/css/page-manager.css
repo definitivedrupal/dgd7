@@ -1,4 +1,4 @@
-/* $Id: page-manager.css,v 1.12 2010/01/21 05:59:29 sdboyer Exp $ */
+/* $Id: page-manager.css,v 1.13 2011/01/05 23:16:59 merlinofchaos Exp $ */
 body form#page-manager-list-pages-form {
   margin: 0 0 20px 0;
 }
@@ -36,7 +36,7 @@ body form#page-manager-list-pages-form {
   background-color: #fafafa;
 }
 
-#page-manager-list-pages tr.page-manager-disabled {
+#page-manager-list-pages tr.page-manager-disabled td {
   color: #999;
 }
 

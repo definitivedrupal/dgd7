@@ -1,5 +1,5 @@
 <?php
-// $Id: export.inc,v 1.29 2010/10/11 22:18:22 sdboyer Exp $
+// $Id: export.inc,v 1.31 2010/12/31 23:50:25 merlinofchaos Exp $
 
 /**
  * @file
@@ -458,11 +458,13 @@ function ctools_export_load_object($table, $type = 'all', $args = array()) {
  *   ctools_export_load_object() will be reset.
  */
 function ctools_export_load_object_reset($table = NULL) {
+  // Reset plugin cache to make sure new include files are picked up.
+  ctools_include('plugins');
+  ctools_get_plugins_reset();
   if (empty($table)) {
     drupal_static_reset('ctools_export_load_object');
     drupal_static_reset('ctools_export_load_object_all');
     drupal_static_reset('_ctools_export_get_defaults');
-    drupal_static_reset('ctools_plugin_api_info');
   }
   else {
     $cache = &drupal_static('ctools_export_load_object');
@@ -471,7 +473,6 @@ function ctools_export_load_object_reset($table = NULL) {
     unset($cache[$table]);
     unset($cached_database[$table]);
     unset($cached_defaults[$table]);
-    drupal_static_reset('ctools_plugin_api_info');
   }
 }
 
@@ -737,6 +738,14 @@ function ctools_export_get_schema($table) {
   $cache = &drupal_static(__FUNCTION__);
   if (empty($cache[$table])) {
     $schema = drupal_get_schema($table);
+
+    // If our schema isn't loaded, it's possible we're in a state where it
+    // simply hasn't been cached. If we've been asked, let's force the
+    // issue.
+    if (!$schema) {
+      // force a schema reset:
+      $schema = drupal_get_schema($table, TRUE);
+    }
 
     if (!isset($schema['export'])) {
       return array();

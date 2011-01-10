@@ -1,5 +1,5 @@
 <?php
-// $Id: stylizer.theme.inc,v 1.2 2010/10/11 22:18:22 sdboyer Exp $
+// $Id: stylizer.theme.inc,v 1.3 2011/01/05 19:41:11 merlinofchaos Exp $
 
 /**
  * @file
@@ -25,25 +25,5 @@ function ctools_stylizer_theme(&$theme) {
     'variables' => array('image' => NULL, 'title' => NULL),
     'file' => 'includes/stylizer.inc',
   );
-
-  ctools_include('stylizer');
-  // Register all themes given for basetypes.
-  $plugins = ctools_get_style_bases();
-  $base_types = ctools_get_style_base_types();
-  foreach ($plugins as $plugin) {
-    if (!empty($base_types[$plugin['module']][$plugin['type']]) && !empty($plugin['theme'])) {
-      $base_type = $base_types[$plugin['module']][$plugin['type']];
-      $theme[$plugin['theme']] = array(
-        'variables' => $base_type['theme variables'],
-        'path' => $plugin['path'],
-      );
-
-      // if no theme function exists, assume template.
-      if (!function_exists("theme_$plugin[theme]")) {
-        $theme[$plugin['theme']]['template'] = str_replace('_', '-', $plugin['theme']);
-        $theme[$plugin['theme']]['file'] = $plugin['file']; // for preprocess.
-      }
-    }
-  }
 }
 

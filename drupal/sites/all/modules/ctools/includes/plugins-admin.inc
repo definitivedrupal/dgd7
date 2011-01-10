@@ -1,5 +1,5 @@
 <?php
-// $Id: plugins-admin.inc,v 1.1 2010/10/11 22:18:22 sdboyer Exp $
+// $Id: plugins-admin.inc,v 1.3 2011/01/05 22:57:26 merlinofchaos Exp $
 
 /**
  * @file
@@ -62,7 +62,7 @@ function ctools_plugin_configure_form($form_info, &$form_state) {
   }
 
   ctools_include('wizard');
-  return ctools_wizard_multistep_form($form_info, $step, $form_state);
+  return ctools_wizard_multistep_form($form_info, $form_state['step'], $form_state);
 }
 
 function _ctools_plugin_configure_create_form_info(&$form_info, $plugin_definition, $op) {
@@ -171,9 +171,15 @@ function ctools_plugins_default_form_wrapper($form, &$form_state) {
   }
 
   if (isset($form['buttons']['next'])) {
+    if (empty($form['buttons']['next']['#submit'])) {
+      $form['buttons']['next']['#submit'] = $form['#submit'];
+    }
     $form['buttons']['next']['#submit'][] = 'ctools_plugins_default_form_wrapper_submit';
   }
   if (isset($form['buttons']['return'])) {
+    if (empty($form['buttons']['return']['#submit'])) {
+      $form['buttons']['return']['#submit'] = $form['#submit'];
+    }
     $form['buttons']['return']['#submit'][] = 'ctools_plugins_default_form_wrapper_submit';
   }
   return $form;

@@ -1,4 +1,4 @@
-// $Id: dependent.js,v 1.8 2010/10/11 22:18:22 sdboyer Exp $
+// $Id: dependent.js,v 1.9 2011/01/01 00:19:17 merlinofchaos Exp $
 /**
  * @file
  *
@@ -45,7 +45,7 @@
   Drupal.CTools.dependent.autoAttach = function() {
     // Clear active bindings and triggers.
     for (i in Drupal.CTools.dependent.activeTriggers) {
-      jQuery(Drupal.CTools.dependent.activeTriggers[i]).unbind('change');
+      $(Drupal.CTools.dependent.activeTriggers[i]).unbind('change');
     }
     Drupal.CTools.dependent.activeTriggers = [];
     Drupal.CTools.dependent.activeBindings = {};
@@ -85,18 +85,29 @@
 
         Drupal.CTools.dependent.activeTriggers.push(trigger_id);
 
+        if ($(trigger_id).attr('type') == 'checkbox') {
+          $(trigger_id).siblings('label').addClass('hidden-options');
+        }
 
         var getValue = function(item, trigger) {
           if (item.substring(0, 6) == 'radio:') {
-            var val = jQuery(trigger + ':checked').val();
+            var val = $(trigger + ':checked').val();
           }
           else {
-            switch (jQuery(trigger).attr('type')) {
+            switch ($(trigger).attr('type')) {
               case 'checkbox':
-                var val = jQuery(trigger).attr('checked') || 0;
+                var val = $(trigger).attr('checked') || 0;
+
+                if (val) {
+                  $(trigger).siblings('label').removeClass('hidden-options').addClass('expanded-options');
+                }
+                else {
+                  $(trigger).siblings('label').removeClass('expanded-options').addClass('hidden-options');
+                }
+
                 break;
               default:
-                var val = jQuery(trigger).val();
+                var val = $(trigger).val();
             }
           }
           return val;
@@ -133,15 +144,16 @@
                 len++;
               }
 
-              var object = jQuery('#' + id + '-wrapper');
+              var object = $('#' + id + '-wrapper');
               if (!object.size()) {
-                object = jQuery('#' + id).parent();
+                object = $('#' + id).parent();
               }
 
               if (Drupal.settings.CTools.dependent[id].type == 'disable') {
                 if (Drupal.settings.CTools.dependent[id].num <= len) {
                   // Show if the element if criteria is matched
                   object.attr('disabled', false);
+                  object.addClass('dependent-options');
                   object.children().attr('disabled', false);
                 }
                 else {
@@ -167,7 +179,7 @@
             }
           }
 
-          jQuery(trigger_id).change(function() {
+          $(trigger_id).change(function() {
             // Trigger the internal change function
             // the attr('id') is used because closures are more confusing
             changeTrigger(trigger_id, bind_id);

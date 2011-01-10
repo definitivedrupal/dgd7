@@ -1,5 +1,5 @@
 <?php
-// $Id: node_comment_form.inc,v 1.5 2010/10/11 22:18:22 sdboyer Exp $
+// $Id: node_comment_form.inc,v 1.6 2010/12/31 21:16:51 merlinofchaos Exp $
 
 if (module_exists('comment')) {
   /**
@@ -42,10 +42,10 @@ function ctools_node_comment_form_content_type_render($subtype, $conf, $panel_ar
           ),
         ),
       );
-      $block->content = drupal_build_form('comment_form', $form_state);
+      $block->content = drupal_build_form('comment_node_'. $node->type .'_form', $form_state);
     }
     else if (!empty($conf['anon_links'])) {
-      $block->content = theme('comment_post_forbidden', $node);
+      $block->content = theme('comment_post_forbidden', array('node' => $node));
     }
   }
 

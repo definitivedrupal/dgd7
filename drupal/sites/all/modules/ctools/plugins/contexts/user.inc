@@ -1,5 +1,5 @@
 <?php
-// $Id: user.inc,v 1.10 2010/10/11 22:18:23 sdboyer Exp $
+// $Id: user.inc,v 1.12 2011/01/05 19:42:37 merlinofchaos Exp $
 
 /**
  * @file
@@ -40,11 +40,11 @@ function ctools_context_create_user($empty, $data = NULL, $conf = FALSE) {
   if ($conf) {
     if ($data['type'] == 'current') {
       global $user;
-      $data = $user;
+      $data = user_load($user->uid);
       $data->logged_in_user = TRUE;
     }
     else {
-      $data = user_load(array('uid' => $data['uid']));
+      $data = user_load($data['uid']);
     }
   }
 
@@ -121,7 +121,7 @@ function ctools_context_user_settings_form_validate($form, &$form_state) {
     return;
   }
 
-  $account = user_load(array('name' => $form_state['values']['user']));
+  $account = user_load_by_name($form_state['values']['user']);
 
   if (!$account) {
     form_error($form['user'], t('Invalid user selected.'));
@@ -145,13 +145,13 @@ function ctools_context_user_settings_form_submit($form, &$form_state) {
  * Provide a list of replacements.
  */
 function ctools_context_user_convert_list() {
-  $list = array(
-    'uid' => t('User ID'),
-    'name' => t('User name'),
-  );
-  if (module_exists('token')) {
-    $list += reset(token_get_list(array('user')));
+  $tokens = token_info();
+  foreach ($tokens['tokens']['user'] as $id => $info) {
+    if (!isset($list[$id])) {
+      $list[$id] = $info['name'];
+    }
   }
+
   return $list;
 }
 
@@ -159,16 +159,11 @@ function ctools_context_user_convert_list() {
  * Convert a context into a string.
  */
 function ctools_context_user_convert($context, $type) {
-  switch ($type) {
-    case 'uid':
-      return $context->data->uid;
-    case 'name':
-      return $context->data->name;
-  }
-  if (module_exists('token')) {
-    $values = token_get_values('user', $context->data);
-    if ($key = array_search($type, $values->tokens)) {
-      return $values->values[$key];
+  $tokens = token_info();
+  if (isset($tokens['tokens']['user'][$type])) {
+    $values = token_generate('user', array($type => $type), array('user' => $context->data));
+    if (isset($values[$type])) {
+      return $values[$type];
     }
   }
 }

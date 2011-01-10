@@ -1,5 +1,5 @@
 <?php
-// $Id: node_comments.inc,v 1.7 2010/10/11 22:18:22 sdboyer Exp $
+// $Id: node_comments.inc,v 1.9 2010/12/31 21:04:28 merlinofchaos Exp $
 
 if (module_exists('comment')) {
   /**
@@ -33,7 +33,7 @@ function ctools_node_comments_content_type_render($subtype, $conf, $panel_args, 
   else if ($node->comment) {
     $block->content = ctools_comment_render($node, $conf);
     // Update the history table, stating that this user viewed this node.
-    node_tag_new($node->nid);
+    node_tag_new($node);
   }
 
   return $block;
@@ -118,10 +118,13 @@ function ctools_comment_render($node, $conf) {
 
   $comments = comment_load_multiple($cids);
 
-  drupal_add_css(drupal_get_path('module', 'comment') .'/comment.css');
-  comment_prepare_thread($comments);
-  $build = comment_view_multiple($comments, $node);
-  $build['pager']['#theme'] = 'pager';
-  return drupal_render($build);
+  if ($comments) {
+    drupal_add_css(drupal_get_path('module', 'comment') .'/comment.css');
+    comment_prepare_thread($comments);
+    $build = comment_view_multiple($comments, $node);
+    $build['pager']['#theme'] = 'pager';
+    return drupal_render($build);
+  }
+  return;
 }
 

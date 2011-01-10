@@ -1,5 +1,5 @@
 <?php
-// $Id: export-ui.inc,v 1.2 2010/10/11 22:18:22 sdboyer Exp $
+// $Id: export-ui.inc,v 1.3 2010/12/31 23:50:25 merlinofchaos Exp $
 
 /**
  * @file
@@ -57,10 +57,6 @@ function ctools_export_ui_process(&$plugin, $info) {
   // not become available until AFTER menu rebuild. This helps smooth that
   // out. This is a HACK but it should work:
   $schema = ctools_export_get_schema($plugin['schema']);
-
-  if (!$schema && $_GET['q'] == 'admin/modules/list/confirm') {
-    $schema = ctools_export_get_schema($plugin['schema'], TRUE);
-  }
 
   if (empty($schema)) {
     // If we're updating the schema may not have been read yet, so don't report this error in that case.

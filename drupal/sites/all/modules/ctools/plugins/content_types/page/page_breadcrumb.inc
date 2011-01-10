@@ -1,5 +1,5 @@
 <?php
-// $Id: page_breadcrumb.inc,v 1.3 2010/09/07 09:02:51 sdboyer Exp $
+// $Id: page_breadcrumb.inc,v 1.4 2010/12/31 21:20:57 merlinofchaos Exp $
 
 /**
  * @file
@@ -27,7 +27,7 @@ $plugin = array(
  */
 function ctools_page_breadcrumb_content_type_render($subtype, $conf, $panel_args) {
   $block = new stdClass();
-  $block->content = theme('breadcrumb', drupal_get_breadcrumb());
+  $block->content = theme('breadcrumb', array('breadcrumb' => drupal_get_breadcrumb()));
 
   return $block;
 }

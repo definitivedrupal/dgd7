@@ -1,5 +1,5 @@
 <?php
-// $Id: context.plugin-type.inc,v 1.1 2010/10/11 22:18:22 sdboyer Exp $
+// $Id: context.plugin-type.inc,v 1.2 2011/01/05 20:34:46 merlinofchaos Exp $
 
 /**
  * @file
@@ -10,9 +10,15 @@
  */
 
 function ctools_context_plugin_type(&$items) {
-  $items['contexts'] = array();
-  $items['arguments'] = array();
-  $items['relationships'] = array();
+  $items['contexts'] = array(
+    'child plugins' => TRUE,
+  );
+  $items['arguments'] = array(
+    'child plugins' => TRUE,
+  );
+  $items['relationships'] = array(
+    'child plugins' => TRUE,
+  );
   $items['access'] = array(
     'child plugins' => TRUE,
   );

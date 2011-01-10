@@ -1,5 +1,5 @@
 <?php
-// $Id: node_view.inc,v 1.5 2010/10/11 22:18:23 sdboyer Exp $
+// $Id: node_view.inc,v 1.7 2010/12/31 23:56:41 merlinofchaos Exp $
 
 /**
  * @file
@@ -55,7 +55,7 @@ function page_manager_node_view_menu_alter(&$items, $task) {
   // Override the node view handler for our purpose.
   $callback = $items['node/%node']['page callback'];
   if ($callback == 'node_page_view' || variable_get('page_manager_override_anyway', FALSE)) {
-    $items['node/%node']['page callback'] = 'page_manager_node_view';
+    $items['node/%node']['page callback'] = 'page_manager_node_view_page';
     $items['node/%node']['file path'] = $task['path'];
     $items['node/%node']['file'] = $task['file'];
   }
@@ -77,7 +77,7 @@ function page_manager_node_view_menu_alter(&$items, $task) {
  * to run with it. If no one does, it passes through to Drupal core's
  * node view, which is node_page_view().
  */
-function page_manager_node_view($node) {
+function page_manager_node_view_page($node) {
   // Load my task plugin
   $task = page_manager_get_task('node_view');
 
@@ -87,7 +87,7 @@ function page_manager_node_view($node) {
   $contexts = ctools_context_handler_get_task_contexts($task, '', array($node));
 
   $output = ctools_context_handler_render($task, '', $contexts, array($node->nid));
-  if ($output !== FALSE) {
+  if ($output != FALSE) {
     node_tag_new($node);
     return $output;
   }

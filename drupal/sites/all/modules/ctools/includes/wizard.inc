@@ -1,5 +1,5 @@
 <?php
-// $Id: wizard.inc,v 1.18 2010/10/11 22:18:22 sdboyer Exp $
+// $Id: wizard.inc,v 1.20 2010/10/27 20:07:10 merlinofchaos Exp $
 
 /**
  * @file
@@ -191,7 +191,12 @@ function ctools_wizard_multistep_form($form_info, $step, &$form_state) {
     if (empty($form_state['ajax'])) {
       // redirect, if one is set.
       if ($form_state['redirect']) {
-        call_user_func_array('drupal_goto', $form_state['redirect']);
+        if (is_array($form_state['redirect'])) {
+          call_user_func_array('drupal_goto', $form_state['redirect']);
+        }
+        else {
+          drupal_goto($form_state['redirect']);
+        }
       }
     }
     else if (isset($form_state['ajax next'])) {
@@ -297,7 +302,7 @@ function ctools_wizard_wrapper($form, &$form_state) {
         '#next' => $form_state['previous'],
         '#wizard type' => 'next',
         '#weight' => -2000,
-        '#skip validation' => TRUE,
+        '#limit_validation_errors' => array(),
         // hardcode the submit so that it doesn't try to save data.
         '#submit' => array('ctools_wizard_submit'),
         '#attributes' => $button_attributes,
@@ -352,7 +357,7 @@ function ctools_wizard_wrapper($form, &$form_state) {
         '#value' => $form_info['cancel text'],
         '#wizard type' => 'cancel',
         // hardcode the submit so that it doesn't try to save data.
-        '#skip validation' => TRUE,
+        '#limit_validation_errors' => array(),
         '#submit' => array('ctools_wizard_submit'),
         '#attributes' => $button_attributes,
       );

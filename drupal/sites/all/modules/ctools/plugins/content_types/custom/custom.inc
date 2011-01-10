@@ -1,5 +1,5 @@
 <?php
-// $Id: custom.inc,v 1.15 2010/10/11 22:18:22 sdboyer Exp $
+// $Id: custom.inc,v 1.17 2011/01/05 22:57:26 merlinofchaos Exp $
 
 /**
  * @file
@@ -15,6 +15,7 @@
  * by the system that includes this file.
  */
 $plugin = array(
+  'title' => t('Custom content'),
   'no title override' => TRUE,
   'defaults' => array('admin_title' => '', 'title' => '', 'body' => '', 'format' => filter_fallback_format(), 'substitute' => TRUE),
   'js' => array('misc/autocomplete.js', 'misc/textarea.js', 'misc/collapse.js'),
@@ -220,7 +221,8 @@ function ctools_custom_content_type_admin_info($subtype, $conf) {
   // If a php filter is active, just print the source, but only if the current
   // user has access to the actual filter.
   if ($php_filter) {
-    if (!filter_access($settings['format'])) {
+    $filter = filter_format_load($settings['format']);
+    if (!filter_access($filter)) {
       return NULL;
     }
     $block->content = '<pre>'. check_plain($settings['body']) .'</pre>';

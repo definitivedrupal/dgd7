@@ -1,4 +1,4 @@
-// $Id: modal.js,v 1.24 2010/10/11 22:18:22 sdboyer Exp $
+// $Id: modal.js,v 1.27 2010/12/31 22:27:02 merlinofchaos Exp $
 /**
  * @file
  *
@@ -412,6 +412,7 @@
       $('body').unbind( 'focus', modalEventHandler);
       $('body').unbind( 'keypress', modalEventHandler );
       $('.close').unbind('click', modalContentClose);
+      $(document).trigger('CToolsDetachBehaviors', $('#modalContent'));
 
       // Set our animation parameters and use them
       if ( animation == 'fadeIn' ) animation = 'fadeOut';
@@ -470,6 +471,7 @@
     $('body').unbind('focus', modalEventHandler);
     $('body').unbind('keypress', modalEventHandler);
     $('.close').unbind('click', modalContentClose);
+    $(document).trigger('CToolsDetachBehaviors', $('#modalContent'));
 
     // jQuery magic loop through the instances and run the animations or removal.
     content.each(function(){

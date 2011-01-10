@@ -1,5 +1,5 @@
 <?php
-// $Id: term.inc,v 1.11 2010/10/11 22:18:22 sdboyer Exp $
+// $Id: term.inc,v 1.12 2010/12/31 21:31:50 merlinofchaos Exp $
 
 /**
  * @file
@@ -38,7 +38,7 @@ function ctools_term_context($arg = NULL, $conf = NULL, $empty = FALSE) {
       if (!is_numeric($arg)) {
         return FALSE;
       }
-      $term = taxonomy_get_term($arg);
+      $term = taxonomy_term_load($arg);
       break;
 
     case 'term':

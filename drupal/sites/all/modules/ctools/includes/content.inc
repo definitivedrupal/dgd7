@@ -1,5 +1,5 @@
 <?php
-// $Id: content.inc,v 1.19 2010/10/11 22:18:22 sdboyer Exp $
+// $Id: content.inc,v 1.21 2010/12/31 23:53:34 merlinofchaos Exp $
 
 /**
  * @file
@@ -58,7 +58,7 @@ function ctools_content_process(&$plugin, $info) {
       $type = array(
         'title' => $plugin['title'],
         'description' => $plugin['description'],
-        'icon' => $plugin['icon'],
+        'icon' => ctools_content_admin_icon($plugin),
         'category' => $plugin['category'],
       );
 
@@ -733,6 +733,35 @@ function ctools_content_select_context($plugin, $subtype, $conf, $contexts) {
   // do not display the pane.
   if (empty($subtype_info['required context'])) {
     return;
+  }
+
+  // Deal with dynamic required contexts not getting updated in the panes.
+  // For example, Views let you dynamically change context info. While
+  // we cannot be perfect, one thing we can do is if no context at all
+  // was asked for, and then was later added but none is selected, make
+  // a best guess as to what context should be used. THis is right more
+  // than it's wrong.
+  if (is_array($subtype_info['required context'])) {
+    if (empty($conf['context']) || count($subtype_info['required context']) != count($conf['context'])) {
+      foreach($subtype_info['required context'] as $index => $required) {
+        if (!isset($conf['context'][$index])) {
+          $filtered = ctools_context_filter($contexts, $required);
+          if ($filtered) {
+            $keys = array_keys($filtered);
+            $conf['context'][$index] = array_shift($keys);
+          }
+        }
+      }
+    }
+  }
+  else {
+    if (empty($conf['context'])) {
+      $filtered = ctools_context_filter($contexts, $subtype_info['required context']);
+      if ($filtered) {
+        $keys = array_keys($filtered);
+        $conf['context'] = array_shift($keys);
+      }
+    }
   }
 
   if (empty($conf['context'])) {

@@ -1,5 +1,5 @@
 <?php
-// $Id: node_links.inc,v 1.5 2010/10/11 22:18:22 sdboyer Exp $
+// $Id: node_links.inc,v 1.6 2010/12/31 21:06:18 merlinofchaos Exp $
 
 /**
  * Plugins are described by creating a $plugin array which will be used
@@ -15,7 +15,7 @@ $plugin = array(
   'defaults' => array(
     'override_title' => FALSE,
     'override_title_text' => '',
-    'teaser' => TRUE,
+    'build_mode' => '',
     'identifier' => '',
     'link' => TRUE,
   ),
@@ -46,25 +46,14 @@ function ctools_node_links_content_type_render($subtype, $conf, $panel_args, $co
     }
 
     $block->subject = $node->title;
-
-    $block->content = ctools_node_links_render_links($node, $conf);
+    node_build_content($node, $conf['build_mode']);
+    $block->content = $node->content['links'];
   }
 
   if (!empty($conf['link']) && $node) {
     $block->title_link = "node/$node->nid";
   }
   return $block;
-}
-
-function ctools_node_links_render_links($node, $conf) {
-  // The build mode identifies the target for which the node is built.
-  if (!isset($node->build_mode)) {
-    $node->build_mode = NODE_BUILD_NORMAL;
-  }
-
-  $links = module_invoke_all('link', 'node', $node, $conf['teaser']);
-  drupal_alter('link', $links, $node);
-  return theme('links', $links);
 }
 
 /**
@@ -79,11 +68,19 @@ function ctools_node_links_content_type_edit_form($form, &$form_state) {
     '#default_value' => $conf['link'],
     '#description' => t('Check here to make the title link to the node.'),
   );
-  $form['teaser'] = array(
-    '#title' => t('Teaser mode'),
-    '#type' => 'checkbox',
-    '#default_value' => $conf['teaser'],
-    '#description' => t('Check here to show links in teaser mode.'),
+
+  $entity = entity_get_info('node');
+  $build_mode_options = array();
+  foreach ($entity['view modes'] as $mode => $option) {
+    $build_mode_options[$mode] = $option['label'];
+  }
+
+  $form['build_mode'] = array(
+    '#title' => t('Build mode'),
+    '#type' => 'select',
+    '#description' => t('Select a build mode for this node.'),
+    '#options' => $build_mode_options,
+    '#default_value' => $conf['build_mode'],
   );
 
   $form['identifier'] = array(

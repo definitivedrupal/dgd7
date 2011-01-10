@@ -1,5 +1,5 @@
 <?php
-// $Id: page_manager.admin.inc,v 1.40 2010/10/11 22:18:23 sdboyer Exp $
+// $Id: page_manager.admin.inc,v 1.45 2010/11/03 00:01:14 merlinofchaos Exp $
 
 /**
  * @file
@@ -529,6 +529,7 @@ function page_manager_get_operations($page, $operations = NULL) {
       'form' => 'page_manager_enable_form',
       'ajax' => FALSE,
       'silent' => TRUE,
+      'no update and save' => TRUE,
       'form info' => array(
         'finish text' => t('Enable'),
       ),
@@ -542,6 +543,7 @@ function page_manager_get_operations($page, $operations = NULL) {
       'form' => 'page_manager_disable_form',
       'ajax' => FALSE,
       'silent' => TRUE,
+      'no update and save' => TRUE,
       'form info' => array(
         'finish text' => t('Disable'),
       ),
@@ -554,6 +556,7 @@ function page_manager_get_operations($page, $operations = NULL) {
     'form' => 'page_manager_handler_add',
     'ajax' => FALSE,
     'silent' => TRUE, // prevents a message about updating and prevents this item from showing as changed.
+    'no update and save' => TRUE, // get rid of update and save button which is bad here.
     'form info' => array(
       'finish text' => t('Create variant'),
     ),
@@ -585,6 +588,7 @@ function page_manager_get_operations($page, $operations = NULL) {
       'title' => t('Configure'),
       'description' => t('Configure a newly created variant prior to actually adding it to the page.'),
       'ajax' => FALSE,
+      'no update and save' => TRUE, // get rid of update and save button which is bad here.
       'form info' => array(
         // We use our own cancel and finish callback to handle the fun stuff.
         'finish callback' => 'page_manager_handler_add_finish',
@@ -614,6 +618,7 @@ function page_manager_get_operations($page, $operations = NULL) {
       'description' => t('Break the lock on this page so that you can edit it.'),
       'form' => 'page_manager_break_lock',
       'ajax' => FALSE,
+      'no update and save' => TRUE, // get rid of update and save button which is bad here.
       'form info' => array(
         'finish text' => t('Break lock'),
        ),
@@ -696,6 +701,7 @@ function page_manager_get_handler_operations(&$page) {
         'title' => t('Revert'),
         'description' => t('Remove all changes to this variant and revert to the version in code.'),
         'form' => 'page_manager_handler_delete',
+        'no update and save' => TRUE,
         'form info' => array(
           'finish text' => t('Revert'),
         ),
@@ -708,6 +714,7 @@ function page_manager_get_handler_operations(&$page) {
         'form' => 'page_manager_handler_delete',
         'form info' => array(
           'finish text' => t('Delete'),
+          'save text' => t('Delete and save'),
         ),
       );
     }
@@ -719,6 +726,7 @@ function page_manager_get_handler_operations(&$page) {
         'silent' => TRUE,
         'form info' => array(
           'finish text' => t('Enable'),
+          'save text' => t('Enable and save'),
         ),
       );
     }
@@ -730,6 +738,7 @@ function page_manager_get_handler_operations(&$page) {
         'silent' => TRUE,
         'form info' => array(
           'finish text' => t('Disable'),
+          'save text' => t('Disable and save'),
         ),
       );
     }
@@ -883,7 +892,6 @@ function _page_manager_get_operation_content($js, &$page, $active, $operation, $
       'type' => 'edit',
       'ajax' => $js && (!isset($operation['ajax']) || !empty($operation['ajax'])),
       'rerender' => TRUE,
-      'no_redirect' => $js,
       'trail' => $active,
       'task_name' => $page->task_name,
       'task_id' => $page->task_id,
@@ -943,10 +951,10 @@ function _page_manager_get_operation_content($js, &$page, $active, $operation, $
 }
 
 function page_manager_operation_wrapper($form, &$form_state) {
-  if (!empty($form['buttons']['return']['#wizard type']) && $form['buttons']['return']['#wizard type']) {
+  if (empty($form_state['operation']['no update and save']) && !empty($form['buttons']['return']['#wizard type']) && $form['buttons']['return']['#wizard type']) {
     $form['buttons']['save'] = array(
       '#type' => 'submit',
-      '#value' => t('Update and save'),
+      '#value' => !empty($form_state['form_info']['save text']) ? $form_state['form_info']['save text'] : t('Update and save'),
       '#wizard type' => 'finish',
       '#attributes' => $form['buttons']['return']['#attributes'],
       '#save' => TRUE,
@@ -957,7 +965,7 @@ function page_manager_operation_wrapper($form, &$form_state) {
 }
 
 /**
- * Callback generated when the add page process is finished.
+ * Callback generated when the an operation edit finished.
  */
 function page_manager_edit_page_finish(&$form_state) {
   if (empty($form_state['operation']['silent'])) {
@@ -991,11 +999,6 @@ function page_manager_edit_page_finish(&$form_state) {
     page_manager_save_page_cache($form_state['page']);
     page_manager_clear_page_cache($form_state['page']->task_name);
     $form_state['page'] = page_manager_get_page_cache($form_state['page']->task_name);
-    if (empty($form_state['new trail'])) {
-      // force a rerender to get rid of old form items that may have changed
-      // during save.
-      $form_state['new trail'] = $form_state['trail'];
-    }
   }
   else {
     if (empty($form_state['do not cache'])) {
@@ -1003,9 +1006,19 @@ function page_manager_edit_page_finish(&$form_state) {
     }
   }
 
+  // We basically always want to force a rerender when the forms
+  // are finished, so make sure there is a new trail.
+  if (empty($form_state['new trail'])) {
+    // force a rerender to get rid of old form items that may have changed
+    // during save.
+    $form_state['new trail'] = $form_state['trail'];
+  }
+
   if (isset($form_state['new trail']) && empty($form_state['ajax'])) {
     $form_state['redirect'] = page_manager_edit_url($form_state['page']->task_name, $form_state['new trail']);
   }
+
+  $form_state['complete'] = TRUE;
 }
 
 /**
@@ -1193,7 +1206,7 @@ function page_manager_render_operations(&$page, $operations, $active_trail, $att
       $title = '<div class="page-manager-group-title' . $class . '">' . $attributes['title'] . '</div>';
 
       if (!empty($attributes['collapsible'])) {
-        $output[$location] = theme('ctools_collapsible', array('handler' => $title, 'content' => $output[$location], 'collapsed' => empty($active_trail)));
+        $output[$location] = theme('ctools_collapsible', array('handle' => $title, 'content' => $output[$location], 'collapsed' => empty($active_trail)));
       }
       else {
         $output[$location] = $title . $output[$location];
@@ -1487,7 +1500,7 @@ function page_manager_handler_rearrange($form, &$form_state) {
     $plugin = page_manager_get_task_handler($handler->handler);
 
     $form['handlers'][$id]['title'] = array(
-      '#value' => page_manager_get_handler_title($plugin, $handler, $page->task, $page->subtask_id),
+      '#markup' => page_manager_get_handler_title($plugin, $handler, $page->task, $page->subtask_id),
     );
 
     $form['handlers'][$id]['weight'] = array(
@@ -1687,6 +1700,8 @@ function page_manager_break_lock_submit(&$form, &$form_state) {
   ctools_object_cache_clear_all('page_manager_page', $page->task_name);
   $form_state['do not cache'] = TRUE;
   drupal_set_message(t('The lock has been cleared and all changes discarded. You may now make changes to this page.'));
+
+  $form_state['new trail'] = array('summary');
 }
 
 /**

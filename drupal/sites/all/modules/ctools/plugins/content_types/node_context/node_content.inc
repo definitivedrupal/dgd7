@@ -1,5 +1,5 @@
 <?php
-// $Id: node_content.inc,v 1.8 2010/10/11 22:18:22 sdboyer Exp $
+// $Id: node_content.inc,v 1.9 2010/12/31 21:05:24 merlinofchaos Exp $
 
 /**
  * Plugins are described by creating a $plugin array which will be used
@@ -91,17 +91,16 @@ function ctools_node_content_render_node($node, $conf) {
       );
     }
 
-    if ($conf['links']) {
-      $node->content['links'] = array(
-        '#theme' => 'links__node',
-        '#links' => $links,
-        '#attributes' => array('class' => array('links', 'inline')),
-      );
-    }
+    $node->content['links'] = array(
+      '#theme' => 'links__node',
+      '#links' => $links,
+      '#attributes' => array('class' => array('links', 'inline')),
+    );
 
     if (empty($conf['no_extras'])) {
       // Allow modules to make their own additions to the node.
-      module_invoke_all('node_view', $node, $conf['build_mode'], $langcode);
+      module_invoke_all('node_view', $node, $conf['build_mode']);
+      module_invoke_all('entity_view', $node, 'node', $conf['build_mode']);
     }
   }
 
@@ -125,7 +124,13 @@ function ctools_node_content_render_node($node, $conf) {
   }
 
   // Allow modules to modify the structured node.
-  drupal_alter('node_view', $content);
+  $type = 'node';
+  drupal_alter(array('node_view', 'entity_view'), $content, $type);
+
+  // Kill the links if not requested.
+  if (!$conf['links']) {
+    $content['links']['#access'] = FALSE;
+  }
 
   return $content;
 }
@@ -169,30 +174,12 @@ function ctools_node_content_content_type_edit_form($form, &$form_state) {
     '#description' => t('This identifier will be added as a template suggestion to display this node: node-panel-IDENTIFIER.tpl.php. Please see the Drupal theming guide for information about template suggestions.'),
   );
 
-  // CCK holds the registry of available build modes, but can hardly
-  // push them as options for the build mode options, so we break the normal
-  // rule of not directly relying on non-core modules.
-  if ($modes = module_invoke('content', 'build_modes')) {
-    $build_mode_options = array();
-    foreach ($modes as $key => $value) {
-      if (isset($value['views style']) && $value['views style']) {
-        $build_mode_options[$key] = $value['title'];
-      }
-    }
-  }
-  else {
-    $build_mode_options = array(
-      'teaser' => t('Teaser'),
-      'full' => t('Full node')
-    );
+  $entity = entity_get_info('node');
+  $build_mode_options = array();
+  foreach ($entity['view modes'] as $mode => $option) {
+    $build_mode_options[$mode] = $option['label'];
   }
 
-  // Handle existing configurations with the deprecated 'teaser' option.
-  // Also remove the teaser key from the form_state.
-  if (isset($conf['teaser']) || !isset($conf['build_mode'])) {
-    unset($form_state['conf']['teaser']);
-    $conf['build_mode'] = $conf['teaser'] ? 'teaser' : 'full';
-  }
   $form['build_mode'] = array(
     '#title' => t('Build mode'),
     '#type' => 'select',

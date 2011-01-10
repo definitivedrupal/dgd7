@@ -1,5 +1,5 @@
 <?php
-// $Id: term.inc,v 1.11 2010/10/11 22:18:23 sdboyer Exp $
+// $Id: term.inc,v 1.13 2011/01/01 01:14:24 merlinofchaos Exp $
 
 /**
  * @file
@@ -25,6 +25,7 @@ $plugin = array(
   'convert list' => array(
     'tid' => t('Term ID'),
     'name' => t('Term name'),
+    'name_dashed' => t('Term name, lowercased and spaces converted to dashes'),
     'description' => t('Term Description'),
     'vid' => t('Vocabulary ID'),
   ),
@@ -125,7 +126,7 @@ function ctools_context_term_settings_form_validate($form, &$form_state) {
     return;
   }
 
-  $term = db_query('SELECT tid FROM {taxonomy_term_data} WHERE LOWER(name) = LOWER(:name) AND t.vid = :vid', array(':name' => $form_state['values']['taxonomy'][$vid], ':vid' => $vid))->fetchObject();
+  $term = db_query('SELECT tid FROM {taxonomy_term_data} WHERE LOWER(name) = LOWER(:name) AND vid = :vid', array(':name' => $form_state['values']['taxonomy'][$vid], ':vid' => $vid))->fetchObject();
 
   if (!$term) {
     form_error($form['taxonomy'][$vid], t('Invalid term selected.'));
@@ -154,6 +155,8 @@ function ctools_context_term_convert($context, $type) {
       return $context->data->tid;
     case 'name':
       return $context->data->name;
+    case 'name_dashed':
+      return drupal_strtolower(str_replace(' ', '-', $context->data->name));
     case 'vid':
       return $context->data->vid;
     case 'description':

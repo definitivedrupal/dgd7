@@ -1,5 +1,5 @@
 <?php
-// $Id: modal.inc,v 1.12 2010/10/11 22:18:22 sdboyer Exp $
+// $Id: modal.inc,v 1.13 2010/12/31 23:58:52 merlinofchaos Exp $
 
 /**
  * @file
@@ -55,7 +55,7 @@ function ctools_modal_add_js() {
       'closeImage' => theme('image', array(
         'path' => ctools_image_path('icon-close-window.png'),
         'title' => t('Close window'),
-        'alt' => t('Close window')
+        'alt' => t('Close window'),
       )),
       'throbber' => theme('image', array(
           'path' => ctools_image_path('throbber.gif'),
@@ -174,8 +174,8 @@ function ctools_modal_image_button($image, $dest, $alt, $class = '') {
  * Note: 'html' => true so be sure any text is vetted! Chances are these kinds of buttons will
  * not use user input so this is a very minor concern.
  *
- * @param $image
- *   The path to an image to use that will be sent to theme('image') for rendering.
+ * @param $text
+ *   The text that will be displayed as the link.
  * @param $dest
  *   The destination of the link.
  * @param $alt

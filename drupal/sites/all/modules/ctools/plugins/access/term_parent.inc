@@ -1,5 +1,5 @@
 <?php
-// $Id: term_parent.inc,v 1.2 2010/10/11 22:18:22 sdboyer Exp $
+// $Id: term_parent.inc,v 1.3 2011/01/05 20:34:46 merlinofchaos Exp $
 
 /**
  * @file
@@ -19,7 +19,7 @@ $plugin = array(
   'settings form validation' => 'ctools_term_parent_ctools_access_settings_validate',
   'settings form submit' => 'ctools_term_parent_ctools_access_settings_submit',
   'summary' => 'ctools_term_parent_ctools_access_summary',
-  'required context' => new ctools_context_required(t('Term'), array('term', 'terms')),
+  'required context' => new ctools_context_required(t('Term'), array('taxonomy_term', 'terms')),
 );
 
 /**

@@ -1,5 +1,5 @@
 <?php
-// $Id: node.inc,v 1.18 2010/10/11 22:18:23 sdboyer Exp $
+// $Id: node.inc,v 1.19 2010/10/26 23:40:43 merlinofchaos Exp $
 
 /**
  * @file
@@ -155,16 +155,11 @@ function ctools_context_node_settings_form_submit($form, &$form_state) {
  * Provide a list of ways that this context can be converted to a string.
  */
 function ctools_context_node_convert_list() {
-  $list = array(
-    'nid' => t('Node ID'),
-    'vid' => t('Node revision ID'),
-    'title' => t('Node title'),
-    'uid' => t('Author UID'),
-    'type' => t('Node type'),
-  );
-
-  if (module_exists('token')) {
-    $list += reset(token_get_list(array('node')));
+  $tokens = token_info();
+  foreach ($tokens['tokens']['node'] as $id => $info) {
+    if (!isset($list[$id])) {
+      $list[$id] = $info['name'];
+    }
   }
 
   return $list;
@@ -174,22 +169,11 @@ function ctools_context_node_convert_list() {
  * Convert a context into a string.
  */
 function ctools_context_node_convert($context, $type) {
-  switch ($type) {
-    case 'nid':
-      return $context->data->nid;
-    case 'vid':
-      return $context->data->vid;
-    case 'title':
-      return $context->data->title;
-    case 'uid':
-      return $context->data->uid;
-    case 'type':
-      return $context->data->type;
-  }
-  if (module_exists('token')) {
-    $values = token_get_values('node', $context->data);
-    if ($key = array_search($type, $values->tokens)) {
-      return $values->values[$key];
+  $tokens = token_info();
+  if (isset($tokens['tokens']['node'][$type])) {
+    $values = token_generate('node', array($type => $type), array('node' => $context->data));
+    if (isset($values[$type])) {
+      return $values[$type];
     }
   }
 }
