@@ -1,4 +1,4 @@
-$Id: README.txt,v 1.14 2010/04/20 14:20:14 sutharsan Exp $
+$Id: README.txt,v 1.15 2010/12/20 08:37:36 simongeorges Exp $
 
 DESCRIPTION
 -----------
@@ -84,7 +84,7 @@ INSTALLATION
     supported. 'per language vocabulary' is not supported.
     I18n-taxonomy module is required.
     Use 'Localized terms' for a multilingual newsletter. Taxonomy terms are
-    translated and translated newsletters are each taged with the same
+    translated and translated newsletters are each tagged with the same
     (translated) term. Subscribers receive the newsletter in the preferred
     language set in their account settings or in the site default language.
     Use 'per language terms' for mailing lists each with a different language.

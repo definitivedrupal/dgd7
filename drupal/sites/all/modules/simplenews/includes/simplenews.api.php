@@ -1,5 +1,5 @@
 <?php
-// $Id: simplenews.api.php,v 1.2 2010/03/02 12:21:28 sutharsan Exp $
+// $Id: simplenews.api.php,v 1.1 2011/01/04 16:07:15 mirodietiker Exp $
 
 /**
  * @file
@@ -23,7 +23,7 @@ function hook_simplenews_subscription_operations() {
 /**
  * Collect recipients for a simplenews newsletter.
  *
- * Get both subscribed and unusbscribed recipients per newsletter category.
+ * Get both subscribed and unsubscribed recipients per newsletter category.
  * Special care should be taken to handle unsubscribed users correctly.
  *
  * @param $recipients
@@ -39,9 +39,9 @@ function hook_simplenews_subscription_operations() {
  */
 // TODO Is 'uid' also required?
 //      recipient->uid       User ID of recipient (0 for anonymous)
-function hook_simplenews_recipients_alter(&$recipients, $scid) {
-  $list = simplenews_get_mailing_list_by_category($scid);
-  $recipients = simplenews_array_merge($recipients, simplenews_get_subscriptions_by_list($list->slid), 'simplenews_check_status');
+function hook_simplenews_recipients_alter(&$recipients, $tid) {
+  $category = simplenews_category_load($tid);
+  $recipients = simplenews_array_merge($recipients, simplenews_get_subscriptions_by_list($category->tid), 'simplenews_check_status');
 }
 
 
@@ -69,21 +69,7 @@ function hook_simplenews_category_delete($category) {
 /**
  * TODO
  */
-function hook_simplenews_mailing_list_update($list) {
-  
-}
-
-/**
- * TODO
- */
 function hook_simplenews_mailing_list_insert($list) {
-  
-}
-
-/**
- * TODO
- */
-function hook_simplenews_mailing_list_delete($list) {
   
 }
 

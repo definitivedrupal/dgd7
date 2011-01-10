@@ -1,5 +1,5 @@
 <?php
-// $Id: simplenews_handler_field_newsletter_status.inc,v 1.1 2010/03/29 21:13:44 sutharsan Exp $
+// $Id: simplenews_handler_field_newsletter_status.inc,v 1.1 2010/12/31 11:36:42 mirodietiker Exp $
 
 /**
  * @file

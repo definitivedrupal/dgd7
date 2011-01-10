@@ -1,4 +1,4 @@
-# $Id: simplenews.pot,v 1.1 2008/06/12 18:25:07 maver77 Exp $
+# $Id: simplenews.pot,v 1.3 2010/12/20 08:37:36 simongeorges Exp $
 #
 # LANGUAGE translation of Drupal (general)
 # Copyright YEAR NAME <EMAIL@ADDRESS>
@@ -434,7 +434,7 @@ msgid "Log emails"
 msgstr ""
 
 #: simplenews.admin.inc:797
-msgid "When checked all outgoing simplenews emails are logged in the system log. A logged email does not guarantee that it is send or will be delivered. It only indicates that a message is send to the PHP mail() function. No status information is available of delivery by the PHP mail() function."
+msgid "When checked all outgoing simplenews emails are logged in the system log. A logged email does not guarantee that it is send or will be delivered. It only indicates that a message is sent to the PHP mail() function. No status information is available of delivery by the PHP mail() function."
 msgstr ""
 
 #: simplenews.admin.inc:801
@@ -446,7 +446,7 @@ msgid "Synchronize with account"
 msgstr ""
 
 #: simplenews.admin.inc:810
-msgid "When checked subscriptions will be synchronized with site accounts. When accounts are deteted, subscriptions with the same email address will be removed. When site accounts are blocked/unblocked, subscriptions will be deactivated/activated. When not checked subscriptions will be unchanged when associated accounts are deleted or blocked."
+msgid "When checked subscriptions will be synchronized with site accounts. When accounts are deleted, subscriptions with the same email address will be removed. When site accounts are blocked/unblocked, subscriptions will be deactivated/activated. When not checked subscriptions will be unchanged when associated accounts are deleted or blocked."
 msgstr ""
 
 #: simplenews.admin.inc:815
@@ -458,7 +458,7 @@ msgid "Subscription confirmation emails"
 msgstr ""
 
 #: simplenews.admin.inc:822
-msgid "Customize the confimation email which is sent to (un)subscribing visitors."
+msgid "Customize the confirmation email which is sent to (un)subscribing visitors."
 msgstr ""
 
 #: simplenews.admin.inc:826
@@ -1146,7 +1146,7 @@ msgid "The subject of this mail message."
 msgstr ""
 
 #: simplenews.install:141;345
-msgid "The formatted e-mail address of mail message receipient."
+msgid "The formatted e-mail address of mail message recipient."
 msgstr ""
 
 #: simplenews.install:148;352
@@ -1162,7 +1162,7 @@ msgid "The mail message array."
 msgstr ""
 
 #: simplenews.install:180
-msgid "Simplenews module succesfully installed."
+msgid "Simplenews module successfully installed."
 msgstr ""
 
 #: simplenews.install:183

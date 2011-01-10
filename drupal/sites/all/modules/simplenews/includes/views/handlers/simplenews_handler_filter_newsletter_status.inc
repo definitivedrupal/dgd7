@@ -1,5 +1,5 @@
 <?php
-// $Id: simplenews_handler_filter_newsletter_status.inc,v 1.1 2010/03/29 21:13:44 sutharsan Exp $
+// $Id: simplenews_handler_filter_newsletter_status.inc,v 1.2 2011/01/04 15:47:12 mirodietiker Exp $
 
 /**
  * @file
@@ -7,7 +7,7 @@
  */
 
 /**
- * Filter bases on newsletter sent status.
+ * Filter based on newsletter sent status.
  */
 class simplenews_handler_filter_newsletter_status extends views_handler_filter_in_operator {
   function get_value_options() {

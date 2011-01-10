@@ -1,5 +1,5 @@
 <?php
-// $Id: simplenews-newsletter-footer.tpl.php,v 1.7 2010/03/06 22:59:20 sutharsan Exp $
+// $Id: simplenews-newsletter-footer.tpl.php,v 1.2 2010/12/31 11:36:42 mirodietiker Exp $
 
 /**
  * @file

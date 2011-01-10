@@ -1,5 +1,5 @@
 <?php
-// $Id: simplenews.install,v 1.58 2010/04/20 14:20:14 sutharsan Exp $
+// $Id: simplenews.install,v 1.63 2010/12/30 13:47:35 mirodietiker Exp $
 
 /**
  * @file
@@ -13,39 +13,11 @@ function simplenews_schema() {
   $schema['simplenews_category'] = array(
     'description' => 'Simplenews newsletter categories.',
     'fields' => array(
-      'scid' => array(
-        'type' => 'serial',
-        'description' => 'Primary key: Unique newsletter category ID.',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-      ),
-      'name' => array(
-        'type' => 'varchar',
-        'length' => 255,
-        'not null' => TRUE,
-        'default' => '',
-        'description' => 'Name of the newsletter category.',
-        'translatable' => TRUE,
-      ),
-      'machine_name' => array(
-        'type' => 'varchar',
-        'length' => 255,
-        'not null' => TRUE,
-        'default' => '',
-        'description' => 'The newsletter category machine name.',
-      ),
-      'description' => array(
-        'type' => 'text',
-        'not null' => FALSE,
-        'size' => 'big',
-        'description' => 'Description of the newsletter category.',
-        'translatable' => TRUE,
-      ),
-      'weight' => array(
+      'tid' => array(
+        'description' => '{taxonomy_term_data}.tid used as newsletter category.',
         'type' => 'int',
         'not null' => TRUE,
         'default' => 0,
-        'description' => 'The weight of this newsletter category relative to other newsletter categories.',
       ),
       'format' => array(
         'type' => 'varchar',
@@ -98,11 +70,29 @@ function simplenews_schema() {
         'default' => 0,
         'description' => 'Flag indicating type of hyperlink conversion (1 = hyperlinks are in-line; 0 = hyperlinks are placed at email bottom).',
       ),
+      'new_account' => array(
+        'type' => 'varchar',
+        'length' => 12,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'How to treat subscription at account creation (none = None; on = Default on; off = Default off; silent = Invisible subscription).',
+      ),
+      'opt_inout' => array(
+        'type' => 'varchar',
+        'length' => 12,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'How to treat subscription confirmation (hidden = Newsletter is hidden from the user; single = Single opt-in; double = Double opt-in).',
+      ),
+      'block' => array(
+        'description' => 'For this category a subscription block is available.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
     ),
-    'primary key' => array('scid'),
-    'indexes' => array(
-      'list' => array('weight', 'name'),
-    ),
+    'primary key' => array('tid'),
   );
 
   $schema['simplenews_newsletter'] = array(
@@ -120,8 +110,8 @@ function simplenews_schema() {
         'not null' => TRUE,
         'default' => 0,
       ),
-      'scid' => array(
-        'description' => 'The newsletter category {simplenews_category}.scid this newsletter belongs to.',
+      'tid' => array(
+        'description' => 'The newsletter category {simplenews_category}.tid this newsletter belongs to.',
         'type' => 'int',
         'not null' => TRUE,
         'default' => 0,
@@ -133,6 +123,12 @@ function simplenews_schema() {
         'not null' => TRUE,
         'default' => 0,
       ),
+      'sent_subscriber_count' => array(
+        'description' => 'The count of subscribers to the newsletter when it was sent.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
     ),
     'primary key' => array('nid'),
     'foreign keys' => array(
@@ -141,78 +137,8 @@ function simplenews_schema() {
     ),
   );
 
-  $schema['simplenews_mailing_list'] = array(
-    'description' => 'List to which a {simplenews_subscriber} can be (un)subscribed. Many-to-many relation via {simplenews_subscription}.',
-    'fields' => array(
-      'slid' => array(
-        'description' => 'Primary key: Unique mailing list ID.',
-        'type' => 'serial',
-        'not null' => TRUE,
-      ),
-      'scid' => array(
-        'description' => '{simplews_category} that this mailing list belongs to.',
-        'type' => 'int',
-        'not null' => TRUE,
-        'default' => 0,
-      ),
-      'name' => array(
-        'type' => 'varchar',
-        'length' => 255,
-        'not null' => TRUE,
-        'default' => '',
-        'description' => 'Name of the mailing list.',
-        'translatable' => TRUE,
-      ),
-      'machine_name' => array(
-        'type' => 'varchar',
-        'length' => 255,
-        'not null' => TRUE,
-        'default' => '',
-        'description' => 'The mailing list machine name.',
-      ),
-      'description' => array(
-        'type' => 'text',
-        'not null' => FALSE,
-        'size' => 'big',
-        'description' => 'Description of the mailing list.',
-        'translatable' => TRUE,
-      ),
-      'weight' => array(
-        'type' => 'int',
-        'not null' => TRUE,
-        'default' => 0,
-        'description' => 'The weight of this mailing list relative to other mailing list.',
-      ),
-      'new_account' => array(
-        'type' => 'varchar',
-        'length' => 12,
-        'not null' => TRUE,
-        'default' => '',
-        'description' => 'How to treat subscription at account creation (none = None; on = Default on; off = Default off; silent = Invisible subscription).',
-      ),
-      'opt_inout' => array(
-        'type' => 'varchar',
-        'length' => 12,
-        'not null' => TRUE,
-        'default' => '',
-        'description' => 'How to treat subscription confirmation (hidden = Newsletter is hidden from the user; single = Single opt-in; double = Double opt-in).',
-      ),
-      'block' => array(
-        'description' => 'For this mailing list a subscription block is available.',
-        'type' => 'int',
-        'size' => 'tiny',
-        'not null' => TRUE,
-        'default' => 0,
-      ),
-    ),
-    'primary key' => array('slid'),
-    'indexes' => array(
-      'list' => array('weight', 'name'),
-    ),
-  );
-
   $schema['simplenews_subscriber'] = array(
-    'description' => 'Subscribers to {simplenews_mailing_list}. Many-to-many relation via {simplenews_subscription}',
+    'description' => 'Subscribers to {simplenews_category}. Many-to-many relation via {simplenews_subscription}',
     'fields' => array(
       'snid' => array(
         'description' => 'Primary key: Unique subscriber ID.',
@@ -246,6 +172,13 @@ function simplenews_schema() {
         'default' => '',
         'description' => 'Subscriber preferred language.',
       ),
+      'timestamp' => array(
+        'description' => 'UNIX timestamp of when the user is (un)subscribed.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
     ),
     'primary key' => array('snid'),
     'indexes' => array(
@@ -266,8 +199,8 @@ function simplenews_schema() {
         'not null' => TRUE,
         'default' => 0,
       ),
-      'slid' => array(
-        'description' => 'The mailing list ({simplenews_mailing_list}.slid) the subscriber is subscribed to.',
+      'tid' => array(
+        'description' => 'The category ({simplenews_category}.tid) the subscriber is subscribed to.',
         'type' => 'int',
         'not null' => TRUE,
         'default' => 0,
@@ -275,7 +208,7 @@ function simplenews_schema() {
       'status' => array(
         'description' => 'A flag indicating whether the user is subscribed (1) or unsubscribed (0).',
         'type' => 'int',
-        'size' => 'small',
+        'size' => 'tiny',
         'not null' => TRUE,
         'default' => 1,
       ),
@@ -294,11 +227,12 @@ function simplenews_schema() {
         'default' => '',
       ),
     ),
-    'primary key' => array('snid', 'slid'),
+    'primary key' => array('snid', 'tid'),
     'foreign keys' => array(
       'snid' => array('simplenews_subscriber' => 'snid'),
-      'slid' => array('simplenews_mailing_list' => 'slid'),
+      'tid' => array('simplenews_category' => 'tid'),
     ),
+    // TODO add foreign keys to other tables too?
   );
 
   $schema['simplenews_mail_spool'] = array(
@@ -311,7 +245,7 @@ function simplenews_schema() {
         'not null' => TRUE,
       ),
       'mail' => array(
-        'description' => 'The formatted email address of mail message receipient.',
+        'description' => 'The formatted email address of mail message recipient.',
         'type' => 'varchar',
         'length' => 255,
         'not null' => TRUE,
@@ -329,8 +263,8 @@ function simplenews_schema() {
         'not null' => TRUE,
         'default' => 0,
       ),
-      'scid' => array(
-        'description' => 'The {simplenews_category}.scid this newsletter belongs to.',
+      'tid' => array(
+        'description' => 'The {simplenews_category}.tid this newsletter belongs to.',
         'type' => 'int',
         'not null' => TRUE,
         'default' => 0,
@@ -364,16 +298,23 @@ function simplenews_schema() {
         'serialize' => TRUE,
         'description' => 'A serialized array of name value pairs that are related to the email address.',
       ),
+      'snid' => array(
+        'description' => 'Foreign key for subscriber table ({simplenews_subscriptions}.snid)',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        ),
     ),
     'primary key' => array('msid'),
     'indexes' => array(
-      'scid' => array('scid'),
+      'tid' => array('tid'),
       'status' => array('status'),
     ),
     'foreign keys' => array(
       'nid' => array('node' => 'nid'),
       'vid' => array('node' => 'vid'),
-      'scid' => array('simplenews_category' => 'scid'),
+      'tid' => array('simplenews_category' => 'tid'),
+      'snid' => array('simplenews_subscription' => 'snid'),
     ),
   );
   return $schema;
@@ -383,18 +324,18 @@ function simplenews_schema() {
  * Implement hook_install().
  */
 function simplenews_install() {
+  _simplenews_install_nodetype();
+  _simplenews_init_simplenews_vocabulary();
+  _simplenews_init_simplenews_category();
+
   if (module_exists('help')) {
     drupal_set_message(t('Simplenews installation instructions are available on the <a href="!simplenews_help">Simplenews help page</a>.', array('!simplenews_help' => url('admin/help/simplenews'))));
   }
   else {
     drupal_set_message(t('Simplenews was successfully installed.'));
   }
-  // TODO is it still possible/usefull to detect faulty installation
-  //  drupal_set_message(t('The installation of Simplenews was not successful.'), 'error');
-
-  _simplenews_install_nodetype();
-
-  _simplenews_init_simplenews_category();
+  // TODO is it still possible/useful to detect faulty installation
+  // drupal_set_message(t('The installation of Simplenews was not successful.'), 'error');
 }
 
 /**
@@ -408,14 +349,9 @@ function simplenews_uninstall() {
  * Create simplenews node type.
  */
 function _simplenews_install_nodetype() {
-  // Create a newsletter type. If exists, modify it.
-  if ($type = node_type_get_type('simplenews')) {
-    $type->module = 'node';
-    $type->locked = 0;
-    $type->custom = 1;
-    node_type_save($type);
-  }
-  else {
+  // Create a newsletter type if needed.
+  $type = node_type_get_type('simplenews');
+  if (!$type) {
     $type = node_type_set_defaults(array(
       'type' => 'simplenews',
       'name' => t('Simplenews newsletter'),
@@ -426,46 +362,69 @@ function _simplenews_install_nodetype() {
       'modified' => 1,
     ));
     node_type_save($type);
+    node_add_body_field($type);
+  }
+  if (!field_info_instance('node', 'field_simplenews_term', $type->type)) {
+    simplenews_add_term_field($type);
   }
   variable_set('simplenews_content_type_' . $type->type, TRUE);
 }
 
 /**
- * Create initial simplenews category and mailing list.
+ * Create simplenews vocabulary and initial term.
+ */
+function _simplenews_init_simplenews_vocabulary() {
+  // Create the simplenews vocabulary. If it exists, set simplenews_vid variable.
+  $vocabularies = taxonomy_vocabulary_load_multiple(array(), array('machine_name' => 'newsletter'));
+  $vocabulary = reset($vocabularies);
+  if (!$vocabulary) {
+    $vocabulary = new stdClass();
+    $vocabulary->name         = t('Newsletter');
+    $vocabulary->machine_name = 'newsletter';
+    $vocabulary->description  = t('Simplenews newsletter categories.');
+    $vocabulary->weight       = '0';
+    $vocabulary->hierarchy    = '0';
+    $vocabulary->module       = 'simplenews';
+  }
+  taxonomy_vocabulary_save($vocabulary);
+  variable_set('simplenews_vid', $vocabulary->vid);
+
+  // Create a newsletter taxonomy term if none exists.
+  $tree = taxonomy_get_tree($vocabulary->vid);
+  if (count($tree) == 0) {
+    $term = new stdClass();
+    $term->name = t('@site_name newsletter', array('@site_name' => variable_get('site_name', 'Drupal')));
+    $term->description = t('@site_name newsletter categories.', array('@site_name' => variable_get('site_name', 'Drupal')));
+    $term->vid = $vocabulary->vid;
+    taxonomy_term_save($term);
+  }
+}
+
+/**
+ * Create initial simplenews categories.
  */
 function _simplenews_init_simplenews_category() {
-  $categories = simplenews_categories_load_multiple();
-  if (empty($categories)) {
-    $category = new stdClass();
-    $category->name           = t('@site_name newsletter', array('@site_name' => variable_get('site_name', 'Drupal')));
-    $category->machine_name   = 'newsletter';
-    $category->description    = t('@site_name newsletters, to keep you informed.', array('@site_name' => variable_get('site_name', 'Drupal')));
-    $category->weight         = 0;
-    $category->from_name      = variable_get('site_name', 'Drupal');
-    $category->email_subject  ='[[simplenews-newsletters-name]] [title-raw]';
-    $category->from_address   = variable_get('site_mail', ini_get('sendmail_from'));
-    $category->format         = 'plain';
-    $category->priority       = SIMPLENEWS_PRIORITY_NONE;
-    $category->receipt        = 0;
-    $category->hyperlinks     = TRUE;
-    simplenews_category_save($category);
-  }
-  else {
-    $category = reset($categories);
-  }
-
-  // Check to see if at least 1 mailing list exists, else create one
-  $lists = simplenews_get_mailing_lists(TRUE);
-  if (empty($lists)) {
-    $list = new stdClass();
-    $list->name =         t('@site_name newsletter', array('@site_name' => variable_get('site_name', 'Drupal')));
-    $list->machine_name = 'newsletter';
-    $list->description =  t('@site_name newsletters, to keep you informed.');
-    $list->scid =         $category->scid;
-    $list->new_account =  'none';
-    $list->opt_inout =    'double';
-    $list->weight =       0;
-    simplenews_mailing_list_save($list);
+  if ($tree = taxonomy_get_tree(variable_get('simplenews_vid', ''))) {
+    $categories = simplenews_categories_load_multiple();
+    foreach ($tree as $term) {
+      // Create a newsletter category for each newsletter taxonomy term.
+      if (!isset($categories[$term->tid])) {
+        $category = new stdClass();
+        $category->tid = $term->tid;
+        // TODO use a function for category default values
+        $category->from_name      = variable_get('site_name', 'Drupal');
+        $category->email_subject  ='[[simplenews-category:name]] [node:title]';
+        $category->from_address   = variable_get('site_mail', ini_get('sendmail_from'));
+        $category->format         = 'plain';
+        $category->priority       = SIMPLENEWS_PRIORITY_NONE;
+        $category->receipt        = 0;
+        $category->hyperlinks     = 1;
+        $category->new_account    = 'none';
+        $category->opt_inout      = 'double';
+        $category->block          = 0;
+        simplenews_category_save($category);
+      }
+    }
   }
 }
 
@@ -545,7 +504,7 @@ function simplenews_update_6001() {
         'default' => '',
       ),
       'mail' => array(
-        'description' => 'The formatted email address of mail message receipient.',
+        'description' => 'The formatted email address of mail message recipient.',
         'type' => 'varchar',
         'length' => 255,
         'not null' => TRUE,
@@ -628,7 +587,7 @@ function simplenews_update_6004() {
         'not null' => TRUE,
       ),
       'mail' => array(
-        'description' => 'The formatted email address of mail message receipient.',
+        'description' => 'The formatted email address of mail message recipient.',
         'type' => 'varchar',
         'length' => 255,
         'not null' => TRUE,
@@ -791,7 +750,7 @@ function simplenews_update_6200() {
 }
 
 /**
- * Helperfunction to convert tokens in variables to D7 format.
+ * Helper function to convert tokens in variables to D7 format.
  */
 function _simplenews_convert_tokens_in_variable($variables) {
   if (!is_array($variables)) {
@@ -813,22 +772,15 @@ function _simplenews_convert_tokens_in_variable($variables) {
  * Create table {simplenews_category} to replace taxonomy terms.
  * Migrate Newsletter taxonomy data to Newsletter categories.
  *
- * Create table {simplenews_mailing_list} to enable future separation of subscription functionality.
- * Migrate data to Newsletter mailing lists
- *
  * Rename table simplenews_subscriptions to simplenews_subscriber.
  * Rename table simplenews_newsletters to simplenews_newsletter.
  * Drop fields {simplenews_newsletter}.s_format, .priority and .receipt.
  *
  * Rename table simplenews_snid_tid to simplenews_subscription.
- * Rename field {simplenews_subscription}.tid to scid
- *
- * Rename field {simplenews_mail_spool}.tid to scid
  *
  * Delete deprecated simplenews variables.
  */
 function simplenews_update_7000() {
-  $schema = simplenews_schema();
   // TODO Test schema update !!
   // See: http://api.drupal.org/api/function/db_change_field/7
   // TODO Test data update !!
@@ -838,114 +790,103 @@ function simplenews_update_7000() {
   _simplenews_convert_tokens_in_variable($variables);
 
   // Create table 'simplenews_category'.
-  $schema = array(
+  $schema['simplenews_category'] = array(
     'description' => 'Simplenews newsletter categories.',
     'fields' => array(
-      'scid' => array(
-        'type' => 'serial',
-        'description' => 'Primary key: Unique newsletter category ID.',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-      ),
-      'name' => array(
-        'type' => 'varchar',
-        'length' => 255,
-        'not null' => TRUE,
-        'default' => '',
-        'description' => 'Name of the newsletter category.',
-        'translatable' => TRUE,
-      ),
-      'machine_name' => array(
-        'type' => 'varchar',
-        'length' => 255,
-        'not null' => TRUE,
-        'default' => '',
-        'description' => 'The newsletter category machine name.',
-      ),
-      'description' => array(
-        'type' => 'text',
-        'not null' => FALSE,
-        'size' => 'big',
-        'description' => 'Description of the newsletter category.',
-        'translatable' => TRUE,
-      ),
-      'weight' => array(
+      'tid' => array(
+        'description' => '{taxonomy_term_data}.tid used as newsletter category.',
         'type' => 'int',
         'not null' => TRUE,
         'default' => 0,
-        'description' => 'The weight of this newsletter category relative to other newsletter categories.',
       ),
       'format' => array(
+        'description' => 'Format of the newsletter email (plain, html).',
         'type' => 'varchar',
         'length' => 8,
         'not null' => TRUE,
         'default' => '',
-        'description' => 'Format of the newsletter email (plain, html).',
       ),
       'priority' => array(
+        'description' => 'Email priority according to RFC 2156 and RFC 5231 (0 = none; 1 = highest; 2 = high; 3 = normal; 4 = low; 5 = lowest).',
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
         'default' => 0,
         'size' => 'tiny',
-        'description' => 'Email priority according to RFC 2156 and RFC 5231 (0 = none; 1 = highest; 2 = high; 3 = normal; 4 = low; 5 = lowest).',
       ),
       'receipt' => array(
+        'description' => 'Boolean indicating request for email receipt confirmation according to RFC 2822.',
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
         'default' => 0,
         'size' => 'tiny',
-        'description' => 'Boolean indicating request for email receipt confirmation according to RFC 2822.',
       ),
       'from_name' => array(
+        'description' => 'Sender name for newsletter emails.',
         'type' => 'varchar',
         'length' => 64,
         'not null' => TRUE,
         'default' => '',
-        'description' => 'Sender name for newsletter emails.',
       ),
       'email_subject' => array(
+        'description' => 'Subject of newsletter email. May contain tokens.',
         'type' => 'varchar',
         'length' => 255,
         'not null' => TRUE,
         'default' => '',
-        'description' => 'Subject of newsletter email. May contain tokens.',
       ),
       'from_address' => array(
+        'description' => 'Sender address for newsletter emails',
         'type' => 'varchar',
         'length' => 64,
         'not null' => TRUE,
         'default' => '',
-        'description' => 'Sender address for newsletter emails',
       ),
       'hyperlinks' => array(
+        'description' => 'Flag indicating type of hyperlink conversion (1 = hyperlinks are in-line; 0 = hyperlinks are placed at email bottom).',
         'type' => 'int',
         'size' => 'tiny',
         'not null' => TRUE,
         'default' => 0,
-        'description' => 'Flag indicating type of hyperlink conversion (1 = hyperlinks are in-line; 0 = hyperlinks are placed at email bottom).',
+      ),
+      'new_account' => array(
+        'description' => 'How to treat subscription at account creation (none = None; on = Default on; off = Default off; silent = Invisible subscription).',
+        'type' => 'varchar',
+        'length' => 12,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'opt_inout' => array(
+        'description' => 'How to treat subscription confirmation (hidden = Newsletter is hidden from the user; single = Single opt-in; double = Double opt-in).',
+        'type' => 'varchar',
+        'length' => 12,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'block' => array(
+        'description' => 'For this category a subscription block is available.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
       ),
     ),
-    'primary key' => array('scid'),
-    'indexes' => array(
-      'list' => array('weight', 'name'),
-    ),
+    'primary key' => array('tid'),
   );
   db_create_table('simplenews_category', $schema['simplenews_category']);
 
   // Migrate Newsletter taxonomy data to Newsletter categories.
   $terms = taxonomy_get_tree(variable_get('simplenews_vid', ''));
+  // TODO Check if simplenews blocks are still active after core update.
+  //      If not, there is no purpose in migrating the block status ('block' => 0).
+  $blocks = _simplenews_get_blocks();
   foreach ($terms as $term) {
     _simplenews_convert_tokens_in_variable('simplenews_email_subject_'. $term->tid);
 
     db_insert('simplenews_category')
       ->fields(array(
-        'scid' => $term->tid,
-        'name' => $term->name,
-        'machine_name' => strtolower(preg_replace('/[^a-z0-9]+/i', '_', $term->name)),
-        'description' => $term->description,
-        'weight' => $term->weight,
+        'tid' => $term->tid,
         'format' => 'plain',
         'priority' => '0',
         'receipt' => '0',
@@ -953,96 +894,6 @@ function simplenews_update_7000() {
         'email_subject' => variable_get('simplenews_email_subject_'. $term->tid, '[[simplenews-newsletters-name]] [title-raw]'),
         'from_address' => variable_get('simplenews_from_address_'. $term->tid, variable_get('simplenews_from_address', variable_get('site_mail', ini_get('sendmail_from')))),
         'hyperlinks' => variable_get('simplenews_hyperlinks_'. $term->tid, 1),
-        ))
-      ->execute();
-  }
-  
-  // Create table 'simplenews_mailing_list'.
-  $schema = array(
-    'description' => 'List to which a {simplenews_subscriber} can be (un)subscribed. Many-to-many relation via {simplenews_subscription}.',
-    'fields' => array(
-      'slid' => array(
-        'description' => 'Primary key: Unique mailing list ID.',
-        'type' => 'serial',
-        'not null' => TRUE,
-      ),
-      'scid' => array(
-        'description' => '{simplews_category} that this mailing list belongs to.',
-        'type' => 'int',
-        'not null' => TRUE,
-        'default' => 0,
-      ),
-      'name' => array(
-        'type' => 'varchar',
-        'length' => 255,
-        'not null' => TRUE,
-        'default' => '',
-        'description' => 'Name of the mailing list.',
-        'translatable' => TRUE,
-      ),
-      'machine_name' => array(
-        'type' => 'varchar',
-        'length' => 255,
-        'not null' => TRUE,
-        'default' => '',
-        'description' => 'The mailing list machine name.',
-      ),
-      'description' => array(
-        'type' => 'text',
-        'not null' => FALSE,
-        'size' => 'big',
-        'description' => 'Description of the mailing list.',
-        'translatable' => TRUE,
-      ),
-      'weight' => array(
-        'type' => 'int',
-        'not null' => TRUE,
-        'default' => 0,
-        'description' => 'The weight of this mailing list relative to other mailing list.',
-      ),
-      'new_account' => array(
-        'type' => 'varchar',
-        'length' => 12,
-        'not null' => TRUE,
-        'default' => '',
-        'description' => 'How to treat subscription at account creation (none = None; on = Default on; off = Default off; silent = Invisible subscription).',
-      ),
-      'opt_inout' => array(
-        'type' => 'varchar',
-        'length' => 12,
-        'not null' => TRUE,
-        'default' => '',
-        'description' => 'How to treat subscription confirmation (hidden = Newsletter is hidden from the user; single = Single opt-in; double = Double opt-in).',
-      ),
-      'block' => array(
-        'description' => 'For this mailing list a subscription block is available.',
-        'type' => 'int',
-        'size' => 'tiny',
-        'not null' => TRUE,
-        'default' => 0,
-      ),
-    ),
-    'primary key' => array('slid'),
-    'indexes' => array(
-      'list' => array('weight', 'name'),
-    ),
-  );
-  db_create_table('simplenews_mailing_list', $schema);
-
-  // Create one newsletter mailing list for each taxonomy term.
-  // TODO Check if simplenews blocks are still active after core update.
-  //      If not, there is no purpose in migrating the block status ('block' => 0).
-  $blocks = _simplenews_get_blocks();
-  $terms = taxonomy_get_tree(variable_get('simplenews_vid', ''));
-  foreach ($terms as $term) {
-    db_insert('simplenews_category')
-      ->fields(array(
-        'slid' => $term->tid,
-        'scid' => $term->tid,
-        'name' => $term->name,
-        'machine_name' => strtolower(preg_replace('/[^a-z0-9]+/i', '_', $term->name)),
-        'description' => $term->description,
-        'weight' => $term->weight,
         'new_account' => variable_get('simplenews_new_account_'. $term->tid, 'none'),
         'opt_inout' => variable_get('simplenews_opt_inout_'. $term->tid, 'double'),
         'block' => isset($blocks[$term->tid]) ? 1 : 0,
@@ -1056,8 +907,8 @@ function simplenews_update_7000() {
   // Change table simplenews_newsletters to simplenews_newsletter.
   // Drop fields: s_format, priority, receipt (moved to simplenews_category).
   db_rename_table('simplenews_newsletters', 'simplenews_newsletter');
-  db_change_field('simplenews_newsletter', 'tid', 'scid', array(
-    'description' => 'The newsletter category {simplenews_category}.scid this newsletter belongs to.',
+  db_change_field('simplenews_newsletter', 'tid', 'tid', array(
+    'description' => 'The newsletter category {simplenews_category}.tid this newsletter belongs to.',
     'type' => 'int',
     'not null' => TRUE,
     'default' => 0,
@@ -1067,23 +918,24 @@ function simplenews_update_7000() {
   db_drop_field('simplenews_newsletter', 'receipt');
 
   // Change table simplenews_snid_tid to simplenews_subscription.
-  // Change field {simplenews_subscription}.tid to scid
+  // Change field {simplenews_subscription}.tid description
   db_drop_primary_key('simplenews_snid_tid');
   db_rename_table('simplenews_snid_tid', 'simplenews_subscription');
-  db_change_field('simplenews_subscription', 'tid', 'slid',
-    array(
-      'description' => 'The mailing list ({simplenews_mailing_list}.slid) the subscriber is subscribed to.',
-      'type' => 'int',
-      'not null' => TRUE,
-      'default' => 0,
-    ),
-    array('primary key' => array('snid', 'slid'))
-  );
   
-  // Change field {simplenews_mail_spool}.tid to scid
-  db_change_field('simplenews_mail_spool', 'tid', 'scid', array(
-    'description' => 'The {simplenews_category}.scid this newsletter belongs to.',
+  // Add {simplenews_mail_spool}.data to store subscriber data.
+  db_add_field('simplenews_mail_spool', 'data', array(
+    'type' => 'text',
+    'not null' => FALSE,
+    'size' => 'big',
+    'serialize' => TRUE,
+    'description' => 'A serialized array of name value pairs that are related to the email address.',
+  ));
+
+ // Rename field {simplenews_mail_spool}.s_status to "status".
+  db_change_field('simplenews_newsletter', 's_status', 'status', array(
+    'description' => 'sent status of the newsletter issue (0 = not sent; 1 = pending; 2 = sent). ',
     'type' => 'int',
+    'size' => 'tiny',
     'not null' => TRUE,
     'default' => 0,
   ));
@@ -1098,35 +950,7 @@ function simplenews_update_7000() {
     variable_del('simplenews_new_account_'. $term->tid);
     variable_del('simplenews_opt_inout_'. $term->tid);
   }
-  variable_del('simplenews_vid');
   
   // TODO Add return text about checking of Newsletter Category settings.
   // TODO Add return text about Block checkboxes
-}
-
-/**
- * Add data field to {simplenews_mail_spool} table to store subscriber data.
- */
-function simplenews_update_7001() {
-  // Add 'data' field to table 'simplenews_mail_spool' to store user data in.
-  db_add_field('simplenews_mail_spool', 'data', array(
-    'type' => 'text',
-    'not null' => FALSE,
-    'size' => 'big',
-    'serialize' => TRUE,
-    'description' => 'A serialized array of name value pairs that are related to the email address.',
-  ));
-}
-
-/**
- * Rename field {simplenews_mail_spool}.s_status to "status".
- */
-function simplenews_update_7002() {
-  db_change_field('simplenews_newsletter', 's_status', 'status', array(
-    'description' => 'sent status of the newsletter issue (0 = not sent; 1 = pending; 2 = sent). ',
-    'type' => 'int',
-    'size' => 'tiny',
-    'not null' => TRUE,
-    'default' => 0,
-  ));
 }

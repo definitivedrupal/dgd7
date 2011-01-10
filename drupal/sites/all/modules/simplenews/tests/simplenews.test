@@ -1,5 +1,5 @@
 <?php
-// $Id: simplenews.test,v 1.5 2009/12/23 23:25:40 sutharsan Exp $
+// $Id: simplenews.test,v 1.7 2011/01/06 21:18:08 mirodietiker Exp $
 
 /**
  * @file
@@ -14,7 +14,7 @@ class SimplenewsTestCase extends DrupalWebTestCase {
 
   public function setUp() {
     parent::setUp('taxonomy', 'simplenews', 'simplenews_test');
-    
+
     //$this->simplenews_admin_user = $this->drupalCreateUser(array('administer newsletters', 'administer simplenews settings', 'administer simplenews subscriptions'));
     //$this->sender_user = $this->drupalCreateUser(array('create simplenews content', 'edit own simplenews content', 'send newsletter'));
 
@@ -31,11 +31,14 @@ class SimplenewsTestCase extends DrupalWebTestCase {
   function setAnonymousUserSubscription($enabled) {
 
     if ($enabled) {
-      db_query("UPDATE {permission} SET perm = '%s' WHERE rid = %d", 'access content, subscribe to newsletters', DRUPAL_ANONYMOUS_RID);
+      db_insert('role_permission')
+        ->fields(array('rid', 'permission'), array(DRUPAL_ANONYMOUS_RID, 'subscribe to newsletters'))
+        ->execute();
     }
-    else {
-      db_query("UPDATE {permission} SET perm = '%s' WHERE rid = %d", 'access content', DRUPAL_ANONYMOUS_RID);
-    }
+    db_insert('role_permission')
+      ->fields(array('rid', 'permission'), array(DRUPAL_ANONYMOUS_RID, 'access content'))
+      ->execute();
+    // Throw an error message with tests: Duplicate entry.
   }
 
   /**
@@ -46,7 +49,7 @@ class SimplenewsTestCase extends DrupalWebTestCase {
    * this correctly.
    */
   function randomEmail($number = 4, $prefix = 'simpletest_', $domain = 'example.com') {
-    return strtolower($this->randomName($number, $prefix) .'@'. $domain);
+    return strtolower($this->randomName($number, $prefix) . '@' . $domain);
   }
 
   /**
@@ -81,7 +84,11 @@ class SimplenewsTestCase extends DrupalWebTestCase {
    *  ['rss feed'] = {1, 0} Display RSS-feed icon
    */
   function setupSubscriptionBlock($tid, $settings = array()) {
-    $bid = db_result(db_query("SELECT bid FROM {blocks} WHERE module = 'simplenews' AND delta = '%s'", array($tid)));
+    $bid = db_select('blocks')
+      ->fields('block', array('bid'))
+      ->condition('module', 'simplenews')
+      ->condition('delta', $tid)
+      ->execute();
 
     // Check to see if the box was created by checking that it's in the database..
     $this->assertNotNull($bid, t('Block found in database'));
@@ -92,7 +99,7 @@ class SimplenewsTestCase extends DrupalWebTestCase {
     $block['delta'] = $tid;
     $edit[$block['module'] . '_' . $block['delta'] . '[region]'] = 'left';
     $this->drupalPost('admin/build/block', $edit, t('Save blocks'));
-    
+
     // Set block parameters
     $edit = array();
     if (isset($settings['message'])) {
@@ -136,18 +143,18 @@ class SimplenewsBlockTestCase extends SimplenewsTestCase {
    * Test basic subscription block functionality.
    */
   function testBlockBasic() {
-    
+
     /* Test code goes here */
-    
+
   }
-  
+
   /**
    * Test multiple blocks on one page.
    */
   function testBlockMultiple() {
-    
+
     /* Test code goes here */
-    
+
   }
 }
 
@@ -174,15 +181,15 @@ class SimplenewsSubscribeTestCase extends SimplenewsTestCase {
   function testSubscribeAnonymous() {
     // 0. Preparation
     // Login admin
-    // Set permisison for anonymous to subscribe
-    // Enable newletter block
+    // Set permission for anonymous to subscribe
+    // Enable newsletter block
     // Logout admin
     $admin_user = $this->drupalCreateUser(array('administer blocks', 'administer content types', 'administer nodes', 'access administration pages', 'administer permissions'));
     $this->drupalLogin($admin_user);
     $this->setAnonymousUserSubscription(TRUE);
 
     // Setup subscription block with subscription form.
-    $block_settings = array(    
+    $block_settings = array(
       'message' => $this->randomName(4),
       'form' => '1',
       'link to previous' => FALSE,
@@ -193,18 +200,18 @@ class SimplenewsSubscribeTestCase extends SimplenewsTestCase {
     $this->setupSubscriptionBlock($tid, $block_settings);
 
     $this->drupalLogout();
-    
+
     //file_put_contents('output.html', $this->drupalGetContent());
 
     // 1. Subscribe anonymous via block
     // Subscribe + submit
     // Assert confirmation message
     // Assert outgoing email
-    // 
+    //
     // Confirm using mail link
     // Confirm using mail link
     // Assert confirmation message
-  
+
     $mail = $this->randomEmail(8, 'testmail');
     $edit = array (
       'mail' => $mail,
@@ -220,7 +227,7 @@ class SimplenewsSubscribeTestCase extends SimplenewsTestCase {
     $match = array();
     preg_match($pattern, $content, $match);
     $confirm_url = $match[1];
-    
+
     $pattern = '@http:/.*/newsletter/confirm/add/[0-9,a-f]{10}[0-9]+t[0-9]+@';
     $this->assertPattern($pattern, t('Confirmation URL found: @url', array('@url' => $confirm_url)));
 
@@ -234,12 +241,12 @@ class SimplenewsSubscribeTestCase extends SimplenewsTestCase {
     $this->assertRaw(t('%user was added to the %newsletter mailing list.', array('%user' => $mail, '%newsletter' => $newsletter->name)), t('Anonymous subscriber added to newsletter'));;
 
     //file_put_contents('output2.html', $this->drupalGetContent());
-    
+
     // 2. Subscribe anonymous via subscription page
     // Subscribe + submit
     // Assert confirmation message
     // Assert outgoing email
-    // 
+    //
     // Confirm using mail link
     // Confirm using mail link
     // Assert confirmation message
@@ -259,7 +266,7 @@ class SimplenewsSubscribeTestCase extends SimplenewsTestCase {
     $match = array();
     preg_match($pattern, $content, $match);
     $confirm_url = $match[1];
-    
+
     $pattern = '@http:/.*/newsletter/confirm/add/[0-9,a-f]{10}[0-9]+t[0-9]+@';
     $this->assertPattern($pattern, t('Confirmation URL found: @url', array('@url' => $confirm_url)));
 
@@ -289,8 +296,8 @@ class SimplenewsSubscribeTestCase extends SimplenewsTestCase {
    function testSubscribeAuthenticated() {
     // 0. Preparation
     // Login admin
-    // Set permisison for anonymous to subscribe
-    // Enable newletter block
+    // Set permission for anonymous to subscribe
+    // Enable newsletter block
     // Logout admin
     // Login Subscriber
 
@@ -299,7 +306,7 @@ class SimplenewsSubscribeTestCase extends SimplenewsTestCase {
     $this->setAnonymousUserSubscription(TRUE);
 
     // Setup subscription block with subscription form.
-    $block_settings = array(    
+    $block_settings = array(
       'message' => $this->randomName(4),
       'form' => '1',
       'link to previous' => FALSE,
