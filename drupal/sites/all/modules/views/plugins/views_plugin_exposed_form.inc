@@ -1,5 +1,5 @@
 <?php
-// $Id: views_plugin_exposed_form.inc,v 1.2.2.14 2010/10/17 10:42:44 dereine Exp $
+// $Id: views_plugin_exposed_form.inc,v 1.2.2.18 2010/12/01 20:05:06 dereine Exp $
 
 /**
  * The base plugin to handle exposed filter forms.
@@ -62,11 +62,10 @@ class views_plugin_exposed_form extends views_plugin {
       '#description' => t('Text to display in the reset button of the exposed form.'),
       '#default_value' => $this->options['reset_button_label'],
       '#required' => TRUE,
-      '#states' => array(
-        'invisible' => array(
-          'input[name="exposed_form_options[reset_button]"]' => array('checked' => FALSE),
-        ),
+      '#dependency' => array(
+        'edit-exposed-form-options-reset-button' => array(1)
       ),
+      '#process' => array('ctools_dependent_process'),
     );
 
     $form['exposed_sorts_label'] = array(
@@ -109,6 +108,7 @@ class views_plugin_exposed_form extends views_plugin {
       'method' => 'get',
       'rerender' => TRUE,
       'no_redirect' => TRUE,
+      'always_process' => TRUE,
     );
 
     // Some types of displays (eg. attachments) may wish to use the exposed
@@ -123,7 +123,8 @@ class views_plugin_exposed_form extends views_plugin {
     }
 
     $form_state['exposed_form_plugin'] = $this;
-    $output = drupal_render(drupal_build_form('views_exposed_form', $form_state));
+    $form = drupal_build_form('views_exposed_form', $form_state);
+    $output = drupal_render($form);
     if (!empty($form_state['js settings'])) {
       $this->view->js_settings = $form_state['js settings'];
     }
@@ -168,12 +169,12 @@ class views_plugin_exposed_form extends views_plugin {
   function exposed_form_alter(&$form, &$form_state) {
     if (!empty($this->options['reset_button'])) {
       $form['reset'] = array(
-        '#value' => t($this->options['reset_button_label']),
+        '#value' => $this->options['reset_button_label'],
         '#type' => 'submit',
       );
     }
 
-    $form['submit']['#value'] = t($this->options['submit_button']);
+    $form['submit']['#value'] = $this->options['submit_button'];
     // Check if there is exposed sorts for this view
     $exposed_sorts = array();
     foreach ($this->view->sort as $id => $handler) {
@@ -189,8 +190,8 @@ class views_plugin_exposed_form extends views_plugin {
         '#title' => t($this->options['exposed_sorts_label']),
       );
       $sort_order = array(
-        'ASC' => t($this->options['sort_asc_label']),
-        'DESC' => t($this->options['sort_desc_label']),
+        'ASC' => $this->options['sort_asc_label'],
+        'DESC' => $this->options['sort_desc_label'],
       );
       $first_sort = reset($this->view->sort);
       $form['sort_order'] = array(
@@ -230,7 +231,7 @@ class views_plugin_exposed_form extends views_plugin {
   *   $view->exposed_raw_input
   */
   function exposed_form_submit(&$form, &$form_state, &$exclude) {
-    if (!empty($form_state['values']['op']) && $form_state['values']['op'] == t($this->options['reset_button_label'])) {
+    if (!empty($form_state['values']['op']) && $form_state['values']['op'] == $this->options['reset_button_label']) {
       $this->reset_form($form, $form_state);
     }
     if (isset($form_state['pager_plugin'])) {

@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_filter_in_operator.test,v 1.1.2.2 2010/10/05 12:08:40 dereine Exp $
+// $Id: views_handler_filter_in_operator.test,v 1.1.2.1 2010/11/07 11:32:25 dereine Exp $
 
 class ViewsHandlerFilterInOperator extends ViewsSqlTest {
   public static function getInfo() {

@@ -1,5 +1,5 @@
 <?php
-// $Id: field.views.inc,v 1.1.2.11 2010/10/05 22:04:16 dereine Exp $
+// $Id: field.views.inc,v 1.1.2.17 2011/01/04 23:54:35 dereine Exp $
 
 /**
  * @file
@@ -57,22 +57,30 @@ function field_views_field_default_views_data($field) {
   // The list of entity:bundle that this field is used in.
   $bundles_names = array();
   $supports_revisions = FALSE;
+  $entity_tables = array();
 
   // Build the relationships between the field table and the entity tables.
   foreach ($field['bundles'] as $entity => $bundles) {
     $entity_info = entity_get_info($entity);
+    $entity_tables[$entity_info['base table']] = $entity;
 
     $data[$current_table]['table']['join'][$entity_info['base table']] = array(
       'left_field' => $entity_info['entity keys']['id'],
       'field' => 'entity_id',
-      'extra' => array(array('field' => 'etid', 'value' => _field_sql_storage_etid($entity), 'numeric' => TRUE)),
+      'extra' => array(
+        array('field' => 'entity_type', 'value' => $entity),
+        array('field' => 'deleted', 'value' => 0, 'numeric' => TRUE),
+      ),
     );
 
     if (!empty($entity_info['entity keys']['revision']) && !empty($entity_info['revision table'])) {
       $data[$revision_table]['table']['join'][$entity_info['revision table']] = array(
         'left_field' => $entity_info['entity keys']['revision'],
         'field' => 'revision_id',
-        'extra' => array(array('field' => 'etid', 'value' => _field_sql_storage_etid($entity), 'numeric' => TRUE)),
+        'extra' => array(
+          array('field' => 'entity_type', 'value' => $entity),
+          array('field' => 'deleted', 'value' => 0, 'numeric' => TRUE),
+        ),
       );
 
       $supports_revisions = TRUE;
@@ -87,6 +95,11 @@ function field_views_field_default_views_data($field) {
   $tables[FIELD_LOAD_CURRENT] = $current_table;
   if ($supports_revisions) {
     $tables[FIELD_LOAD_REVISION] = $revision_table;
+  }
+
+  $add_fields = array('entity_type', 'delta', 'language', 'bundle');
+  foreach ($field['columns'] as $column_name => $attributes) {
+    $add_fields[] = _field_sql_storage_columnname($field['field_name'], $column_name);
   }
 
   // Add the field handler for this field.
@@ -113,7 +126,9 @@ function field_views_field_default_views_data($field) {
       'handler' => 'views_handler_field_field',
       'click sortable' => TRUE,
       'field_name' => $field['field_name'],
-      'additional fields' => array('etid'),
+      'additional fields' => $add_fields,
+      'entity_tables' => $entity_tables,
+      'field_info' => $field,
     );
   }
 
@@ -146,7 +161,7 @@ function field_views_field_default_views_data($field) {
 
     // Note: we don't have a label available here, because we are at the field
     // level, not at the instance level.
-    if (count($field['columns']) == 1) {
+    if (count($field['columns']) == 1 && $column == 'value') {
       $title = t('@label (!name)', array('@label' => $field['field_name'], '!name' => $field['field_name']));
       $title_short = $field['field_name'];
     }
@@ -198,7 +213,7 @@ function field_views_field_default_views_data($field) {
       // Expose additional delta column for multiple value fields.
       if ($field['cardinality'] > 1 || $field['cardinality'] == FIELD_CARDINALITY_UNLIMITED) {
         $title = t('@label (!name) - delta', array('@label' => $field['field_name'], '!name' => $field['field_name']));
-        $title_short = t('!name - delta', array('@name' => $field['field_name']));
+        $title_short = t('!name - delta', array('!name' => $field['field_name']));
 
         $data[$table]['delta'] = array(
           'group' => $group,

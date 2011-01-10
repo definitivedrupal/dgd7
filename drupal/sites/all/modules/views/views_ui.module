@@ -1,5 +1,5 @@
 <?php
-// $Id: views_ui.module,v 1.109.6.13 2010/10/26 19:06:26 dereine Exp $
+// $Id: views_ui.module,v 1.109.6.18 2010/12/24 13:42:00 dereine Exp $
 /**
  * @file views_ui.module
  * Provide structure for the administrative interface to Views.
@@ -118,9 +118,9 @@ function views_ui_menu() {
   );
   $ajax_callbacks = array(
     'analyze' => 'views_ui_analyze_view',
-    'details' => 'views_ui_edit_details',
     'add-display' => 'views_ui_add_display',
     'preview' => 'views_ui_preview',
+    'reorder-displays' => 'views_ui_reorder_view',
   );
 
   foreach ($ajax_callbacks as $menu => $menu_callback) {
@@ -134,6 +134,34 @@ function views_ui_menu() {
       'delivery callback' => 'views_ui_ajax_deliver',
     );
   }
+
+  $items['admin/structure/views/nojs/human_name/%views_ui_cache'] = $callback + array(
+    'page callback' => 'views_ui_edit_details',
+    'page arguments' => array('human_name', FALSE, 5),
+  );
+  $items['admin/structure/views/ajax/human_name/%views_ui_cache'] = $callback + array(
+    'page callback' => 'views_ui_edit_details',
+    'page arguments' => array('human_name', TRUE, 5),
+    'delivery callback' => 'views_ui_ajax_deliver',
+  );
+  $items['admin/structure/views/nojs/tag/%views_ui_cache'] = $callback + array(
+    'page callback' => 'views_ui_edit_details',
+    'page arguments' => array('tag', FALSE, 5),
+  );
+  $items['admin/structure/views/ajax/tag/%views_ui_cache'] = $callback + array(
+    'page callback' => 'views_ui_edit_details',
+    'page arguments' => array('tag', TRUE, 5),
+    'delivery callback' => 'views_ui_ajax_deliver',
+  );
+  $items['admin/structure/views/nojs/description/%views_ui_cache'] = $callback + array(
+    'page callback' => 'views_ui_edit_details',
+    'page arguments' => array('description', FALSE, 5),
+  );
+  $items['admin/structure/views/ajax/description/%views_ui_cache'] = $callback + array(
+    'page callback' => 'views_ui_edit_details',
+    'page arguments' => array('description', TRUE, 5),
+    'delivery callback' => 'views_ui_ajax_deliver',
+  );
 
   $items['admin/build/views/nojs/clone-display/%views_ui_cache'] = $callback + array(
     'page callback' => 'views_ui_clone_display',
@@ -204,6 +232,10 @@ function views_ui_theme() {
     'views_ui_rearrange_form' => array(
       'render element' => 'form',
     ),
+    'views_ui_rearrange_filter_form' => array(
+      'render element' => 'form',
+      'file' => 'includes/admin.inc',
+    ),
 
     // list views
     'views_ui_list_views' => array(
@@ -224,6 +256,11 @@ function views_ui_theme() {
     'views_tab' => array(
       'variables' => array('body' => NULL),
     ),
+    'views_ui_reorder_displays_form' => array(
+      'render element' => 'form',
+      'file' => 'includes/admin.inc',
+    ),
+
 
     // On behalf of a plugin
     'views_ui_style_plugin_table' => array(
@@ -247,6 +284,10 @@ function views_ui_cache_load($name) {
     if (!empty($view)) {
       // Check to see if someone else is already editing this view.
       $view->locked = ctools_object_cache_test('view', $view->name);
+      // Set a flag to indicate that this view is being edited.
+      // This flag will be used e.g. to determine whether strings
+      // should be localized.
+      $view->editing = TRUE;
     }
   }
 
@@ -357,10 +398,6 @@ function views_ui_ajax_deliver($page_callback_result) {
     $html = is_string($page_callback_result) ? $page_callback_result : drupal_render($page_callback_result);
     $commands[] = ajax_command_replace(NULL, $html);
     $commands[] = ajax_command_prepend(NULL, theme('status_messages'));
-  }
-  $js = drupal_add_js();
-  if ($js) {
-    $commands[] = ajax_command_settings($js['settings']['data']);
   }
 
   // This function needs to do the same thing that drupal_deliver_html_page()

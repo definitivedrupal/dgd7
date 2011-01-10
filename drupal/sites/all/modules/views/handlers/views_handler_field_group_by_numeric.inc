@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_field_group_by_numeric.inc,v 1.1.4.5 2010/10/16 05:47:39 dereine Exp $
+// $Id: views_handler_field_group_by_numeric.inc,v 1.1.4.6 2010/11/07 11:36:59 dereine Exp $
 
 /**
  * Handler for GROUP BY on simple numeric fields.
@@ -38,7 +38,7 @@ class views_handler_field_group_by_numeric extends views_handler_field_numeric {
     $this->query->add_orderby($this->table, $this->field, $order, $this->field_alias, $params);
   }
 
-  function ui_name() {
-    return $this->get_field(parent::ui_name());
+  function ui_name($short = FALSE) {
+    return $this->get_field(parent::ui_name($short));
   }
 }

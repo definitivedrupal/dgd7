@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_argument.inc,v 1.9.4.9 2010/10/17 10:42:43 dereine Exp $
+// $Id: views_handler_argument.inc,v 1.9.4.12 2010/12/17 21:42:19 merlinofchaos Exp $
 
 /**
  * @defgroup views_argument_handlers Handlers for arguments
@@ -112,6 +112,7 @@ class views_handler_argument extends views_handler {
   }
 
   function options_form(&$form, &$form_state) {
+    parent::options_form($form, $form_state);
     $defaults = $this->default_actions();
 
     $form['title'] = array(
@@ -198,7 +199,7 @@ class views_handler_argument extends views_handler {
       '#default_value' => $this->options['validate_type'],
     );
 
-    $validate_types = array('none' => t('<Basic validation>'));
+    $validate_types = array('none' => t('- Basic validation -'));
     $plugins = views_fetch_plugin_data('argument validator');
     foreach ($plugins as $id => $info) {
       if (!empty($info['no ui'])) {
@@ -225,13 +226,15 @@ class views_handler_argument extends views_handler {
         if ($plugin) {
           if ($plugin->access() || $this->options['validate_type'] == $id) {
             $form['argument_validate'][$id] = array(
+              '#prefix' => '<div id="edit-options-validate-options-' . $id . '-wrapper">',
+              '#suffix' => '</div>',
               '#type' => 'item',
               '#input' => TRUE, // trick it into checking input to make #process run
-              '#states' => array(
-                'visible' => array(
-                  ':input[name="options[validate_type]"]' => array('value' => $id),
-                ),
+              '#process' => array('ctools_dependent_process'),
+              '#dependency' => array(
+                'edit-options-validate-type' => array($id)
               ),
+              '#id' => 'edit-options-validate-options-' . $id,
             );
             $plugin->options_form($form['argument_validate'][$id], $form_state);
             $validate_types[$id] = $info['title'];
@@ -385,12 +388,9 @@ class views_handler_argument extends views_handler {
     $form['default_options_div_prefix'] = array(
       '#type' => 'hidden',
       '#id' => 'views-default-options',
-      '#prefix' => '<div><fieldset id="views-default-options"><legend>' . t('Provide default argument options') . '</legend>',
-      '#states' => array(
-        'visible' => array(
-          ':input[name="options[default_action]"]' => array('value' => 'default'),
-        ),
-      ),
+      '#prefix' => '<div id="views-default-options-wrapper"><fieldset id="views-default-options"><legend>' . t('Provide default argument options') . '</legend>',
+      '#process' => array('ctools_dependent_process'),
+      '#dependency' => array('radio:options[default_action]' => array('default')),
     );
 
     $form['default_argument_type'] = array(
@@ -400,11 +400,6 @@ class views_handler_argument extends views_handler {
       '#id' => 'edit-options-default-argument-type',
       '#title' => t('Default argument type'),
       '#default_value' => $this->options['default_argument_type'],
-      '#states' => array(
-        'visible' => array(
-          ':input[name="options[default_action]"]' => array('value' => 'default'),
-        ),
-      ),
     );
 
     foreach ($plugins as $id => $info) {
@@ -415,14 +410,17 @@ class views_handler_argument extends views_handler {
       if ($plugin) {
         if ($plugin->access() || $this->options['default_argument_type'] == $id) {
           $form['argument_default'][$id] = array(
+            '#prefix' => '<div id="edit-options-argument-default-options-' . $id . '-wrapper">',
+            '#suffix' => '</div>',
+            '#id' => 'edit-options-argument-default-options-' . $id,
             '#type' => 'item',
             '#input' => TRUE, // trick it into checking input to make #process run
-            '#states' => array(
-              'visible' => array(
-                ':input[name="options[default_action]"]' => array('value' => 'default'),
-                ':input[name="options[default_argument_type]"]' => array('value' => $id),
-              ),
+            '#process' => array('ctools_dependent_process'),
+            '#dependency' => array(
+              'radio:options[default_action]' => array('default'),
+              'radio:options[default_argument_type]' => array($id)
             ),
+            '#dependency_count' => 2,
           );
           $options[$id] = $info['title'];
           $plugin->options_form($form['argument_default'][$id], $form_state);

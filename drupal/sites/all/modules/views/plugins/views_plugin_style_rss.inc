@@ -1,5 +1,5 @@
 <?php
-// $Id: views_plugin_style_rss.inc,v 1.2.6.4 2010/10/17 10:42:44 dereine Exp $
+// $Id: views_plugin_style_rss.inc,v 1.2.6.7 2010/12/18 08:02:38 dereine Exp $
 /**
  * @file
  * Contains the RSS style plugin.
@@ -18,6 +18,7 @@ class views_plugin_style_rss extends views_plugin_style {
     if ($input) {
       $url_options['query'] = $input;
     }
+    $url_options['absolute'] = TRUE;
 
     $url = url($this->view->get_url(NULL, $path), $url_options);
     if ($display->has_path()) {
@@ -44,7 +45,6 @@ class views_plugin_style_rss extends views_plugin_style {
     $options = parent::option_definition();
 
     $options['description'] = array('default' => '', 'translatable' => TRUE);
-    $options['mission_description'] = array('default' => '', 'translatable' => TRUE);
 
     return $options;
   }
@@ -52,21 +52,13 @@ class views_plugin_style_rss extends views_plugin_style {
   function options_form(&$form, &$form_state) {
     parent::options_form($form, $form_state);
 
-    $form['mission_description'] = array(
-      '#type' => 'checkbox',
-      '#default_value' => !empty($this->options['mission_description']),
-      '#title' => t('Use the site mission for the description'),
-    );
     $form['description'] = array(
       '#type' => 'textfield',
       '#title' => t('RSS description'),
       '#default_value' => $this->options['description'],
       '#description' => t('This will appear in the RSS feed itself.'),
-      '#states' => array(
-        'invisible' => array(
-          'input[name="style_options[override]"]' => array('checked' => FALSE),
-        ),
-      ),
+      '#process' => array('ctools_dependent_process'),
+      '#dependency' => array('edit-style-options-override' => array(FALSE)),
     );
   }
 

@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_field_date.inc,v 1.3.4.3 2010/10/17 10:42:43 dereine Exp $
+// $Id: views_handler_field_date.inc,v 1.3.4.6 2010/12/23 22:34:37 dereine Exp $
 /**
  * A handler to provide proper displays for dates.
  *
@@ -22,9 +22,9 @@ class views_handler_field_date extends views_handler_field {
       '#type' => 'select',
       '#title' => t('Date format'),
       '#options' => array(
-        'small' => format_date(REQUEST_TIME, 'small'),
-        'medium' => format_date(REQUEST_TIME, 'medium'),
-        'large' => format_date(REQUEST_TIME, 'large'),
+        'small' => t('Short date format') . ' ' . format_date(REQUEST_TIME, 'small'),
+        'medium' => t('Medium date format') . ' ' . format_date(REQUEST_TIME, 'medium'),
+        'large' => t('Long date format') . ' ' . format_date(REQUEST_TIME, 'large'),
         'custom' => t('Custom'),
         'raw time ago' => t('Time ago'),
         'time ago' => t('Time ago (with "ago" appended)'),
@@ -38,12 +38,8 @@ class views_handler_field_date extends views_handler_field {
       '#title' => t('Custom date format'),
       '#description' => t('If "Custom", see <a href="http://us.php.net/manual/en/function.date.php" target="_blank">the PHP docs</a> for date formats. If "Time ago" this is the the number of different units to display, which defaults to two.'),
       '#default_value' => isset($this->options['custom_date_format']) ? $this->options['custom_date_format'] : '',
+      '#process' => array('ctools_dependent_process'),
       '#dependency' => array('edit-options-date-format' => array('custom', 'raw time ago', 'time ago', 'raw time span', 'time span')),
-      '#states' => array(
-        'visible' => array(
-          ':input[name=options[date_format]]' => array('value' => array('custom', 'raw time ago', 'time ago', 'raw time span', 'time span')),
-        ),
-      ),
     );
   }
 
@@ -54,10 +50,7 @@ class views_handler_field_date extends views_handler_field {
       $custom_format = $this->options['custom_date_format'];
     }
 
-    if (!$value) {
-      return theme('views_nodate');
-    }
-    else {
+    if ($value) {
       $time_diff = REQUEST_TIME - $value; // will be positive for a datetime in the past (ago), and negative for a datetime in the future (hence)
       switch ($format) {
         case 'raw time ago':

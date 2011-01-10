@@ -1,5 +1,5 @@
 <?php
-// $Id: views_plugin_display_page.inc,v 1.8.4.9 2010/10/17 10:42:44 dereine Exp $
+// $Id: views_plugin_display_page.inc,v 1.8.4.14 2011/01/04 21:26:47 dereine Exp $
 /**
  * @file
  * Contains the page display plugin.
@@ -55,12 +55,16 @@ class views_plugin_display_page extends views_plugin_display {
 
     $bits = explode('/', $this->get_option('path'));
     $page_arguments = array($this->view->name, $this->display->id);
+    $view_arguments = $this->get_option('arguments');
 
     // Replace % with %views_arg for menu autoloading and add to the
     // page arguments so the argument actually comes through.
     foreach($bits as $pos => $bit) {
       if ($bit == '%') {
-        $bits[$pos] = '%views_arg';
+        $argument = array_shift($view_arguments);
+        if (isset($argument['validate_type']) && $argument['validate_type'] != 'none') {
+          $bits[$pos] = '%views_arg';
+        }
         $page_arguments[] = $pos;
       }
     }
@@ -71,6 +75,36 @@ class views_plugin_display_page extends views_plugin_display {
     if (!isset($access_plugin)) {
       $access_plugin = views_get_plugin('access', 'none');
     }
+
+    // Get access callback might return an array of the callback + the dynamic arguments.
+    $access_plugin_callback = $access_plugin->get_access_callback();
+
+    if (is_array($access_plugin_callback)) {
+      $access_arguments = array();
+
+      // Find the plugin arguments.
+      $access_plugin_method = array_shift($access_plugin_callback);
+      $access_plugin_arguments = array_shift($access_plugin_callback);
+      if (!is_array($access_plugin_arguments)) {
+        $access_plugin_arguments = array();
+      }
+
+      $access_arguments[0] = array($access_plugin_method, &$access_plugin_arguments);
+
+      // Move the plugin arguments to the access arguments array.
+      $i = 1;
+      foreach ($access_plugin_arguments as $key => $value) {
+        if (is_int($value)) {
+          $access_arguments[$i] = $value;
+          $access_plugin_arguments[$key] = $i;
+          $i++;
+        }
+      }
+    }
+    else {
+      $access_arguments = array($access_plugin_callback);
+    }
+
     if ($path) {
       $items[$path] = array(
         // default views page entry
@@ -78,7 +112,7 @@ class views_plugin_display_page extends views_plugin_display {
         'page arguments' => $page_arguments,
         // Default access check (per display)
         'access callback' => 'views_access',
-        'access arguments' => array($access_plugin->get_access_callback()),
+        'access arguments' => $access_arguments,
         // Identify URL embedded arguments and correlate them to a handler
         'load arguments'  => array($this->view->name, $this->display->id, '%index'),
       );
@@ -298,24 +332,16 @@ class views_plugin_display_page extends views_plugin_display {
           '#type' => 'textfield',
           '#default_value' => $menu['title'],
           '#description' => t('If set to normal or tab, enter the text to use for the menu item.'),
+          '#process' => array('ctools_dependent_process'),
           '#dependency' => array('radio:menu[type]' => array('normal', 'tab', 'default tab')),
-          '#states' => array(
-            'visible' => array(
-              ':radio:menu[type]' => array('value' => array('normal', 'tab', 'default tab')),
-            ),
-          ),
         );
         $form['menu']['description'] = array(
           '#title' => t('Description'),
           '#type' => 'textfield',
           '#default_value' => $menu['description'],
           '#description' => t("If set to normal or tab, enter the text to use for the menu item's description."),
+          '#process' => array('ctools_dependent_process'),
           '#dependency' => array('radio:menu[type]' => array('normal', 'tab', 'default tab')),
-          '#states' => array(
-            'visible' => array(
-              ':radio:menu[type]' => array('value' => array('normal', 'tab', 'default tab')),
-            ),
-          ),
         );
 
         // Only display the menu selector if menu module is enabled.
@@ -326,12 +352,8 @@ class views_plugin_display_page extends views_plugin_display {
             '#options' => menu_get_menus(),
             '#default_value' => $menu['name'],
             '#description' => t('Insert item into an available menu.'), //
+            '#process' => array('form_process_select', 'ctools_dependent_process'),
             '#dependency' => array('radio:menu[type]' => array('normal')),
-            '#states' => array(
-              'visible' => array(
-                ':radio:menu[type]' => array('value' => array('normal')),
-              ),
-            ),
           );
         }
         else {
@@ -349,12 +371,8 @@ class views_plugin_display_page extends views_plugin_display {
           '#type' => 'textfield',
           '#default_value' => isset($menu['weight']) ? $menu['weight'] : 0,
           '#description' => t('The lower the weight the higher/further left it will appear.'),
+          '#process' => array('ctools_dependent_process'),
           '#dependency' => array('radio:menu[type]' => array('normal', 'tab', 'default tab')),
-          '#states' => array(
-            'visible' => array(
-              ':radio:menu[type]' => array('value' => array('normal', 'tab', 'default tab')),
-            ),
-          ),
         );
         break;
       case 'tab_options':
@@ -387,24 +405,16 @@ class views_plugin_display_page extends views_plugin_display {
           '#type' => 'textfield',
           '#default_value' => $tab_options['title'],
           '#description' => t('If creating a parent menu item, enter the title of the item.'),
+          '#process' => array('ctools_dependent_process'),
           '#dependency' => array('radio:tab_options[type]' => array('normal', 'tab')),
-          '#states' => array(
-            'visible' => array(
-              ':radio:tab_options[type]' => array('value' => array('normal', 'tab')),
-            ),
-          ),
         );
         $form['tab_options']['description'] = array(
           '#title' => t('Description'),
           '#type' => 'textfield',
           '#default_value' => $tab_options['description'],
           '#description' => t('If creating a parent menu item, enter the description of the item.'),
+          '#process' => array('ctools_dependent_process'),
           '#dependency' => array('radio:tab_options[type]' => array('normal', 'tab')),
-          '#states' => array(
-            'visible' => array(
-              ':radio:tab_options[type]' => array('value' => array('normal', 'tab')),
-            ),
-          ),
         );
         // Only display the menu selector if menu module is enabled.
         if (module_exists('menu')) {
@@ -414,12 +424,8 @@ class views_plugin_display_page extends views_plugin_display {
             '#options' => menu_get_menus(),
             '#default_value' => $tab_options['name'],
             '#description' => t('Insert item into an available menu.'),
+            '#process' => array('form_process_select', 'ctools_dependent_process'),
             '#dependency' => array('radio:tab_options[type]' => array('normal')),
-            '#states' => array(
-              'visible' => array(
-                ':radio:tab_options[type]' => array('value' => array('normal')),
-              ),
-            ),
           );
         }
         else {
@@ -438,12 +444,8 @@ class views_plugin_display_page extends views_plugin_display {
           '#default_value' => $tab_options['weight'],
           '#size' => 5,
           '#description' => t('If the parent menu item is a tab, enter the weight of the tab. The lower the number, the more to the left it will be.'),
+          '#process' => array('ctools_dependent_process'),
           '#dependency' => array('radio:tab_options[type]' => array('tab')),
-          '#states' => array(
-            'visible' => array(
-              ':radio:tab_options[type]' => array('value' => array('tab')),
-            ),
-          ),
         );
         break;
     }

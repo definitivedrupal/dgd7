@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_field_user_link.inc,v 1.1 2008/09/03 19:21:30 merlinofchaos Exp $
+// $Id: views_handler_field_user_link.inc,v 1.1.6.2 2010/11/30 20:36:01 merlinofchaos Exp $
 /**
  * Field handler to present a link to the user.
  */
@@ -35,9 +35,17 @@ class views_handler_field_user_link extends views_handler_field {
   }
 
   function render($values) {
-    $text = !empty($this->options['text']) ? $this->options['text'] : t('view');
-    $uid = $values->{$this->aliases['uid']};
-    return l($text, "user/$uid");
+    return $this->render_link(check_plain($values->{$this->aliases['uid']}), $values);
   }
-}
 
+  function render_link($data, $values) {
+    $uid = $values->{$this->aliases['uid']};
+    $text = !empty($this->options['text']) ? $this->options['text'] : t('view');
+
+    $this->options['alter']['make_link'] = TRUE;
+    $this->options['alter']['path'] = "user/" . $uid;
+
+    return $text;
+  }
+
+}

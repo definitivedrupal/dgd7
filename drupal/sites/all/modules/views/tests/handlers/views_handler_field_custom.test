@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_field_custom.test,v 1.1.2.2 2010/05/24 17:17:03 dereine Exp $
+// $Id: views_handler_field_custom.test,v 1.1.2.1 2010/11/07 11:32:25 dereine Exp $
 
 class ViewsHandlerFieldCustomTest extends ViewsSqlTest {
   public static function getInfo() {

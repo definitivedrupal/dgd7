@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_field_date.test,v 1.1.2.2 2010/05/24 18:27:00 dereine Exp $
+// $Id: views_handler_field_date.test,v 1.1.2.1 2010/11/07 11:32:25 dereine Exp $
 
 class ViewsHandlerFieldDateTest extends ViewsSqlTest {
   public static function getInfo() {

@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_filter_date.inc,v 1.3.6.3 2010/03/10 20:27:33 merlinofchaos Exp $
+// $Id: views_handler_filter_date.inc,v 1.3.6.7 2011/01/03 17:46:33 dereine Exp $
 
 /**
  * Filter to handle dates stored as a timestamp.
@@ -24,7 +24,7 @@ class views_handler_filter_date extends views_handler_filter_numeric {
         '#title' => t('Value type'),
         '#options' => array(
           'date' => t('A date in any machine readable format. CCYY-MM-DD HH:MM:SS is preferred.'),
-          'offset' => t('An offset from the current time such as "+1 day" or "-2 hours -30 minutes"'),
+          'offset' => t('An offset from the current time such as "!example1" or "!example2"', array('!example1' => '+1 day', '!example2' => '-2 hours -30 minutes')),
         ),
         '#default_value' => !empty($this->value['type']) ? $this->value['type'] : 'date',
       );
@@ -73,7 +73,7 @@ class views_handler_filter_date extends views_handler_filter_numeric {
 
     if ($operators[$operator]['values'] == 1) {
       $convert = strtotime($value['value']);
-      if ($convert == -1 || $convert === FALSE) {
+      if (!empty($form['value']) && ($convert == -1 || $convert === FALSE)) {
         form_error($form['value'], t('Invalid date format.'));
       }
     }
@@ -139,7 +139,9 @@ class views_handler_filter_date extends views_handler_filter_numeric {
     }
     // %s is safe here because strtotime scrubbed the input and we might
     // have a string if using offset.
-    $this->query->add_where($this->options['group'], $field, array($a, $b), 'BETWEEN');
+    $placeholder1 = $this->placeholder();
+    $placeholder2 = $this->placeholder();
+    $this->query->add_where($this->options['group'], "$field BETWEEN $placeholder1 AND $placeholder2", array($placeholder1 => $a, $placeholder2 => $b), 'formula');
   }
 
   function op_simple($field) {
@@ -147,6 +149,7 @@ class views_handler_filter_date extends views_handler_filter_numeric {
     if (!empty($this->value['type']) && $this->value['type'] == 'offset') {
       $value = '***CURRENT_TIME***' . sprintf('%+d', $value); // keep sign
     }
-    $this->query->add_where($this->options['group'], $field, $value, $this->operator);
+    $placeholder = $this->placeholder();
+    $this->query->add_where($this->options['group'], "$field $this->operator $placeholder", array($placeholder => $value), 'formula');
   }
 }

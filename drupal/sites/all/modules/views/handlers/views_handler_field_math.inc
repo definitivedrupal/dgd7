@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_field_math.inc,v 1.1.2.2 2010/10/17 10:42:43 dereine Exp $
+// $Id: views_handler_field_math.inc,v 1.1.2.3 2010/11/05 07:20:54 dereine Exp $
 /**
  * Render a mathematical expression as a numeric value
  *
@@ -31,7 +31,7 @@ class views_handler_field_math extends views_handler_field_numeric {
 
     // Then move the existing help:
     $form['expression_help'] = $form['alter']['help'];
-    unset($form['expression_help']['#states']);
+    unset($form['expression_help']['#dependency']);
     unset($form['expression_help']['#process']);
     unset($form['alter']['help']);
   }

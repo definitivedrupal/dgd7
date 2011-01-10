@@ -1,5 +1,5 @@
 <?php
-// $Id: views_plugin_pager_none.inc,v 1.1.4.2 2010/02/06 13:29:48 dereine Exp $
+// $Id: views_plugin_pager_none.inc,v 1.1.4.3 2010/11/06 17:56:10 dereine Exp $
 
 /**
  * Plugin for views without pagers.
@@ -49,7 +49,7 @@ class views_plugin_pager_none extends views_plugin_pager {
     // If we are displaying all items, never count. But we can update the count in post_execute.
   }
 
-  function post_execute($result) {
+  function post_execute(&$result) {
     $this->total_items = count($result);
   }
 

@@ -1,5 +1,5 @@
 <?php
-// $Id: taxonomy.views.inc,v 1.57.4.15 2010/10/16 08:58:40 dereine Exp $
+// $Id: taxonomy.views.inc,v 1.57.4.18 2010/12/04 07:46:13 dereine Exp $
 /**
  * @file
  *
@@ -173,7 +173,7 @@ function taxonomy_views_data() {
       'field' => 'description', // the real field
       'group' => t('Taxonomy'), // The group it appears in on the UI,
       'handler' => 'views_handler_field_markup',
-      'format' => filter_default_format(),
+      'format' => array('field' => 'format'),
     ),
   );
 
@@ -255,42 +255,6 @@ function taxonomy_views_data() {
       'skip base' => 'taxonomy_term_data',
       'allow empty' => TRUE,
     ),
-  );
-
-  // taxonomy_term_relation
-
-  $data['taxonomy_term_relation']['table']['group']  = t('Taxonomy');
-
-  $data['taxonomy_term_relation']['table']['join'] = array(
-    'taxonomy_term_data' => array(
-      // links directly to taxonomy_term_data via tid
-      'left_field' => 'tid',
-      'field' => 'tid1',
-    ),
-    'taxonomy_term_relation' => array(
-      // links to self through left.tid1 = right.tid2
-      'left_field' => 'tid1',
-      'field' => 'tid2',
-    ),
-    'node' => array(
-      'left_table' => 'taxonomy_index',
-      'left_field' => 'tid',
-      'field' => 'tid1',
-    ),
-  );
-
-  $data['taxonomy_term_relation']['tid2'] = array(
-    'title' => t('Related terms'),
-    'help' => t('The related terms of the term. This can produce duplicate entries if there is more than one related term.'),
-    'relationship' => array(
-      'base' => 'taxonomy_term_data',
-      'field' => 'tid2',
-      'label' => t('Related term'),
-    ),
-    'argument' => array(
-      'help' => t('A related term of the term.'),
-      'handler' => 'views_handler_argument_numeric',
-    ),    
   );
 
   // ----------------------------------------------------------------------
@@ -398,6 +362,31 @@ function taxonomy_views_data_alter(&$data) {
       'handler' => 'views_handler_argument_term_node_tid_depth_modifier',
     ),
   );
+}
+
+/**
+ * Implements hook_field_views_data().
+ *
+ * Views integration for taxonomy_term_reference fields. Adds a term relationship to the default
+ * field data.
+ *
+ * @see field_views_field_default_views_data()
+ */
+function taxonomy_field_views_data($field) {
+  $data = field_views_field_default_views_data($field);
+  foreach ($data as $table_name => $table_data) {
+    foreach ($table_data as $field_name => $field_data) {
+      if (!in_array($field_name, array('table', 'entity_id', 'revision_id'))) {
+        $data[$table_name][$field_name]['relationship'] = array(
+          'handler' => 'views_handler_relationship',
+          'base' => 'taxonomy_term_data',
+          'base field' => 'tid',
+          'label' => t('term from !field_name', array('!field_name' => $field['field_name'])),
+        );
+      }
+    }
+  }
+  return $data;
 }
 
 /**

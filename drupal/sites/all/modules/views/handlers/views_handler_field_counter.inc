@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_field_counter.inc,v 1.3.4.3 2010/10/17 10:42:43 dereine Exp $
+// $Id: views_handler_field_counter.inc,v 1.3.4.4 2010/11/05 07:20:54 dereine Exp $
 
 class views_handler_field_counter extends views_handler_field {
   function option_definition() {
@@ -16,6 +16,7 @@ class views_handler_field_counter extends views_handler_field {
       '#title' => t('Starting value'),
       '#default_value' => $this->options['counter_start'],
       '#description' => t('Specify the number the counter should start at.'),
+      //'#process' => array('ctools_dependent_process'),
       '#size' => 2,
     );
   }
