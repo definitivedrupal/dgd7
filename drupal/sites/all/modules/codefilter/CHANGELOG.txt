@@ -1,5 +1,6 @@
-Code Filter 7.x-1.x-dev, xxxx-xx-xx (development release)
+Code Filter 7.x-1.0, 2010-01-07
 -------------------------------
+- #890622 by Damien Tournoud: Remove the use of /e
 - #606036 by psynaptic: Allow aggregation of CSS file
 - #565328 by John Morahan: Port to 7.x
 
