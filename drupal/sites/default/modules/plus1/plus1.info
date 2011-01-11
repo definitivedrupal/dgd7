@@ -1,0 +1,13 @@
+; $Id: plus1.info,v 1.1.4.1 2008/09/07 22:14:32 chill35 Exp $
+name = Plus 1
+project = "plus1"
+
+description = "A +1 voting widget for nodes."
+package = Voting
+
+core = 7.x
+files[] = plus1.module
+files[] = plus1.install
+dependencies[] = votingapi
+
+datestamp = "1237353342"

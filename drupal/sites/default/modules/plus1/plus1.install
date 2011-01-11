@@ -1,0 +1,33 @@
+<?php
+// $Id: plus1.install,v 1.1.4.1 2008/09/07 22:14:32 chill35 Exp $
+// @file 
+/**
+ * Implementation of hook_install().
+ */
+function plus1_install() {
+  // Create tables.
+  drupal_install_schema('plus1');
+}
+/**
+ * Implementation of hook_schema().
+ */
+function plus1_schema() {
+  return array();
+}
+/**
+ * Implementation of hook_uninstall().
+ */
+function plus1_uninstall() {
+  // Remove tables.
+  drupal_uninstall_schema('plus1');
+}
+
+/**
+ * Upgrade to using VotingAPI 2.
+ * 
+ */
+function fivestar_update_6200() {
+  $ret = array();
+  // db_drop_table($ret, 'plus1');
+  return $ret;
+}
