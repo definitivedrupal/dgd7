@@ -1,0 +1,5 @@
+name = Glue code for DefinitiveDrupal.org
+description = Listing of author profiles.
+package = Custom
+version = 7.x-1.x-dev
+core = 7.x

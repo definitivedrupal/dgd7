@@ -1,0 +1,30 @@
+<?php
+/**
+ * @file
+ *  Site-specific custom code for DefinitiveDrupal.org.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function dgd7glue_menu() {
+  $items['biographies'] = array(
+    'title' => 'Author biographies',
+    'access arguments' => array('access content'),
+    'page callback' => 'dgd7glue_profiles',
+  );
+  
+  return $items;
+}
+
+/**
+ * Menu callback for listing profile nodes for the Author biographies section.
+ */
+function dgd7glue_profiles() {
+  $query = new EntityFieldQuery();
+  $result = $query->entityCondition('entity_type', 'node', '=')
+          ->propertyCondition('type', 'profile', '=')
+          ->execute();
+
+  return node_view_multiple(node_load_multiple(array_keys($result['node'])), 'teaser');
+}
