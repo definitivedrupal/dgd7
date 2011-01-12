@@ -3,7 +3,6 @@ begin
   require 'rubygems'
   require 'hoe'
   require 'vlad' 
-  require 'config/generate.rb'
   Vlad.load(:app => nil, :scm => nil)
 rescue LoadError
   # do nothing
