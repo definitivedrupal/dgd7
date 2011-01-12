@@ -1,5 +1,5 @@
 <?php
-// $Id: mollom.api.php,v 1.7 2010/10/09 23:13:01 dries Exp $
+// $Id: mollom.api.php,v 1.8 2011/01/11 14:03:51 sun Exp $
 
 /**
  * @file
@@ -244,7 +244,7 @@
  *     the 'mapping' (see below).
  *   - report access callback: (optional) A function name to invoke to check
  *     access to Mollom's dedicated "report to Mollom" form, which should return
- *     either TRUE or FALSE (like any other menu "access callback").
+ *     either TRUE or FALSE (similar to menu access callbacks).
  *   - report access: (optional) A list containing user permission strings, from
  *     which the current user needs to have at least one. Should only be used if
  *     no "report access callback" was defined.

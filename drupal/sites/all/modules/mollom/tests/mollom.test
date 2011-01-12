@@ -1,5 +1,5 @@
 <?php
-// $Id: mollom.test,v 1.77 2010/12/16 14:45:55 sun Exp $
+// $Id: mollom.test,v 1.80 2011/01/11 15:21:24 sun Exp $
 
 /**
  * @file
@@ -1409,62 +1409,71 @@ class MollomBlacklistTestCase extends MollomWebTestCase {
     // Blacklist a word.
     // @todo As of now, only non-numeric, lower-case text seems to be supported.
     $term = drupal_strtolower(preg_replace('/[^a-zA-Z]/', '', $this->randomName()));
-    $result = mollom('mollom.addBlacklistText', array(
+    $data = array(
       'text' => $term,
       'context' => 'everything',
       'reason' => 'spam',
       'match' => 'contains',
-    ));
+    );
+    $result = mollom('mollom.addBlacklistText', $data);
     $this->assertIdentical($result, TRUE, t('The text was blacklisted.'));
 
     // Check whether posts containing the blacklisted word are properly blocked.
-    $result = mollom('mollom.checkContent', array(
+    $data = array(
       'post_body' => $term,
-    ));
+    );
+    $result = mollom('mollom.checkContent', $data);
     $this->assertEqual($result['spam'], MOLLOM_ANALYSIS_SPAM, t('Identical match was blocked.'));
 
-    $result = mollom('mollom.checkContent', array(
+    $data = array(
       'post_body' => "When the term is present, the post should get blocked: " . $term,
-    ));
+    );
+    $result = mollom('mollom.checkContent', $data);
     $this->assertEqual($result['spam'], MOLLOM_ANALYSIS_SPAM, t('Exact match was blocked.'));
 
-    $result = mollom('mollom.checkContent', array(
+    $data = array(
       'post_body' => "When match is 'contains', the word can be surrounded by other text: abc" . $term . "def",
-    ));
+    );
+    $result = mollom('mollom.checkContent', $data);
     $this->assertEqual($result['spam'], MOLLOM_ANALYSIS_SPAM, t('Partial match was blocked.'));
 
     // Update the blacklist entry to match the term only exactly.
-    $result = mollom('mollom.addBlacklistText', array(
+    $data = array(
       'text' => $term,
       'context' => 'everything',
       'reason' => 'spam',
       'match' => 'exact',
-    ));
+    );
+    $result = mollom('mollom.addBlacklistText', $data);
     $this->assertTrue($result, t('The text was blacklisted.'));
 
-    $result = mollom('mollom.checkContent', array(
+    $data = array(
       'post_body' => "When match is 'exact', it has to be exact: " . $term,
-    ));
+    );
+    $result = mollom('mollom.checkContent', $data);
     $this->assertEqual($result['spam'], MOLLOM_ANALYSIS_SPAM, t('Exact match was blocked.'));
 
-    $result = mollom('mollom.checkContent', array(
+    $data = array(
       'post_body' => "When match is 'exact', it has to be exact: abc{$term}def",
-    ));
+    );
+    $result = mollom('mollom.checkContent', $data);
     $this->assertNotEqual($result['spam'], MOLLOM_ANALYSIS_SPAM, t('Partial match was not blocked.'));
 
-    $result = mollom('mollom.removeBlacklistText', array(
+    $data = array(
       'text' => $term,
       'context' => 'everything',
       'reason' => 'spam',
-    ));
+    );
+    $result = mollom('mollom.removeBlacklistText', $data);
     $this->assertTrue($result, t('The blacklisted text was removed.'));
 
     // Try to remove a non-existing entry.
-    $result = mollom('mollom.removeBlacklistText', array(
+    $data = array(
       'text' => $term,
       'context' => 'everything',
       'reason' => 'spam',
-    ));
+    );
+    $result = mollom('mollom.removeBlacklistText', $data);
     $this->assertMollomWatchdogMessages(WATCHDOG_EMERGENCY);
     $this->assertNotIdentical($result, TRUE, t('Error response for a non-existing blacklist text found.'));
   }
@@ -1983,6 +1992,9 @@ class MollomUserFormsTestCase extends MollomWebTestCase {
     $this->setProtection('user_register_form', MOLLOM_MODE_CAPTCHA);
     $this->drupalLogout();
 
+    // Retrieve initial count of registered users.
+    $count_initial = db_query("SELECT COUNT(uid) FROM {users}")->fetchField();
+
     // Validate that the user registration form has a CAPTCHA text field.
     $this->drupalGet('user/register');
     $this->assertCaptchaField();
@@ -1996,6 +2008,10 @@ class MollomUserFormsTestCase extends MollomWebTestCase {
     );
     $this->postIncorrectCaptcha('user/register', $edit, t('Create new account'));
     $this->assertFalse(user_load_by_name($name), t('The user who attempted to register cannot be found in the database when the CAPTCHA is invalid.'));
+
+    // Verify that user count is still the same.
+    $count_new = db_query("SELECT COUNT(uid) FROM {users}")->fetchField();
+    $this->assertEqual($count_initial, $count_new, t('No new user record has been created.'));
 
     // Try to register with a valid CAPTCHA. Make sure the user was able
     // to successfully register.
@@ -2349,7 +2365,7 @@ class MollomContactFormTestCase extends MollomWebTestCase {
     // Report the mail to Mollom.
     $this->drupalGet($report_link['url']);
     $edit = array(
-      'feedback' => 'spam',
+      'mollom[feedback]' => 'spam',
     );
     $this->drupalPost(NULL, $edit, t('Delete'));
     $this->assertText(t('The content was successfully reported as inappropriate.'));

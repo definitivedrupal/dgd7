@@ -1,5 +1,5 @@
 <?php
-// $Id: mollom.pages.inc,v 1.15 2010/10/05 01:05:13 dries Exp $
+// $Id: mollom.pages.inc,v 1.16 2011/01/11 15:17:47 sun Exp $
 
 /**
  * @file
@@ -76,31 +76,19 @@ function mollom_report_form($form, &$form_state, $entity, $id) {
     '#type' => 'value',
     '#value' => $id,
   );
-  $form['feedback'] = array(
-    '#type' => 'radios',
-    '#title' => t('Optionally report this to Mollom'),
-    '#options' => array(
-      'none' => t("Don't send feedback to Mollom"),
-      'spam' => t('Report as spam or unsolicited advertising'),
-      'profanity' => t('Report as obscene, violent or profane content'),
-      'low-quality' => t('Report as low-quality content or writing'),
-      'unwanted' => t('Report as unwanted, taunting or off-topic content'),
-    ),
-    '#default_value' => 'none',
-    '#description' => t("Mollom is a web service that helps you moderate your site's content: see <a href=\"http://mollom.com\">http://mollom.com</a> for more information. By sending feedback to Mollom, you teach Mollom about the content you like and dislike, allowing Mollom to do a better job helping you moderate your site's content. If you want to report multiple posts at once, you can use Mollom's bulk operations on the content and comment administration pages."),
-  );
-
   // @todo "Delete" does not work for reporting mails to Mollom. In D7+, this
   //   form should be used solely for mails, as other entities are reported
   //   through existing delete confirmation forms instead. Perhaps there should
   //   be a dedicated form for reporting mails, as they are not really
   //   compatible with any of the standard processes either way.
-  return confirm_form($form,
+  $form = confirm_form($form,
     t('Are you sure you want to delete and report the content as inappropriate?'),
     '<front>',
     t('This action cannot be undone.'),
     t('Delete'), t('Cancel')
   );
+  mollom_data_delete_form_alter($form, $form_state);
+  return $form;
 }
 
 /**
@@ -121,9 +109,9 @@ function mollom_report_form_submit($form, &$form_state) {
     }
 
     // Send feedback to Mollom, if we have session data.
-    if (isset($data->session_id) && isset($form_state['values']['feedback']) && $form_state['values']['feedback'] != 'none') {
+    if (isset($data->session_id) && !empty($form_state['values']['mollom']['feedback'])) {
       // @todo Check the actual reponse.
-      _mollom_send_feedback($data->session_id, $form_state['values']['feedback']);
+      _mollom_send_feedback($data->session_id, $form_state['values']['mollom']['feedback']);
       drupal_set_message(t('The content was successfully reported as inappropriate.'));
     }
 

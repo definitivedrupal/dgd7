@@ -1,5 +1,5 @@
 <?php
-// $Id: mollom.module,v 1.94 2010/11/03 14:52:06 sun Exp $
+// $Id: mollom.module,v 1.100 2011/01/11 18:29:03 sun Exp $
 
 /**
  * @file
@@ -281,7 +281,7 @@ function mollom_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('mollom_reports_page'),
     'access callback' => '_mollom_access',
-    'access arguments' => array('administer mollom'),
+    'access arguments' => array('access mollom statistics'),
     'file' => 'mollom.admin.inc',
   );
 
@@ -372,6 +372,9 @@ function mollom_permission() {
     ),
     'bypass mollom protection' => array(
       'title' => t('Bypass Mollom protection on forms'),
+    ),
+    'access mollom statistics' => array(
+      'title' => t('View Mollom statistics'),
     ),
   );
 }
@@ -663,10 +666,33 @@ function mollom_form_alter(&$form, &$form_state, $form_id) {
   }
   // Integrate with delete confirmation forms to send feedback to Mollom.
   if (isset($forms['delete'][$form_id])) {
-    mollom_data_delete_form_alter($form, $form_state);
-    // Report before deleting. This needs to be handled here, since
-    // mollom_data_delete_form_alter() is re-used for mass-operation forms.
-    array_unshift($form['#submit'], 'mollom_data_delete_form_submit');
+    // Check whether the user is allowed to report to Mollom. Limiting report
+    // access is optional for forms integrating via 'delete form' and allowed by
+    // default, since we assume that users being able to delete entities are
+    // sufficiently trusted to also report to Mollom.
+    $access = TRUE;
+    // Retrieve information about the protected form; the form cache maps delete
+    // confirmation forms to protected form_ids, and protected form_ids to their
+    // originating modules.
+    $mollom_form_id = $forms['delete'][$form_id];
+    $module = $forms['protected'][$mollom_form_id];
+    $form_info = mollom_form_info($mollom_form_id, $module);
+    // Check access, if there is a 'report access' permission list.
+    if (isset($form_info['report access'])) {
+      $access = FALSE;
+      foreach ($form_info['report access'] as $permission) {
+        if (user_access($permission)) {
+          $access = TRUE;
+          break;
+        }
+      }
+    }
+    if ($access) {
+      mollom_data_delete_form_alter($form, $form_state);
+      // Report before deleting. This needs to be handled here, since
+      // mollom_data_delete_form_alter() is re-used for mass-operation forms.
+      array_unshift($form['#submit'], 'mollom_data_delete_form_submit');
+    }
   }
 }
 
@@ -954,14 +980,14 @@ function mollom_form_get_values($form_values, $fields, $mapping) {
     // $mapping with the actual form element value, and continue to the next
     // field. Also unset this field from $exclude_fields, so we can process the
     // remaining mappings below.
-    if (isset($exclude_fields[$field]) && drupal_validate_utf8($value)) {
+    if (isset($exclude_fields[$field])) {
       $mapping[$exclude_fields[$field]] = $value;
       unset($exclude_fields[$field]);
       continue;
     }
     // Only add form element values that are not empty.
     if (isset($value)) {
-      if (is_string($value) && drupal_validate_utf8($value) && drupal_strlen($value)) {
+      if (is_string($value) && drupal_strlen($value)) {
         $post_body[$field] = $value;
       }
       // Recurse into nested values (e.g. multiple value fields).
@@ -969,7 +995,7 @@ function mollom_form_get_values($form_values, $fields, $mapping) {
         // Ensure we have a flat array to implode(); form values of
         // field_attach_form() use several subkeys.
         _mollom_flatten_form_values($value);
-        if (($value = implode("\n", $value)) && drupal_validate_utf8($value)) {
+        if (($value = implode("\n", $value))) {
           $post_body[$field] = $value;
         }
       }
@@ -987,7 +1013,7 @@ function mollom_form_get_values($form_values, $fields, $mapping) {
     foreach ($parents as $key) {
       $value = isset($value[$key]) ? $value[$key] : NULL;
     }
-    if (isset($value) && drupal_validate_utf8($value)) {
+    if (isset($value)) {
       $mapping[$property] = $value;
     }
   }
@@ -1073,6 +1099,24 @@ function mollom_form_get_values($form_values, $fields, $mapping) {
   // see the actual honeypot value in watchdog log entries.
   if (isset($form_values['mollom']['homepage']) && $form_values['mollom']['homepage'] !== '') {
     $data['honeypot'] = $form_values['mollom']['homepage'];
+  }
+
+  // Ensure that all $data values contain valid UTF-8. Invalid UTF-8 would be
+  // sanitized into an empty string, so the Mollom backend would not receive
+  // any value.
+  $valid_utf8 = TRUE;
+  foreach ($data as $key => $value) {
+    if (!drupal_validate_utf8($value)) {
+      $valid_utf8 = FALSE;
+    }
+  }
+  if (!$valid_utf8) {
+    form_set_error('mollom', t('Invalid form values. Your submission will not be accepted.'));
+    _mollom_watchdog(array(
+      'Invalid UTF-8 in form values' => array(),
+      'Data:<pre>@data</pre>' => array('@data' => $data),
+    ));
+    $data = FALSE;
   }
 
   return $data;
@@ -1372,6 +1416,10 @@ function mollom_validate_analysis(&$form, &$form_state) {
 
   // Perform textual analysis.
   $all_data = mollom_form_get_values($form_state['values'], $form_state['mollom']['enabled_fields'], $form_state['mollom']['mapping']);
+  // Cancel processing upon invalid UTF-8 data.
+  if ($all_data === FALSE) {
+    return;
+  }
   $data = $all_data;
   // Remove 'post_id' property; only used by mollom_form_submit().
   if (isset($data['post_id'])) {
@@ -1517,6 +1565,10 @@ function mollom_validate_captcha(&$form, &$form_state) {
   // takes into account the author's IP and local user id (if registered). Any
   // other values are ignored.
   $all_data = mollom_form_get_values($form_state['values'], $form_state['mollom']['enabled_fields'], $form_state['mollom']['mapping']);
+  // Cancel processing upon invalid UTF-8 data.
+  if ($all_data === FALSE) {
+    return;
+  }
   $data = array(
     'session_id' => $form_state['mollom']['response']['session_id'],
     'captcha_result' => $form_state['values']['mollom']['captcha'],
@@ -1884,16 +1936,14 @@ function _mollom_get_version() {
   }
 
   // Retrieve Drupal distribution and installation profile information.
-  include_once DRUPAL_ROOT . '/includes/install.inc';
   $profile = drupal_get_profile();
-  $profile_info = install_profile_info($profile);
-  if (empty($profile_info['version'])) {
-    $profile_info['version'] = VERSION;
-  }
+  $profile_info = system_get_info('module', $profile) + array(
+    'distribution_name' => 'Drupal',
+    'version' => VERSION,
+  );
 
   // Retrieve Mollom module information.
-  $mollom_info = db_query("SELECT info FROM {system} WHERE type = 'module' AND name = 'mollom'")->fetchField();
-  $mollom_info = unserialize($mollom_info);
+  $mollom_info = system_get_info('module', 'mollom');
   if (empty($mollom_info['version'])) {
     // Manually build a module version string for repository checkouts.
     $mollom_info['version'] = DRUPAL_CORE_COMPATIBILITY . '-1.x-dev';
@@ -2113,7 +2163,7 @@ function mollom_entity_update($entity, $type) {
   // If an existing entity is published and we have session data stored for it,
   // mark the data as moderated.
   if (!empty($entity->status)) {
-    $id = reset(entity_extract_ids($type, $entity));
+    list($id) = entity_extract_ids($type, $entity);
     mollom_data_moderate($type, $id);
   }
 }
@@ -2122,7 +2172,7 @@ function mollom_entity_update($entity, $type) {
  * Implements hook_entity_delete().
  */
 function mollom_entity_delete($entity, $type) {
-  $id = reset(entity_extract_ids($type, $entity));
+  list($id) = entity_extract_ids($type, $entity);
   mollom_data_delete($type, $id);
 }
 
