@@ -1,5 +1,7 @@
 name = Glue code for DefinitiveDrupal.org
-description = Listing of author profiles.
+description = [dgd7glue] Listing of author profiles.
 package = Custom
-version = 7.x-1.x-dev
+version = 7.x-1.0
 core = 7.x
+dependencies[] = remarkup
+styles[] = dgd7.css
