@@ -11,7 +11,7 @@ function apress_html_head_alter(&$head_elements) {
   $head_elements['apress_edge_chrome'] = array(
     '#type' => 'html_tag',
     '#tag' => 'meta',
-    '#attributes' => array('http-equiv' => 'X-UA-Compatible', 'content' => 'IE-edge,chrome=1'),
+    '#attributes' => array('http-equiv' => 'X-UA-Compatible', 'content' => 'IE=edge,chrome=1'),
   );
   // Add an Apple touch icon.
  // <link rel="apple-touch-icon-precomposed" href="path/to/theme/images/apple-touch-icon.png" />
@@ -30,7 +30,7 @@ function apress_html_head_alter(&$head_elements) {
     '#tag' => 'meta',
     '#attributes' => array(
       'name' => 'viewport',
-      'content' => 'width=device-width',
+      'content' => 'width=device-width, initial-scale=1.0',
     ),
   );
 }
@@ -189,7 +189,7 @@ function apress_preprocess_region(&$vars) {
   if (in_array($region, array('sidebar_first', 'sidebar_second', 'content'))) {
     $vars['classes_array'][] = 'main';
   }
-  // Add a clearfix class to certain regions.
+  // Add a "clearfix" class to certain regions.
   if (in_array($region, array('footer', 'help', 'highlight'))) {
     $vars['classes_array'][] = 'clearfix';
   }
@@ -230,9 +230,18 @@ function apress_preprocess_node(&$vars) {
 
 /**
  * Implements template_preprocess_user_picture().
+ * - Add "change picture" link to be placed underneath the user image.
  */
 function apress_preprocess_user_picture(&$vars) {
+  // Create our variable with an empty string to prevent PHP notices when
+  // attempting to print the variable
+  $vars['edit_picture'] = '';
+  // The account object contains the information of the user whose photo is
+  // being processed. We compare that to the user id of the user object which
+  // represents the currently logged in user.
   if ($vars['account']->uid == $vars['user']->uid) {
+    // Create a variable containing a link to the user profile, with a class
+    // "change-user-picture" that we'll style against with CSS.
     $vars['edit_picture'] = l('Change picture', 'user/' . $vars['account']->uid . '/edit', array(
       'fragment' => 'edit-picture',
       'attributes' => array('class' => array('change-user-picture')),
@@ -245,7 +254,8 @@ function apress_preprocess_user_picture(&$vars) {
  * Implements template_process_page().
  */
 function apress_process_page(&$vars) {
-  // breadcrumbs/messages. See hook_page_alter().
+  // Prevent these from printing twice. Set to an empty string to prevent PHP
+  // notices.
   $vars['breadcrumb'] = '';
   $vars['messages'] = '';
 }
@@ -271,7 +281,7 @@ function apress_form_user_login_block_alter(&$form, &$form_state) {
  * Overrides theme_links().
  * Added: <span class="icon"> before links.
  */
-function apress_links($variables) {
+function apress_links__node($variables) {
   global $language_url;
 
   $links = $variables['links'];
