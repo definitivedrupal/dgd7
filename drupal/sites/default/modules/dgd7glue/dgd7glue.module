@@ -12,7 +12,7 @@
  *
  * @TODO replace with http://drupal.org/node/933888 when it lands.
  */
-function dgd7_boot() {
+function dgd7glue_boot() {
   if (is_numeric($_GET['q'])) {
     $_GET['q'] = 'node/' . $_GET['q'];
   }
@@ -30,24 +30,11 @@ function dgd7glue_menu() {
   
   return $items;
 }
-/**
- * Implements hook_boot().
- *
- * Another approach would allow http://example.com/53/edit to work:
- * if (is_numeric(substr($_GET['q'], strpos($_GET['q'], '/')))) {
- *
- * @TODO replace with http://drupal.org/node/933888 when it lands.
- */
-function dgd7_boot() {
-  if (is_numeric($_GET['q'])) {
-    $_GET['q'] = 'node/' . $_GET['q'];
-  }
-}
 
 /**
  * Implements hook_remarkup_defaults().
  */
-function dgd7_remarkup_defaults() {
+function dgd7glue_remarkup_defaults() {
   $rm = array();
   // Define the simple tips-style replacements, machine and human-readable.
   $tips = array(
