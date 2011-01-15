@@ -35,16 +35,46 @@ function dgd7glue_menu() {
  * Implements hook_node_view().
  */
 function dgd7glue_node_view($node, $view_mode, $langcode) {
-  debug($node, 'print_r node', TRUE);
+  // Print prev/next links on Suggestion node pages.
   if ($node->type == 'suggestion' && $view_mode == 'full') {
     $markup = '';
-    $next = db_query('SELECT title, nid FROM {node} WHERE nid > :nid AND status = 1 LIMIT 1', array(':nid' => $node->nid))->fetchAssoc();
-    debug($next, 'next');
+    $next = dgd7glue_nextprev_suggestion($node->nid); 
+    $next['text'] = t('Next >');
+    $prev = dgd7glue_nextprev_suggestion($node->nid, TRUE); 
+    $prev['text'] = t('< Prev');
+    $markup .= '<div class="nextprev">';
+    $markup .= dgd7glue_format_link($prev);
+    $markup .= ' | ';
+    $markup .= dgd7glue_format_link($next);
+    $markup .= '</div>';
     $node->content['dgd7glue_prevnext'] = array(
       '#markup' => $markup,
       '#weight' => 100,
     );
   }
+}
+
+/**
+ * Get the next or previous suggestion node nid and title.
+ */
+function dgd7glue_nextprev_suggestion($nid, $previous = FALSE) {
+  // Set the ORDER BY direction and the comparison operator ($co).
+  if ($previous) {
+    $direction = 'DESC';
+    $co = '<';
+  }
+  else {
+    $direction = 'ASC';
+    $co = '>';
+  }
+  return db_query_range("SELECT title, nid FROM {node} WHERE nid $co :nid AND type = :type AND status = :status ORDER BY nid $direction", 0, 1, array(':nid' => $nid, ':type' => 'suggestion', 'status' => 1))->fetchAssoc();
+}
+
+/**
+ * Format a next/prev link.
+ */
+function dgd7glue_format_link($link) {
+  return l($link['text'], 'node/' . $link['nid'], array('attributes' => array('title' => $link['title'])));
 }
 
 /**
