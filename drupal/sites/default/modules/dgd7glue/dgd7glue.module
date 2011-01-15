@@ -37,26 +37,71 @@ function dgd7glue_menu() {
 function dgd7glue_node_view($node, $view_mode, $langcode) {
   // Print prev/next links on Suggestion node pages.
   if ($node->type == 'suggestion' && $view_mode == 'full') {
-    $markup = '';
     $next = dgd7glue_nextprev_suggestion($node->nid); 
     $prev = dgd7glue_nextprev_suggestion($node->nid, TRUE);
-    $markup .= '<div class="nextprev">';
-    if ($prev) {
-      $prev['text'] = t('< Prev');
-      $markup .= dgd7glue_format_link($prev);
-    }
-    if ($prev && $next) {
-      $markup .= ' | ';
-    }
-    if ($next) {
-      $next['text'] = t('Next >');
-      $markup .= dgd7glue_format_link($next);
-    }
-    $markup .= '</div>';
+    // Make a fake book link array.
+    $link = array();
+    $link['dgd7glue'] = TRUE;
+    $link['prev'] = $prev;
+    $link['next'] = $next;
     $node->content['dgd7glue_prevnext'] = array(
-      '#markup' => $markup,
+      '#markup' => theme('book_navigation', array('book_link' => $link)),
       '#weight' => 100,
     );
+  }
+}
+
+function dgd7glue_theme_registry_alter(&$theme_registry) {
+  debug($theme_registry['book_navigation']);
+  // Replace the default preprocess function with our own.
+  foreach ($theme_registry['book_navigation']['preprocess functions'] as $key => $value) {
+    if ($value == 'template_preprocess_book_navigation') {
+      $theme_registry['book_navigation']['preprocess functions'][$key] = 'dgd7glue_template_preprocess_book_navigation';
+      // Once it's found it we're done.
+      break;
+    }
+  }
+  debug($theme_registry['book_navigation']);
+}
+
+/**
+ * Replaces template_preprocess_book_navigation() when using tpl for non-books.
+ *
+ * The sad, sordid history of this hack is summarized at  
+ */
+function dgd7glue_template_preprocess_book_navigation(&$variables) {
+  if (!isset($variables['book_link']['dgd7glue'])) {
+    // This is a normal book, just use the usual function.
+    template_preprocess_book_navigation($variables);
+    return;
+  }
+  // Use our fake book_link variable to provide all the same variables.
+  $link = $variables['book_link'];
+  $variables['book_id'] = 'dgd7glue-nextprev';
+  $variables['book_title'] = t('Suggestions');
+  $variables['book_url'] = url('suggestions');
+  $variables['current_depth'] = 0;
+  $variables['tree'] = '';
+  $variables['has_links'] = TRUE;
+  $variables['prev_url'] = NULL; 
+  $variables['next_url'] = NULL; 
+  if ($link['prev']) {
+    $prev_href = url('node/' . $link['prev']['nid']);
+    drupal_add_html_head_link(array('rel' => 'prev', 'href' => $prev_href));
+    $variables['prev_url'] = $prev_href;
+    $variables['prev_title'] = check_plain($link['prev']['title']);
+  }
+
+  $parent_href = $variables['book_url'];
+  drupal_add_html_head_link(array('rel' => 'up', 'href' => $parent_href));
+  $variables['parent_url'] = $parent_href;
+  $variables['parent_title'] = $variables['book_title'];
+
+  if ($link['next']) {
+    $next_href = url('node/' . $link['next']['nid']);
+    drupal_add_html_head_link(array('rel' => 'next', 'href' => $next_href));
+    $variables['next_url'] = $next_href;
+    $variables['next_title'] = check_plain($link['next']['title']);
   }
 }
 
@@ -74,13 +119,6 @@ function dgd7glue_nextprev_suggestion($nid, $previous = FALSE) {
     $co = '>';
   }
   return db_query_range("SELECT title, nid FROM {node} WHERE nid $co :nid AND type = :type AND status = :status ORDER BY nid $direction", 0, 1, array(':nid' => $nid, ':type' => 'suggestion', 'status' => 1))->fetchAssoc();
-}
-
-/**
- * Format a next/prev link.
- */
-function dgd7glue_format_link($link) {
-  return l($link['text'], 'node/' . $link['nid'], array('attributes' => array('title' => $link['title'])));
 }
 
 /**
