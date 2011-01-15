@@ -32,6 +32,22 @@ function dgd7glue_menu() {
 }
 
 /**
+ * Implements hook_node_view().
+ */
+function dgd7glue_node_view($node, $view_mode, $langcode) {
+  debug($node, 'print_r node', TRUE);
+  if ($node->type == 'suggestion' && $view_mode == 'full') {
+    $markup = '';
+    $next = db_query('SELECT title, nid FROM {node} WHERE nid > :nid AND status = 1 LIMIT 1', array(':nid' => $node->nid))->fetchAssoc();
+    debug($next, 'next');
+    $node->content['dgd7glue_prevnext'] = array(
+      '#markup' => $markup,
+      '#weight' => 100,
+    );
+  }
+}
+
+/**
  * Implements hook_remarkup_defaults().
  */
 function dgd7glue_remarkup_defaults() {
@@ -74,9 +90,11 @@ function dgd7glue_remarkup_defaults() {
  * Menu callback for listing profile nodes for the Author biographies section.
  */
 function dgd7glue_profiles() {
+debug($field = field_info_field('field_pagecount'));
   $query = new EntityFieldQuery();
   $result = $query->entityCondition('entity_type', 'node', '=')
           ->propertyCondition('type', 'profile', '=')
+          ->fieldOrderBy('field_pagecount', 'value', 'DESC')
           ->execute();
 
   return node_view_multiple(node_load_multiple(array_keys($result['node'])), 'teaser');
