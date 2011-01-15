@@ -39,13 +39,19 @@ function dgd7glue_node_view($node, $view_mode, $langcode) {
   if ($node->type == 'suggestion' && $view_mode == 'full') {
     $markup = '';
     $next = dgd7glue_nextprev_suggestion($node->nid); 
-    $next['text'] = t('Next >');
-    $prev = dgd7glue_nextprev_suggestion($node->nid, TRUE); 
-    $prev['text'] = t('< Prev');
+    $prev = dgd7glue_nextprev_suggestion($node->nid, TRUE);
     $markup .= '<div class="nextprev">';
-    $markup .= dgd7glue_format_link($prev);
-    $markup .= ' | ';
-    $markup .= dgd7glue_format_link($next);
+    if ($prev) {
+      $prev['text'] = t('< Prev');
+      $markup .= dgd7glue_format_link($prev);
+    }
+    if ($prev && $next) {
+      $markup .= ' | ';
+    }
+    if ($next) {
+      $next['text'] = t('Next >');
+      $markup .= dgd7glue_format_link($next);
+    }
     $markup .= '</div>';
     $node->content['dgd7glue_prevnext'] = array(
       '#markup' => $markup,
