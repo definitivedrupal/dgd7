@@ -1,5 +1,5 @@
 <?php
-// $Id: token.module,v 1.44 2010/09/25 15:58:49 davereid Exp $
+// $Id: token.module,v 1.61 2011/01/12 03:26:59 davereid Exp $
 
 /**
  * The maximum depth for token tree recursion.
@@ -20,10 +20,22 @@ function token_help($path, $arg) {
 }
 
 /**
+ * Implements hook_system_info_alter().
+ *
+ * Prevent the token_actions module from being enabled since updates may have
+ * left the old module files still in the directory.
+ */
+function token_system_info_alter(&$info, $file, $type) {
+  if ($type == 'module' && $file->name == 'token_actions') {
+    $info['hidden'] = TRUE;
+  }
+}
+
+/**
  * Return an array of the core modules supported by token.module.
  */
 function _token_core_supported_modules() {
-  return array('book', 'menu');
+  return array('book', 'menu', 'profile');
 }
 
 /**
@@ -136,17 +148,53 @@ function token_library() {
 }
 
 /**
+ * Implements hook_form_alter().
+ *
+ * Adds a submit handler to forms which could affect the tokens available on
+ * the site.
+ */
+function token_form_alter(&$form, $form_state, $form_id) {
+  switch ($form_id) {
+    // Profile field forms.
+    case 'profile_field_form':
+    case 'profile_field_delete':
+    // User picture form.
+    case 'user_admin_settings':
+      $form += array('#submit' => array());
+      array_unshift($form['#submit'], 'token_clear_cache');
+      break;
+  }
+}
+
+/**
+ * Clear token caches and static variables.
+ */
+function token_clear_cache() {
+  cache_clear_all(NULL, 'cache_token');
+  drupal_static_reset('token_get_info');
+  drupal_static_reset('token_get_global_token_types');
+  drupal_static_reset('token_build_tree');
+  drupal_static_reset('_token_profile_fields');
+}
+
+/**
  * Return an array of entity type to token type mappings.
+ *
+ * Why do we need this? Because when the token API was moved to core we did not
+ * re-use the entity type as the base name for taxonomy terms and vocabulary
+ * tokens.
+ *
+ * @see token_entity_info_alter()
+ * @see http://drupal.org/node/737726
  */
 function token_get_entity_mapping($value_type = 'token', $value = NULL) {
-  $mapping = array(
-    'comment' => 'comment',
-    'node' => 'node',
-    'file' => 'file',
-    'taxonomy_term' => 'term',
-    'taxonomy_vocabulary' => 'vocabulary',
-    'user' => 'user',
-  );
+  $mapping = &drupal_static(__FUNCTION__, array());
+
+  if (empty($mapping)) {
+    foreach (entity_get_info() as $entity_type => $info) {
+      $mapping[$entity_type] = !empty($info['token type']) ? $info['token type'] : $entity_type;
+    }
+  }
 
   if (!isset($value)) {
     return $mapping;
@@ -162,14 +210,30 @@ function token_get_entity_mapping($value_type = 'token', $value = NULL) {
 /**
  * Implements hook_entity_info_alter().
  *
- * Since some token types to do not match their entity type names, we have to
+ * Because some token types to do not match their entity type names, we have to
  * map them to the proper type. This is purely for other modules' benefit.
+ *
+ * @see token_get_entity_mapping()
+ * @see http://drupal.org/node/737726
  */
 function token_entity_info_alter(&$info) {
-  $entity_token_types = token_get_entity_mapping();
-  foreach ($entity_token_types as $entity_type => $token_type) {
-    if (isset($info[$entity_type])) {
-      $info[$entity_type]['token type'] = $token_type;
+  foreach (array_keys($info) as $entity_type) {
+    if (!empty($info[$entity_type]['token type'])) {
+      // If the entity's token type is already defined, great!
+      continue;
+    }
+
+    // Fill in default token types for entities.
+    switch ($entity_type) {
+      case 'taxonomy_term':
+      case 'taxonomy_vocabulary':
+        // Stupid taxonomy token types...
+        $info[$entity_type]['token type'] = str_replace('taxonomy_', '', $entity_type);
+        break;
+      default:
+        // By default the token type is the same as the entity type.
+        $info[$entity_type]['token type'] = $entity_type;
+        break;
     }
   }
 }
@@ -202,8 +266,22 @@ function token_flush_caches() {
 
 /**
  * Retrieve, sort, store token info from the cache.
+ *
+ * @param $token_type
+ *   The optional token type that if specified will return
+ *   $info['types'][$token_type].
+ * @param $token
+ *   The optional token name if specified will return
+ *   $info['tokens'][$token_type][$token].
+ *
+ * @return
+ *   An array of all token information from hook_token_info(), or the array
+ *   of a token type or specific token.
+ *
+ * @see hook_token_info()
+ * @see hook_token_info_alter()
  */
-function token_get_info($token_type = NULL) {
+function token_get_info($token_type = NULL, $token = NULL) {
   global $language;
 
   // Use the advanced drupal_static() pattern, since this is called very often.
@@ -222,18 +300,24 @@ function token_get_info($token_type = NULL) {
     else {
       $token_info = token_info();
 
+      foreach (array_keys($token_info['types']) as $type_key) {
+        if (isset($token_info['types'][$type_key]['type'])) {
+          // If this token type extends another token type, then merge in
+          // the base token type's tokens.
+          $token_info['tokens'] += array($type_key => array());
+          $token_info['tokens'][$type_key] += $token_info['tokens'][$token_info['types'][$type_key]['type']];
+        }
+        else {
+          // Add a 'type' value to each token type so we can properly use
+          // token_type_load().
+          $token_info['types'][$type_key]['type'] = $type_key;
+        }
+      }
+
       // Pre-sort tokens.
       uasort($token_info['types'], 'token_asort_tokens');
       foreach (array_keys($token_info['tokens']) as $type) {
         uasort($token_info['tokens'][$type], 'token_asort_tokens');
-      }
-
-      // Add a 'type' value to each token type so we can properly use
-      // token_type_load().
-      foreach (array_keys($token_info['types']) as $type_key) {
-        if (!isset($token_info['types'][$type_key]['type'])) {
-          $token_info['types'][$type_key]['type'] = $type_key;
-        }
       }
 
       // Store info in cache for future use.
@@ -241,12 +325,24 @@ function token_get_info($token_type = NULL) {
     }
   }
 
-  if (empty($token_type)) {
+  if (isset($token_type) && isset($token)) {
+    return isset($token_info['tokens'][$token_type][$token]) ? $token_info['tokens'][$token_type][$token] : NULL;
+  }
+  elseif (isset($token_type)) {
+    return isset($token_info['types'][$token_type]) ? $token_info['types'][$token_type] : NULL;
+  }
+  else {
     return $token_info;
   }
-  elseif (isset($token_info[$token_type])) {
-    return $token_info[$token_type];
-  }
+}
+
+/**
+ * Return the module responsible for a token if defined in
+ * $info['tokens']['type']['module'].
+ */
+function _token_module($type, $name) {
+  $token_info = token_get_info($type, $name);
+  return isset($token_info['module']) ? $token_info['module'] : NULL;
 }
 
 /**
@@ -282,20 +378,29 @@ function token_get_global_token_types() {
 /**
  * Validate an tokens in raw text based on possible contexts.
  *
- * @param $text
- *   A string with the raw text containing the raw tokens.
+ * @param $value
+ *   A string with the raw text containing the raw tokens, or an array of
+ *   tokens from token_scan().
  * @param $tokens
  *   An array of token types that will be used when token replacement is
  *   performed.
  * @return
  *   An array with the invalid tokens in their original raw forms.
  */
-function token_get_invalid_tokens_by_context($text, $valid_types = array()) {
-  // Add the token types that are always valid in global context.
-  $valid_types = array_merge($valid_types, token_get_global_token_types());
+function token_get_invalid_tokens_by_context($value, $valid_types = array()) {
+  if (in_array('all', $valid_types)) {
+    $info = token_get_info();
+    $valid_types = array_keys($info['types']);
+  }
+  else {
+    // Add the token types that are always valid in global context.
+    $valid_types = array_merge($valid_types, token_get_global_token_types());
+  }
 
   $invalid_tokens = array();
-  foreach (token_scan($text) as $type => $tokens) {
+  $value_tokens = is_string($value) ? token_scan($value) : $value;
+
+  foreach ($value_tokens as $type => $tokens) {
     if (!in_array($type, $valid_types)) {
       // If the token type is not a valid context, its tokens are invalid.
       $invalid_tokens = array_merge($invalid_tokens, array_values($tokens));
@@ -365,18 +470,95 @@ function token_get_invalid_tokens($type, $tokens) {
  *   '#type' => 'textfield',
  *   '#title' => t('Some text to token-ize that has a node context.'),
  *   '#default_value' => 'The title of this node is [node:title].',
- *   '#element_validate' => array('token_element_validate_token_context'),
+ *   '#element_validate' => array('token_element_validate'),
  *   '#token_types' => array('node'),
+ *   '#min_tokens' => 1,
+ *   '#max_tokens' => 10,
  * );
  * @endcode
  */
-function token_element_validate_token_context(&$element, &$form_state) {
+function token_element_validate(&$element, &$form_state) {
   $value = isset($element['#value']) ? $element['#value'] : $element['#default_value'];
-  $invalid_tokens = token_get_invalid_tokens_by_context($value, $element['#token_types']);
-  if ($invalid_tokens) {
-    form_error($element, t('The %element-title is using the following invalid tokens: @invalid-tokens.', array('%element-title' => $element['#title'], '@invalid-tokens' => implode(', ', $invalid_tokens))));
+
+  if (!drupal_strlen($value)) {
+    // Empty value needs no further validation since the element should depend
+    // on using the '#required' FAPI property.
+    return $element;
   }
+
+  $tokens = token_scan($value);
+  $title = empty($element['#title']) ? $element['#parents'][0] : $element['#title'];
+  // @todo Find old Drupal 6 style tokens and add them to invalid tokens.
+
+  // Validate if an element must have a minimum number of tokens.
+  if (isset($element['#min_tokens']) && count($tokens) < $element['#min_tokens']) {
+    // @todo Change this error message to include the minimum number.
+    $error = format_plural($element['#min_tokens'], 'The %element-title cannot contain fewer than one token.', 'The %element-title must contain at least @count tokens.', array('%element-title' => $title));
+    form_error($element, $error);
+  }
+
+  // Validate if an element must have a maximum number of tokens.
+  if (isset($element['#max_tokens']) && count($tokens) > $element['#max_tokens']) {
+    // @todo Change this error message to include the maximum number.
+    $error = format_plural($element['#max_tokens'], 'The %element-title must contain as most one token.', 'The %element-title must contain at most @count tokens.', array('%element-title' => $title));
+    form_error($element, $error);
+  }
+
+  // Check if the field defines specific token types.
+  if (!empty($element['#token_types'])) {
+    $invalid_tokens = token_get_invalid_tokens_by_context($tokens, $element['#token_types']);
+    if ($invalid_tokens) {
+      form_error($element, t('The %element-title is using the following invalid tokens: @invalid-tokens.', array('%element-title' => $title, '@invalid-tokens' => implode(', ', $invalid_tokens))));
+    }
+  }
+
   return $element;
+}
+
+/**
+ * Deprecated. Use token_element_validate() instead.
+ */
+function token_element_validate_token_context(&$element, &$form_state) {
+  return token_element_validate($element, $form_state);
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function token_form_field_ui_field_edit_form_alter(&$form, $form_state) {
+  if (($form['#field']['type'] == 'file' || $form['#field']['type'] == 'image') && isset($form['instance']['settings']['file_directory']) && !module_exists('filefield_paths')) {
+    // GAH! We can only support global tokens in the upload file directory path.
+    $form['instance']['settings']['file_directory']['#element_validate'][] = 'token_element_validate';
+    $form['instance']['settings']['file_directory']['#token_types'] = array();
+    $form['instance']['settings']['token_tree'] = array(
+      '#theme' => 'token_tree',
+      '#token_types' => array(),
+      '#weight' => $form['instance']['settings']['file_directory']['#weight'] + 0.5,
+    );
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Alters the configure action form to add token context validation and
+ * adds the token tree for a better token UI and selection.
+ */
+function token_form_system_actions_configure_alter(&$form, $form_state) {
+  $action = actions_function_lookup($form['actions_action']['#value']);
+
+  switch ($action) {
+    case 'system_message_action':
+    case 'system_send_email_action':
+    case 'system_goto_action':
+      $form['token_tree'] = array(
+        '#theme' => 'token_tree',
+        '#token_types' => 'all',
+        '#weight' => 100,
+      );
+      // @todo Add token validation to the action fields that can use tokens.
+      break;
+  }
 }
 
 /**
@@ -421,12 +603,12 @@ function token_form_user_admin_settings_alter(&$form, &$form_state) {
       }
       elseif ($element[$sub_key]['#type'] == 'textfield' && substr($sub_key, -8) === '_subject') {
         // Add validation to subject textfields.
-        $element[$sub_key]['#element_validate'][] = 'token_element_validate_token_context';
+        $element[$sub_key]['#element_validate'][] = 'token_element_validate';
         $element[$sub_key] += array('#token_types' => array('user'));
       }
       elseif ($element[$sub_key]['#type'] == 'textarea' && substr($sub_key, -5) === '_body') {
         // Add validation to body textareas.
-        $element[$sub_key]['#element_validate'][] = 'token_element_validate_token_context';
+        $element[$sub_key]['#element_validate'][] = 'token_element_validate';
         $element[$sub_key] += array('#token_types' => array('user'));
       }
     }
@@ -552,8 +734,7 @@ function _token_build_tree($token_type, array $options) {
   }
 
   $tree = array();
-  $root_token_type = $info['types'][$token_type]['type'];
-  foreach ($info['tokens'][$root_token_type] as $token => $token_info) {
+  foreach ($info['tokens'][$token_type] as $token => $token_info) {
     // Build the raw token string.
     $token_parents = $options['parents'];
     if (empty($token_parents)) {
@@ -621,4 +802,117 @@ function token_find_duplicate_tokens() {
   }
 
   return $all_tokens;
+}
+
+/**
+ * Get a translated menu link by its mlid, without access checking.
+ *
+ * This function is a copy of menu_link_load() but with its own cache and a
+ * simpler query to load the link. This also skips normal menu link access
+ * checking by using _token_menu_link_translate().
+ *
+ * @param $mlid
+ *   The mlid of the menu item.
+ *
+ * @return
+ *   A menu link translated for rendering.
+ *
+ * @see menu_link_load()
+ * @see _token_menu_link_translate()
+ */
+function token_menu_link_load($mlid) {
+  $cache = &drupal_static(__FUNCTION__, array());
+
+  if (!is_numeric($mlid)) {
+    return FALSE;
+  }
+
+  if (!isset($cache[$mlid])) {
+    $item = db_query("SELECT * FROM {menu_links} ml LEFT JOIN {menu_router} m ON m.path = ml.router_path WHERE ml.mlid = :mlid", array(':mlid' => $mlid))->fetchAssoc();
+    if (!empty($item)) {
+      _token_menu_link_translate($item);
+    }
+    $cache[$mlid] = $item;
+  }
+
+  return $cache[$mlid];
+}
+
+/**
+ * Get a translated book menu link by its mlid, without access checking.
+ *
+ * This function is a copy of book_link_load() but with its own cache and a
+ * simpler query to load the link. This also skips normal menu link access
+ * checking by using _token_menu_link_translate().
+ *
+ * @param $mlid
+ *   The mlid of the book menu item.
+ *
+ * @return
+ *   A book menu link translated for rendering.
+ *
+ * @see book_link_load()
+ * @see _token_menu_link_translate()
+ */
+function token_book_link_load($mlid) {
+  $cache = &drupal_static(__FUNCTION__, array());
+
+  if (!is_numeric($mlid)) {
+    return FALSE;
+  }
+
+  if (!isset($cache[$mlid])) {
+    $item = db_query("SELECT * FROM {menu_links} ml INNER JOIN {book} b ON b.mlid = ml.mlid LEFT JOIN {menu_router} m ON m.path = ml.router_path WHERE ml.mlid = :mlid", array(':mlid' => $mlid))->fetchAssoc();
+    if (!empty($item)) {
+      _token_menu_link_translate($item);
+    }
+    $cache[$mlid] = $item;
+  }
+
+  return $cache[$mlid];
+}
+
+function _token_menu_link_translate(&$item) {
+  $map = array();
+
+  if (!is_array($item['options'])) {
+    $item['options'] = unserialize($item['options']);
+  }
+
+  if ($item['external']) {
+    $item['access'] = 1;
+    $item['href'] = $item['link_path'];
+    $item['title'] = $item['link_title'];
+    $item['localized_options'] = $item['options'];
+  }
+  else {
+    // Complete the path of the menu link with elements from the current path,
+    // if it contains dynamic placeholders (%).
+    $map = explode('/', $item['link_path']);
+    if (strpos($item['link_path'], '%') !== FALSE) {
+      // Invoke registered to_arg callbacks.
+      if (!empty($item['to_arg_functions'])) {
+        _menu_link_map_translate($map, $item['to_arg_functions']);
+      }
+    }
+    $item['href'] = implode('/', $map);
+
+    // Skip links containing untranslated arguments.
+    if (strpos($item['href'], '%') !== FALSE) {
+      $item['access'] = FALSE;
+      return FALSE;
+    }
+
+    $item['access'] = TRUE;
+    _menu_item_localize($item, $map, TRUE);
+  }
+
+  // Allow other customizations - e.g. adding a page-specific query string to the
+  // options array. For performance reasons we only invoke this hook if the link
+  // has the 'alter' flag set in the options array.
+  if (!empty($item['options']['alter'])) {
+    drupal_alter('translated_menu_link', $item, $map);
+  }
+
+  return $map;
 }
