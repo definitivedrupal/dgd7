@@ -52,7 +52,6 @@ function dgd7glue_node_view($node, $view_mode, $langcode) {
 }
 
 function dgd7glue_theme_registry_alter(&$theme_registry) {
-  debug($theme_registry['book_navigation']);
   // Replace the default preprocess function with our own.
   foreach ($theme_registry['book_navigation']['preprocess functions'] as $key => $value) {
     if ($value == 'template_preprocess_book_navigation') {
@@ -61,7 +60,6 @@ function dgd7glue_theme_registry_alter(&$theme_registry) {
       break;
     }
   }
-  debug($theme_registry['book_navigation']);
 }
 
 /**
