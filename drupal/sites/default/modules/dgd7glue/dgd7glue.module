@@ -162,7 +162,6 @@ function dgd7glue_remarkup_defaults() {
  * Menu callback for listing profile nodes for the Author biographies section.
  */
 function dgd7glue_profiles() {
-debug($field = field_info_field('field_pagecount'));
   $query = new EntityFieldQuery();
   $result = $query->entityCondition('entity_type', 'node', '=')
           ->propertyCondition('type', 'profile', '=')
