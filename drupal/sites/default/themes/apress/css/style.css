@@ -1,5 +1,3 @@
-/* @override http://dgd7/sites/default/themes/apress/css/style.css?lf2x0c */
-
 html {
   background-color: #fc0;
 }
@@ -534,6 +532,23 @@ li.last {
 .comment-delete .icon { background-position: -696px -464px; }
 .comment-reply .icon { background-position: -116px -1740px; }
 .comment-edit .icon { background-position: -348px -928px; }
+
+/* author bios */
+.node-profile .field-type-image img {
+  border: solid 5px #fff;
+  width: 98%;
+  max-width: 98%;
+  width: auto !important;
+  display: inline-block;
+  -moz-transform: rotate(-1deg);
+  -webkit-transform: rotate(-1deg);
+  -o-transform: rotate(-1deg);
+  transform: rotate(-1deg);
+  -moz-box-shadow: 10px 0 10px rgba(0,0,0,0.2);
+  -o-box-shadow: 10px 0 10px rgba(0,0,0,0.2);
+  -webkit-box-shadow: 10px 0 10px rgba(0,0,0,0.2);
+  box-shadow: 10px 0 10px rgba(0,0,0,0.2);
+}
 /* @end */
 
 
