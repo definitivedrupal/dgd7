@@ -1,3 +1,5 @@
+/* @override http://dgd7/sites/default/themes/apress/css/style.css?lf2x0c */
+
 html {
   background-color: #fc0;
 }
@@ -78,17 +80,28 @@ body {
 
 /* @group Footer
  -----------------------------------------------------------------------------*/
-.region-footer {
+#footer {
   background: #fc0 url(../images/bg-curve.png) no-repeat 100% 0;
   color: #444;
 }
-.region-footer a {
+#footer .section {
+  width: 960px;
+  margin: 0 auto;
+}
+.region-footer a,
+.region-footer a:visited {
   color: #000;
 }
 .region-footer h2.block-title {
   margin-bottom: 0.5em;
   font-size: 1.385em;
 }
+
+/* @group authors */
+.region-footer .view-authors li {
+  margin: 0 1em 0.6em 0;
+}
+/* @end */
 
 /* @group powered by */
 .region-footer #block-system-powered-by {
