@@ -5,9 +5,9 @@ core = 7.x
 dependencies[] = advanced_help
 files[] = help_example.module
 
-; Information added by drupal.org packaging script on 2010-07-15
+; Information added by drupal.org packaging script on January 1, 1970 - 00:00
 version = "7.x-1.x-dev"
 core = "7.x"
 project = "advanced_help"
-datestamp = "1279152045"
+datestamp = "1295309271"
 

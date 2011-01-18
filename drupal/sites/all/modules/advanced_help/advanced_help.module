@@ -1,5 +1,5 @@
 <?php
-// $Id: advanced_help.module,v 1.41.2.3 2010/07/14 22:10:05 redndahead Exp $
+// $Id: advanced_help.module,v 1.41.2.6 2011/01/17 19:49:13 dmitrig01 Exp $
 /**
  * @file
  *
@@ -314,6 +314,27 @@ function advanced_help_get_topic_hierarchy(&$topics) {
 }
 
 /**
+ * Implements hook_form_system_modules_alter().
+ *
+ * Add advanced help links to the modules page.
+ */
+function advanced_help_form_system_modules_alter(&$form, &$form_state) {
+  $advanced_help_modules = drupal_map_assoc(array_keys(advanced_help_get_topics()));
+  foreach (element_children($form['modules']) as $group) {
+    foreach (element_children($form['modules'][$group]) as $module) {
+      if (isset($advanced_help_modules[$module])) {
+        $form['modules'][$group][$module]['links']['help'] = array(
+          '#type' => 'link',
+          '#title' => t('Help'),
+          '#href' => "admin/advanced_help/$module",
+          '#options' => array('attributes' => array('class' =>  array('module-link', 'module-link-help'), 'title' => t('Help'))),
+        );
+      }
+    }
+  }
+}
+
+/**
  * Form builder callback to build the search form.
  *
  * Load search/search.pages so that its template preprocess functions are
@@ -555,8 +576,12 @@ function advanced_help_view_topic($module, $topic, $popup = FALSE) {
     $info = advanced_help_get_topic($module, $topic);
     $file = "./$file_info[path]/$file_info[file]";
 
-    // @todo is this trusted output?
     $output = file_get_contents($file);
+    if (isset($info['readme file']) && $info['readme file']) {
+      // Readme files are treated as plain text: filter accordingly.
+      $output = check_plain($output);
+    }
+
     // Make some exchanges. The strtr is because url() translates $ into %24
     // but we need to change it back for the regex replacement.
 
@@ -755,6 +780,7 @@ function _advanced_help_parse_ini() {
             'line break' => isset($topic['line break']) ? $topic['line break'] : (isset($cache['settings'][$module]['line break']) ? $cache['settings'][$module]['line break'] : FALSE),
             'navigation' => isset($topic['navigation']) ? $topic['navigation'] : (isset($cache['settings'][$module]['navigation']) ? $cache['settings'][$module]['navigation'] : TRUE),
             'css' => isset($topic['css']) ? $topic['css'] : (isset($cache['settings'][$module]['css']) ? $cache['settings'][$module]['css'] : NULL),
+            'readme file' => isset($topic['readme file']) ? $topic['readme file'] : FALSE,
           );
         }
       }
@@ -827,6 +853,29 @@ function advanced_help_search_execute($keys = NULL) {
  */
 function advanced_help_search_reset() {
   variable_del('advanced_help_last_cron');
+}
+
+/**
+ * Implements hook_search_status().
+ */
+function advanced_help_search_status() {
+  $topics = advanced_help_get_topics();
+  $total = 0;
+  foreach ($topics as $module => $module_topics) {
+    foreach ($module_topics as $topic => $info) {
+      $file = advanced_help_get_topic_filename($module, $topic);
+      if ($file) {
+        $total++;
+      }
+    }
+  }
+  
+  $last_cron = variable_get('advanced_help_last_cron', array('time' => 0));
+  $indexed = 0;
+  if ($last_cron['time'] != 0) {
+    $indexed = db_query("SELECT COUNT(*) FROM {search_dataset} sd WHERE sd.type = 'help' AND sd.sid IS NOT NULL AND sd.reindex = 0")->fetchField();
+  }
+  return array('remaining' => $total - $indexed, 'total' => $total);
 }
 
 /**
