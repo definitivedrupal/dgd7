@@ -1,5 +1,5 @@
 <?php
-// $Id: content_migrate.module,v 1.9 2011/01/09 12:22:21 karens Exp $
+// $Id: content_migrate.module,v 1.10 2011/01/10 12:46:22 karens Exp $
 /**
  * @file
  * Code For D6 to D7 field update.
@@ -46,7 +46,6 @@ function content_migrate_get_field_values($field_name = NULL) {
     $result = $query
       ->fields($node_instance_alias, array('widget_module', 'widget_type', 'widget_settings', 'display_settings'))
       ->fields('nf')
-      //->range(0, 1) // There could be multiple results for a shared field, get the first.
       ->execute();
     
     foreach ($result as $row) {
@@ -425,7 +424,6 @@ function content_migrate_content_migrate_field_alter(&$field_value, $instance_va
       $field_value['type'] = 'image';
       // default_image is now a field setting.
       $field_value['settings']['default_image'] = $instance_value['widget']['settings']['default_image'];
-
       break;
   }
 }
@@ -443,7 +441,7 @@ function content_migrate_content_migrate_instance_alter(&$instance_value, $field
   switch ($instance_value['widget']['module']) {
     // Optionswidgets module became Options module
     // and widget type names changed.
-    case ('optionwidgets'):
+    case 'optionwidgets':
       $replace = array(
         'optionwidgets_select' => 'options_select',
         'optionwidgets_buttons' => 'options_buttons',
@@ -484,7 +482,6 @@ function content_migrate_content_migrate_instance_alter(&$instance_value, $field
                
       // default_image is now a field setting.
       unset($instance_value['widget']['settings']['default_image']);
-      
       break;
   }
  

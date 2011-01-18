@@ -1,5 +1,5 @@
 <?php
-// $Id: content_migrate.admin.inc,v 1.8 2011/01/05 18:11:19 karens Exp $
+// $Id: content_migrate.admin.inc,v 1.9 2011/01/10 12:46:22 karens Exp $
 /*
 
 /**
@@ -240,64 +240,107 @@ function _content_migrate_batch_process_create_fields($field_names) {
  * Batch operation callback to migrate data.
  * Copy old table data to new field table.
  */
-function _content_migrate_batch_process_migrate_data($field_name) {
-  $field_value = content_migrate_get_field_values($field_name);
-  $instance_values = content_migrate_get_instance_values(NULL, $field_name);
-  
-  $field = field_info_field($field_name);
-  //$instances = field_read_instances(array('field_id' => $field['id']));
-  foreach ($instance_values as $bundle => $instance_value) {
-    
+function _content_migrate_batch_process_migrate_data($field_name, &$context) {
+
+  // The first time through, find all the nodes that have this field.
+  if (!isset($context['sandbox']['progress'])) {
+
+    $field_value = content_migrate_get_field_values($field_name);
+    $instance_values = content_migrate_get_instance_values(NULL, $field_name);
+    $types = array();
+    foreach ($instance_values as $bundle => $instance_value) {
+      $types[] = $bundle;
+    }
+    $field = field_info_field($field_name);  
     $old_table          = content_migrate_old_table($field_value, $instance_value);
     $old_cols           = content_migrate_old_columns($field_value, $instance_value);
     $new_table          = content_migrate_new_table($field);
     $new_revision_table = content_migrate_new_revision($field);
     $new_columns        = content_migrate_new_columns($field);
-    
-    $query = db_select($old_table, 'old_table');
-    $query->join('node', 'n', 'old_table.nid=n.nid');
-    $query->condition('type', $bundle);
-    
-    // We need new columns for bundle name, entity type, and language.
-    $query->addExpression("'$bundle'", 'bundle');
-    $query->addExpression("'node'", 'entity_type');
-    $query->addExpression("'". LANGUAGE_NONE ."'", 'language');
-    
-    // There are new names for what were the nid and vid columns.
-    $query->addField('old_table', 'nid', 'entity_id');
-    $query->addField('old_table', 'vid', 'revision_id');
-    
-    // Add the field columns to the select query.
-    // Use the new column names as aliases in case the 
-    // name changed, hopefully none did.
-    foreach ($old_cols as $key => $col) {
-      $query->addField('old_table', $col, $new_columns[$key]);
-    }
-    
-    // Add delta, or construct it if missing.
     // Shared, non-multiple fields do not have a delta but are still in per-field tables.
-    if ($field_value['cardinality'] != 1 && content_migrate_storage_type($field_value, $instance_value) == CONTENT_DB_STORAGE_PER_FIELD) {
-      $query->addField('old_table', 'delta', 'delta');
-    }
-    else {
-      $query->addExpression(0, 'delta');
-    }
+    $add_delta          = $field_value['cardinality'] != 1 && content_migrate_storage_type($field_value, $instance_value) == CONTENT_DB_STORAGE_PER_FIELD;
 
-    // Now copy the data to the new field tables.
-//    try {
-      db_insert($new_table)
-        ->from($query)
-        ->execute();
-      db_insert($new_revision_table)
-        ->from($query)
-        ->execute();
-      drupal_set_message(t('Data migrated for field @field_name in bundle @bundle.', array(
-        '@field_name' => $field_name, '@bundle' => $bundle)));
-/*    }
-    catch (Exception $e) {
-      drupal_set_message(t('Data could not be migrated for field @field_name in bundle @bundle.', array(
-        '@field_name' => $field_name, '@bundle' => $instance_value['bundle'])), 'error');
-      drupal_set_message($e, 'error');
-    } */
+    $query = db_select($old_table, 'old_table', array('fetch' => PDO::FETCH_ASSOC));
+    $node_alias = $query->join('node', 'n', 'old_table.nid=n.nid');
+    $result = $query
+      ->fields($node_alias, array('title', 'type'))
+      ->fields('old_table', array('nid'))
+      ->orderBy('nid', 'ASC')
+      ->execute();
+    
+    $nodes = array();
+    foreach ($result as $row) {
+      $nodes[] = array('nid' => $row['nid'], 'title' => $row['title'], 'type' => $row['type']);
+    }
+    $context['sandbox']['progress'] = 0;
+    $context['sandbox']['max'] = count($nodes);
+    $context['sandbox']['nodes'] = $nodes;
+    $context['sandbox']['old_table'] = $old_table;
+    $context['sandbox']['new_table'] = $new_table;
+    $context['sandbox']['new_revision_table'] = $new_revision_table;
+    $context['sandbox']['old_cols'] = $old_cols;
+    $context['sandbox']['new_cols'] = $new_columns;
+    $context['sandbox']['types'] = $types;
+    $context['sandbox']['field'] = $field;
+    $context['sandbox']['add_delta'] = $add_delta;
+   
   }
+
+  // Process one node in each batch.
+
+  $node = array_shift($context['sandbox']['nodes']);
+
+  // Construct an record to insert into the new field table
+  // from the data in the old table.
+
+  $query = db_select($context['sandbox']['old_table'], 'old_table', array('fetch' => PDO::FETCH_ASSOC));
+    
+  // We need new columns for bundle name, entity type, and language.
+  $query->addExpression("'". $node['type'] ."'", 'bundle');
+  $query->addExpression("'node'", 'entity_type');
+  $query->addExpression("'". LANGUAGE_NONE ."'", 'language');
+    
+  // There are new names for what were the nid and vid columns.
+  $query->addField('old_table', 'nid', 'entity_id');
+  $query->addField('old_table', 'vid', 'revision_id');
+    
+  // Add the field columns to the select query.
+  // Use the new column names as aliases in case the 
+  // name changed, hopefully none did.
+  foreach ($context['sandbox']['old_cols'] as $key => $col) {
+    $query->addField('old_table', $col, $context['sandbox']['new_cols'][$key]);
+  }
+    
+  // Add delta, or construct it if missing.
+  if ($context['sandbox']['add_delta']) {
+    $query->addField('old_table', 'delta', 'delta');
+  }
+  else {
+    $query->addExpression(0, 'delta');
+  }
+  $query->condition('nid', $node['nid']);
+  $result = $query->execute();
+
+  foreach ($result as $record) {
+  
+    // Let modules alter this before the insert.
+    drupal_alter('content_migrate_data_record', $record, $context['sandbox']['field']);
+
+    // @TODO We are not handling revisions correctly yet. Just getting a simple insert working.
+    drupal_write_record($context['sandbox']['new_table'], $record);
+    drupal_write_record($context['sandbox']['new_revision_table'], $record);
+  }
+
+  // Update our progress information.
+  $context['sandbox']['progress']++;
+  $context['message'] = t('Processing %nid : %title', array('%title' => $node['title'], '%nid' => $node['nid']));
+
+  // Inform the batch engine that we are not finished,
+  // and provide an estimation of the completion level we reached.
+  if ($context['sandbox']['progress'] != $context['sandbox']['max']) {
+    $context['finished'] = $context['sandbox']['progress'] / $context['sandbox']['max'];
+  }
+
 }
+
+

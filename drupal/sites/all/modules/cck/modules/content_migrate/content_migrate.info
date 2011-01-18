@@ -7,9 +7,9 @@ files[] = content_migrate.module
 files[] = content_migrate.admin.inc
 files[] = tests/content_migrate.test
 
-; Information added by drupal.org packaging script on 2011-01-10
+; Information added by drupal.org packaging script on 2011-01-11
 version = "7.x-2.x-dev"
 core = "7.x"
 project = "cck"
-datestamp = "1294618098"
+datestamp = "1294704555"
 
