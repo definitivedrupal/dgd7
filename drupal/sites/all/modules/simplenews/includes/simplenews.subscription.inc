@@ -1,5 +1,5 @@
 <?php
-// $Id: simplenews.subscription.inc,v 1.4 2011/01/07 14:13:44 mirodietiker Exp $
+// $Id: simplenews.subscription.inc,v 1.5 2011/01/18 09:51:59 mirodietiker Exp $
 
 /**
  * @file
@@ -44,7 +44,17 @@ function simplenews_subscription_manager_form_validate($form, &$form_state) {
   if (!$valid_email) {
     form_set_error('mail', t('The email address you supplied is not valid.'));
   }
-  $checked_newsletters = array_filter($form_state['values']['newsletters']);
+dsm($form_state['values']);
+  $checked_newsletters = array();//array_filter($form_state['values'],'_simplenews_checked');
+  foreach (simplenews_get_mailing_lists() as $newsletter) {
+    if ($form_state['values']['newsletter-' . $newsletter->tid] == 1) {
+      $checked_newsletters[$newsletter->tid] = 1;
+    }
+    else {
+      $checked_newsletters[$newsletter->tid] = 0;
+    }
+  }
+  $form_state['categories'] = $checked_newsletters;
   $account = new stdClass();
   $account->mail = $form_state['values']['mail'];
   if (!count($checked_newsletters) && !simplenews_get_subscription($account)) {
@@ -55,10 +65,12 @@ function simplenews_subscription_manager_form_validate($form, &$form_state) {
 function simplenews_subscription_manager_form_submit($form, &$form_state) {
   switch ($form_state['values']['op']) {
     case t('Update'):
-      // We first subscribe, then unsubscribe. This prevents deletion of subscriptions
-      // when unsubscribed from the
-      arsort($form_state['values']['newsletters'], SORT_NUMERIC);
-      foreach ($form_state['values']['newsletters'] as $tid => $checked) {
+      $subscription_checkboxes = $form_state['categories'];//array_filter($form_state['values'],'is_int');
+      dsm($subscription_checkboxes);
+      // Sort subscriptions (value=1) first, then unsubscriptions (value=0).
+      // We first subscribe, then unsubscribe. This prevents deletion of subscribers.
+      arsort($subscription_checkboxes, SORT_NUMERIC);
+      foreach ($subscription_checkboxes as $tid => $checked) {
         if ($checked) {
           simplenews_subscribe_user($form_state['values']['mail'], $tid, FALSE, 'website');
         }
@@ -69,18 +81,14 @@ function simplenews_subscription_manager_form_submit($form, &$form_state) {
       drupal_set_message(t('The newsletter subscriptions for %mail have been updated.', array('%mail' => $form_state['values']['mail'])));
       break;
     case t('Subscribe'):
-      foreach ($form_state['values']['newsletters'] as $tid => $checked) {
-        if ($checked) {
-          simplenews_subscribe_user($form_state['values']['mail'], $tid, TRUE, 'website');
-        }
+      foreach (array_keys(array_filter($subscription_checkboxes,'_simplenews_checked')) as $tid) {
+        simplenews_subscribe_user($form_state['values']['mail'], $tid, TRUE, 'website');
       }
       drupal_set_message(t('You will receive a confirmation email shortly containing further instructions on how to complete your subscription.'));
       break;
     case t('Unsubscribe'):
-      foreach ($form_state['values']['newsletters'] as $tid => $checked) {
-        if ($checked) {
-          simplenews_unsubscribe_user($form_state['values']['mail'], $tid, TRUE, 'website');
-        }
+      foreach (array_keys(array_filter($subscription_checkboxes,'_simplenews_checked')) as $tid) {
+        simplenews_unsubscribe_user($form_state['values']['mail'], $tid, TRUE, 'website');
       }
       drupal_set_message(t('You will receive a confirmation email shortly containing further instructions on how to complete the unsubscription process.'));
       break;

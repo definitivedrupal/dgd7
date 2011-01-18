@@ -1,5 +1,5 @@
 <?php
-// $Id: simplenews.admin.inc,v 1.5 2011/01/06 21:20:06 mirodietiker Exp $
+// $Id: simplenews.admin.inc,v 1.6 2011/01/18 09:51:59 mirodietiker Exp $
 
 /**
  * @file
@@ -738,17 +738,20 @@ function simplenews_subscription_list_add($form, &$form_state) {
     '#rows' => 5,
     '#description' => t('Email addresses must be separated by comma, space or newline.'),
   );
-  $lists = array();
-
-  foreach (simplenews_get_mailing_lists(TRUE) as $list) {
-    $lists[$list->tid] = check_plain($list->name);
-  }
+ 
   $form['lists'] = array(
-    '#type' => 'checkboxes',
-    '#title' => t('Subscribe to'),
-    '#options' => $lists,
-    '#required' => TRUE,
-  );
+    '#type' => 'fieldset',
+    '#description' => t('Subscribe to'),
+   );
+   
+  foreach (simplenews_get_mailing_lists(TRUE) as $list) {
+    $form['lists'][$list->tid] = array(
+      '#type' => 'checkbox',
+      '#title' => check_plain($list->name),
+      '#description'  => $list->description,
+      '#default_value' => FALSE,
+    );
+  }
 
   // Include language selection when the site is multilingual.
   // Default value is the empty string which will result in receiving emails
@@ -785,7 +788,7 @@ function simplenews_subscription_list_add($form, &$form_state) {
 function simplenews_subscription_list_add_submit($form, &$form_state) {
   $added = array();
   $invalid = array();
-  $checked_lists = array_filter($form_state['values']['lists']);
+  $checked_lists = array_keys(array_filter($form_state['values'],'_simplenews_checked'));
   $langcode = $form_state['values']['language'];
 
   $emails = preg_split("/[\s,]+/", $form_state['values']['emails']);
@@ -932,16 +935,21 @@ function simplenews_subscription_list_remove($form, &$form_state) {
     '#rows' => 5,
     '#description' => t('Email addresses must be separated by comma, space or newline.'),
   );
-  $lists = array();
-  foreach (simplenews_get_mailing_lists(TRUE) as $list) {
-    $lists[$list->tid] = check_plain($list->name);
-  }
+
   $form['lists'] = array(
-    '#type' => 'checkboxes',
-    '#title' => t('Unsubscribe from'),
-    '#options' => $lists,
-    '#required' => TRUE,
+    '#type' => 'fieldset',
+    '#description' => t('Unsubscribe from'),
   );
+  
+  foreach (simplenews_get_mailing_lists(TRUE) as $list) {
+    $form['lists'][$list->tid] = array(
+      '#type' => 'checkbox',
+      '#title' => check_plain($list->name),
+      '#description'  => $list->description,
+      '#default_value' => FALSE,
+    );
+  }
+  
   $form['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Unsubscribe'),
@@ -952,7 +960,7 @@ function simplenews_subscription_list_remove($form, &$form_state) {
 function simplenews_subscription_list_remove_submit($form, &$form_state) {
   $removed = array();
   $invalid = array();
-  $checked_lists = array_filter($form_state['values']['lists']);
+  $checked_lists = array_keys(array_filter($form_state['values'],'_simplenews_checked'));
 
   $emails = preg_split("/[\s,]+/", $form_state['values']['emails']);
   foreach ($emails as $email) {
@@ -1229,14 +1237,7 @@ function simplenews_admin_settings_newsletter($form, &$form_state) {
   $form['simplenews_default_options']['simplenews_priority'] = array(
     '#type' => 'select',
     '#title' => t('Priority'),
-    '#options' => array(
-      0 => t('none'),
-      1 => t('highest'),
-      2 => t('high'),
-      3 => t('normal'),
-      4 => t('low'),
-      5 => t('lowest'),
-    ),
+    '#options' => simplenews_get_priority(),
     '#description' => t('Note that email priority is ignored by a lot of email programs.'),
     '#default_value' => variable_get('simplenews_priority', SIMPLENEWS_PRIORITY_NONE),
   );
@@ -1249,11 +1250,10 @@ function simplenews_admin_settings_newsletter($form, &$form_state) {
   $form['simplenews_default_options']['simplenews_send'] = array(
     '#type' => 'radios',
     '#title' => t('Default send action'),
-    '#options' => array(
-      0 => t("Don't send now"),
-      2 => t('Send one test newsletter to the test address'),
-      1 => t('Send newsletter'),
-    ),
+    '#options' =>  array(
+      SIMPLENEWS_COMMAND_SEND_TEST => t('Send one test newsletter to the test address'),
+      SIMPLENEWS_COMMAND_SEND_NOW => t('Send newsletter'),
+     ),
     '#default_value' => variable_get('simplenews_send', 0),
   );
   $form['simplenews_test_address'] = array(
@@ -1731,6 +1731,9 @@ function theme_simplenews_subscription_filter_form($variables) {
   return $output;
 }
 
+/**
+ * Function to provide the various simplenews mail priorities for newsletter categories
+ */
 function simplenews_get_priority() {
   return array(
     SIMPLENEWS_PRIORITY_NONE => t('none'),

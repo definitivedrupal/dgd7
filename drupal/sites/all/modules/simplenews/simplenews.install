@@ -1,5 +1,5 @@
 <?php
-// $Id: simplenews.install,v 1.63 2010/12/30 13:47:35 mirodietiker Exp $
+// $Id: simplenews.install,v 1.64 2011/01/18 09:10:13 mirodietiker Exp $
 
 /**
  * @file
@@ -324,10 +324,11 @@ function simplenews_schema() {
  * Implement hook_install().
  */
 function simplenews_install() {
-  _simplenews_install_nodetype();
   _simplenews_init_simplenews_vocabulary();
   _simplenews_init_simplenews_category();
-
+  // add nodetype with newsletter vocabulary
+  _simplenews_install_nodetype();
+  
   if (module_exists('help')) {
     drupal_set_message(t('Simplenews installation instructions are available on the <a href="!simplenews_help">Simplenews help page</a>.', array('!simplenews_help' => url('admin/help/simplenews'))));
   }
@@ -406,6 +407,7 @@ function _simplenews_init_simplenews_vocabulary() {
 function _simplenews_init_simplenews_category() {
   if ($tree = taxonomy_get_tree(variable_get('simplenews_vid', ''))) {
     $categories = simplenews_categories_load_multiple();
+    $first = TRUE;
     foreach ($tree as $term) {
       // Create a newsletter category for each newsletter taxonomy term.
       if (!isset($categories[$term->tid])) {
@@ -422,6 +424,10 @@ function _simplenews_init_simplenews_category() {
         $category->new_account    = 'none';
         $category->opt_inout      = 'double';
         $category->block          = 0;
+        if ($first) {
+          $category->block        = 1;
+          $first = FALSE;
+        }
         simplenews_category_save($category);
       }
     }
