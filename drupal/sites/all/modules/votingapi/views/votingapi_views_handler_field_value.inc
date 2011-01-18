@@ -1,5 +1,5 @@
 <?php
-// $Id: votingapi_views_handler_field_value.inc,v 1.1.2.3.2.3 2010/10/09 21:03:33 eaton Exp $
+// $Id: votingapi_views_handler_field_value.inc,v 1.1.2.3.2.4 2010/10/10 01:39:41 eaton Exp $
 
 /**
  * @file
@@ -44,7 +44,7 @@ class votingapi_views_handler_field_value extends views_handler_field_numeric {
    * Called to determine what to tell the clicksorter.
    */
   function click_sort($order) {
-    $this->query->add_orderby(NULL, "COALESCE($this->table_alias.$this->field, 0)", $this->options['order'], $this->table_alias . '_' . $this->field . '_coalesced');
+    $this->query->add_orderby(NULL, "COALESCE($this->table_alias.$this->field, 0)", $order, $this->table_alias . '_' . $this->field . '_coalesced');
   }
   
   function render($values) {

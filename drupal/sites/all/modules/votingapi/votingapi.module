@@ -1,5 +1,5 @@
 <?php
-// $Id: votingapi.module,v 1.46.2.23.2.9 2010/10/09 02:25:39 eaton Exp $
+// $Id: votingapi.module,v 1.46.2.23.2.11 2011/01/12 16:39:47 eaton Exp $
 
 /**
  * @file
@@ -42,10 +42,14 @@ function votingapi_menu() {
 }
 
 /**
- * Implementation of hook_perm().
+ * Implements hook_permission().
  */
-function votingapi_perm() {
-  return array('administer voting api');
+function votingapi_permission() {
+  return array(
+      'administer voting api' => array(
+          'title' => t('Administer Voting API'),
+      ),
+  );
 }
 
 /**
@@ -134,6 +138,9 @@ function votingapi_set_votes(&$votes, $criteria = NULL) {
     foreach ($votes as $vote) {
       $tmp = votingapi_current_user_identifier();
       $tmp += $vote;
+      if (isset($tmp['value'])) {
+        unset($tmp['value']);
+      }
       votingapi_delete_votes(votingapi_select_votes($tmp));
     }
   }
