@@ -208,8 +208,6 @@ function book_remove_form($form, &$form_state, $node) {
 function book_remove_form_submit($form, &$form_state) {
   $node = $form['#node'];
   if (_book_node_is_removable($node)) {
-    // Only allowed when this is not a book (top-level page),
-    // or for a top-level page with no children.
     menu_link_delete($node->book['mlid']);
     db_delete('book')
       ->condition('nid', $node->nid)
