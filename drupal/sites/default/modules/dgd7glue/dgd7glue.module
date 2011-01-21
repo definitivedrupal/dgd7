@@ -145,7 +145,7 @@ function dgd7glue_remarkup_defaults() {
       'before' => '<code>',
       'after' => '</code>',
   );
-  // NOTE!  This requires the codefilter module.
+  // Requires codefilter module, with its filter set to run after remarkup.
   $rm['[/file-php]'] = array(
       'before' => '<?php',
       'after' => '?>',
