@@ -1,5 +1,5 @@
 <?php
-// $Id: logintoboggan.module,v 1.204 2011/01/06 06:52:19 thehunmonkgroup Exp $
+// $Id: logintoboggan.module,v 1.205 2011/01/20 10:07:57 thehunmonkgroup Exp $
 
 /**
  * @file
@@ -603,11 +603,15 @@ function logintoboggan_user_edit_validate($form, &$form_state) {
 }
 
 /**
- * Implement hook_init()
+ * Implement hook_menu_get_item_alter()
  *
  * @ingroup logintoboggan_core
+ *
+ * This is the best current place to dynamically remove the authenticated role
+ * from the user object on initial page load.  hook_init() is too late, as menu
+ * access checks have already been performed.
  */
-function logintoboggan_init() {
+function logintoboggan_menu_get_item_alter() {
   global $user;
 
   // Make sure any user with pre-auth role doesn't have authenticated user role
