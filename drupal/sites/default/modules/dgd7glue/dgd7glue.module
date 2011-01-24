@@ -22,12 +22,17 @@ function dgd7glue_boot() {
  * Implements hook_menu().
  */
 function dgd7glue_menu() {
-  $items['biographies'] = array(
-    'title' => 'Author biographies',
-    'access arguments' => array('access content'),
-    'page callback' => 'dgd7glue_profiles',
+  $items = array();
+  $items['suggestions/add'] = array(
+    'title' => "Add a suggestion",
+    'page callback' => 'node_add',
+    'page arguments' => array('suggestion'),
+    'access callback' => 'node_access',
+    'access arguments' => array('create', 'suggestion'),
+    'file' => 'node.pages.inc',
+    'file path' => drupal_get_path('module', 'node'), 
+    'type' => MENU_LOCAL_ACTION,
   );
-  
   return $items;
 }
 
