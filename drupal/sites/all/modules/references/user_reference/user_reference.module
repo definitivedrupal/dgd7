@@ -1,5 +1,5 @@
 <?php
-// $Id: user_reference.module,v 1.1 2010/12/06 21:28:17 yched Exp $
+// $Id: user_reference.module,v 1.1.2.1 2011/01/24 14:41:44 yched Exp $
 
 /**
  * @file
@@ -662,4 +662,43 @@ function user_reference_content_migrate_instance_alter(&$instance_value) {
       }
       break;
   }
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function user_reference_views_api() {
+  return array(
+    'api' => '3.0',
+  );
+}
+
+/**
+ * Implements hook_field_views_data().
+ *
+ * In addition to the default field information we add the relationship for
+ * views to connect back to the users table.
+ */
+function user_reference_field_views_data($field) {
+  // No module_load_include(): this hook is invoked from
+  // views/modules/field.views.inc, which is where that function is defined.
+  $data = field_views_field_default_views_data($field);
+
+  $storage = $field['storage']['details']['sql'];
+
+  foreach ($storage as $age => $table_data) {
+    $table = key($table_data);
+    $columns = current($table_data);
+    $id_column = $columns['uid'];
+    if (isset($data[$table])) {
+      $data[$table][$id_column]['relationship'] = array(
+        'base' => 'users',
+        'field' => 'uid',
+        'base field' => 'uid',
+        'label' => $field['field_name'],
+      );
+    }
+  }
+
+  return $data;
 }

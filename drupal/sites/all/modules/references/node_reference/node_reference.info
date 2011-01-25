@@ -1,13 +1,16 @@
-; $Id: node_reference.info,v 1.1.2.1 2011/01/11 08:53:27 fgm Exp $
+; $Id: node_reference.info,v 1.1.2.2 2011/01/24 12:36:43 yched Exp $
 name = Node Reference
 description = Defines a field type for referencing one node from another.
-files[]=node_reference.module
 package = Fields
 core = 7.x
+dependencies[] = field
+dependencies[] = options
+files[] = node_reference.module
 
-; Information added by drupal.org packaging script on 2011-01-15
+
+; Information added by drupal.org packaging script on January 1, 1970 - 00:00
 version = "7.x-2.x-dev"
 core = "7.x"
 project = "references"
-datestamp = "1295051081"
+datestamp = "1295915382"
 
