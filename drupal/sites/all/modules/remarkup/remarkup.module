@@ -61,26 +61,36 @@ function _remarkup_process($text, $format) {
 /**
  * Tips callback for tag filter.
  */
-function _remarkup_tips($format, $long = FALSE) {
+function _remarkup_tips($filter, $format, $long = FALSE) {
   $tips = '';
-  if (!isset($format->settings['rm']) || !is_array($format->settings['rm'])) {
+  if (!isset($filter->settings['rm']) || !is_array($filter->settings['rm'])) {
     if (user_access('administer filters')) {
       $tips .= '<p class="warning">' . t('No custom markup tag replacement defined.') . '</p>';
     }
   }
   elseif ($long) {
     $tips .= '<ul>';
-    foreach ($format->settings['rm'] as $tag => $replace) {
+    foreach ($filter->settings['rm'] as $tag => $replace) {
       $tips .= '<li>';
-      $tips .= '<code>' . check_plain($tag) . '</code> becomes ';
-      $tips .= '<code>' . check_plain($replace['before']) . '</code> and ';
+      $ctag = check_plain($tag);
+      $otag = remarkup_otag($ctag);
+      $tips .= '<code>' . $otag . '</code>';
+      $tips .= ' ' . t('and') . ' ';
+      $tips .= '<code>' . $ctag . '</code>';
+      $tips .= ' ' . t('become') . ' ';
+      $tips .= '<code>' . check_plain($replace['before']) . '</code>';
+      $tips .= ' ' . t('and') . ' ';
       $tips .= '<code>' . check_plain($replace['after']) . '</code>.';
       $tips .= '</li>';
     }
     $tips .= '</ul>';
   }
   else {
-    t(' tags are replaced with before and after markup.');
+    $tips .= t('Tags', array(), array('context' => 'Markup'));
+    foreach ($filter->settings['rm'] as $tag => $replace) {
+     $tips .= ' ' . check_plain(remarkup_otag($tag));
+    }
+    $tips .= t(' are replaced with before and after markup.');
   }
   if (user_access('administer filters')) {
     $tips .= ' ' . l(t('Configure format.'), 'admin/config/content/formats/' . $format->format);
