@@ -1,5 +1,5 @@
 <?php
-// $Id: date_views_argument_handler.inc,v 1.6 2011/01/18 00:37:35 karens Exp $
+// $Id: date_views_argument_handler.inc,v 1.8 2011/01/20 13:07:24 karens Exp $
 
 /**
  * @file
@@ -30,10 +30,9 @@ class date_views_argument_handler extends views_handler_argument_date {
     $this->display_handler = $view->display_handler->definition['handler'];
 
     // Add a date handler to the display.
-    $date_handler = $this->date_handler;
-    $date_handler->granularity = $this->options['granularity'];
-    $this->format = $date_handler->views_formats($date_handler->granularity, 'display');
-    $this->sql_format = $date_handler->views_formats($date_handler->granularity, 'sql');
+    $this->date_handler->granularity = $this->options['granularity'];
+    $this->format = $this->date_handler->views_formats($this->date_handler->granularity, 'display');
+    $this->sql_format = $this->date_handler->views_formats($this->date_handler->granularity, 'sql');
 
     if (empty($this->view->date_info)) $this->view->date_info = new stdClass();
 
@@ -338,7 +337,7 @@ class date_views_argument_handler extends views_handler_argument_date {
     // See if we're outside the allowed date range for our argument.
     if (date_format($min_date, 'Y') < $this->view->date_info->min_allowed_year || date_format($max_date, 'Y') > $this->view->date_info->max_allowed_year) {
       $this->forbid = TRUE;
-      $this->query->add_where('date', "0=1", array(), 'formula');
+      $this->query->add_where_expression('date', "0=1", array());
       return;
     }
 
@@ -371,7 +370,7 @@ class date_views_argument_handler extends views_handler_argument_date {
         }
         $sql = str_replace('***table***', $field['table_name'], "($from AND $to)");
         if ($sql) {
-          $this->query->add_where('date', $sql, array(), 'formula');
+          $this->query->add_where_expression('date', $sql, array());
 
         }
       }

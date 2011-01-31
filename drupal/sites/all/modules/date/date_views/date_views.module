@@ -46,7 +46,7 @@ function date_views_date_views_tables() {
 }
 
 /**
- * Implement hook_date_api_fields().
+ * Implement hook_date_views_fields().
  * on behalf of core fields.
  * 
  * All modules that create custom fields that use the 
@@ -233,11 +233,11 @@ function date_field_views_data_alter(&$result, $field, $module) {
       $key = array_key_exists('entity_id', $data) ? 'entity_id' : 'revision_id';
       foreach ($data as $column => $value) {
         if (array_key_exists('argument', $value)) {
-          $result[$table][$column]['argument']['handler'] = 'date_api_argument_handler';
+          $result[$table][$column]['argument']['handler'] = 'date_views_argument_handler';
           $additional = $result[$table][$column]['argument']['additional fields'];
         }
         if (array_key_exists('filter', $value)) {  
-          $result[$table][$column]['filter']['handler'] = 'date_api_filter_handler';
+          $result[$table][$column]['filter']['handler'] = 'date_views_filter_handler';
         } 
         // Not sure yet if we still need this in D7 now that custom formatters are available.
         // Might still need it to handle grouping of multiple value dates.
@@ -246,7 +246,11 @@ function date_field_views_data_alter(&$result, $field, $module) {
         } 
       } 
       // Add additional fields to the field as well as the argument and filter.
+      // @TODO Is this the best fix? We only need the fields if we're using arguments or filters.
+      // Do this for now to get date views working again.
+
       $result[$table][$key]['field']['additional fields'] = array_merge($result[$table][$key]['field']['additional fields'], $additional);
+      $result[$table][$key]['field']['add fields to query'] = TRUE;
     }
   }
 }

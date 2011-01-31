@@ -1,5 +1,5 @@
 <?php
-// $Id: date_views_fields.inc,v 1.4 2011/01/18 00:37:35 karens Exp $
+// $Id: date_views_fields.inc,v 1.5 2011/01/19 15:40:41 karens Exp $
 
 /**
  * @file
@@ -13,7 +13,7 @@
  *    array with fieldname, type, and table.
  *  @see 
  *    date_views_date_views_fields() which implements 
- *    the hook_date_api_fields() for the core date fields.
+ *    the hook_date_views_fields() for the core date fields.
  */
 function _date_views_fields($base = 'node') {
 
@@ -22,7 +22,7 @@ function _date_views_fields($base = 'node') {
     $base = 'node';
   }
 
-  $cid = 'date_api_fields_' . $base;
+  $cid = 'date_views_fields_' . $base;
   cache_clear_all($cid, 'cache_views');
   $all_fields = date_views_views_fetch_fields($base, 'field');
   $content_fields = field_views_data();
