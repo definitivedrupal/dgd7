@@ -1,5 +1,5 @@
 <?php
-// $Id: date_popup.module,v 1.83 2011/01/18 12:15:16 karens Exp $
+// $Id: date_popup.module,v 1.84 2011/01/27 04:34:34 developerx Exp $
 /**
  * @file
  * A module to enable jquery calendar and time entry popups.
@@ -277,14 +277,21 @@ function date_popup_process_date(&$element) {
   // Create a unique id for each set of custom settings.
   $id = date_popup_js_settings_id($element['#id'], 'datepicker', $settings);
 
+  // Manually build this element and set the value - this will prevent corrupting
+  // the parent value
+  $parents = array_merge($element['#parents'], array('date'));
   $sub_element = array(
     '#type' => 'textfield',
     '#default_value' => $element['#value']['date'],
     '#id' => $id,    
+    '#input' => FALSE,
     '#size' => !empty($element['#size']) ? $element['#size'] : 20,
     '#maxlength' => !empty($element['#maxlength']) ? $element['#maxlength'] : 30,
     '#attributes' => $element['#attributes'],
-    );
+    '#parents' => $parents,
+    '#name' => array_shift($parents) . '['. implode('][', $parents) .']'
+  );
+  $sub_element['#value'] = $sub_element['#default_value'];
   // TODO, figure out exactly when we want this description. In many places it is not desired.
   $sub_element['#description'] = ' '. t('Format: @date', array('@date' => date_format_date(date_now(), 'custom', date_popup_date_format($element))));
   return $sub_element;
@@ -309,6 +316,10 @@ function date_popup_process_time(&$element) {
 
   // Create a unique id for each set of custom settings.
   $id = date_popup_js_settings_id($element['#id'], 'timeEntry', $settings);
+  
+  // Manually build this element and set the value - this will prevent corrupting
+  // the parent value
+  $parents = array_merge($element['#parents'], array('time'));
   $sub_element = array(
     '#type' => 'textfield',
     '#default_value' => $element['#value']['time'],
@@ -316,7 +327,11 @@ function date_popup_process_time(&$element) {
     '#size' => 10,
     '#maxlength' => 10,
     '#attributes' => $element['#attributes'],
-    );
+    '#parents' => $parents,
+    '#name' => array_shift($parents) . '['. implode('][', $parents) .']'
+  );
+  $sub_element['#value'] = $sub_element['#default_value'];
+
   // TODO, figure out exactly when we want this description. In many places it is not desired.
   $sub_element['#description'] = t('Format: @date', array('@date' => date_format_date(date_now(), 'custom', date_popup_time_format($element))));
   return ($sub_element);

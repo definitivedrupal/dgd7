@@ -21,8 +21,8 @@ files[] = theme/date-vcalendar.tpl.php
 files[] = theme/date-vevent.tpl.php
 files[] = theme/date-views-filter-form.tpl.php
 ; Information added by drupal.org packaging script on January 1, 1970 - 00:00
-version = "7.x-1.0-alpha2"
+version = "7.x-1.x-dev"
 core = "7.x"
 project = "date"
-datestamp = "1295529406"
+datestamp = "1296130435"
 
