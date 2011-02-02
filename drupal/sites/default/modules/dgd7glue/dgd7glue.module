@@ -19,13 +19,6 @@ function dgd7glue_boot() {
 }
 
 /**
-  * Use the HTML5 placeholder attribute to add help text to the search box.
-  */
-function dgd7glue_form_search_block_form_alter(&$form, &$form_state) {
-  $form['search_block_form']['#attributes']['placeholder'] = t('enter search terms');
-}
-
-/**
  * Implements hook_menu_local_tasks_alter().
  */
 function dgd7glue_menu_local_tasks_alter(&$data, $router_item, $root_path) {
