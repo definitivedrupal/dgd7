@@ -162,6 +162,22 @@ function dgd7glue_remarkup_defaults() {
 }
 
 /**
+ * Implements hook_field_formatter_info().
+ */
+function dgd7glue_field_formatter_info() {
+  return array(
+    'dgd7glue_number_account_link' => array(
+      'label' => t('Account link'),
+      'field types' => array('number_integer'),
+    ),
+    'dgd7glue_text_account_link' => array(
+      'label' => t('Account link'),
+      'field types' => array('text'),
+    ),
+  );
+}
+
+/**
  * Menu callback for listing profile nodes for the Author biographies section.
  */
 function dgd7glue_profiles() {
