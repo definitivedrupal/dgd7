@@ -230,6 +230,62 @@ function dgd7glue_field_formatter_settings_summary($field, $instance, $view_mode
 }
 
 /**
+ * Implements hook_field_formatter_view().
+ */
+function dgd7glue_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $element = array();
+
+  // Allow a definition of a function to get the account link title.
+  $title_callback = NULL;
+  
+  switch ($display['type']) {
+    case 'dgd7glue_number_account_link':
+      $item_key = 'value';
+      break;
+    default:
+      $item_key = 'safe_value';
+  }
+
+  // Ordinarily, view formatters switch on the display type, but for the
+  // account link formatters dgd7glue defines, the web site is what matters.
+  switch ($display['settings']['web_site']) {
+    case 'drupal_org':
+      $href = 'http://drupal.org/user/';
+      $title_callback = 'dgd7glue_drupal_page_title';
+      $item_key = 'value';
+      break;
+    case 'groups_drupal_org':
+      $href = 'http://groups.drupal.org/user/';
+      $title_callback = 'dgd7glue_drupal_page_title';
+      $item_key = 'value';
+      break;
+    case 'twitter_com':
+      $href = 'http://twitter.com/';
+      break;
+    case 'identi_ca':
+      $href = 'http://identi.ca/';
+      break;
+  }
+
+  foreach ($items as $delta => $item) {
+    if ($title_callback) {
+      $title = $title_callback($item[$item_key], $href);
+    }
+    else {
+      $title = $item[$item_key];
+    }
+    $href = $href .= $item[$item_key];
+    $element[$delta] = array(
+       '#type' => 'link',
+       '#title' => $title,
+       '#href' => $href,
+     );
+  }
+
+  return $element;
+}
+
+/**
  * Provides Account link formatter options for integer fields.
  */
 function _dgd7glue_number_account_link_options() {
@@ -247,6 +303,15 @@ function _dgd7glue_text_account_link_options() {
     'twitter_com' => t('Twitter.com'),
     'identi_ca' => t('Identi.ca'),
   );
+}
+
+/**
+ * Get the title of a page on a Drupal site.
+ *
+ * Callback for account link titles in dgd7glue_field_formatter_view().
+ */
+function dgd7glue_drupal_page_title($account_id, $href) {
+  return $account_id;
 }
 
 /**
