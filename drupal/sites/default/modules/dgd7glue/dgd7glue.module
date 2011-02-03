@@ -315,7 +315,7 @@ function dgd7glue_drupal_page_title($account_id, $href) {
     // Use $account_id as title if cannot get one.
     if ($result->code != 200) { return $account_id; }
     preg_match('/<title>(.*?) \|.*?<\/title>/', $result->data, $title_match);
-    $title = $title_match[1] ? $title_match[1] : '<' . $account_id . '>';
+    $title = $title_match[1] ? $title_match[1] : $account_id;
     return $title;
 }
 
