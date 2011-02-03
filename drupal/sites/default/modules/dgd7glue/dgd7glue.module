@@ -188,15 +188,12 @@ function dgd7glue_field_formatter_settings_form($field, $instance, $view_mode, $
   $display = $instance['display'][$view_mode];
   $settings = $display['settings'];
 
-  $options = array();
   if ($display['type'] == 'dgd7glue_number_account_link') {
-    $options['drupal_org'] = t('Drupal.org');
-    $options['groups_drupal_org'] = t('Groups.Drupal.org');
+    $options = _dgd7glue_number_account_link_options();
   }
   else {
     // Field type is dgd7glue_text_account_link.
-    $options['twitter_com'] = t('Twitter.com');
-    $options['identi_ca'] = t('Identi.ca');
+    $options = _dgd7glue_text_account_link_options();
   }
 
   $element['web_site'] = array(
@@ -219,9 +216,37 @@ function dgd7glue_field_formatter_settings_summary($field, $instance, $view_mode
   $display = $instance['display'][$view_mode];
   $settings = $display['settings'];
 
-  $summary .= t('Web site') . ': ' . $settings['web_site'];
+  if ($display['type'] == 'dgd7glue_number_account_link') {
+    $options = _dgd7glue_number_account_link_options();
+  }
+  else {
+    // Field type is dgd7glue_text_account_link.
+    $options = _dgd7glue_text_account_link_options();
+  }
+
+  $summary .= t('Web site') . ': ' . $options[$settings['web_site']];
 
   return $summary;
+}
+
+/**
+ * Provides Account link formatter options for integer fields.
+ */
+function _dgd7glue_number_account_link_options() {
+  return array(
+    'drupal_org' => t('Drupal.org'),
+    'groups_drupal_org' => t('Groups.Drupal.org'),
+  );
+}
+
+/**
+ * Provides Account link formatter options for text fields.
+ */
+function _dgd7glue_text_account_link_options() {
+  return array(
+    'twitter_com' => t('Twitter.com'),
+    'identi_ca' => t('Identi.ca'),
+  );
 }
 
 /**
