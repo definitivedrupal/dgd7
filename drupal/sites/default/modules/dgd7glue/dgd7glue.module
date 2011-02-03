@@ -169,12 +169,59 @@ function dgd7glue_field_formatter_info() {
     'dgd7glue_number_account_link' => array(
       'label' => t('Account link'),
       'field types' => array('number_integer'),
+      'settings' => array('web_site' => 'drupal_org'),
     ),
     'dgd7glue_text_account_link' => array(
       'label' => t('Account link'),
       'field types' => array('text'),
+      'settings' => array('web_site' => 'twitter_com'),
     ),
   );
+}
+
+/**
+ * Implements hook_field_formatter_settings_form().
+ */
+function dgd7glue_field_formatter_settings_form($field, $instance, $view_mode, $form, &$form_state) {
+  $element = array();
+
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+
+  $options = array();
+  if ($display['type'] == 'dgd7glue_number_account_link') {
+    $options['drupal_org'] = t('Drupal.org');
+    $options['groups_drupal_org'] = t('Groups.Drupal.org');
+  }
+  else {
+    // Field type is dgd7glue_text_account_link.
+    $options['twitter_com'] = t('Twitter.com');
+    $options['identi_ca'] = t('Identi.ca');
+  }
+
+  $element['web_site'] = array(
+    '#title' => t('Web site or service'),
+    '#type' => 'select',
+    '#options' => $options,
+    '#default_value' => $settings['web_site'],
+    '#required' => TRUE,
+  );
+
+  return $element;
+}
+
+/**
+ * Implements hook_field_formatter_settings_summary().
+ */
+function dgd7glue_field_formatter_settings_summary($field, $instance, $view_mode) {
+  $summary = '';
+
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+
+  $summary .= t('Web site') . ': ' . $settings['web_site'];
+
+  return $summary;
 }
 
 /**
