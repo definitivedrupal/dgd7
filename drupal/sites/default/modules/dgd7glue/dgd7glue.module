@@ -311,7 +311,12 @@ function _dgd7glue_text_account_link_options() {
  * Callback for account link titles in dgd7glue_field_formatter_view().
  */
 function dgd7glue_drupal_page_title($account_id, $href) {
-  return $account_id;
+  $result = drupal_http_request($href . $account_id);
+    // Use $account_id as title if cannot get one.
+    if ($result->code != 200) { return $account_id; }
+    preg_match('/<title>(.*?) \|.*?<\/title>/', $result->data, $title_match);
+    $title = $title_match[1] ? $title_match[1] : '<' . $account_id . '>';
+    return $title;
 }
 
 /**
