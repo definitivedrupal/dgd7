@@ -1,5 +1,5 @@
 <?php
-// $Id: image_resize_filter.module,v 1.53 2011/01/05 06:42:54 quicksketch Exp $
+// $Id: image_resize_filter.module,v 1.54 2011/01/28 02:59:34 quicksketch Exp $
 
 /**
  * @file image_resize_filter.module
@@ -256,7 +256,7 @@ function image_resize_filter_get_images($settings, $text) {
 
     // Find attributes of this image tag.
     $attribute_matches = array();
-    preg_match_all('/([a-z]+)[ ]*=[ ]*"([^"]+)"/i', $img_tag, $attribute_matches);
+    preg_match_all('/([a-z]+)[ ]*=[ ]*"([^"]*)"/i', $img_tag, $attribute_matches);
     foreach ($attribute_matches[0] as $key => $match) {
       $attribute = $attribute_matches[1][$key];
       $attribute_value = $attribute_matches[2][$key];
