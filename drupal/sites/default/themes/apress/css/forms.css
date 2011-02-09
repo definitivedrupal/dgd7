@@ -148,6 +148,11 @@ input[type="submit"],
   background: -moz-linear-gradient(50% 100%, #222 40%, #444 70%);
 }
 
+/* Make the Book element radio buttons flow horizontally. */
+.form-item-field-element-und {
+  display: inline-block;
+  padding-right: 7px;
+}
 
 /* Asterisk denoting a required field. */
 .form-required,
