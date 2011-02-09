@@ -23,7 +23,7 @@ task :test do
   set :db_user, "#{application}"
   set :db_pass, "example"
   set :deploy_to, "/var/local/drupal/#{application}"
-  set :release_path, "#{deploy_to}/web"
+  set :release_path, "#{deploy_to}/drupal"
 
   role :app, domain
   role :web, domain
