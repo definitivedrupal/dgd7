@@ -1,0 +1,10 @@
+name = Insert
+description = Assists in inserting files, images, or other media into the body field or other text areas.
+core = 7.x
+
+; Information added by drupal.org packaging script on January 1, 1970 - 00:00
+version = "7.x-1.0"
+core = "7.x"
+project = "insert"
+datestamp = "1295569371"
+
