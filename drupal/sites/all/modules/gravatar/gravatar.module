@@ -1,5 +1,5 @@
 <?php
-// $Id: gravatar.module,v 1.16.2.2 2011/01/04 20:11:52 davereid Exp $
+// $Id: gravatar.module,v 1.16.2.4 2011/02/17 19:23:56 davereid Exp $
 
 /**
  * @file
@@ -209,13 +209,14 @@ function _gravatar_load_account($account) {
       $account->uid = 0;
     }
 
-    $account = user_load($account->uid);
+    $account = $account->uid ? user_load($account->uid) : drupal_anonymous_user();
 
     // Load mail/homepage variable from an anonymous comment.
     if (!$account->uid) {
-      foreach (array('name', 'mail', 'homepage', 'hostname') as $value) {
-        if (empty($account->$value) && !empty($original_values->$value)) {
-          $account->$value = $original_values->$value;
+      $values = array_fill_keys(array('name', 'mail', 'homepage', 'hostname'), '');
+      foreach ($values as $value => $default_value) {
+        if (empty($account->$value)) {
+          $account->$value = !empty($original_values->$value) ? $original_values->$value : $default_value;
         }
       }
     }

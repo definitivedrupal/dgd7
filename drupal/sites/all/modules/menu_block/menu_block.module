@@ -50,7 +50,7 @@ function menu_block_ctools_plugin_directory($module, $plugin) {
  */
 function menu_block_help($path, $arg) {
   switch ($path) {
-    case 'admin/structure/block/configure':
+    case 'admin/structure/block/manage/%/%':
       if ($arg[4] != 'menu_block') {
         break;
       }

@@ -1,4 +1,10 @@
-Menu Block 7.x-2.0, 2010-01-11
+Menu Block 7.x-2.1, 2011-02-06
+------------------------------
+- #1051988: Fix wrong path in menu_block_help()
+- #1050766: Improve usability of "Parent item" UI
+- #1050040 by AgentRickard: Remove performance-killing variable_set() calls on non-admin pages
+
+Menu Block 7.x-2.0, 2011-01-11
 ------------------------------
 - #1022478: Add "Edit book outline" contextual link for book menu blocks
 - #1022428: Contextual links for all menu blocks disappear if book menu_block used

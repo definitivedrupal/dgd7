@@ -73,7 +73,7 @@ function __menu_block_set_menu_trail($menu_name = FALSE) {
 
     // Ensure the active menu always includes the requested menu.
     $originals['active_menus'] = variable_get('menu_default_active_menus', NULL);
-    variable_set('menu_default_active_menus', array($menu_name));
+    $GLOBALS['conf']['menu_default_active_menus'] = array($menu_name);
   }
   else {
     // Reset the original preferred_link static variables.
@@ -84,12 +84,7 @@ function __menu_block_set_menu_trail($menu_name = FALSE) {
       $preferred_links[$path] = $originals['preferred_link'];
     }
     // Reset the original menu_default_active_menus variable.
-    if (is_null($originals['active_menus'])) {
-      variable_del('menu_default_active_menus');
-    }
-    else {
-      variable_set('menu_default_active_menus', $originals['active_menus']);
-    }
+    $GLOBALS['conf']['menu_default_active_menus'] = $originals['active_menus'];
   }
 }
 
