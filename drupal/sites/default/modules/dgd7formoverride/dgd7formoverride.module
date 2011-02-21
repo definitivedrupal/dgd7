@@ -1,9 +1,18 @@
 <?php
 
+/**
+ * Allows the Vocabulary selection of field settings forms to be modified.
+ *
+ * You should never need this but it was essential after a Drupal 7 alpha to
+ * beta upgrade left term reference fields disassociated from their
+ * vocabularies.
+ */
 function dgd7formoverride_form_field_ui_field_settings_form_alter(&$form, &$form_state) {
-
   if ($form['field']['settings']['allowed_values'][0]['vocabulary']['#disabled'] == TRUE) {
-    drupal_set_message(t('Changing this vocabulary is disabled, for good reason, as noted, but dgd7formoverride module is allowing you to change it even though you should not.  Please know what you are doing.'), 'warning');
+    $form['field']['settings']['dgd7formoverride_warning'] = array(
+      '#markup' => t('Changing this vocabulary is disabled, for good reason, as noted, but dgd7formoverride module is allowing you to change it even though you should not.  Please know what you are doing.'),
+      '#weight' => -10,
+    );
     $form['field']['settings']['allowed_values'][0]['vocabulary']['#disabled'] = FALSE;
   }
 }
