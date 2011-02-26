@@ -39,20 +39,13 @@ function remarkup_theme() {
 }
 
 /**
- * Filter prepare callback.
- */
-function _remarkup_prepare() {
-
-}
-
-/**
  * Process callback for tag filter.
  */
-function _remarkup_process($text, $format) {
-  if (!isset($format->settings['rm']) || !is_array($format->settings['rm'])) {
+function _remarkup_process($text, $filter) {
+  if (!isset($filter->settings['rm']) || !is_array($filter->settings['rm'])) {
     return $text;
   }
-  foreach ($format->settings['rm'] as $ctag => $replace) {
+  foreach ($filter->settings['rm'] as $ctag => $replace) {
     remarkup_replace_tags($text, $ctag, $replace['before'], $replace['after']);
   }
   return $text;
@@ -100,28 +93,27 @@ function _remarkup_tips($filter, $format, $long = FALSE) {
 
 /**
  * Settings callback for tag filter.
- *
  */
 function _remarkup_settings($form, $form_state, $filter, $format, $defaults) {
+  // Add CSS to make the form elements in _remarkup_add_rm_formset() look good.
+  drupal_add_css(drupal_get_path('module', 'remarkup') . '/remarkup.css');
   // Declare the array will hold our settings form elements.
   $settings = array();
-  $rm = $defaults['rm']; // "rm" is short for replacement markup.
-  // Administrator-set settings override the default settings.
-  if (isset($filter->settings['rm'])) {
-    $rm = array_merge($rm, $filter->settings['rm']);
-  }
+  // Where filter settings are not defined, use the default settings.
+  $filter->settings += $defaults;
+  // Easy access to the values we need; "rm" is short for replacement markup.
+  $rm = $filter->settings['rm'];
 
   $settings['rm'] = array(
-    '#description' => t('To set tags and replacement markup, enter only the closing tag (such as &lt;/tip&gt;); the opening tag will be calculated automatically by removing the slash.  Then enter the before and after markup which will replace the opening and closing tag, respectively.'),
+    '#description' => t('To set tags and replacement markup, enter only the closing tag (such as &lt;/tip&gt;); the opening tag will be calculated automatically by removing the slash (&lt;tip&gt; in this example).  Then enter the before and after markup which will replace the opening and closing tag, respectively.'),
     '#theme' => 'remarkup_settings',
-    '#format' => $format,
-    '#parents' => array('filters', 'remarkup', 'settings'),
     '#element_validate' => array('remarkup_rm_form_keys_validate'),
   );
   $i = 0;
   foreach ($rm as $tag => $replace) {
     _remarkup_add_rm_formset($settings, $i, $tag, $replace);
-    $i++; // Increment our number of filters by one.
+    // Increment our number of filters by one.
+    $i++;
   }
   // Always add two empty sets of form fields to be filled in.
   $total = $i+2;
@@ -135,7 +127,6 @@ function _remarkup_settings($form, $form_state, $filter, $format, $defaults) {
  * Add a set of form fields for adding a new tag and replacement markup pair.
  */
 function _remarkup_add_rm_formset(&$settings, $i, $tag = '', $replace = array('before' => '', 'after' => '')) {
-  drupal_add_css(drupal_get_path('module', 'remarkup') . '/remarkup.css');
   $settings['rm'][$i]['tag'] = array(
     '#prefix' => '<div class="remarkup-formset">',
     '#type' => 'textfield',
@@ -168,7 +159,7 @@ function _remarkup_add_rm_formset(&$settings, $i, $tag = '', $replace = array('b
 function remarkup_rm_form_tag_validate($element, &$form_state, $whole_form) {
   if (strlen($element['#value']) && substr_count($element['#value'], '/') !== 1) {
     // We describe where the error is because after submission it is likely to
-    // be in a non-visible verticle tab.
+    // be in a non-visible vertical tab.
     form_error($element, t('In the Replacement markup Filter settings, each tag must be in the form of a closing tag with exactly one slash ("/").  The opening tag is calculated by removing the slash.'));
   }
 }
@@ -180,7 +171,7 @@ function remarkup_rm_form_keys_validate($element, &$form_state) {
   $rm = array();
   // Create a tag-keyed version of each element.
   foreach ($element as $i => $value) {
-    // Strip out non-value form elements (our form has numbers).
+    // Skip over non-value form elements (the ones we care about have numbers).
     if (!is_numeric($i))  continue;
     $key = $value['tag']['#value'];
     // Do not save empty keys.
@@ -191,7 +182,7 @@ function remarkup_rm_form_keys_validate($element, &$form_state) {
     );
   }
 
-  form_set_value($element, array('rm' => $rm), $form_state);
+  form_set_value($element, $rm, $form_state);
 }
 
 /**
@@ -228,7 +219,7 @@ function remarkup_replace_tag($excerpt, $before, $after) {
  */
 function theme_remarkup_settings($vars) {
   $form = $vars['form'];
-  return '<p>' . filter_xss_admin($form['#description']) . '</p>'
+  return '<p>' . render($form['#description']) . '</p>'
          . drupal_render_children($form);
 }
 
