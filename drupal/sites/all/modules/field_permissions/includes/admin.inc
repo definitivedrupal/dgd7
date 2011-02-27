@@ -1,5 +1,4 @@
 <?php
-// $Id: admin.inc,v 1.1.4.2 2009/11/15 16:04:50 markuspetrux Exp $
 
 /**
  * @file

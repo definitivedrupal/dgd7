@@ -1,4 +1,3 @@
-// $Id: field_permissions.tooltip.js,v 1.1.4.2 2009/11/15 16:04:50 markuspetrux Exp $
 
 /**
  * Quick tooltips behavior.

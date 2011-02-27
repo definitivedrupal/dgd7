@@ -1,5 +1,4 @@
 <?php
-// $Id: field_access.inc,v 1.1.4.3 2009/11/16 01:06:30 markuspetrux Exp $
 
 /**
  * @file
