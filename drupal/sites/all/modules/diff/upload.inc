@@ -1,5 +1,4 @@
 <?php
-// $Id: upload.inc,v 1.6 2008/09/02 18:36:44 weitzman Exp $
 
 /**
  * Implementation of hook_diff() for file attachments.

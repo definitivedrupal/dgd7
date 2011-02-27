@@ -1,5 +1,4 @@
 <?php
-// $Id: node.inc,v 1.5 2008/09/02 18:36:44 weitzman Exp $
 
 /**
  * Implementation of hook_diff() for node.module (body and title).

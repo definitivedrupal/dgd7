@@ -1,5 +1,4 @@
 <?php
-// $Id: diff.engine.inc,v 1.1 2008/09/02 18:36:44 weitzman Exp $
 
 /**
  * A PHP diff engine for phpwiki. (Taken from phpwiki-1.3.3)
