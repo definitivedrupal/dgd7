@@ -1457,6 +1457,7 @@ function template_preprocess_node(&$variables) {
   // Flatten the node object's member fields.
   $variables = array_merge((array) $node, $variables);
 
+  $variables['content'] = array();
   // Helpful $content variable for templates.
   foreach (element_children($variables['elements']) as $key) {
     $variables['content'][$key] = $variables['elements'][$key];
