@@ -37,7 +37,6 @@ function dgd7glue_entity_info_alter(&$entity_info) {
  * Adds theme hook suggestions specifically for view modes.
  */
 function dgd7glue_preprocess_node(&$vars) {
-  $node = $vars['node'];
   $view_mode = $vars['view_mode'];
   $vars['theme_hook_suggestions'][] = 'node__' . $view_mode;
 }
