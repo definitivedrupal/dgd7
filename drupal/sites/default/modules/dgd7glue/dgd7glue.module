@@ -19,6 +19,31 @@ function dgd7glue_boot() {
 }
 
 /**
+ * Implements hook_entity_info_alter().
+ *
+ * Reveals new view mode for node entities. If you don't see your new view mode
+ * in the Field UI's "manage display" screen, you may need to clear cache or
+ * rebuild menus more than once until you do.
+ */
+function dgd7glue_entity_info_alter(&$entity_info) {
+  $entity_info['node']['view modes']['compact'] = array(
+    'label' => t('Compact'),
+    'custom settings' => TRUE,
+  );
+}
+
+/**
+ * Implements hook_preprocess_node().
+ *
+ * Adds theme hook suggestions specifically for view modes.
+ */
+function dgd7glue_preprocess_node(&$vars) {
+  $node = $vars['node'];
+  $view_mode = $vars['view_mode'];
+  $vars['theme_hook_suggestions'][] = 'node__' . $view_mode;
+}
+
+/**
  * Implements hook_menu_local_tasks_alter().
  */
 function dgd7glue_menu_local_tasks_alter(&$data, $router_item, $root_path) {
