@@ -79,6 +79,9 @@ function dgd7glue_node_view($node, $view_mode, $langcode) {
   }
 }
 
+/**
+ * Implements hook_theme_registry_alter().
+ */
 function dgd7glue_theme_registry_alter(&$theme_registry) {
   // Replace the default preprocess function with our own.
   foreach ($theme_registry['book_navigation']['preprocess functions'] as $key => $value) {
