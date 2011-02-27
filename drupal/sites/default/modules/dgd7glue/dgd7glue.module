@@ -28,7 +28,6 @@ function dgd7glue_boot() {
 function dgd7glue_entity_info_alter(&$entity_info) {
   $entity_info['node']['view modes']['compact'] = array(
     'label' => t('Compact'),
-    'custom settings' => TRUE,
   );
 }
 
