@@ -3,6 +3,8 @@ http://drupal.org/node/843608
 cck-user_reference-ambiguous-uid-pdo-exception-843608.patch
 
 core:
+http://drupal.org/node/705892 - http://drupal.org/files/issues/template_preprocess_node_2.patch
+
 book-589440.patch
 book-589440-38.patch
 
