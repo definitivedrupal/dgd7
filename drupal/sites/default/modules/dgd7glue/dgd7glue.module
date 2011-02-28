@@ -28,17 +28,20 @@ function dgd7glue_boot() {
 function dgd7glue_entity_info_alter(&$entity_info) {
   $entity_info['node']['view modes']['compact'] = array(
     'label' => t('Compact'),
+    'custom settings' => FALSE,
   );
 }
 
 /**
  * Implements hook_preprocess_node().
  *
- * Adds theme hook suggestions specifically for view modes.
+ * Adds classes and theme hook suggestions specifically for view modes.
  */
 function dgd7glue_preprocess_node(&$vars) {
   $view_mode = $vars['view_mode'];
-  $vars['theme_hook_suggestions'][] = 'node__' . $view_mode;
+  $vars['classes_array'][] = 'node-' . $view_mode;
+  $type = $vars['type'];
+  $vars['theme_hook_suggestions'][] = 'node__' . $type . '__' . $view_mode;
 }
 
 /**
