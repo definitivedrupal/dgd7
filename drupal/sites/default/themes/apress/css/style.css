@@ -1302,3 +1302,31 @@ ul.action-links:after,
     padding: 0.3em 0.5em;
   }
 }*/
+
+/**
+ * Compact author profiles.
+ */
+.node-compact .field {
+  margin: 0;
+  padding: 0;
+}
+
+.node-compact .field-items {
+  margin: 0;
+  padding: 0;
+}
+
+.node-compact .field-item {
+  margin: 0;
+  padding: 0;
+}
+
+.node-compact .field-name-field-image {
+  float: left;
+  width: 19%;
+}
+
+.node-compact .author-info {
+  float:left;
+  width: 79%;
+}

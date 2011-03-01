@@ -81,16 +81,10 @@
  */
 ?>
 <div id="node-<?php print $node->nid; ?>" class="<?php print $classes; ?> clearfix"<?php print $attributes; ?>>
-  <?php if (!$page): ?>
-    <?php print render($title_prefix); ?>
+  <?php print render($content['field_image']); ?>
+  <div class="author-info">
     <h3<?php print $title_attributes; ?>><a href="<?php print $node_url; ?>"><?php print $title; ?></a></h3>
-    <?php print render($title_suffix); ?>
-  <?php endif; ?>
-<?php
-  dpm($content);
-?>
 
-  <div class="content"<?php print $content_attributes; ?>>
     <?php
       // We hide the comments and links.  Shouldn't be any.
       hide($content['comments']);
@@ -98,5 +92,4 @@
       print render($content);
     ?>
   </div>
-
 </div>
