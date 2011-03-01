@@ -1,0 +1,61 @@
+ Package	 Name					Type	Version
+ Administration  Content type overview			Module	7.x-1.0-beta2
+		 (content_type_overview)
+ CCK		 Field Permissions (field_permissions)	Module	7.x-1.x-dev
+ Chaos tool	 Chaos tools (ctools)			Module	7.x-1.0-alpha2
+ suite
+ Core		 Block (block)				Module	7.0
+ Core		 Book (book)				Module	7.0
+ Core		 Comment (comment)			Module	7.0
+ Core		 Contextual links (contextual)		Module	7.0
+ Core		 Dashboard (dashboard)			Module	7.0
+ Core		 Database logging (dblog)		Module	7.0
+ Core		 Field (field)				Module	7.0
+ Core		 Field SQL storage (field_sql_storage)	Module	7.0
+ Core		 Field UI (field_ui)			Module	7.0
+ Core		 File (file)				Module	7.0
+ Core		 Filter (filter)			Module	7.0
+ Core		 Help (help)				Module	7.0
+ Core		 Image (image)				Module	7.0
+ Core		 List (list)				Module	7.0
+ Core		 Menu (menu)				Module	7.0
+ Core		 Node (node)				Module	7.0
+ Core		 Number (number)			Module	7.0
+ Core		 OpenID (openid)			Module	7.0
+ Core		 Options (options)			Module	7.0
+ Core		 Path (path)				Module	7.0
+ Core		 RDF (rdf)				Module	7.0
+ Core		 Search (search)			Module	7.0
+ Core		 Shortcut (shortcut)			Module	7.0
+ Core		 Syslog (syslog)			Module	7.0
+ Core		 System (system)			Module	7.0
+ Core		 Taxonomy (taxonomy)			Module	7.0
+ Core		 Text (text)				Module	7.0
+ Core		 Toolbar (toolbar)			Module	7.0
+ Core		 Tracker (tracker)			Module	7.0
+ Core		 Trigger (trigger)			Module	7.0
+ Core		 Update manager (update)		Module	7.0
+ Core		 User (user)				Module	7.0
+ Custom 	 DGD7 Glue Code (dgd7glue)		Module	7.x-1.0
+ Development	 DGD7 Form Override (dgd7formoverride)	Module
+ Fields 	 Link (link)				Module	7.x-1.0-alpha3
+ Fields 	 Node Reference (node_reference)	Module	7.x-2.x-dev
+ Fields 	 References (references)		Module	7.x-2.x-dev
+ Fields 	 User Reference (user_reference)	Module	7.x-2.x-dev
+ Image		 SmartCrop (smartcrop)			Module	7.x-1.0-beta2
+ Other		 Advanced help (advanced_help)		Module	7.x-1.0-beta1
+ Other		 Code Filter (codefilter)		Module	7.x-1.0
+ Other		 Comment Notify (comment_notify)	Module	7.x-1.0-alpha1
+ Other		 Global Redirect (globalredirect)	Module	7.x-1.3
+ Other		 Gravatar (gravatar)			Module	7.x-1.1
+ Other		 Menu Block (menu_block)		Module	7.x-2.1
+ Other		 Mollom (mollom)			Module	7.x-1.0
+ Other		 Pathauto (pathauto)			Module	7.x-1.0-beta1
+ Other		 Re-markup (remarkup)			Module
+ Other		 Submit Again (submitagain)		Module
+ Other		 Token (token)				Module	7.x-1.0-beta1
+ Other		 Transliteration (transliteration)	Module	7.x-3.0-alpha1
+ Views		 Views (views)				Module	7.x-3.0-alpha1
+ Views		 Views UI (views_ui)			Module	7.x-3.0-alpha1
+ Other		 DGD7 (apress)				Theme
+
