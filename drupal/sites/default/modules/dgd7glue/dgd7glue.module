@@ -44,6 +44,9 @@ function dgd7glue_preprocess_node(&$vars) {
   $vars['theme_hook_suggestions'][] = 'node__' . $type . '__' . $view_mode;
 }
 
+// @TODO implement hook_preprocess_field() to give view-mode theme suggestions.
+// See http://dgd7.org/node/222
+
 /**
  * Implements hook_menu_local_tasks_alter().
  */
