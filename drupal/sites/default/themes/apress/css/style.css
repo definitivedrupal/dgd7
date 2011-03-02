@@ -1307,26 +1307,13 @@ ul.action-links:after,
  * Compact author profiles.
  */
 .node-compact .field {
-  margin: 0;
-  padding: 0;
-}
-
-.node-compact .field-items {
-  margin: 0;
-  padding: 0;
-}
-
-.node-compact .field-item {
-  margin: 0;
   padding: 0;
 }
 
 .node-compact .field-name-field-image {
-  float: left;
-  width: 19%;
+  position: absolute;
 }
 
 .node-compact .author-info {
-  float:left;
-  width: 79%;
+  margin-left: 130px;
 }
