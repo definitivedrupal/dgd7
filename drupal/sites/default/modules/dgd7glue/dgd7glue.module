@@ -46,6 +46,35 @@ function dgd7glue_preprocess_node(&$vars) {
 
 // @TODO implement hook_preprocess_field() to give view-mode theme suggestions.
 // See http://dgd7.org/node/222
+/**
+ * Implements hook_preprocess_field().
+ */
+function dgd7glue_preprocess_field(&$vars) {
+  if ($vars['element']['#field_name'] == 'field_number'
+      && $vars['element']['#bundle'] == 'book') {
+    $v = $vars['items'][0]['#markup'];
+    if (is_numeric($v)) {
+      if ($vars['element']['#view_mode'] == 'compact') {
+        $v = t('Ch !n', array('!n' => $v),
+          array('context' => 'Abbreviation for Chapter'));
+      }
+      else {
+        $v = t('Chapter !n', array('!n' => $v));
+      }
+    }
+    else {
+      // It's not a number, so it is an Appendix.
+      if ($vars['element']['#view_mode'] == 'compact') {
+        $v = t('App !n', array('!n' => $v),
+          array('context' => 'Abbreviation for Appendix'));
+      }
+      else {
+        $v = t('Appendix !n', array('!n' => $v));
+      }
+    }
+    $vars['items'][0]['#markup'] = $v;
+  }
+}
 
 /**
  * Implements hook_menu_local_tasks_alter().
