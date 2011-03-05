@@ -200,8 +200,10 @@ function remarkup_rm_form_keys_validate($element, &$form_state) {
  */
 function remarkup_replace_tags(&$text, $ctag, $before = '', $after = '') {
   $otag = remarkup_otag($ctag);
+  $otag = preg_quote($otag);
+  $ctag = str_replace('/', '\/', preg_quote($ctag));
   $text = preg_replace(
-    '@' . preg_quote($otag) . '(.+?)' . preg_quote($ctag) . '@se',
+    '/' . $otag . '(.+?)' . $ctag . '/se',
     "remarkup_replace_tag('$1', '$before', '$after')",
     $text
   );
