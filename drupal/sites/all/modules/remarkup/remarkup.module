@@ -199,14 +199,20 @@ function remarkup_rm_form_keys_validate($element, &$form_state) {
  * @return NULL 
  */
 function remarkup_replace_tags(&$text, $ctag, $before = '', $after = '') {
-  $otag = remarkup_otag($ctag);
-  $otag = preg_quote($otag);
+  $otag = preg_quote(remarkup_otag($ctag));
   $ctag = str_replace('/', '\/', preg_quote($ctag));
   $text = preg_replace(
     '/' . $otag . '(.+?)' . $ctag . '/s',
-    "$before . $1 . $after",
+    "$before$1$after",
     $text
   );
+}
+
+/**
+ * Take a closing tag and strip the slash to present the opening tag.
+ */
+function remarkup_otag($ctag) {
+  return str_replace('/', '', $ctag);
 }
 
 /**
@@ -216,11 +222,4 @@ function theme_remarkup_settings($vars) {
   $form = $vars['form'];
   return '<p>' . render($form['#description']) . '</p>'
          . drupal_render_children($form);
-}
-
-/**
- * Take a closing tag and strip the slash to present the opening tag.
- */
-function remarkup_otag($ctag) {
-  return str_replace('/', '', $ctag);
 }
