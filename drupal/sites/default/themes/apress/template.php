@@ -4,27 +4,22 @@
  * Implements hook_html_head_alter().
  */
 function apress_html_head_alter(&$head_elements) {
-  // Force the latest IE rendering engine and Google Chrome Frame
-  // <meta http-equiv="X-UA-Compatible" content="IE-edge,chrome=1" />
-  // Need to file a bug report... #type shouldn't need to be set according to:
-  // http://api.drupal.org/api/drupal/includes--common.inc/function/drupal_add_html_head/7
+  // Force the latest IE rendering engine and Google Chrome Frame.
   $head_elements['apress_edge_chrome'] = array(
     '#type' => 'html_tag',
     '#tag' => 'meta',
     '#attributes' => array('http-equiv' => 'X-UA-Compatible', 'content' => 'IE=edge,chrome=1'),
   );
   // Add an Apple touch icon.
- // <link rel="apple-touch-icon-precomposed" href="path/to/theme/images/apple-touch-icon.png" />
   $head_elements['apress_apple_touch_icon'] = array(
     '#type' => 'html_tag',
     '#tag' => 'link',
     '#attributes' => array(
-      // 'rel' => 'apple-touch-icon', // Automatic gradient.
       'rel' => 'apple-touch-icon-precomposed', // No gradient.
+      // 'rel' => 'apple-touch-icon', // Automatic gradient.
       'href' => path_to_theme() . '/images/apple-touch-icon.png',
     ),
   );
-  // <meta name="viewport" content="width=device-width”/>
   $head_elements['apress_viewport'] = array(
     '#type' => 'html_tag',
     '#tag' => 'meta',
@@ -39,11 +34,7 @@ function apress_html_head_alter(&$head_elements) {
  * Implements hook_css_alter().
  */
 function apress_css_alter(&$css) {
-  // Make the theme path available.
-  global $theme_path;
-
   // Remove system.theme.css & system.menus.css.
-  // Cannot remove these in .info without due to bug: [#967166]
   unset($css['modules/system/system.theme.css']);
   unset($css['modules/system/system.menus.css']);
   unset($css['modules/system/system.messages.css']);
@@ -59,6 +50,11 @@ function apress_page_alter(&$page) {
   }
   // Add the breadcrumbs to the bottom of the footer region.
   $page['footer']['breadcrumbs'] = array(
+    '#type' => 'container',
+    '#attributes' => array('class' => array('breadcrumb-wrapper', 'clearfix')),
+    '#weight' => 10,
+  );
+  $page['footer']['breadcrumbs']['breadcrumb'] = array(
     '#theme' => 'breadcrumb',
     '#prefix' => '<div class="breadcrumb-wrapper clearfix">',
     '#breadcrumb' => drupal_get_breadcrumb(),

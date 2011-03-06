@@ -1,7 +1,5 @@
-name = DGD7
-description = Definitive Guide to Drupal 7
-; engine no longer required as of 11/6/2010 [#801632].
-engine = phptemplate
+name = DGD7 Theme
+description = A theme written for The Definitive Guide to Drupal 7 book website.
 core = 7.x
 
 ; STYLESHEETS

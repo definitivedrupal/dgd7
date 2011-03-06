@@ -1,24 +1,3 @@
-/**
- * - Forms.
- *
- *
- * - Wrappers.
- *
- *
- * - Elements.
- *
- *
- * - Autocomplete text inouts.
- *
- *
- * - Errors and markers.
- *
- *
- * - Collapsible fieldsets.
- *
- *
- * - Vertical tabs. 
- */
 form {
   font-family: "Droid Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
@@ -224,4 +203,20 @@ div.form-item div.password-suggestions {
 .sidebar .form-item,
 .region-header .form-item {
   margin: 0;
+}
+
+/* two column form layout */
+.two-column .form-item {
+  padding-left: 160px;
+  position: relative;
+}
+.two-column .form-item label {
+  position: absolute;
+  left: 0;
+}
+.two-column .form-item .form-item {
+  padding-left: 0;
+}
+.two-column .form-item .form-item label {
+  position: relative;
 }
