@@ -129,7 +129,7 @@ function dgd7glue_theme_registry_alter(&$theme_registry) {
 /**
  * Replaces template_preprocess_book_navigation() when using tpl for non-books.
  *
- * The sad, sordid history of this hack is summarized at  
+ * The sad, sordid history of this hack is summarized at http://dgd7.org/230. 
  */
 function dgd7glue_template_preprocess_book_navigation(&$variables) {
   if (!isset($variables['book_link']['dgd7glue'])) {
