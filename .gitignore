@@ -4,3 +4,4 @@ drupal/sites/default/settings.php
 drupal/sites/all/modules/devel
 drupal/sites/default/files
 db
+drupal/test.php
