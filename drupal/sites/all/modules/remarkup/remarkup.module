@@ -127,8 +127,11 @@ function _remarkup_settings($form, $form_state, $filter, $format, $defaults) {
  * Add a set of form fields for adding a new tag and replacement markup pair.
  */
 function _remarkup_add_rm_formset(&$settings, $i, $tag = '', $replace = array('before' => '', 'after' => '')) {
+  $settings['rm'][$i] = array(
+    '#theme_wrappers' => array('container'),
+    '#attributes' => array('class' => array('remarkup-formset')),
+  );
   $settings['rm'][$i]['tag'] = array(
-    '#prefix' => '<div class="remarkup-formset">',
     '#type' => 'textfield',
     '#title' => t('Tag'),
     '#maxlength' => 64,
@@ -149,7 +152,6 @@ function _remarkup_add_rm_formset(&$settings, $i, $tag = '', $replace = array('b
     '#maxlength' => 1024,
     '#size' => 46,
     '#default_value' => $replace['after'],
-    '#suffix' => '</div>',
   );
 }
 
