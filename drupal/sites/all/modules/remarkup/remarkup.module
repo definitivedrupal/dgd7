@@ -143,14 +143,14 @@ function _remarkup_add_rm_formset(&$settings, $i, $tag = '', $replace = array('b
     '#type' => 'textfield',
     '#title' => t('Before'),
     '#maxlength' => 1024,
-    '#size' => 46,
+    '#size' => 45,
     '#default_value' => $replace['before'],
   );
   $settings['rm'][$i]['after'] = array(
     '#type' => 'textfield',
     '#title' => t('After'),
     '#maxlength' => 1024,
-    '#size' => 46,
+    '#size' => 45,
     '#default_value' => $replace['after'],
   );
 }
