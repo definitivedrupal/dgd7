@@ -102,6 +102,17 @@ function apress_menu_local_tasks_alter(&$data, $router_item, $root_path) {
     // Change the title to include the icon markup and sanitized title.
     $data['actions']['output'][$key]['#link']['title'] = '<span class="icon"/></span>' . $title;
   }
+
+  if ($root_path == 'user/%') {
+    // Change the first tab title from 'View' to 'My profile'.
+    if ($data['tabs'][0]['output'][0]['#link']['title'] == t('View')) {
+      $data['tabs'][0]['output'][0]['#link']['title'] = t('Profile');
+    }
+    // Change the second tab title from 'Edit' to 'Edit profile'.
+    if ($data['tabs'][0]['output'][1]['#link']['title'] == t('Edit')) {
+      $data['tabs'][0]['output'][1]['#link']['title'] = t('Edit profile');
+    }
+  }
 }
 
 /**
