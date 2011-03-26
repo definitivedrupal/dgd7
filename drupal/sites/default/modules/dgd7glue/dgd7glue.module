@@ -402,3 +402,26 @@ function dgd7glue_profiles() {
 
   return node_view_multiple(node_load_multiple(array_keys($result['node'])), 'teaser');
 }
+
+/**
+ * Implements hook_views_api().
+ */
+function dgd7glue_views_api() {
+  return array(
+    'api' => '3.0',
+    // 'path' => drupal_get_path('module', 'dgd7glue') . '/views/*.inc',    
+    'path' => 'views/*.inc',    
+  );
+}
+
+/**
+ * Implements hook_views_default_views().
+ */
+function dgd7glue_views_default_views() {
+  $path = './views/*.inc';
+  $views = array();
+  foreach (glob($path) as $views_filename) {
+     require_once($views_filename);
+  }
+  return $views;
+}
