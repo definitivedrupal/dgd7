@@ -409,8 +409,6 @@ function dgd7glue_profiles() {
 function dgd7glue_views_api() {
   return array(
     'api' => '3.0',
-    // 'path' => drupal_get_path('module', 'dgd7glue') . '/views/*.inc',    
-    'path' => 'views/*.inc',    
   );
 }
 
@@ -418,7 +416,7 @@ function dgd7glue_views_api() {
  * Implements hook_views_default_views().
  */
 function dgd7glue_views_default_views() {
-  $path = './views/*.inc';
+  $path = './'. drupal_get_path('module', 'dgd7glue') .'/views/*.inc';
   $views = array();
   foreach (glob($path) as $views_filename) {
      require_once($views_filename);
