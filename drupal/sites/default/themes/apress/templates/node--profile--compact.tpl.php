@@ -1,6 +1,4 @@
 <?php
-// $Id: node.tpl.php,v 1.34 2010/12/01 00:18:15 webchick Exp $
-
 /**
  * @file
  * Default theme implementation to display a node.
