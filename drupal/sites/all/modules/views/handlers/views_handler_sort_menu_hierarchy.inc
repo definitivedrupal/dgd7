@@ -5,7 +5,7 @@
  *
  * Given a field name of 'p' this produces an ORDER BY on p1, p2, ..., p9;
  * and optionally injects multiple joins to {menu_links} to sort by weight
- * and title as well, darnit!
+ * and title as well.
  *
  * This is only really useful for the {menu_links} table.
  *
