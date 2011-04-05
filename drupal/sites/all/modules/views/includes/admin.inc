@@ -860,16 +860,53 @@ function views_ui_break_lock_confirm_submit(&$form, &$form_state) {
 }
 
 /**
- * Page title callback for the Edit View page.
+ * Page callback for the Edit View page.
  */
-function views_ui_edit_page_title($view) {
-  $bases = views_fetch_base_tables();
-  $name = $view->get_human_name();
-  if (isset($bases[$view->base_table])) {
-    $name .= ' (' . $bases[$view->base_table]['title'] . ')';
+function views_ui_edit_page($view, $display_id = NULL) {
+  $display_id = views_ui_edit_page_display($view, $display_id);
+  if (!in_array($display_id, array(MENU_ACCESS_DENIED, MENU_NOT_FOUND))) {
+    $build = drupal_get_form('views_ui_edit_form', $view, $display_id);
+  }
+  else {
+    $build = $display_id;
   }
 
-  return $name;
+  return $build;
+}
+
+/**
+ * Helper function to return the used display_id for the edit page
+ *
+ * This function handles access to the display.
+ */
+function views_ui_edit_page_display($view, $display_id) {
+  // Determine the displays available for editing.
+  if ($tabs = views_ui_edit_page_display_tabs($view)) {
+    // If a display isn't specified, use the first one.
+    if (empty($display_id)) {
+      foreach ($tabs as $id => $tab) {
+        if (!isset($tab['#access']) || $tab['#access']) {
+          $display_id = $id;
+          break;
+        }
+      }
+    }
+    // If a display is specified, but we don't have access to it, return
+    // an access denied page.
+    if ($display_id && (!isset($tabs[$display_id]) || (isset($tabs[$display_id]['#access']) && !$tabs[$display_id]['#access']))) {
+      return MENU_ACCESS_DENIED;
+    }
+
+    return $display_id;
+  }
+  elseif ($display_id) {
+    return MENU_ACCESS_DENIED;
+  }
+  else {
+    $display_id = NULL;
+  }
+
+  return $display_id;
 }
 
 /**
@@ -1042,34 +1079,12 @@ function views_ui_edit_form($form, &$form_state, $view, $display_id = NULL) {
 
   // Determine the displays available for editing.
   if ($tabs = views_ui_edit_page_display_tabs($view)) {
-    // If a display isn't specified, use the first one.
-    if (empty($display_id)) {
-      foreach ($tabs as $id => $tab) {
-        if (!isset($tab['#access']) || $tab['#access']) {
-          $display_id = $id;
-          break;
-        }
-      }
-    }
-    // If a display is specified, but we don't have access to it, return
-    // an access denied page.
-    if ($display_id && (!isset($tabs[$display_id]) || (isset($tabs[$display_id]['#access']) && !$tabs[$display_id]['#access']))) {
-      // TODO: This doesn't work inside a form.
-      return MENU_ACCESS_DENIED;
-    }
-
     if ($display_id) {
       $tabs[$display_id]['#active'] = TRUE;
     }
     $tabs['#prefix'] = '<h2 class="element-invisible">' . t('Secondary tabs') . '</h2><ul class="tabs secondary">';
     $tabs['#suffix'] = '</ul>';
     $form['displays']['top']['tabs'] = $tabs;
-  }
-  elseif ($display_id) {
-    return MENU_ACCESS_DENIED;
-  }
-  else {
-    $display_id = NULL;
   }
 
   // Buttons for adding a new display.
@@ -4146,7 +4161,7 @@ function views_ui_config_item_form($form, &$form_state) {
           '#title' => t('Relationship'),
           '#options' => $relationship_options,
           '#default_value' => $rel,
-          '#fieldset' => 'more',
+          '#weight' => -500,
         );
       }
       else {

@@ -95,12 +95,12 @@ class views_handler_argument extends views_handler {
     }
 
     if (!empty($options['validate_type']) && !isset($options['validate']['type'])) {
-      $options['validate']['type'] = $options['validate_type'];
-      $options['specify_validation'] = 1;
+      $this->options['validate']['type'] = $options['validate_type'];
+      $this->options['specify_validation'] = 1;
     }
     if (!empty($options['validate_fail']) && !isset($options['validate']['fail'])) {
-      $options['validate']['fail'] = $options['validate_fail'];
-      $options['specify_validation'] = 1;
+      $this->options['validate']['fail'] = $options['validate_fail'];
+      $this->options['specify_validation'] = 1;
     }
   }
 
@@ -459,7 +459,7 @@ class views_handler_argument extends views_handler {
         'default only' => TRUE, // this can only be used for missing argument, not validation failure
       ),
       'not found' => array(
-        'title' => t('Show "Page not found"'),
+        'title' => t('Hide view'),
         'method' => 'default_not_found',
         'hard fail' => TRUE, // This is a hard fail condition
       ),
@@ -476,6 +476,10 @@ class views_handler_argument extends views_handler {
         'breadcrumb' => TRUE, // generate a breadcrumb to here
       ),
     );
+
+    if ($this->view->display_handler->has_path()) {
+      $defaults['not found']['title'] = t('Show "Page not found"');
+    }
 
     if ($which) {
       if (!empty($defaults[$which])) {

@@ -682,6 +682,10 @@ function views_add_contextual_links(&$render_element, $location, $view, $display
     // contextual links that are intended to be displayed in the requested
     // location.
     $plugin = views_fetch_plugin_data('display', $view->display[$display_id]->display_plugin);
+    // If contextual links locations are empty provide a sane default.
+    if (empty($plugin['contextual links locations'])) {
+      $plugin['contextual links locations'] = array('view');
+    }
     $has_links = !empty($plugin['contextual links']) && !empty($plugin['contextual links locations']);
     if ($has_links && in_array($location, $plugin['contextual links locations'])) {
       foreach ($plugin['contextual links'] as $module => $link) {
@@ -983,11 +987,11 @@ function views_include_handlers($reset = FALSE) {
 function views_get_handler($table, $field, $key, $override = NULL) {
   static $recursion_protection = array();
 
-  $data = views_fetch_data($table);
+  $data = views_fetch_data($table, FALSE);
   $handler = NULL;
 
   // Support old views_data entries conversion.
-  
+
   // Support conversion on table level.
   if (isset($data['moved to'])) {
     $moved = array($data['moved to'], $field);
@@ -1000,6 +1004,7 @@ function views_get_handler($table, $field, $key, $override = NULL) {
   if (isset($data[$field][$key]['moved to'])) {
     $moved = $data[$field][$key]['moved to'];
   }
+
   if (isset($data[$field][$key]) || !empty($moved)) {
     if (!empty($moved)) {
       list($moved_table, $moved_field) = $moved;
@@ -1007,6 +1012,7 @@ function views_get_handler($table, $field, $key, $override = NULL) {
         // recursion detected!
         return NULL;
       }
+
       $recursion_protection[$moved_table][$moved_field] = TRUE;
       $handler = views_get_handler($moved_table, $moved_field, $key, $override);
       $recursion_protection = array();
@@ -1196,7 +1202,7 @@ function views_get_applicable_views($type) {
         // This view uses hook menu. Clone it so that different handlers
         // don't trip over each other, and add it to the list.
         $v = $view->clone_view();
-        if ($v->set_display($id)) {
+        if ($v->set_display($id) && $v->display_handler->get_option('enabled')) {
           $result[] = array($v, $id);
         }
         // In PHP 4.4.7 and presumably earlier, if we do not unset $v
@@ -1276,6 +1282,12 @@ function views_get_view($name, $reset = FALSE) {
   ctools_include('export');
   $view = ctools_export_crud_load('views_view', $name);
   if ($view) {
+    // When views are converted automatically the base_table should be renamed
+    // to have a working query.
+    $data = views_fetch_data($view->base_table, FALSE);
+    if (isset($data['moved to'])) {
+      $view->base_table = $data['moved to'];
+    }
     return $view->clone_view();
   }
 }
@@ -1480,6 +1492,18 @@ function views_exposed_form($form, &$form_state) {
   views_exposed_form_cache($view->name, $view->current_display, $form);
 
   return $form;
+}
+
+/**
+ * Implement hook_form_alter for the exposed form.
+ *
+ * Since the exposed form is a GET form, we don't want it to send a wide
+ * variety of information.
+ */
+function views_form_views_exposed_form_alter(&$form, &$form_state) {
+  $form['form_build_id']['#access'] = FALSE;
+  $form['form_token']['#access'] = FALSE;
+  $form['form_id']['#access'] = FALSE;
 }
 
 /**
