@@ -72,8 +72,7 @@ function user_reference_field_settings_form($field, $instance, $has_data) {
     '#default_value' => is_array($settings['referenceable_roles'])
        ? array_filter($settings['referenceable_roles'])
        : array(),
-    '#options' => user_roles(1),
-    '#disabled' => $has_data,
+    '#options' => user_roles(TRUE),
   );
   $form['referenceable_status'] = array(
     '#type' => 'checkboxes',
@@ -82,7 +81,6 @@ function user_reference_field_settings_form($field, $instance, $has_data) {
       ? array_filter($settings['referenceable_status'])
       : array(1),
     '#options' => array(1 => t('Active'), 0 => t('Blocked')),
-    '#disabled' => $has_data,
   );
   return $form;
 }
@@ -706,6 +704,21 @@ function user_reference_field_views_data($field) {
       $data[$table][$id_column]['filter']['handler'] = 'views_handler_filter_in_operator';
       $data[$table][$id_column]['filter']['options callback'] = 'user_reference_views_filter_options';
       $data[$table][$id_column]['filter']['options arguments'] = array($field['field_name']);
+
+      // Argument: display users.name in argument titles (handled in our custom
+      // handler) and summary lists (handled by the base views_handler_argument
+      // handler).
+      // Both mechanisms rely on the 'name table' and 'name field' information
+      // below, by joining to a separate copy of the base table from the field
+      // data table.
+      $data[$table][$id_column]['argument']['handler'] = 'references_handler_argument';
+      $data[$table][$id_column]['argument']['name table'] = $table . '_reference';
+      $data[$table][$id_column]['argument']['name field'] = 'name';
+      $data[$table . '_reference']['table']['join'][$table] = array(
+        'left_field' => $id_column,
+        'table' => 'users',
+        'field' => 'uid',
+      );
 
       // Relationship.
       $data[$table][$id_column]['relationship'] = array(

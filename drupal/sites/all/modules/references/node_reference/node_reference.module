@@ -78,7 +78,6 @@ function node_reference_field_settings_form($field, $instance, $has_data) {
       ? $settings['referenceable_types']
       : array(),
     '#options'       => array_map('check_plain', node_type_get_names()),
-    '#disabled'      => $has_data,
   );
   return $form;
 }
@@ -158,7 +157,7 @@ function node_reference_field_prepare_view($entity_type, $entities, $field, $ins
       if (!user_access('administer nodes')) {
         $query->condition('status', 1);
       }
-      $fetched_nodes = $query->execute()->fetchAllAssoc('nid');
+      $fetched_nodes += $query->execute()->fetchAllAssoc('nid');
     }
 
     foreach ($items as $id => $entity_items) {
@@ -881,6 +880,21 @@ function node_reference_field_views_data($field) {
       $data[$table][$id_column]['filter']['handler'] = 'views_handler_filter_in_operator';
       $data[$table][$id_column]['filter']['options callback'] = 'node_reference_views_options';
       $data[$table][$id_column]['filter']['options arguments'] = array($field['field_name']);
+
+      // Argument: display node.title in argument titles (handled in our custom
+      // handler) and summary lists (handled by the base views_handler_argument
+      // handler).
+      // Both mechanisms rely on the 'name table' and 'name field' information
+      // below, by joining to a separate copy of the base table from the field
+      // data table.
+      $data[$table][$id_column]['argument']['handler'] = 'references_handler_argument';
+      $data[$table][$id_column]['argument']['name table'] = $table . '_reference';
+      $data[$table][$id_column]['argument']['name field'] = 'title';
+      $data[$table . '_reference']['table']['join'][$table] = array(
+        'left_field' => $id_column,
+        'table' => 'node',
+        'field' => 'nid',
+      );
 
       // Relationship.
       $data[$table][$id_column]['relationship'] = array(
