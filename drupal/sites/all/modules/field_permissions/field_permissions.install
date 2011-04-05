@@ -1,0 +1,28 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the Field Permissions module.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function field_permissions_install() {
+  // Set a larger weight for the module.
+  db_update('system')
+    ->fields(array('weight' => 50))
+    ->condition('name', 'field_permissions')
+    ->execute();
+}
+
+/**
+ * Sets a larger weight for the module so that the Field Permissions become available.
+ */
+function field_permissions_update_7000(&$sandbox) {
+  db_update('system')
+    ->fields(array('weight' => 50))
+    ->condition('name', 'field_permissions')
+    ->execute();
+}
+

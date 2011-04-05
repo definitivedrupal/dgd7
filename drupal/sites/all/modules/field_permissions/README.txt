@@ -56,13 +56,20 @@ REQUIREMENTS
 INSTALLATION
 ============
 
-- Be sure to install all dependent modules.
+1) Be sure to install all dependent modules.
 
-- Copy all contents of this package to your modules directory preserving
-  subdirectory structure.
+2) Copy all contents of this package to your modules directory preserving
+   subdirectory structure.
 
-- Go to Administer -> Site building -> Modules to install module.
+3) Go to Administer -> Modules to install module.
 
-- Review the settings of your fields. You will find a new option labelled
-  "Field permissions" that allows you to enable permissions per field. It
-  is disabled by default.
+4) Review the settings of your fields. You will find a new option labelled
+   "Field permissions" that allows you to enable permissions per field. It
+   is disabled by default.
+
+5) Visit the Administer -> People -> Permissions page to enable the permission
+   for selected roles.
+
+6) Get an overview of the Field Permissions at:
+   Administer -> Reports -> Field list -> Permissions
+

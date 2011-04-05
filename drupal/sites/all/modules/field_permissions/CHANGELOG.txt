@@ -1,7 +1,14 @@
+7.x-1.0-alpha1
+==============
+- #1063162 by jide, Rob Loach: Field Permissions not accessible for some fields.
+- #965110 by Danic: Move Field Permissions UI to Reports.
+- #965094 by Danic, Rob Loach: Group Title and Description in modules page.
+- #1043522 by erikwebb: Permissions administration link wrong on Edit Field page.
+- Small documentation changes.
+
 
 7.x-1.x-dev
 ===========
-
 - Added support for create field permission.
 - Every permission type can be enabled independently.
 - Sync code base from 6.x-1.0 release.

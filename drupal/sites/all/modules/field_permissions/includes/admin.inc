@@ -6,46 +6,6 @@
  */
 
 /**
- * Implementation of hook_menu().
- */
-function _field_permissions_menu() {
-  $items = array();
-  $items['admin/structure/field_permissions'] = array(
-    'title' => 'Field permissions',
-    'description' => 'Report and troubleshoot field permissions.',
-    'page callback' => 'field_permissions_overview',
-    'access arguments' => array('administer field permissions'),
-    'file' => 'includes/admin.inc',
-  );
-  $items['admin/structure/field_permissions/overview'] = array(
-    'title' => 'Overview',
-    'type' => MENU_DEFAULT_LOCAL_TASK,
-    'weight' => -10,
-  );
-
-  // @todo: what to do with non-node objects?
-/*
-  $items['admin/structure/field_permissions/troubleshooting'] = array(
-    'title' => 'Troubleshooting',
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('field_permissions_troubleshooting_form'),
-    'access arguments' => array('administer field permissions'),
-    'file' => 'includes/admin.inc',
-    'type' => MENU_LOCAL_TASK,
-    'weight' => 10,
-  );
-  $items['field_permissions/autocomplete'] = array(
-    'title' => 'Field permissions autocomplete',
-    'page callback' => 'field_permissions_autocomplete',
-    'access arguments' => array('administer field permissions'),
-    'file' => 'includes/admin.inc',
-    'type' => MENU_CALLBACK,
-  );
-//*/
-  return $items;
-}
-
-/**
  * Obtain the list of field permissions.
  */
 function field_permissions_list($field_name = '') {
@@ -107,16 +67,8 @@ function _field_permissions_permission() {
  * Alter the field settings form.
  */
 function _field_permissions_field_settings_form_alter(&$form, $form_state, $form_id) {
-  // Try to obtain the field name from the form itself.
-  if ($form_id == 'field_ui_field_settings_form') {
-    $field_name = $form['field']['field_name']['#value'];
-  }
-  elseif ($form_id == 'field_ui_field_edit_form') {
-    $field_name = $form['instance']['field_name']['#value'];
-  }
-  else {
-    return;
-  }
+  // Obtain the field name from the form itself.
+  $field_name = isset($form['instance']['field_name']['#value']) ? $form['instance']['field_name']['#value'] : '';
 
   // Try to obtain information about this field.
   $field = field_info_field($field_name);
@@ -138,7 +90,7 @@ function _field_permissions_field_settings_form_alter(&$form, $form_state, $form
     '#description' => t('Use these options to enable role based permissions for this field.
 When permissions are enabled, access to this field is denied by default and explicit permissions should be granted to the proper user roles from the <a href="@admin-permissions">permissions administration</a> page.
 On the other hand, when these options are disabled, field permissions are inherited from the content view and/or edit permissions. In example, users allowed to view a particular node will also be able to view this field, and so on.', array(
-      '@admin-permissions' => url('admin/config/people/permissions'),
+      '@admin-permissions' => url('admin/people/permissions', array('fragment' => 'module-field_permissions')),
     )),
     '#weight' => -1,
   );
@@ -172,26 +124,44 @@ function field_permissions_overview() {
   foreach ($instances as $obj_type => $type_bundles) {
     foreach ($type_bundles as $bundle => $bundle_instances) {
       foreach ($bundle_instances as $field_name => $instance) {
+        // Each field will have a row in the table.
         $field = field_info_field($field_name);
         $admin_path = _field_ui_bundle_admin_path($obj_type, $bundle);
         $rows[$field_name]['data'][0] = $field['locked'] ? t('@field_name (Locked)', array('@field_name' => $field_name)) : $field_name;
         $rows[$field_name]['data'][1] = t($field_types[$field['type']]['label']);
         $rows[$field_name]['data'][2] = $obj_type;
-        $rows[$field_name]['data'][3][] = l($bundles[$obj_type][$bundle]['label'], $admin_path . '/fields/'. $field_name .'/field-settings', array('query' => $destination));
+        $rows[$field_name]['data'][3][] = l($bundles[$obj_type][$bundle]['label'], $admin_path . '/fields/'. $field_name, array(
+          'query' => $destination,
+          'fragment' => 'edit-field-settings-field-permissions',
+        ));
         $rows[$field_name]['class'] = $field['locked'] ? array('menu-disabled') : array('');
 
         // Append field permissions information to the report.
         $field_permissions = (isset($field['settings']['field_permissions']) && is_array($field['settings']['field_permissions']) ? array_filter($field['settings']['field_permissions']) : array());
         foreach (array_keys(field_permissions_list()) as $index => $permission_type) {
+          // Put together the data value for the cell.
+          $data = '';
           if (!empty($field_permissions[$permission_type])) {
-            $status = 'on';
-            $title = t('Enabled');
+            // Link the Enabled permission to the permissions page.
+            $data = l('', 'admin/people/permissions', array(
+              'attributes' => array(
+                'class' => array('field-permissions-status', 'field-permissions-status-on'),
+                'title' => t('Enabled'),
+              ),
+              'fragment' => drupal_html_class("edit $permission_type $field_name"),
+            ));
           }
           else {
-            $status = 'off';
+            // Simply display the status off text.
             $title = t('Disabled');
+            $data = '<span class="field-permissions-status field-permissions-status-off" title="' . $title . '"></span>';
           }
-          $rows[$field_name]['data'][4 + $index] = array('data' => '<span class="field-permissions-status field-permissions-status-'. $status .'" title="'. check_plain($title) .'"></span>', 'class' => 'field-permissions-cell');
+
+          // Construct the cell.
+          $rows[$field_name]['data'][4 + $index] = array(
+            'data' => $data,
+            'class' => array('field-permissions-cell'),
+          );
         }
       }
     }
