@@ -1,5 +1,4 @@
 <?php
-// $Id: menu_block_export.admin.inc,v 1.1.2.3 2010/09/28 17:57:33 johnalbin Exp $
 
 /**
  * @file

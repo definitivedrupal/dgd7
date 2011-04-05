@@ -1,3 +1,7 @@
+Menu Block 7.x-2.2, 2011-03-09
+------------------------------
+- #1086376: Custom menu fix doesn't work for new installations
+
 Menu Block 7.x-2.1, 2011-02-06
 ------------------------------
 - #1051988: Fix wrong path in menu_block_help()

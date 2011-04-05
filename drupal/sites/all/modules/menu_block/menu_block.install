@@ -37,6 +37,8 @@ function menu_block_uninstall() {
  */
 function menu_block_enable() {
   drupal_set_message(t('To use menu blocks, find the "Add menu block" link on the <a href="@url">administer blocks page</a>.', array('@url' => url('admin/structure/block'))));
+  // @TODO Remove this when after this core bug is fixed: #942782.
+  menu_block_fix_custom_menus();
 }
 
 /**
@@ -169,9 +171,9 @@ function menu_block_update_7200() {
 }
 
 /**
- * Add missing custom menus to active menus list.
+ * Helper function to fix custom menus in Drupal 7.0.
  */
-function menu_block_update_7201() {
+function menu_block_fix_custom_menus() {
   // Make sure all custom menus are present in the active menus variable so that
   // their items may appear in the active trail.
   // @see menu_set_active_menu_names()
@@ -188,4 +190,11 @@ function menu_block_update_7201() {
   }
   // Clear the menu cache.
   cache_clear_all(NULL, 'cache_menu');
+}
+
+/**
+ * Add missing custom menus to active menus list.
+ */
+function menu_block_update_7202() {
+  menu_block_fix_custom_menus();
 }
