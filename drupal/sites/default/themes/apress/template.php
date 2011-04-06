@@ -387,6 +387,9 @@ function apress_breadcrumb($variables) {
   }
 }
 
+/**
+ * Overrides theme_status_messages().
+ */
 function apress_status_messages($variables) {
   $display = $variables['display'];
   $output = '';
