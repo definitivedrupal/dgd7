@@ -44,8 +44,6 @@ function dgd7glue_preprocess_node(&$vars) {
   $vars['theme_hook_suggestions'][] = 'node__' . $type . '__' . $view_mode;
 }
 
-// @TODO implement hook_preprocess_field() to give view-mode theme suggestions.
-// See http://dgd7.org/node/222
 /**
  * Implements hook_preprocess_field().
  */
@@ -74,6 +72,8 @@ function dgd7glue_preprocess_field(&$vars) {
     }
     $vars['items'][0]['#markup'] = $v;
     if ($vars['element']['#view_mode'] == 'compact') {
+      // To implement hook_preprocess_field() to give view-mode theme
+      // suggestions, see http://dgd7.org/node/222
       $vars['theme_hook_suggestion'] = 'dgd7glue_field_single_item_plain';
     }
   }
