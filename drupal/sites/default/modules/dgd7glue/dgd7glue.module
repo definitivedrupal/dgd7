@@ -73,6 +73,9 @@ function dgd7glue_preprocess_field(&$vars) {
       }
     }
     $vars['items'][0]['#markup'] = $v;
+    if ($vars['element']['#view_mode'] == 'compact') {
+      $vars['theme_hook_suggestion'] = 'dgd7glue_field_single_item_plain';
+    }
   }
 }
 
@@ -110,6 +113,25 @@ function dgd7glue_node_view($node, $view_mode, $langcode) {
       '#weight' => 100,
     );
   }
+}
+
+/**
+ * Implements hook_theme().
+ */
+function dgd7glue_theme() {
+  return array(
+    'dgd7glue_field_single_item_plain' => array(
+      'render element' => 'element',
+      'function' => 'dgd7glue_field_single_item_plain',
+    ),
+  );
+}
+
+/**
+ * Replaces theme_field() for removing all markup around single-item fields.
+ */
+function dgd7glue_field_single_item_plain($vars) {
+  return drupal_render($vars['items'][0]);
 }
 
 /**
