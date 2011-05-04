@@ -106,6 +106,10 @@ DirectoryIndex index.php index.html index.htm
   # uncomment the following line:
   RewriteBase /
 
+  # Allow modules as path alias
+  RewriteCond %{REQUEST_URI} ^/modules/?$
+  RewriteRule ^ index.php [L]
+
   # Pass all requests not referring directly to files in the filesystem to
   # index.php. Clean URLs are handled in drupal_environment_initialize().
   RewriteCond %{REQUEST_FILENAME} !-f
