@@ -3,7 +3,7 @@ begin
   require 'rubygems'
   require 'hoe'
   require 'vlad' 
-  Vlad.load(:app => nil, :scm => nil)
+  Vlad.load(:app => nil, :scm => nil, :config => 'vlad/deploy.rb')
 rescue LoadError
   # do nothing
 end
@@ -18,7 +18,7 @@ task :test do
   set :web_user, "www-data"
   set :web_group, "www-data"
   set :web_sites, "/etc/apache2/sites-available"
-  set :db_file, "--defaults-file=/etc/mysql/drupal.cnf"
+  set :db_file, "/etc/mysql/drupal.cnf"
   set :db_name, "drupal-#{application}"
   set :db_user, "#{application}"
   set :db_pass, "example"
@@ -39,7 +39,7 @@ task :prod do
   set :web_user, "www-data"
   set :web_group, "www-data"
   set :web_sites, "/etc/apache2/sites-available"
-  set :db_file, "--defaults-file=/etc/mysql/drupal.cnf"
+  set :db_file, "/etc/mysql/drupal.cnf"
   set :db_name, "drupal-#{application}"
   set :db_user, "#{application}"
   set :db_pass, "example"
