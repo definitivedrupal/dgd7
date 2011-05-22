@@ -95,9 +95,7 @@ function _remarkup_tips($filter, $format, $long = FALSE) {
  * Settings callback for tag filter.
  */
 function _remarkup_settings($form, $form_state, $filter, $format, $defaults) {
-  // Add CSS to make the form elements in _remarkup_add_rm_formset() look good.
-  drupal_add_css(drupal_get_path('module', 'remarkup') . '/remarkup.css');
-  // Declare the array will hold our settings form elements.
+  // Declare the array that will hold our settings form elements.
   $settings = array();
   // Where filter settings are not defined, use the default settings.
   $filter->settings += $defaults;
@@ -108,6 +106,10 @@ function _remarkup_settings($form, $form_state, $filter, $format, $defaults) {
     '#description' => t('To set tags and replacement markup, enter only the closing tag (such as &lt;/tip&gt;); the opening tag will be calculated automatically by removing the slash (&lt;tip&gt; in this example).  Then enter the before and after markup which will replace the opening and closing tag, respectively.'),
     '#theme' => 'remarkup_settings',
     '#element_validate' => array('remarkup_rm_form_keys_validate'),
+    // Add CSS to make _remarkup_add_rm_formset() form elements look good.
+    '#attached' => array(
+      'css' => array(drupal_get_path('module', 'remarkup') . '/remarkup.css'),
+    ),
   );
   $i = 0;
   foreach ($rm as $tag => $replace) {
@@ -128,7 +130,7 @@ function _remarkup_settings($form, $form_state, $filter, $format, $defaults) {
  */
 function _remarkup_add_rm_formset(&$settings, $i, $tag = '', $replace = array('before' => '', 'after' => '')) {
   $settings['rm'][$i] = array(
-    '#theme_wrappers' => array('container'),
+    '#type' => 'container',
     '#attributes' => array('class' => array('remarkup-formset')),
   );
   $settings['rm'][$i]['tag'] = array(

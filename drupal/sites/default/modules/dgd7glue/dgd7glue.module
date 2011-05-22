@@ -445,3 +445,57 @@ function dgd7glue_views_default_views() {
   }
   return $views;
 }
+
+/**
+ * Make an array of items into a proper, punctuated, and sentence-ready list.
+ *
+ * [Copied from xray.module.]
+ *
+ * Based on http://www.drupaler.co.uk/blog/oxford-comma/503
+ * Grammatically fun helper to make a list of things in a sentence, ie
+ * turn an array into a string 'a, b, and c'.
+ *
+ * @param $list
+ *   An array of words or items to join.
+ * @param $settings
+ *   An array of optional settings to use in making the Oxford comma list:
+ *   - type
+ *     The text to use between the last two items. Defaults to 'and'.  Pass in
+ *     'or' and 'and' without translation; translate any other join.
+ *   - comma
+ *     The join for the list.  Defaults to a comma followed by a space.
+ *     To make an Oxford comma list with semicolons, use '; '.
+ *   - oxford
+ *     Change this from default 'TRUE' and you are a philistine.
+ */
+function dgd7glue_oxford_comma_list($list, $settings = array()) {
+  // Set default settings.
+  $comma = ', ';
+  $type = 'and';
+  $oxford = TRUE;
+  // Overwrite default settings with any passed-in settings that apply.
+  extract($settings, EXTR_IF_EXISTS);
+  // Translate 'and' and 'or'.
+  if ($type == 'and') {
+    $type = t('and', array(), array('context' => 'Final join'));
+  }
+  elseif ($type == 'or') {
+    $type = t('or', array(), array('context' => 'Final join'));
+  }
+  // If it is a listing of more than two and the Oxford comma setting is as the
+  // Queen intended, include the comma (or other separator) in the final join.
+  if ($oxford && count($list) > 2) {
+    $final_join = $comma . $type . ' ';
+  }
+  else {
+    $final_join = ' ' . $type . ' ';
+  }
+  // Take the last two elements off of the $list array.
+  $final = array_splice($list, -2, 2);
+  // Combine the final two removed elements around the final join string.
+  $final_string = implode($final_join, $final);
+  // Add the combined elements (now a single element) back onto the list array.
+  array_push($list, $final_string);
+  // Return the list as a text string joined together with commas (or other).
+  return implode($comma, $list);
+}
