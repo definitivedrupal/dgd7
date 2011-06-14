@@ -1,5 +1,4 @@
 <?php
-// $Id: book.pages.inc,v 1.27 2010/07/07 01:07:33 dries Exp $
 
 /**
  * @file
@@ -77,9 +76,11 @@ function book_export_html($nid) {
     if (isset($node->book)) {
       $tree = book_menu_subtree_data($node->book);
       $contents = book_export_traverse($tree, 'book_node_export');
+      return theme('book_export_html', array('title' => $node->title, 'contents' => $contents, 'depth' => $node->book['depth']));
     }
-
-    return theme('book_export_html', array('title' => $node->title, 'contents' => $contents, 'depth' => $node->book['depth']));
+    else {
+      drupal_not_found();
+    }
   }
   else {
     drupal_access_denied();
@@ -130,7 +131,7 @@ function book_outline_form($form, &$form_state, $node) {
   $form['remove'] = array(
     '#type' => 'submit',
     '#value' => t('Remove from book outline'),
-    '#access' => _book_node_is_removable($node),
+    '#access' => $node->nid != $node->book['bid'] && $node->book['bid'],
     '#weight' => 20,
     '#submit' => array('book_remove_button_submit'),
   );
@@ -207,7 +208,8 @@ function book_remove_form($form, &$form_state, $node) {
  */
 function book_remove_form_submit($form, &$form_state) {
   $node = $form['#node'];
-  if (_book_node_is_removable($node)) {
+  if ($node->nid != $node->book['bid']) {
+    // Only allowed when this is not a book (top-level page).
     menu_link_delete($node->book['mlid']);
     db_delete('book')
       ->condition('nid', $node->nid)
