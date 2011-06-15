@@ -100,6 +100,17 @@ On the other hand, when these options are disabled, field permissions are inheri
     $form['field']['settings']['field_permissions']['#type'] = 'value';
     $form['field']['settings']['field_permissions']['#value'] = $form['field']['settings']['field_permissions']['#default_value'];
   }
+
+  // Submit handler to grant the new permissions to the administrator role.
+  $form['#submit'][] = '_field_permissions_field_settings_form_submit';
+}
+
+/**
+ * Form callback; Submit handler for the Field Settings form.
+ */
+function _field_permissions_field_settings_form_submit() {
+  // Grant any new permissions to the admin role.
+  user_modules_installed(array('field_permissions'));
 }
 
 /**
