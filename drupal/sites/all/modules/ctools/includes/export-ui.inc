@@ -350,6 +350,7 @@ function ctools_export_ui_process(&$plugin, $info) {
   $plugin['strings']['message'] += array(
     'enable' => t('@plugin %title was enabled.', array('@plugin' => $plugin['title singular proper'])),
     'disable' => t('@plugin %title was disabled.', array('@plugin' => $plugin['title singular proper'])),
+    'no items' => t('There are no @titles to display.', array('@titles' => $plugin['title plural'])),
   );
 }
 
