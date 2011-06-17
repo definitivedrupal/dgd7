@@ -20,3 +20,37 @@ function dgd7alpha2beta_update_7000() {
     'default' => 'node',
   ));
 }
+
+/**
+ * Fix error on trying to save a node with a previously attached image.
+ *
+ * "The file used in the Image field may not be referenced."
+ *
+ * Via grendzy in http://drupal.org/node/1054332
+ */
+function dgd7alpha2beta_update_7001() {
+  foreach (field_info_instances() as $entity_type => $bundles) {
+    foreach ($bundles as $bundle_name => $bundle) {
+      foreach ($bundle as $field_name => $field) {
+        if ($field['widget']['module'] == 'file' || $field['widget']['module'] == 'image') {
+          $query = new EntityFieldQuery;
+          $result = $query
+            ->entityCondition('entity_type', $entity_type)
+            ->entityCondition('bundle', $bundle_name)
+            ->fieldCondition($field_name, 'fid', 0, '>')
+            ->execute();
+          $entities = entity_load($entity_type, array_keys($result[$entity_type]));
+          foreach ($entities as $etid => $entity) {
+            $language = $entity->language ? $entity->language : 'und';
+            foreach ($entity->{$field_name}[$language] as $file_data) {
+              $file = file_load($file_data['fid']);
+              if (count(file_usage_list($file)) == 0) {
+                file_usage_add($file, 'file', $entity_type, $etid);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
