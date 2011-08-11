@@ -1,5 +1,4 @@
 <?php
-// $Id: token.pages.inc,v 1.13 2010/12/18 01:53:33 davereid Exp $
 
 /**
  * @file
@@ -142,7 +141,7 @@ function _token_token_tree_format_row($token, array $token_info, $is_group = FAL
  * @see drupal_clean_css_identifier().
  */
 function _token_clean_css_identifier($id) {
-  return drupal_clean_css_identifier('token-' . trim($id, '[]'), array(' ' => '-', '_' => '-', '/' => '-', '[' => '-', ']' => '', ':' => '-'));
+  return rtrim(drupal_clean_css_identifier('token-' . trim($id, '[]'), array(' ' => '-', '_' => '-', '/' => '-', '[' => '-', ']' => '', ':' => '-')), '-');
 }
 
 /**
