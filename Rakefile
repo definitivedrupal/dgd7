@@ -13,7 +13,7 @@ set :application, "dgd7"
 task :test do
   set :environment, "test"
   set :domain, "simone.mayfirst.org"
-  set :repository, "/srv/git/#{application}.git"
+  set :repository, "git@github.com:definitivedrupal/#{application}.git"
   set :web_command, "/etc/init.d/apache2"
   set :web_user, "www-data"
   set :web_group, "www-data"
@@ -34,7 +34,7 @@ end
 task :prod do
   set :environment, "production"
   set :domain, "definitivedrupal@sojourner.mayfirst.org"
-  set :repository, "vlad@git.agaric.com:/srv/git/#{application}.git"
+  set :repository, "git@github.com:definitivedrupal/#{application}.git"
   set :web_command, "/etc/init.d/apache2"
   set :web_user, "www-data"
   set :web_group, "www-data"
