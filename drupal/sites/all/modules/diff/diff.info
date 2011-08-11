@@ -1,12 +1,12 @@
 name = Diff
 description = Show difference between node revisions.
-package = Core - optional
 core = 7.x
-files[] = diff.module
+
 files[] = DiffEngine.php
-; Information added by drupal.org packaging script on 2011-02-25
-version = "7.x-1.x-dev"
+
+; Information added by drupal.org packaging script on 2011-07-21
+version = "7.x-2.0"
 core = "7.x"
 project = "diff"
-datestamp = "1298619114"
+datestamp = "1311239815"
 
