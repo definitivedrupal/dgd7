@@ -1,5 +1,4 @@
 <?php
-// $Id: pathologic.test,v 1.1.2.12 2011/01/18 07:11:31 garrettalbright Exp $
 
 /**
  * @file
@@ -25,7 +24,7 @@ class PathologicTestCase extends DrupalWebTestCase {
     parent::setUp('pathologic');
   }
 
-  function testPathologic () {
+  function testPathologic() {
     // Build a phony filter
     $filter = new stdClass;
     $filter->callback = '_pathologic';
@@ -85,12 +84,12 @@ class PathologicTestCase extends DrupalWebTestCase {
 
         $this->assertEqual(
           _pathologic('<a href="foo"><img src="foo/bar" /></a>', $filter),
-          '<a href="' . $paths['foo'] . '"><img src="' . $paths['foo/bar'] . '" /></a>', 
+          '<a href="' . $paths['foo'] . '"><img src="' . $paths['foo/bar'] . '" /></a>',
           t('Simple paths. Clean URLs: !clean; absolute: !abs.', $t10ns)
         );
         $this->assertEqual(
-          _pathologic('<a href="foo/bar?baz"><img src="foo/bar?baz=qux" /></a>', $filter),
-          '<a href="' . $paths['foo/bar?baz'] . '"><img src="' . $paths['foo/bar?baz=qux'] . '" /></a>',
+          _pathologic('<form action="foo/bar?baz"><IMG LONGDESC="foo/bar?baz=qux" /></a>', $filter),
+          '<form action="' . $paths['foo/bar?baz'] . '"><IMG LONGDESC="' . $paths['foo/bar?baz=qux'] . '" /></a>',
           t('Paths with query string. Clean URLs: !clean; absolute: !abs.', $t10ns)
         );
         $this->assertEqual(
@@ -115,6 +114,11 @@ class PathologicTestCase extends DrupalWebTestCase {
       _pathologic('<a href="internal:foo">', $filter),
       '<a href="' . url('foo', array('absolute' => TRUE)) . '">',
       t('Path Filter compatibility (internal:)')
+    );
+    $this->assertEqual(
+      _pathologic('<a href="files:image.jpeg">', $filter),
+      '<a href="' . file_create_url(file_build_uri('image.jpeg'))) . '">',
+      t('Path Filter compatibility (files:)')
     );
     $this->assertEqual(
       _pathologic('<a href="http://example.com/foo"><img src="http://example.org/bar.jpeg" /></a>', $filter),

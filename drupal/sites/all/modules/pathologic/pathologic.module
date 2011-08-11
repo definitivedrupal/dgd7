@@ -1,5 +1,4 @@
 <?php
-// $Id: pathologic.module,v 1.7.2.19 2011/01/09 07:52:11 garrettalbright Exp $
 
 /**
  * @file
@@ -23,7 +22,6 @@ function pathologic_filter_info() {
         'local_paths' => '',
         'absolute' => TRUE,
       ),
-/*       'tips callback' => '_pathologic_tips', */
       'weight' => 65535,
     )
   );
@@ -78,24 +76,27 @@ function _pathologic($text, $filter) {
     // Remove duplicates, since it's possible "this" path was already in the list;
     // also do escaping
     $paths = array_map('_pathologic_escape', array_unique($paths));
-  
+
     // We need to account for the fact that
     // http://example.com/foo
     // http://example.com/?q=foo
     // http://example.com/index.php?q=foo
     // …are all valid.
-  
+
     $statics[$filter->format] = array(
-      // The pattern is gonna look like:
-      // ~(href|src|HREF|SRC)="
-      // (internal:|https?://example\.com|https?://example\.org)?
-      // (
-      //   /(#.*)?|
-      //   (?!(#|/|mailto:|[a-z]+:/))
-      //   ((index\.php)?(\?q=)?)
-      //   ([^"]*)
-      // )"~
-      'pattern' => '~(href|src|HREF|SRC)="(internal:|' . implode('|', $paths) . ')?(/(#.*)?|(?!(#|/|mailto:|[a-z]+:/))((index\.php)?(\?q=)?)([^"]*))"~',
+      'pattern' => '
+        ~(href|src|action|longdesc|HREF|SRC|ACTION|LONGDESC)=" # HTML attributes
+                                                                 # to search for
+        (internal:|files:|' . implode('|', $paths) . ')?      # Path prefixes to
+                                                                     #search for
+        (
+          /(\#.*)?|              # A / path with a possible anchor fragment, or…
+          (?!(\#|/|mailto:|[a-z]+:/))                 # Exclude likely protocols
+          ((index\.php)?(\?q=)?)       # Allow for paths which include index.php
+                                                                    # and/or ?q=
+          ([^"]*)                                       # Finally, get the path.
+        )"~x
+      ',
       // create_funtion() lets us do lambdas in a really crappy but pre-PHP 5.3-
       // compatible way. We're using it here so we can pass the value of
       // $filter->settings['absolute'] to the replacement function. We could
@@ -111,6 +112,10 @@ function _pathologic($text, $filter) {
  * Replace the attributes. preg_replace_callback() callback.
  */
 function _pathologic_replace($matches, $absolute) {
+  // First, "files:" support. This is fairly easy.
+  if ($matches[2] === 'files:') {
+    return $matches[1] . '="' . file_create_url(file_build_uri(urldecode($matches[3]))) . '"';
+  }
   // Build the full URL, then take it apart
   $parts = parse_url('http://example.com/' . urldecode($matches[3]));
   if ($parts['path'] === '/' || $parts['path'] === '//') {
@@ -142,7 +147,7 @@ function _pathologic_replace($matches, $absolute) {
   else {
     $qparts = NULL;
   }
-  
+
   $url = url(
     $parts['path'],
     array(
@@ -152,7 +157,7 @@ function _pathologic_replace($matches, $absolute) {
     )
   );
 
-  // $matches[1] will be "src" or "href"
+  // $matches[1] will be the attribute; src, href, etc.
   return "{$matches[1]}=\"{$url}\"";
 }
 
