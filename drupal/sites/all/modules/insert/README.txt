@@ -1,9 +1,8 @@
-// $Id: README.txt,v 1.4 2010/08/19 04:50:36 quicksketch Exp $
 
 Insert is a utility that makes inserting images and links to files into text
 areas or WYSIWYGs much easier. It adds a simple JavaScript-based button to
-FileField and ImageField widgets. When used with ImageField and ImageCache,
-images may be inserted into text areas with a specific Image style.
+File and Image fields. Images may be inserted into text areas with a specific
+Image style.
 
 Insert was written by Nate Haug.
 
@@ -13,15 +12,12 @@ Dependencies
 ------------
 
 Insert module does not have any dependencies, but it won't do anything unless
-you have at least one of the following installed:
-
-* FileField
-* ImageField
+you have at least one File or Image field configured on your site. Both of
+these fields are provided by Drupal core.
 
 Recommended
 -----------
 
-* ImageCache
 * WYSIWYG module
 
 Install
@@ -30,22 +26,22 @@ Install
 1) Copy the insert folder to the modules folder in your installation. Usually
    this is sites/all/modules.
 
-2) In your Drupal site, enable the module under Administer -> Site building ->
-   Modules (/admin/build/modules).
+2) In your Drupal site, enable the module under Administer -> Modules
+   (/admin/modules).
 
-3) Add or configure a FileField or ImageField under Administer -> Content
-   management -> Content types -> [type] -> Manage Fields
-   (admin/content/node-type/[type]/fields). Once configuring a field, there is a
-   new section in the Field options for "Insert". You can then configure the
-   field to include an Insert button and what templates you would like to have.
+3) Add or configure a File or Image field under Administer -> Structure ->
+   Content types -> [type] -> Manage Fields
+   (admin/structure/types/manage/[type]/fields). Once configuring a field,
+   there is a new section in the Field options for "Insert". You can then
+   configure the field to include an Insert button and what templates you would
+   like to have.
 
 4) Create a piece of content with the configured field. After uploading a file,
    an "Insert" button will appear. Click this button to send the file or image
    into the Body field.
 
 Insert should work on multiple fields (the last field that was active will
-receive the file), and with most popular WYSIWYG editors. Note that FCKeditor
-only supports the Body field due to an API limitation.
+receive the file), and with most popular WYSIWYG editors.
 
 Paths
 -----
