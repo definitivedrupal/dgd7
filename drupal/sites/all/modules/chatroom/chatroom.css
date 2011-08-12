@@ -1,0 +1,163 @@
+#chatroom table {
+  width: 100%;
+}
+#chatroom-container-archive tbody {
+  border-top: hidden;
+}
+#chatroom-container-archive td {
+  padding: 0;
+}
+#chatroom-user-options {
+  font-size: 80%;
+}
+#chatroom-board,
+#chatroom-chat-form div.item-list,
+#chatroom-container-archive {
+  border: solid 1px #e0e0e0;
+}
+#chatroom-board,
+#chatroom-container-archive {
+  padding: 1px 1px 1px 1px;
+  margin: 5px 0;
+}
+#chatroom-board p,
+#chatroom-container-archive p {
+  padding-top: 0;
+}
+#chatroom-board img,
+#chatroom-container-archive img {
+  vertical-align: top;
+}
+#chatroom-msg-alert {
+  margin-left: 10px;
+}
+.clear-both {
+  clear: both;
+}
+.chatroom-textentry-smileys,
+.chatroom-old-msg .header,
+.chatroom-msg .header {
+  padding-top: 10px;
+}
+.chatroom-user-away {
+  opacity: 0.4;
+  background: url(away.png) no-repeat left !important;
+  padding-left: 15px;
+}
+.chatroom-textentry-smileys-hidden {
+  display: none;
+}
+.chatroom-textentry-smileys img {
+  vertical-align: top;
+  margin-right: 5px;
+}
+.chatroom-textentry-options {
+  margin-top: 5px;
+  margin-bottom: -5px;
+  margin-left: -3px;
+}
+.chatroom-textentry-options input,
+.chatroom-textentry-options table,
+#chatroom-board p,
+#chatroom-container-archive p {
+  margin:0;
+}
+.chatroom-textentry-options table {
+  border-collapse: separate;
+}
+.chatroom-old-msg,
+.chatroom-old-me-msg,
+.chatroom-archive-date {
+  color: #a0a0a0;
+}
+.chatroom-archive-date {
+  white-space: nowrap;
+  margin-right: 5px;
+}
+.chatroom-system-msg {
+  color: #660000;
+}
+.chatroom-time-msg {
+  color: #999999;
+}
+.chatroom-me-msg {
+  color: #7777FF;
+}
+#chatroom-container-archive,
+.chatroom-time-msg,
+.chatroom-me-msg,
+.chatroom-old-msg,
+.chatroom-old-me-msg,
+.chatroom-system-msg,
+.chatroom-msg {
+  background-color: #f5f5f5;
+}
+.chatroom-old-msg .header,
+.chatroom-msg .header {
+  font-weight: bold;;
+  margin-right:5px;
+  vertical-align: top;
+}
+.chatroomLink {
+  font-size: 0.9em;
+}
+.chatroom-private,
+.chatroom-me-msg,
+.chatroom-old-me-msg,
+.chatroom-time-msg,
+.chatroom-system-msg,
+.chatroomLink {
+  font-style: italic;
+}
+.chatroom-private {
+  font-weight: normal;
+}
+
+/*****************************************************************************/
+#chatroom-chat-form #edit-message {
+  padding: 0.25em;
+  font-size: 1.25em;
+}
+
+#chatroom-chat-form div.item-list {
+  float: right
+}
+  #chatroom-chat-form div.item-list ul {
+    margin: 0.25em;
+  }
+  #chatroom-chat-form div.item-list li {
+    list-style-type: none;
+  }
+
+div.ahah-response,
+#chatroom-chat-form #edit-control-fieldset {
+  display: none;
+}
+
+#chatroom-board,
+#chatroom-chat-form div.item-list {
+  overflow: auto;
+  height: 300px;
+}
+
+.chatroom-msg {
+  padding: 0.2em 0;
+}
+
+/* TODO: find a way to disable filter #2 from:
+  http://api.drupal.org/api/function/filter_filter/6 */
+.chatroom-msg > p {
+  display: inline;
+}
+
+ul#chatroom-user-list li.chatroom-user {
+  position: relative;
+}
+
+ul#chatroom-user-list li.chatroom-user .picture {
+  float: none;
+  position: relative;
+  left: 200px;
+  bottom: 10px;
+}
+

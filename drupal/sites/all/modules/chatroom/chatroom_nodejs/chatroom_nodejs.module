@@ -1,0 +1,74 @@
+<?php
+
+/**
+ * Implements hook_nodejs_handlers_info().
+ */
+function chatroom_nodejs_nodejs_handlers_info() {
+  return array(
+    drupal_get_path('module', 'chatroom_nodejs') . '/chatroom_nodejs.js',
+  );
+}
+
+/**
+ * Implements hook_nodejs_auth_check().
+ */
+function chatroom_nodejs_nodejs_auth_check($auth_user) {
+  $channels = array();
+  foreach (chatroom_user_load_allowed_chat_nids($auth_user->uid) as $chat_nid) {
+    $channels[] = 'chatroom_chat_' . $chat_nid;
+  }
+  return $channels;
+}
+
+/**
+ * Implements hook_chatroom_chat_register_user().
+ */
+function chatroom_nodejs_chatroom_chat_register_user($node, $account) {
+  nodejs_add_user_to_channel($account->uid, 'chatroom_chat_' . $node->nid);
+}
+
+/**
+ * Implements hook_chatroom_chat_kick_user().
+ */
+function chatroom_nodejs_chatroom_chat_kick_user($node, $user_to_kick, $admin_user) {
+  nodejs_remove_user_from_channel($user_to_kick->uid, 'chatroom_chat_' . $node->nid);
+}
+
+/**
+ * Implements hook_chatroom_chat_ban_user().
+ */
+function chatroom_nodejs_chatroom_chat_ban_user($node, $user_to_ban, $admin_user) {
+  nodejs_remove_user_from_channel($user_to_ban->uid, 'chatroom_chat_' . $node->nid);
+}
+
+/**
+ * Implements hook_chatroom_chat_user_seen().
+ */
+function chatroom_nodejs_chatroom_chat_user_seen($user, $node) {
+  $nodejs_message = (object) array(
+    'channel' => 'chatroom_chat_' . $node->nid,
+    'broadcast' => FALSE,
+    'type' => 'userSeen',
+    'callback' => 'chatroomNodejsMessageHandler',
+    'data' => theme('chatroom_user_list', array('users' => chatroom_load_online_users($node), 'node' => $node)), 
+  );
+  nodejs_send_message($nodejs_message);
+}
+
+/**
+ * Implements hook_chat_msg_saved().
+ */
+function chatroom_nodejs_chat_msg_saved($message, $node) {
+  global $user;
+
+  $nodejs_message = (object) array(
+    'channel' => 'chatroom_chat_' . $node->nid,
+    'broadcast' => FALSE,
+    'type' => 'newMessage',
+    'callback' => 'chatroomNodejsMessageHandler',
+    'data' => chatroom_chat_prepare_message(chatroom_chat_load_message($message['cmid']), $node),
+  );
+  nodejs_send_message($nodejs_message);
+  nodejs_add_user_to_channel($user->uid, 'chatroom_chat_' . $node->nid);
+}
+

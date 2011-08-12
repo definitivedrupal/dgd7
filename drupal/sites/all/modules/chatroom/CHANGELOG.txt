@@ -1,0 +1,246 @@
+
+Chat Room 5.x-1.9, 2007-10-12
+-----------------------------
+- Changed list item style for compatibility with Garland.
+- Stopped JavaScript error when alerts are disabled.
+- Return array from update function.
+- Fixed $base_url problem properly.
+
+Chat Room 5.x-1.8, 2007-10-09
+-----------------------------
+- Added alerts for new messages and for new users entering chat.
+- Make compatible with Drupal 5.2.
+- Added block update interval to settings form.
+- Use drupal_add_js() to add settings.
+- Added "Chat Room:" to block names.
+- Updated to jQuery.
+- Added spacing before alerts check box.
+- Fixed alignment of "away" check-box.
+- Changed CSS to keep chat user list aligned when users are away.
+- Style change for private messages.
+- Style chat archive view.
+- Generate content with themeable functions.
+- Made blocks themeable.
+- Made chat commands block themeable.
+- Fixed smileys alignment.
+- Avoid showing chats in teaser view.
+- Stop creating directories for the cache files.
+- Fix for Internet Explorer
+- Fix for cache file names
+- Removed unused onlineList setting.
+- Re-organized the settings form.
+- Minor coding style changes.
+- Fixed block update interval setting.
+- Added validation for block update interval setting.
+- Allowed updates to be stopped in an open window.
+- Fixed local variables that were being declared as global.
+- Cleaned up smileys code.
+- Changed default comment setting to disabled.
+- Changed chatroom_bootstrap_drupal() to chatroom_bootstrap().
+- Fixed kick and ban.
+- Moved update functions to their own file.
+- Updated documentation.
+- Fixes for archives and private messages.
+- Allow alerts to be on by default.</li>
+- Added hook_requirements to check for MySQL version.
+- Made it possible to send private messages to guest users by clicking on
+  name in online block.
+- Allow users to send themselves private messages by clicking on their user
+  names in the chat on line list.
+- Preserve text already typed when clicking on name in online block to send
+  private message.
+- Fixed random error in user color assignment.
+- Made smileys work in chat list view.
+- Prevented invalid queries for chat archives.
+- Kick users out of chat when it is archived or chat room is deleted.
+- Send user colours as a setting so that in the future they can be used for
+  the site-wide on-line list.
+- Use !empty() instead of count() to determine if arrays have values.
+- Include chat rooms that only have archived chats on the Chat rooms page.
+- Removed spurious block settings.
+- Prevented the active chats block from being displayed on the Chat rooms page.
+- More code clean-up.
+- Use text smileys for flashing alert in window title.
+- Avoid dependence on t() in chatroom.install.
+- Delete unused variables.
+- Allow administrator to set guest user prefix.
+- Avoid dependence on variable_get in update requests.
+- More smileys optimization.
+- Changed order of admin form items.
+- Stopped chats in deleted chat rooms.
+- Fixed code updating chat rooms block.
+- Sending a message within the first few seconds was causing the user list
+  to be sent early, making it appear that users were leaving the chat.
+- Optimized database queries.
+- Made system time messages configurable.
+- Allow admins to upload their own alert sounds.
+- Default value for kick and ban messages set incorrectly.
+- Fixed chatroom_delete()
+- Remove chatroom directory from the files directory when Chat Room is
+  uninstalled.
+- Delete Chat Room permissions during uninstall.
+- Patch to enable archived chats to be deleted.
+- Put all of a site's chat cache files in one directory if possible.
+- Delete cache files when Chat Room is disabled.
+
+Chat Room 5.x-1.7, 2007-07-10
+-----------------------------
+- Limited the size of messages.
+- Eliminated duplicate stripslashes().
+- Stopped "Chat rooms" from being added to the breadcrumb unless chat room
+  is being viewed as stand-alone page.
+- Stopped undefined sent time messages from being displayed.
+- Made the online list update every five minutes.
+- Confirm on-line status of other users before sending user list to new
+  users and suppress joined the chat messages for first 10 seconds.
+- Make sure tmp file is not being used by another site.
+- Removed unused variables.
+- Fixed capitalization.
+- Made all strings translatable.
+- Clarified chat commands block.
+- Removed links from on-line users block.
+
+Chat Room 5.x-1.6, 2007-05-03
+-----------------------------
+- Fixed untranslatable strings.
+- Fixed SQL query.
+- Fixed chat message count.
+- Made special characters in chat links display correctly.
+- Removed redundant check_plain()s.
+- If smileys were not enabled and PHP error messages were set to display,
+  messages would not appear in the chat board.
+
+Chat Room 5.x-1.5, 2007-04-16
+-----------------------------
+- Made room summary show empty chats and chats with only private messages.
+- Code style update.
+
+Chat Room 5.x-1.4, 2007-04-13
+-----------------------------
+- Fixed chat message count.
+- Fixed chatroom_update so that changes can be saved.
+- Added paging to the archive view.
+- Filtered private messages from being seen by other users in archive.
+- Enabled users to see private messages that they have sent.
+- Made uninstall remove block settings.
+
+Chat Room 5.x-1.3, 2007-04-12
+-----------------------------
+- Added update function to remove duplicate entries from chatroom_msg table.
+- Removed unused chatroom_list_description variable.
+- Made it possible to view archives of active chats.
+
+Chat Room 5.x-1.2, 2007-04-11
+-----------------------------
+- Cast message ID to integer to allow proper comparison.
+- Allow "0" to be sent as a message.
+- Wrong variable name caused auto-archiving to generate error.
+- Patch to support double quotes in messages.
+
+Chat Room 5.x-1.1, 2007-03-15
+-----------------------------
+- Improved the module description.
+- Fixed capitalization of Drupal.jsEnabled.
+- Eliminated Drupal 4.7 JavaScript functions.
+- Copied drupal_to_js from common.inc to chatroomread.php so JavaScript and
+  PHP code could be kept separate.
+- Updated for compatibility with jQuery.
+- Made Chat room delete rooms and give status messages when uninstalled.
+- Separated JavaScript from PHP.
+- Cleaned up the logic for preventing responses to hacker attacks.
+- Made AJAX update script work for people who keep their modules outside
+  the Drupal directory and access them with symlinks.
+- Simplified the JavaScript objects.
+
+Chat Room 5.x-1.0, 2007-03-07
+-----------------------------
+- PostgreSQL support.
+- Made primary keys SERIAL.
+- Display chat rooms like forum topics.
+- Deletion of temp directory caused Chat Room to fail.
+- Finished replacing "chatrooms" with "chat rooms".
+- Fixed install file.
+- Fixed errors in variables: $_POST['chat_timestamp'] did not exist, should
+  have been $_POST['timestamp'].
+- Fixed kicked out on join problem.
+- Fixed PHP errors.
+- Added line breaks to the ends of files to simplify patching.
+- Redesigned for easier debugging.
+- Preparing for Drupal 5 release.
+- Don't require chatroom to be in modules directory.
+
+Chat Room 4.7.x-1.10, 2007-03-02
+--------------------------------
+- Removed unused JavaScript variables.
+- Fixed the site-wide online users block.
+
+Chat Room 4.7.x-1.9, 2007-03-01
+-------------------------------
+- A few more fixes for the online users list problem.
+
+Chat Room 4.7.x-1.8, 2007-02-28
+-------------------------------
+- Added instructions for enabling smileys.
+- Moved settings page to admin/settings.
+- Updated the settings path in README.txt.
+- Made the settings page display the default value for the automatically
+  archive old messages setting.
+- Redesigned chatroomread.php for easier debugging.
+- Fixed chatroom.module to work with the new design of chatroomread.php.
+- Used drupal_to_js to initialize JavaScript variables.
+- Fixed the problem of online users shown leaving.
+- Reversed ineffective previous fix.
+- Synced translation template with current code.
+- Removed responses to hacker attacks.
+
+Chat Room 4.7.x-1.7, 2007-02-08
+-------------------------------
+- Fixed to make the active chat rooms block appear.
+- Made the user list update more often.
+- Fixed spelling error in code comments.
+- Suppressed the display of join and leave messages for the first five
+  updates.
+
+Chat Room 4.7.x-1.6, 2007-02-01
+-------------------------------
+- Fixed to make the user list update correctly.
+
+Chat Room 4.7.x-1.5, 2007-01-31
+-------------------------------
+- Restored chatroom.block.js.
+
+Chat Room 4.7.x-1.4, 2007-01-31
+-------------------------------
+- Made URL code more consistent.
+- Removed reference to chatroom.block.js.
+
+Chat Room 4.7.x-1.3, 2007-01-24
+-------------------------------
+- Changed initial timestamp to zero.
+- Fixed SQL syntax error that caused chats to disappear.
+- Removed the unused chatroom_chat_invites table.
+
+Chat Room 4.7.x-1.2, 2007-01-23
+-------------------------------
+- Added strings to translation template.
+- Removed parentheses from chat commands block.
+- Fixed an SQL query that failed to return a list of chats on MySQL 4.
+- Increased the time required for a user to be reported as having left the
+  chat to help those with slow connections.
+- Cleaned up unfinished code and organized remaining functions.
+- Cleaned up trailing spaces.
+- Added option to automatically archive old messages.
+- Fixed a bug that prevented messages from being displayed when a chat was
+  opened unless a new message was sent.
+
+Chat Room 4.7.x-1.1, 2006-12-13
+-------------------------------
+- Made the archive path works only for archived chats and the chat path
+  work only for active chats.
+- Fixed a bug that prevented chats without messages from being listed.
+- Added instructions for unbanning users.
+- Updated to make translation easier.
+
+Chat Room 4.7.x-1.0, 2006-12-11
+-------------------------------
+- Initial release, see SA-2006-030
