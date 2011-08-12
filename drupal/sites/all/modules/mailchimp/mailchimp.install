@@ -1,0 +1,45 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the mailchimp module.
+ *
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function mailchimp_schema() {
+  $schema['cache_mailchimp_user'] = drupal_get_schema_unprocessed('system', 'cache');
+  $schema['cache_mailchimp_user']['description'] = 'Cache table for the MailChimp module to store a list subscribers member info.';
+
+  return $schema;
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function mailchimp_uninstall() {
+  variable_del('mailchimp_api_key');
+  variable_del('mailchimp_batch_limit');
+  variable_del('mailchimp_use_secure');  
+}
+
+/**
+ * Implements hook_update_N().
+ *   Create cache_mailchimp_user table and delete unused variables.
+ */
+function mailchimp_update_7201() {
+  // create cache_mailchimp_user table
+  db_create_table('cache_mailchimp_user', drupal_get_schema_unprocessed('mailchimp', 'cache_mailchimp_user'));
+  
+  // delete old unused variables
+  variable_del('mailchimp_user_settings_title');
+  variable_del('mailchimp_subscription_failure_message');
+  variable_del('mailchimp_subscription_success_message');
+  variable_del('mailchimp_unsubscription_failure_message');
+  variable_del('mailchimp_unsubscription_success_message');
+  variable_del('mailchimp_subscribe_page_title');
+  variable_del('mailchimp_unsubscribe_page_description');
+  variable_del('mailchimp_unsubscribe_page_title');
+}

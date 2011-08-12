@@ -1,0 +1,19 @@
+name = MailChimp STS
+description = "Allow for site emails to be sent through MailChimp STS."
+core = 7.x
+dependencies[] = mailchimp
+package = MailChimp
+
+configure = admin/config/services/mailchimp/sts
+
+files[] = mailchimp_sts.module
+files[] = mailchimp_sts.admin.inc
+files[] = mailchimp_sts.mail.inc
+files[] = mailchimp_sts.class.php
+
+; Information added by drupal.org packaging script on 2011-07-28
+version = "7.x-2.0"
+core = "7.x"
+project = "mailchimp"
+datestamp = "1311891719"
+

@@ -1,0 +1,254 @@
+<?php
+
+/**
+ * @file
+ * Enables Drupal to send email directly through MailChimp STS.
+ *
+ * Overriding mail handling in Drupal to make MailChimp STS the default
+ * transport layer, requires to change the mail_system variable's
+ * default value array('default-system' => 'DefaultMailSystem').
+ * This module uses array('default-system' => 'MailChimpSTSMailSystem').
+ */
+
+define('MAILCHIMP_STS_STATUS_ON', 'on');
+define('MAILCHIMP_STS_STATUS_OFF', 'off');
+define('MAILCHIMP_STS_STATUS_TEST', 'test');
+
+/**
+ * Implements hook_help().
+ */
+function mailchimp_sts_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#mailchimp_sts':
+      return t('Allow for site emails to be sent through MailChimp STS.');
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function mailchimp_sts_menu() {
+  $items['admin/config/services/mailchimp/sts'] = array(
+    'title' => 'MailChimp STS',
+    'page callback' => 'mailchimp_sts_admin_page',
+    'access arguments' => array('administer mailchimp sts module'),
+    'description' => 'Allow for site emails to be sent through MailChimp STS.',
+    'file' => 'mailchimp_sts.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/config/services/mailchimp/sts/test'] = array(
+    'title' => 'Send test email',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('mailchimp_sts_test_form'),
+    'access callback' => 'mailchimp_sts_test_access',
+    'description' => 'Send a test email using the STS API.',
+    'file' => 'mailchimp_sts.admin.inc',
+    'type' => MENU_LOCAL_ACTION,
+  );
+  $items['admin/reports/mailchimp_sts'] = array(
+    'title' => 'MailChimp STS Reports',
+    'page callback' => 'mailchimp_sts_quota',
+    'access arguments' => array('administer mailchimp sts module'),
+    'description' => 'View MailChimp STS quotas.',
+  );
+  $items['admin/reports/mailchimp_sts/quota'] = array(
+    'title' => 'MailChimp STS Quota',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+  );
+  $items['admin/reports/mailchimp_sts/send_stats'] = array(
+    'title' => 'MailChimp STS Send Statistics',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('mailchimp_sts_send_stats'),
+    'access arguments' => array('administer mailchimp sts module'),
+    'description' => 'View MailChimp STS sending statistics.',
+    'type' => MENU_LOCAL_TASK,
+  );
+  return $items;
+}
+
+/**
+ * Access callback for sending test email.
+ *
+ * @return bool
+ */
+function mailchimp_sts_test_access() {
+  return user_access('administer mailchimp sts module') & 
+    (variable_get('mailchimp_sts_status', MAILCHIMP_STS_STATUS_OFF) != MAILCHIMP_STS_STATUS_OFF);
+}
+
+/**
+ * Implements hook_permission().
+ */
+function mailchimp_sts_permission() {
+  return array(
+    'administer mailchimp sts module' => array(
+      'title' => t('Administer MailChimp STS module'),
+      'description' => t('Perform administration tasks for MailChimp STS module.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_mail().
+ */
+function mailchimp_sts_mail($key, &$message, $params) {
+  if ($key == 'mailchimp-sts-test') {
+    $message['subject'] = $params['subject'];
+    $message['body'] = $params['body'];
+  }
+}
+
+/**
+ * Page callback for showing MailChimp STS send statistics along with tag filter
+ * form.
+ */
+function mailchimp_sts_send_stats($form, &$form_state) {
+  $mailchimp_sts = mailchimp_sts_get_api_object();
+  $rows = array();
+  
+  // get the since date to filter reports by
+  $since = NULL;
+  if (isset($form_state['values']['since'])) {
+    if (!empty($form_state['values']['since'])) {
+      $since = $form_state['values']['since'];      
+    }
+  }
+  else {
+    $since = date('Y-m-d', mktime(0, 0, 0, date('n'), 1));
+  }
+  
+  // get the tag to filter reports by
+  $tag = isset($form_state['values']['tag']) ? $form_state['values']['tag'] : 1;
+
+  $stats = $mailchimp_sts->get_mc_send_stats($tag, $since);
+
+  $tags = mailchimp_sts_get_tags();
+  if (!$mailchimp_sts->errorCode) {
+    foreach ($stats as $stat) {
+      if (isset($stat['hour'])) {
+        $rows[] = array($stat['hour'], $tags[$stat['tag_id']]['tag'], 
+          $stat['sent'], $stat['bounces'], $stat['rejects'], 
+          $stat['complaints'], $stat['opens'], $stat['clicks'],
+        );        
+      }
+    }
+  }
+
+  $options = array();
+  foreach ($tags as $tag) {
+    $options[$tag['tag_id']] = $tag['tag'];
+  }
+
+  $form['tag'] = array(
+    '#type' => 'select',
+    '#title' => t('Tags'),
+    '#description' => t('Filter statisitcs by this tag.'),
+    '#options' => $options,
+    '#default value' => $tag,
+  );
+  
+  $since_options = array('' => t('-- All --'));
+  $month = date('n');
+  for ($x = 0; $x < 12; $x++) {
+    $formatted_date = date('Y-m-d', mktime(0,0,0,$month - $x,1));
+  	$since_options[$formatted_date] = $formatted_date;
+  }  
+  $form['since'] = array(
+    '#type' => 'select',
+    '#title' => t('Since'),
+    '#description' => t('Return statistics since the selected month.'),
+    '#options' => $since_options,
+    '#default_value' => $since,
+  );
+  
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Filter'),
+  );
+
+  $headers = array(t('Hour'), t('Tag'), t('Sent'), t('Bounces'), t('Rejects'),
+    t('Complaints'), t('Opens'), t('Clicks'),
+  );
+
+  $form['stats'] = array(
+    '#theme' => 'table',
+    '#header' => $headers,
+    '#rows' => $rows,
+    '#empty' => t('No statistics available.'),
+  );
+
+  return $form;
+}
+
+/**
+ * Process mailchimp_sts_send_stats form submissions.
+ */
+function mailchimp_sts_send_stats_submit($form, &$form_state) {
+  $form_state['rebuild'] = TRUE;
+}
+
+/**
+ * Page callback for showing basic sts usage and quotas
+ */
+function mailchimp_sts_quota() {
+  $mailchimp_sts = mailchimp_sts_get_api_object();
+  $quota = $mailchimp_sts->get_send_quota();
+  if (!$mailchimp_sts->errorCode) {
+    $rows = array();
+    foreach (array(
+        'SentLast24Hours' => t('Emails sent in the past 24 hours:'),
+        'Max24HourSend' => t('Maximum number of emails you can send per 24 hours:'),
+        'MaxSendRate' => t('Maximum number of emails you can send per second:'
+        ),
+      ) AS $k => $v) {
+      $rows[] = array($v, str_replace('.0', '', (string) $quota[$k]));
+    }
+    $output = theme('table', array('header' => array(array('data' => 'Quota', 'colspan' => 2)), 'rows' => $rows));
+  }
+
+  $output .= l(t('Configure MailChimp STS'), 'admin/config/services/mailchimp/sts');
+  return $output;
+}
+
+/**
+ * Get all available MailChimp STS tags
+ *
+ * @return array of tag objects
+ */
+function mailchimp_sts_get_tags() {
+  $ret = array();
+
+  $mailchimp_sts = mailchimp_sts_get_api_object();
+  $tags = $mailchimp_sts->get_tags();
+  if (!$mailchimp_sts->errorCode) {
+    foreach ($tags as $tag) {
+      $ret[$tag['tag_id']] = $tag;
+    }
+  }
+
+  return $ret;
+}
+
+/**
+ * Get a Mailchimp STS API object for communication with the mailchimp server.
+ */
+function mailchimp_sts_get_api_object() {
+  $api_key = variable_get('mailchimp_api_key', '');
+  if (empty($api_key)) {
+    return FALSE;
+  }
+  
+  $api = new MailChimpSTS($api_key, variable_get('mailchimp_use_secure', TRUE));
+
+  // set the timeout to something reasonsable to avoid taking down the Drupal site
+  $api->set_timeout(60);
+
+  if ($api->errorCode) {
+    watchdog('mailchimp_sts', 'MCSTS Error: %errmsg', 
+      array('!errmsg' => $api->errorMessage), WATCHDOG_ERROR);
+    return NULL;
+  }
+
+  return $api;
+}

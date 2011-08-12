@@ -1,0 +1,31 @@
+<?php
+
+/**
+ * Implements hook_update_N().
+ */
+function mailchimp_sts_update_7201() {
+  if (variable_get('mailchimp_sts_on', 0)) {
+    variable_set('mailchimp_sts_status', 'on');
+  }
+
+  variable_del('mailchimp_sts_on');
+  variable_del('mailchimp_sts_debugging');
+  
+  return t('Updated MailChimp STS settings to use a status.');
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function mailchimp_sts_uninstall() {
+  // reset to default mail system
+  variable_set('mail_system', array('default-system' => 'DefaultMailSystem'));
+  watchdog('mailchimp_sts', 'MailChimp STS has been disabled.');
+  
+  // delete other variables
+  variable_del('mailchimp_sts_filter_format');
+  variable_del('mailchimp_sts_from');
+  variable_del('mailchimp_sts_status');
+  variable_del('mailchimp_sts_test_address');
+  variable_del('mailchimp_sts_test_body');
+}
