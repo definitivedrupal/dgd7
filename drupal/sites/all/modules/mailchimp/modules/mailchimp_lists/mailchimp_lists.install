@@ -1,0 +1,127 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the mailchimp_lists module.
+ *
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function mailchimp_lists_schema() {
+  $schema['mailchimp_lists'] = array(
+    'fields' => array(
+      'id' => array(
+        'type' => 'serial',
+        'not null' => TRUE,
+        'description' => 'Primary Key: Unique mailchimp_list entity ID.',
+      ),
+      'mc_list_id' => array(
+        'type' => 'varchar',
+        'not null' => TRUE,
+        'length' => 32,
+        'description' => 'The MailChimp list id associated with this list.',
+      ),
+      'label' => array(
+        'type' => 'varchar',
+        'length' => 32,
+        'description' => 'The {mailchimp_lists}.label of this mailchimp_list.',
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'description' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'description' => 'The {mailchimp_lists}.description of this mailchimp_list.',
+        'not null' => FALSE,
+        'default' => '',
+      ),
+      'list_type' => array(
+        'type' => 'varchar',
+        'length' => 32,
+        'description' => 'The {mailchimp_lists}.type of this mailchimp_list.',
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'settings' => array(
+        'type' => 'blob',
+        'not null' => FALSE,
+        'size' => 'big',
+        'serialize' => TRUE,
+        'description' => 'A serialized object that stores the settings for the specific list.',
+      ),
+      'created' => array(
+        'description' => 'The Unix timestamp when the mailchimp_list was created.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'updated' => array(
+        'description' => 'The Unix timestamp when the mailchimp_list was most recently saved.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('id'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function mailchimp_lists_install() {
+  // convert old lists if they exist
+  $old_lists = variable_get('mailchimp_lists', array());
+  if (!empty($old_lists)) {
+    $cron = variable_get('mailchimp_cron', FALSE);
+    $register = variable_get('mailchimp_user_register', FALSE);
+    $user = variable_get('mailchimp_user_edit', FALSE);
+    $intgroups = variable_get('mailchimp_interest_groups_user_forms', FALSE);
+    
+    foreach($old_lists as $id => $old_list) {
+      $list = new stdClass();
+      $list->mc_list_id = $id;
+      $list->label = $old_list->name;
+      $list->description = $old_list->description;
+      $list->list_type = ($old_list->list_type == 'required') ? MAILCHIMP_LISTTYPE_REQUIRED : MAILCHIMP_LISTTYPE_OPTIONAL;
+      $list->settings = array(
+        'roles' => $old_list->roles,
+        'mergefields' => isset($old_list->mergevars) ? $old_list->mergevars : NULL,
+        'show_register_form' => $register,
+        'show_account_form' => $user,
+        'include_interest_groups' => $intgroups,
+        'cron' => $cron,
+        'webhooks' => FALSE,
+      );
+
+      if ($ret = mailchimp_lists_save($list)) {
+        drupal_set_message(t('List @name has been converted.',
+          array('@name' => $list->label)));
+      }
+      else {
+        drupal_set_message(t('There has been an error converting list @name.',
+          array('@name' => $list->label)), 'error');
+      }
+    }
+  }
+
+  // now delete old variables
+  variable_del('mailchimp_cron');
+  variable_del('mailchimp_interest_groups_user_forms');
+  variable_del('mailchimp_lists');
+  variable_del('mailchimp_user_edit');
+  variable_del('mailchimp_user_register');  
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function mailchimp_lists_uninstall() {
+  module_load_include('module', 'mailchimp_lists');
+  $queue = DrupalQueue::get(MAILCHIMP_QUEUE_CRON);
+  $queue->deleteQueue();
+}

@@ -1,5 +1,4 @@
 <?php
-// $Id: comment_notify.install,v 1.21 2010/08/08 00:40:04 greggles Exp $
 /**
  * @file
  * comment_notify.install.
@@ -121,4 +120,38 @@ function comment_notify_update_7002() {
   );
   db_drop_index('comment_notify', 'notify_hash');
   db_change_field('comment_notify', 'notify_hash', 'notify_hash', $new_spec, $keys);
+}
+
+/**
+ * Fix tokens in comment subscriber e-mail template.
+ */
+function comment_notify_update_7003() {
+  $variables = array(
+    'comment_notify_author_subject' => 'author',
+    'comment_notify_node_notify_default_mailtext' => 'author',
+    'comment_notify_watcher_subject' => 'commenter',
+    'comment_notify_comment_notify_default_mailtext' => 'commenter',
+  );
+  foreach ($variables as $variable => $context) {
+    // If the variable is using the default value, this will return NULL and we
+    // can skip it.
+    if ($text = variable_get($variable)) {
+      $replacements = array(
+        '[comment:unsubscribe-url]' => '[comment-subscribed:unsubscribe-url]',
+        '[comment:name]' => '[comment:author]',
+        '[node:' => '[comment:node:', // Replace all node tokens with comment:node.
+      );
+      if ($context == 'author') {
+        $replacements['[user:name]'] = '[comment:node:author]';
+        $replacements['[user:'] = '[comment:node:author:';
+      }
+      elseif ($context == 'commenter') {
+        $replacements['[user:name]'] = '[comment-subscribed:author]';
+        $replacements['[user:'] = '[comment-subscribed:author:';
+      }
+      $text = strtr($text, $replacements);
+      variable_set($variable, $text);
+    }
+  }
+  return 'Comment notify token strings updated.';
 }

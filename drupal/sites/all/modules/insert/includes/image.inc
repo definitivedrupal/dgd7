@@ -1,5 +1,4 @@
 <?php
-// $Id: image.inc,v 1.2 2010/07/27 04:01:11 quicksketch Exp $
 
 /**
  * @file

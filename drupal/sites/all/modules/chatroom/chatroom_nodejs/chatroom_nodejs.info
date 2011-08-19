@@ -1,0 +1,15 @@
+name = Chatroom Nodejs integration
+description = Adds Node.js backend to Chatroom
+package = Nodejs
+version = VERSION
+core = 7.x
+files[] = chatroom_nodejs.module
+dependencies[] = nodejs
+dependencies[] = chatroom
+
+; Information added by drupal.org packaging script on 2011-08-04
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "chatroom"
+datestamp = "1312459484"
+

@@ -1,5 +1,4 @@
 <?php
-// $Id: insert.inc,v 1.3 2010/04/30 05:19:14 quicksketch Exp $
 
 /**
  * @file
