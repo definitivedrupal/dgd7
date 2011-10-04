@@ -1,0 +1,5 @@
+schemaorg 7.x-1.x, xxxx-xx-xx
+-----------------------------
+#1188338 by scor | cwells73: Fixed Notice & Warnings: when adding a new field to a new content-type.
+#1185492 by scor: Add drush command to generate schema.org terms json file.
+Initial release of schemaorg module for Drupal 7 (2011-06-13).

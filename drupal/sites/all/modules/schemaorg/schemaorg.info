@@ -1,0 +1,13 @@
+name = Schema.org
+description = Allows to annotate content using the schema.org vocabularies
+package = Other
+dependencies[] = rdf
+core = 7.x
+files[] = schemaorg.test
+
+; Information added by drupal.org packaging script on 2011-09-29
+version = "7.x-1.0-alpha2"
+core = "7.x"
+project = "schemaorg"
+datestamp = "1317280627"
+
