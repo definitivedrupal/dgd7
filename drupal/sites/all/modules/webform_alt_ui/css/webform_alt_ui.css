@@ -1,0 +1,559 @@
+
+/* @group Form Settings */
+
+#form-builder > h3 {
+  display: none;
+}
+
+#edit-ui-wrapper .horizontal-tabs {
+  float: left;
+}
+
+#edit-ui-wrapper .horizontal-tabs-pane > .fieldset-wrapper {
+  padding: 1em 0 0;
+}
+
+#edit-ui-wrapper .horizontal-tabs-pane > .fieldset-wrapper .pane-header,
+#edit-ui-wrapper .horizontal-tabs-pane > .fieldset-wrapper .pane {
+  border-left: medium none;
+  border-right: medium none;
+}
+
+#edit-ui-wrapper .horizontal-tabs-pane > .fieldset-wrapper > .pane-header:last-child {
+  border-bottom: medium none;
+}
+
+#edit-ui-wrapper {
+  border: 1px solid #ccc;
+  display: inline-block;
+  margin-top: 25px;
+  padding: 0;
+  width: 100%;
+}
+
+#edit-ui-wrapper .horizontal-tabs-pane input.form-text {
+  width: 100%;
+}
+
+#edit-ui-wrapper .horizontal-tabs {
+  margin: -27px -1px -1px;
+  width: 242px;
+}
+
+#edit-settings-container {
+  padding-left: 1.2em;
+}
+
+/* @end */
+
+/* @group Form builder layout */
+
+#form-builder-wrapper {
+  border-left: 1px solid #ccc;
+  padding: 0;
+}
+
+#form-builder {
+  padding: 8px 22px 11px 0;
+  position: relative;
+}
+
+.horizontal-tabs-processed .horizontal-tabs-pane {
+  border: none;
+  border-left: 1px solid #ccc;
+  margin-bottom: 0;
+}
+
+.horizontal-tabs-panes.horizontal-tabs-processed {
+  border-right: 1px solid #ccc;
+  margin-left: 1px;
+  margin-top: 26px;
+}
+
+.horizontal-tabs fieldset.form-wrapper {
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.horizontal-tabs fieldset.form-wrapper .fieldset-wrapper {
+  padding: 0;
+}
+
+#form-builder-field-remove,
+.field-settings-message {
+  padding: 0 11px
+}
+
+/* @end */
+
+/* @group Form builder palette */
+
+#form-builder-field-palette {
+  padding: 0 11px;
+}
+
+#form-builder-field-palette h3 {
+  margin-bottom: 0.5em;
+}
+
+#form-builder-field-palette ul.form-builder-fields {
+  margin: 0;
+  width: 100%;
+}
+
+#form-builder-field-palette ul li,
+#form-builder-wrapper > li {
+  background-color: #dddddd;
+  border: medium none;
+  -moz-border-radius: 5px;
+  -webkit-border-radius: 5px;
+  border-radius: 5px;
+  float: none;
+  margin-top: 8px;
+  width: auto;
+}
+
+#form-builder-field-palette ul li:hover {
+  background-color: #f2efc3;
+}
+
+#form-builder-field-palette ul .first {
+  margin-top: 0;
+}
+
+#form-builder-field-palette ul li.ui-draggable,
+#form-builder-wrapper > li.ui-draggable {
+  background-image: none;
+  list-style: none;
+  padding: 3px;
+}
+
+#form-builder-field-palette ul li.ui-draggable a,
+#form-builder-wrapper > li.ui-draggable a {
+  background: url("/misc/draggable.png") no-repeat scroll left 6px transparent;
+  color: #000;
+  display: block;
+  font-size: 13px;
+  margin-left: 3px;
+  padding: 2px 10px 2px 19px;
+  white-space: nowrap;
+}
+
+#form-builder-field-palette ul li.ui-draggable-dragging:hover,
+#form-builder-wrapper > li.ui-draggable-dragging:hover {
+  background-color: #dddddd;
+}
+
+#form-builder-field-palette ul li.ui-draggable:hover a,
+#form-builder-field-palette ul li.ui-draggable-dragging a,
+#form-builder-wrapper > li.ui-draggable:hover a,
+#form-builder-wrapper > li.ui-draggable-dragging a{
+  background-position: left -14px;
+}
+
+/* @end */
+
+/* @group Form builder field configure */
+
+#form-builder-field-configure .confirmation input[type=submit] {
+  display: inline-block;
+}
+
+#form-builder-field-configure .options-widget + fieldset > legend {
+  display: none;
+}
+
+#form-builder-field-configure .option-actions-cell {
+  width: 20px;
+}
+
+/* @end */
+
+/* @group Form builder preview */
+
+#form-builder h3 {
+  margin: 0 0 20px;
+}
+
+#form-builder .form-item label,
+#form-builder .form-item label.option {
+  font-size: 13px;
+}
+
+#form-builder-wrapper .form-builder-element .form-builder-preview-hidden-webform-element,
+#form-builder-wrapper .form-builder-element .form-builder-preview-pagebreak-webform-element {
+  padding-top: 4px;
+}
+
+#form-builder-wrapper .form-builder-preview-pagebreak-webform-element {
+  text-align: center;
+}
+
+#form-builder-wrapper .form-builder-preview-pagebreak-webform-element * {
+  margin: 0;
+  white-space: nowrap;
+}
+
+/* @group Form elements */
+
+.form-builder-title-bar {
+  display: block !important;
+}
+
+#form-builder .form-builder-wrapper .form-builder-wrapper {
+  margin: 0;
+}
+
+#form-builder .form-builder-element {
+  margin: 0;
+  padding-left: 21px;
+}
+
+#form-builder .form-builder-element .form-item {
+  padding: 10px 10px 30px 35px;
+}
+
+#form-builder .form-builder-element .form-type-checkbox,
+#form-builder .form-builder-element .form-type-radio {
+  margin-left: 0;
+  padding: 5px 0;
+}
+
+#form-builder .form-builder-element .fieldset-color-wrapper {
+  background: #fff;
+  padding: 10px 10px 10px 20px;
+}
+
+.fieldset-color-wrapper > fieldset {
+  padding-left: 15px;
+}
+
+#form-builder .form-builder-wrapper,
+#form-builder .form-builder-active {
+  border: none;
+  padding: 0;
+}
+
+#form-builder .form-builder-active > .form-builder-element {
+  background: url(../images/yellow_arrow.png) no-repeat left 14px transparent;
+}
+
+#form-builder .form-builder-active > .form-builder-element > .form-item {
+  background: #F4ECC7;
+}
+
+#form-builder .form-builder-active > .form-builder-element-fieldset {
+  background: url(../images/green_arrow.png) no-repeat left 14px transparent;
+}
+
+#form-builder .form-builder-active > .form-builder-element-fieldset > .fieldset-color-wrapper {
+  background: #E0EFCC;
+}
+
+#form-builder .webform-component {
+  padding: 0;
+}
+
+#form-builder label {
+  font-weight: normal;
+}
+
+#form-builder .form-builder-placeholder.over {
+  min-height: 30px;
+  padding: 4px;
+}
+
+#form-builder .form-builder-placeholder.over + .form-builder-wrapper .form-builder-placeholder {
+  height: 0px !important;
+}
+
+div.form-builder-hover {
+  border: none;
+}
+
+.form-builder-placeholder.over,
+#form-builder .form-builder-empty-placeholder.over {
+  background: #f0f0f0;
+}
+
+#form-builder .form-builder-placeholder.over + .form-builder-wrapper .form-builder-empty-placeholder.over,
+#form-builder .form-builder-placeholder.over + .original + .form-builder-wrapper .form-builder-empty-placeholder.over,
+#form-builder .form-builder-placeholder.over + .form-builder-wrapper .form-builder-placeholder.over,
+#form-builder .form-builder-placeholder.over + .original + .form-builder-wrapper .form-builder-placeholder.over {
+  background: none;
+}
+
+.form-builder-placeholder {
+  margin-left: 25px;
+}
+
+#form-builder-wrapper > .form-builder-wrapper {
+  max-height: 80px;
+}
+
+#form-builder-wrapper > .form-builder-wrapper .fieldset-wrapper {
+  display: none;
+}
+
+/* @end */
+
+/* @group Fieldsets */
+
+#form-builder .form-builder-wrapper.form-builder-empty-placeholder {
+  padding: 40px;
+}
+
+#form-builder .ui-sortable-placeholder + .form-builder-wrapper.form-builder-empty-placeholder,
+#form-builder .form-builder-wrapper.form-builder-empty-placeholder + .form-builder-wrapper.form-builder-empty-placeholder {
+  padding: 0 0 40px;
+}
+
+#form-builder .ui-sortable-placeholder + .form-builder-wrapper.form-builder-empty-placeholder span {
+  display: none;
+}
+
+#form-builder .form-builder-wrapper.form-builder-empty-placeholder span {
+  margin: 0;
+}
+
+#form-builder fieldset {
+  border: 2px solid #ccc;
+  padding-bottom: 20px;
+  padding-right: 11px;
+}
+
+#form-builder fieldset legend {
+  margin-left: -7px;
+}
+
+#form-builder fieldset .fieldset-legend {
+  font-weight: normal;
+  padding: 0 5px;
+  position: static;
+  margin: 0;
+  text-transform: none;
+}
+
+#form-builder fieldset.collapsible .fieldset-legend {
+  padding-left: 15px;
+}
+
+#form-builder #webform-component-live-preview--submit-preview {
+  background-image: none;
+}
+
+#form-builder .button {
+  background-color: #666666;
+  background-image: none;
+  border: medium none;
+  -moz-border-radius: 0;
+  -webkit-border-radius: 0;
+  border-radius: 0;
+  color: #FFFFFF;
+  display: inline-block;
+  font-size: 0.9286em;
+  font-weight: normal;
+  padding: 0.6667em 2em;
+}
+
+#form-builder .button:hover {
+  cursor: default;
+}
+
+#form-builder > .empty-form + .form-builder-wrapper {
+  display: none;
+}
+
+#form-builder > .empty-form {
+  margin: -1em 0 0;
+  position: absolute;
+  text-align: center;
+  top: 50%;
+  width: 100%;
+}
+
+/* @end */
+
+/* @group Links */
+
+#form-builder-wrapper .form-builder-links {
+  display: none;
+  position: absolute;
+  text-align: right;
+  left: auto;
+  top: auto;
+  bottom: 2px;
+  right: 11px;
+  z-index: 1;
+}
+
+#form-builder-wrapper .form-builder-wrapper:hover > * > .webform-component,
+#form-builder-wrapper .form-builder-wrapper:hover > * > .fieldset-color-wrapper > .webform-component {
+  background-image: url('../images/draggable.png');
+  background-position: 4px 4px;
+  background-repeat: no-repeat;
+  border: 1px solid #ccc;
+  margin: -1px;
+  position: relative;
+  z-index: 1;
+}
+
+#form-builder-wrapper .form-builder-active:hover > * > .webform-component {
+  border: none;
+  margin: 0;
+}
+
+#form-builder-wrapper .form-builder-wrapper:hover > * > .form-builder-links,
+#form-builder-wrapper .form-builder-wrapper:hover > * > .fieldset-color-wrapper > .form-builder-links {
+  display: block;
+}
+
+#form-builder .fieldset-color-wrapper > .form-builder-links {
+  position: static;
+}
+
+#form-builder .form-builder-active > .form-builder-element > .form-builder-links,
+#form-builder .form-builder-active > .form-builder-element > .fieldset-color-wrapper > .form-builder-links {
+  display: block;
+}
+
+.form-builder-links li {
+  display: inline-block;
+}
+
+.form-builder-links li + li {
+  margin-left: 1em;
+}
+
+/* @end */
+
+/* @end */
+
+.disabled > label {
+  color: #ddd;
+}
+
+#edit-ui-wrapper .vertical-accordion label {
+  display: inline;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.webform-response td + td {
+  text-align: right;
+}
+
+.webform-upload-file-types {
+  outline: 1px solid red;
+  overflow: hidden;
+}
+
+#edit-webform-file-filtering-types-type-groups,
+#edit-webform-file-filtering-types-file-types {
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+#edit-webform-file-filtering-types-type-groups .form-item,
+#edit-webform-file-filtering-types-file-types .form-item {
+  float: left;
+  margin: 1px 0;
+  padding: 0;
+  width: 25%;
+}
+
+#edit-webform-file-filtering-types-type-groups .form-item {
+  width: 50%;
+}
+
+#edit-webform-file-filtering-types-type-groups .form-item:first-child {
+  width: 100%;
+}
+
+/* @group Vertical tabs */
+
+div.vertical-tabs fieldset {
+  border: 1px solid #ccc;
+  margin: 1em 0;
+  padding: 2.5em 1em 0;
+  position: relative;
+}
+
+div.vertical-tabs .vertical-tabs-panes legend {
+  display: block;
+}
+
+div.vertical-tabs-panes > fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+div.vertical-tabs .vertical-tabs-panes > fieldset > legend {
+  display: none;
+}
+
+.vertical-tabs-panes .limit-wrapper {
+  font-size: 13px;
+}
+
+.vertical-tabs-panes .limit-wrapper .form-item {
+  display: inline-block;
+}
+
+.vertical-tabs-panes .limit-wrapper .form-item .form-text {
+  width: auto;
+}
+
+.vertical-tabs-panes .horizontal-tabs-pane .form-item-redirect-url .form-text {
+  width: 70%;
+}
+
+/* @end Vertical tabs */
+
+.webform-submission-navigation {
+  color: #ccc;
+}
+
+.webform-user {
+    border: 1px solid #CCCCCC;
+    margin-bottom: 20px;
+    padding: 0 12px 6px;
+}
+
+.webform-user .user-picture {
+    float: left;
+    margin-right: 10px;
+}
+
+.webform-user .label {
+  font-weight: bold;
+}
+
+.webform-submission .webform-component label,
+.webform-submission .webform-component input {
+  display: inline-block;
+  font-size: 1em;
+}
+
+.webform-submission .webform-component label {
+  font-weight: bold;
+  vertical-align: top;
+  width: 12em;
+}
+
+.webform-alt-ui-simplified-text-format .form-type-select {
+  text-align: right;
+}
+
+div.options-widget a.add:hover,
+div.options-widget a.remove:hover,
+div.form-option-add a:hover {
+  background-position: 0 0;
+}
+
+div.options-widget a.add,
+div.form-option-add a {
+  background-image: url(../images/add.png);
+}

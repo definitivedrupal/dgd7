@@ -1,0 +1,154 @@
+/**
+ * Contextual links proxy.
+ */
+.contextual-links-region-proxy {
+  display: none;
+  position: absolute;
+  z-index: 210;
+}
+
+.contextual-links-region-proxy-outline {
+  border-color: #999;
+  border-style: dotted;
+  border-width: 0;
+  display: none;
+  position: absolute;
+  z-index: 200;
+}
+
+.contextual-links-region-proxy-outline.outline-top {
+  border-width: 1px 0 0;
+}
+
+.contextual-links-region-proxy-outline.outline-right {
+  border-width: 0 1px 0 0;
+}
+
+.contextual-links-region-proxy-outline.outline-bottom {
+  border-width: 0 0 1px;
+}
+
+.contextual-links-region-proxy-outline.outline-left {
+  border-width: 0 0 0 1px;
+}
+
+/**
+ * Contextual links.
+ */
+.contextual-links-wrapper {
+  display: none;
+}
+
+.contextual-links-region-proxy .contextual-links-wrapper {
+  display: block;
+  left: 0;
+  position: absolute;
+  right: auto;
+  top: -1px;
+  z-index: 220;
+}
+
+.contextual-links-region-proxy .contextual-links-wrapper.edge-collision {
+  left: auto; /* LTR */
+  right: -3px; /* LTR */
+}
+
+.contextual-links-region-proxy .contextual-links-trigger {
+  background-attachment: scroll;
+  background-color: transparent;
+  background-image: url("../images/gears.png");
+  background-position: right top; /* LTR */
+  background-repeat: no-repeat;
+  border: medium none;
+  height: 20px;
+  padding: 0;
+  position: absolute;
+  right: 0;
+  text-indent: -9999px;
+  top: 0;
+  width: 24px;
+  z-index: 230;
+}
+
+.contextual-links-region-proxy .contextual-links-wrapper:hover .contextual-links-trigger,
+.contextual-links-region-proxy .contextual-links-trigger:hover {
+  background-position: right top; /* LTR */
+}
+
+.contextual-links-region-proxy .contextual-links {
+  background-color: #666666;
+  border-color: #cccccc #999999 #999999 #cccccc; /* LTR */
+  -moz-border-radius: 10px 0 0 10px; /* LTR */
+  -o-border-top-left-radius: 10px; /* LTR */
+  -o-border-top-right-radius: 0; /* LTR */
+  -o-border-bottom-right-radius: 0; /* LTR */
+  -o-border-bottom-left-radius: 10px; /* LTR */
+  -webkit-border-top-left-radius: 10px; /* LTR */
+  -webkit-border-top-right-radius: 0; /* LTR */
+  -webkit-border-bottom-right-radius: 0; /* LTR */
+  -webkit-border-bottom-left-radius: 10px; /* LTR */
+  border-radius: 10px 0 0 10px; /* LTR */
+  border-style: solid;
+  border-width: 1px;
+  -moz-box-shadow: 2px 2px 3px rgba(0, 0, 0, 0.333); /* LTR */
+  -o-box-shadow: 2px 2px 3px rgba(0, 0, 0, 0.333); /* LTR */
+  -webkit-box-shadow: 2px 2px 3px rgba(0, 0, 0, 0.333); /* LTR */
+  box-shadow: 2px 2px 3px rgba(0, 0, 0, 0.333); /* LTR */
+  display: none;
+  list-style: none outside none;
+  margin: 0;
+  padding: 6px 0;
+  position: absolute;
+  right: 0;
+  text-align: left;
+  top: 0;
+  white-space: nowrap;
+  z-index: 240;
+}
+
+.contextual-links-region-proxy .contextual-links.edge-collision {
+  -moz-border-radius: 0 10px 10px 10px;
+  -o-border-top-left-radius: 0; /* LTR */
+  -o-border-top-right-radius: 10px; /* LTR */
+  -o-border-bottom-right-radius: 10px; /* LTR */
+  -o-border-bottom-left-radius: 10px; /* LTR */
+  -webkit-border-top-left-radius: 0; /* LTR */
+  -webkit-border-top-right-radius: 10px; /* LTR */
+  -webkit-border-bottom-right-radius: 10px; /* LTR */
+  -webkit-border-bottom-left-radius: 10px; /* LTR */
+  border-radius: 0 10px 10px 10px;
+  left: -1px;
+  right: auto;
+  z-index: 225;
+}
+
+.contextual-links-region-proxy .contextual-links-wrapper.edge-collision .contextual-links {
+  z-index: 240;
+}
+
+.contextual-links-region-proxy .contextual-links li span,
+.contextual-links-region-proxy .contextual-links li a {
+  display: block;
+  font-size: 13px;
+  line-height: 1;
+  margin: 0;
+}
+
+.contextual-links-region-proxy .contextual-links li span {
+  color: #b8b8b8;
+  padding: 6px 9px;
+}
+
+.contextual-links-region-proxy .contextual-links li:first-child span {
+  padding-top: 0;
+}
+
+.contextual-links-region-proxy .contextual-links li a {
+  color: white !important; /* This important overrides an !important in core. sigh. */
+  padding: 6px 9px;
+  text-decoration: underline;
+}
+
+.contextual-links-region-proxy .contextual-links li a:hover {
+  text-decoration: underline;
+}

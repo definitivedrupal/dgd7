@@ -1,0 +1,31 @@
+$Id: CHANGELOG.txt,v 1.2.2.25 2010/01/25 22:18:34 aaron Exp $
+
+by aaron: Add support for HTML5 video.
+by aaron: Use $object rather than $items, so we can get overrides.
+by aaron: Placeholder for styles_preset_save().
+by aaron: Add load hooks for loading styles from menu for UI.
+by aaron: Add admin & help hooks to styles containers for UI.
+by aaron: Implement hook_field_formatter_view().
+by aaron: Fix formatter info callback for new Drupal API.
+by aaron: Fix constants.
+by aaron: Add template file for theme_styles.
+by aaron: Refactor styles containers array.
+by aaron: Move includes to proper placement.
+by aaron: Fix weight sorting.
+by aaron: Add a weight to style containers.
+by aaron: New theme callback formats.
+by aaron: Define formatter theme callbacks.
+by aaron: Define filter callbacks.
+by aaron: Fix styles_presets().
+by aaron: Store correct styles information.
+by aaron: styles_presets().
+by aaron: Key by field.
+by aaron: Fix up code.
+by aaron: Remove field dependency.
+by aaron: Add hook_styles_styles.
+by aaron: Create styles_containers, and describe hook implementation for API.
+by aaron: Define constants.
+by aaron: Create README.txt.
+by aaron: Create .info and .install.
+by aaron: Branch for DRUPAL-7--1.
+by aaron: Create styles() function.

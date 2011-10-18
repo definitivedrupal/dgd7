@@ -1,0 +1,79 @@
+
+.rb-slide {
+  display: block;
+  opacity: 1;
+  overflow: hidden;
+  position: relative;
+  vertical-align: middle;
+}
+
+.rb-slide img {
+  border: 4px double #CCC;
+}
+
+.rb-textbox-wrapper:hover {
+  outline: 2px dashed #aaa;
+}
+
+.rb-textbox-wrapper {
+  background-color: #666;
+  color: white;
+  opacity: 0.5;
+  /* padding: 8px; */
+}
+
+.rb-textbox h2 {
+  display: inline;
+  font-size: 16px;
+  line-height: 16px;
+  margin: 0px;
+  padding: 0px;
+}
+
+.rb-textbox-wrapper.ui-draggable {
+  /* background: url('images/draggable.png') 0px -40px no-repeat; */
+  cursor: move;
+}
+
+.rb-slide .ui-draggable-dragging {
+  opacity: 0.3;
+}
+
+.rb-textbox {
+  opacity: 1;
+  white-space: no-wrap;
+}
+
+.rb-textbox-wrapper.editMode {
+  background-color: #fff;
+  color: #333;
+  opacity: 1;
+  outline: 2px dashed #aaa;
+}
+
+.fluid,
+.fluid img {
+  float: none;
+  margin-right: 0;
+  width: auto;
+}
+
+/* Cheapo way of hiding the block title form field.  Hey, it works! */
+
+#block-admin-configure .form-item-title {
+  display:none;
+}
+
+#rb-settings-effect-preview {
+  border: 2px dashed #ddd;
+  height: 164px;
+  width: 164px;
+}
+
+#rb-settings-effect-preview img {
+  padding: 5px;
+}
+
+div.rb-slide-preview {
+  display: inline-block;
+}

@@ -1,0 +1,49 @@
+/**
+ * Overrides to Views default styling for contextual links, RTL .
+ *
+ */
+
+div.contextual-links-region-proxy ul.contextual-links {
+  border-color: #cccccc #cccccc #999999 #999999;
+  -moz-border-radius: 0 10px 10px 0;
+  -o-border-top-left-radius: 0;
+  -o-border-top-right-radius: 10px;
+  -o-border-bottom-right-radius: 10px;
+  -o-border-bottom-left-radius: 0;
+  -webkit-border-top-left-radius: 0;
+  -webkit-border-top-right-radius: 10px;
+  -webkit-border-bottom-right-radius: 10px;
+  -webkit-border-bottom-left-radius: 0;
+  border-radius: 0 10px 10px 0;
+  right: auto;
+}
+
+.contextual-links-region-proxy .contextual-links-wrapper.edge-collision .contextual-links {
+  -moz-border-radius: 0 10px 10px 0;
+  -o-border-top-left-radius: 0;
+  -o-border-top-right-radius: 10px;
+  -o-border-bottom-right-radius: 10px;
+  -o-border-bottom-left-radius: 0;
+  -webkit-border-top-left-radius: 0;
+  -webkit-border-top-right-radius: 10px;
+  -webkit-border-bottom-right-radius: 10px;
+  -webkit-border-bottom-left-radius: 0;
+  border-radius: 0 10px 10px 0;
+}
+
+.contextual-links-region-proxy .contextual-links-wrapper .contextual-links.edge-collision {
+  -moz-border-radius: 10px 0 10px 10px;
+  -o-border-top-left-radius: 10px;
+  -o-border-top-right-radius: 0;
+  -o-border-bottom-right-radius: 10px;
+  -o-border-bottom-left-radius: 10px;
+  -webkit-border-top-left-radius: 10px;
+  -webkit-border-top-right-radius: 0;
+  -webkit-border-bottom-right-radius: 10px;
+  -webkit-border-bottom-left-radius: 10px;
+  border-radius: 10px 0 10px 10px;
+}
+
+.contextual-links-region-proxy .contextual-links li a {
+  padding: 3px 21px 3px 6px;
+}

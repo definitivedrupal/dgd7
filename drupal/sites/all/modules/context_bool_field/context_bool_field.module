@@ -1,0 +1,41 @@
+<?php
+/*
+ * implemntation of hook_context_plugins()
+ */
+function context_bool_field_context_plugins() {
+  $plugins = array();
+    $plugins['context_bool_field_condition'] = array(
+      'handler' => array(
+      'path' => drupal_get_path('module', 'context_bool_field') .'/plugins',
+      'file' => 'context_bool_field_condition.inc',
+      'class' => 'context_bool_field_condition',
+      'parent' => 'context_condition',
+    ),
+  );
+  return $plugins;
+}
+
+
+/*
+ * implemntation of hook_context_registry()
+ */
+function context_bool_field_context_registry() { 
+  return array(
+    'conditions' => array(
+      'field_bool' => array(
+        'title' => t('Bool Fields'),
+        'description' => 'Set Context based on Bool Fields',
+        'plugin' => 'context_bool_field_condition',
+      ),
+    ),
+  );
+}
+
+/*
+ * implemntation of hook_process_page()
+ */
+function context_bool_field_node_view($node, $view_mode, $langcode) {
+  if ($plugin = context_get_plugin('condition', 'field_bool') and  $node == menu_get_object()) {
+    $plugin->execute($node, $view_mode, $langcode);
+  } 
+}

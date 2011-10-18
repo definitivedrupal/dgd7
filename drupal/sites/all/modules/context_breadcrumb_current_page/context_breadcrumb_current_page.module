@@ -1,0 +1,41 @@
+<?php
+/*
+ * implemntation of hook_context_plugins()
+ */
+function context_breadcrumb_current_page_context_plugins() {
+  $plugins = array();
+    $plugins['context_breadcrumb_current_page_reaction'] = array(
+      'handler' => array(
+      'path' => drupal_get_path('module', 'context_breadcrumb_current_page') .'/plugins',
+      'file' => 'context_breadcrumb_current_page_reaction.inc',
+      'class' => 'context_breadcrumb_current_page_reaction',
+      'parent' => 'context_reaction',
+    ),
+  );
+  return $plugins;
+}
+
+
+/*
+ * implemntation of hook_context_registry()
+ */
+function context_breadcrumb_current_page_context_registry() {
+  return array(
+    'reactions' => array(
+      'breadcrumb_current_page' => array(
+        'title' => t('Breadcrumb Current Page'),
+        'description' => 'Include the current page in the breadcrumb',
+        'plugin' => 'context_breadcrumb_current_page_reaction',
+      ),
+    ),
+  );
+}
+
+/*
+ * implemntation of hook_process_page()
+ */
+function context_breadcrumb_current_page_preprocess_page(&$vars) {
+  if ($plugin = context_get_plugin('reaction', 'breadcrumb_current_page')) {
+    $plugin->execute($vars);
+  } 
+}

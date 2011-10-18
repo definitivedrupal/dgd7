@@ -1,0 +1,147 @@
+
+.rotating-banner {
+  height: auto;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.rb-link {
+  display: block;
+}
+
+.rotating-banner .rb-link:hover,
+.rotating-banner .rb-link:visited,
+.rotating-banner .rb-link:link,
+.rotating-banner .rb-link:active {
+  font-size: inherit;
+  text-decoration: none;
+  color: inherit;
+}
+
+.rotating-banner .rb-slides {
+  /* border: 1px dashed #aaa; */
+  height: auto;
+  overflow: hidden;
+  position: relative;
+  width: auto;
+}
+
+.rb-textbox-wrapper {
+  white-space: nowrap;
+}
+
+.jCycleActivated-processed .rb-slide.tallest {
+  display: block !important;
+  position: relative !important;
+}
+
+.rb-slide {
+  display: none;
+  line-height: 0;
+  opacity: 0;
+}
+/* Hide all slides except the first one to avoid seeing both together before cycle inits */
+.rb-slide.rb-first-slide {
+  display: block;
+  opacity: 1;
+}
+
+.fluid img {
+  height: auto;
+  width: 100%;
+}
+
+.rb-textbox-type-header {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.layout-wrapper {
+  line-height: 1.5em;
+  position: absolute;
+}
+
+.layout-wrapper:hover {
+  cursor: pointer;
+}
+
+.layout-wrapper.top-left {
+  left: 0;
+  margin: 1em 0 0 1em;
+  top: 0;
+}
+
+.layout-wrapper.top-right {
+  right: 0;
+  margin: 1em 1em 0 0;
+  text-align: right;
+  top: 0;
+}
+
+.layout-wrapper.bottom-left {
+  bottom: 0;
+  margin: 0 0 1em 1em;
+  left: 0;
+}
+
+.layout-wrapper.bottom-right {
+  bottom: 0;
+  margin: 0 1em 1em 0;
+  text-align: right;
+  right: 0;
+}
+
+.layout-wrapper.custom {
+  left: 0;
+  height: 100%;
+  top: 0;
+  width: 100%;
+}
+
+.custom .rb-textbox-wrapper {
+  position: absolute;
+}
+
+.controls {
+  text-align: center;
+}
+
+.controls.none {
+  display: none;
+}
+
+.controls a {
+  display: inline-block;
+  font-weight: bold;
+  margin: 2px;
+  padding: 5px;
+  line-height: 10px;
+}
+
+.controls.buttons a {
+  background: #CCC;
+  color: transparent;
+  font-size: 0;
+  height: 0;
+  text-indent: -2000px;
+  width: 0;
+  border-radius: 5px;
+  -moz-border-radius: 5px;
+  -webkit-border-radius: 5px;
+}
+
+.controls.buttons a.activeSlide {
+  background: #000;
+}
+
+.controls.numbers a {
+  color: #CCC;
+}
+
+.controls.numbers a.activeSlide {
+  color: #000;
+}
+
+.static-wrapper {
+  overflow: hidden;
+}

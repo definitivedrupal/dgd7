@@ -1,0 +1,726 @@
+<?php
+
+include_once 'rotating_banner.classes.inc';
+/**
+ * Implement hook_menu();
+ */
+function rotating_banner_menu() {
+  $items = array();
+
+  $items['admin/structure/block/rotating_banner/add'] = array(
+    'title' => 'Add a rotating banner',
+    'description' => 'A rotating banner is a series of images with text overlays known as slides.  The banner can be placed anywhere on your site through the block system.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rotating_banner_add_form'),
+    'file' => 'rotating_banner.admin.inc',
+    'access arguments' => array('administer blocks'),
+    'type' => MENU_LOCAL_ACTION,
+  );
+      
+  $items['admin/structure/rotating_banner/%rotating_banner/slide/add'] = array(
+    'title' => 'Create new slide',
+    'description' => 'Creates a new rotating banner slide.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rotating_banner_slide_add', 3),
+    'access arguments' => array('administer blocks'),
+    'file' => 'rotating_banner.admin.inc',
+  );
+  
+  $items['admin/structure/rotating_banner/slide/%rotating_banner_slide/edit'] = array(
+    'title' => 'Create new slide',
+    'description' => 'Creates a new rotating banner slide.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rotating_banner_slide_edit', 4),
+    'access arguments' => array('administer blocks'),
+    'file' => 'rotating_banner.admin.inc',
+  );
+
+  $items['admin/structure/rotating_banner/slide/%rotating_banner_slide/delete'] = array(
+    'title' => 'Create new slide',
+    'description' => 'Creates a new rotating banner slide.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rotating_banner_slide_delete_confirm', 4),
+    'access arguments' => array('administer blocks'),
+    'file' => 'rotating_banner.admin.inc',
+  );
+
+  $items['admin/structure/rotating_banner/slide/%rotating_banner_slide/delete'] = array(
+    'title' => 'Create new slide',
+    'description' => 'Creates a new rotating banner slide.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rotating_banner_slide_delete_confirm', 4),
+    'access arguments' => array('administer blocks'),
+    'file' => 'rotating_banner.admin.inc',
+  );
+
+  $items['admin/structure/rotating_banner/%/delete'] = array(
+    'title' => 'Delete a banner',
+    'description' => 'Deletes a rotating banner.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rotating_banner_delete_form', 3),
+    'access arguments' => array('administer blocks'),
+    'file' => 'rotating_banner.admin.inc',
+  );
+
+  return $items;
+}
+
+function rotating_banner_load($rbid) {
+  return RotatingBanner::get($rbid);
+}
+
+function rotating_banner_slide_load($sid) {
+  return RotatingBannerSlide::get($sid);
+}
+
+/**
+ * Creates a rotating banner record in {rotating_banners}, returns the id.
+ *
+ * @todo: can this
+ * @param {string} title
+ * @param {array} settings
+ * @return {mixed} int or false)
+ */
+function rotating_banner_create($title, $settings = NULL) {
+  $rb = RotatingBanner::create($title, $settings);
+  if (!$rb->rbid) {
+    return $rb->rbid;
+  }
+  else {
+    return FALSE;
+  }
+}
+
+/**
+ * Creates a rotating banner slide, returns its primary key.
+ * 
+ * @param int $rbid
+ * @param int $fid
+ * @param string $link
+ * @param array $textboxes
+ *   An array of textboxes with the format:
+ *    - postion => array('top' => 100px', 'left' => '100px')
+ *    - content (string)
+ *    - type (string) A class name to apply to the textbox
+ * @param string $layout
+ *  A class name to apply to the element
+ * @return <type>
+ *
+ * @todo: Can this.
+ */
+function rotating_banner_slide_create($rbid, $fid, $link = '', $textboxes = NULL, $layout = NULL) {
+  $rbs = RotatingBannerSlide::create($rbid, 0, $fid, $link, $textboxes, $layout);
+  if ($rbs->sid) {
+    return $rbs->sid;
+  }
+}
+
+/**
+ * Default settings for rotating banner creation.
+ *
+ * @return array
+ */
+function rotating_banner_slide_defaults() {
+  return RotatingBannerSlide::getDefaultSettings();
+}
+
+/**
+ * Implement hook_theme().
+ */
+function rotating_banner_theme() {
+  return array(
+    'rotating_banner' => array(
+      'variables' => array('banner' => NULL, 'slides' => array())
+    ),
+    'rotating_banner_slide' => array(
+      'variables' => array(
+        'banner' => NULL,
+        'background_image' => NULL,
+        'link' => NULL,
+        'textboxes' => array(),
+        'layout' => NULL,
+        'tallest' => false,
+        'first' => false, // TRUE, if it is the first slide in the set.
+      ),
+    ),
+    'rotating_banner_slide_textbox' => array(
+      'variables' => array(
+        'position' => array(),
+        'content' => NULL,
+        'type' => NULL,
+        'link' => NULL,
+      ),
+    ),
+    'rotating_banner_slide_image' => array(
+      'variables' => array(
+        'background-image' => NULL,
+        'link' => NULL,
+      ),
+    ),
+    'rotating_banner_settings_form_slides' => array(
+      'render element' => 'fieldset',
+    ),
+    'rotating_banner_control' => array(
+      'variables' => array(
+        'type' => NULL,
+        'slides' => array(),
+      ),
+    )
+  );
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function rotating_banner_block_info() {
+  $blocks = array();
+  $result = RotatingBanner::getAll();
+
+  if (is_array($result)) {
+    foreach ($result as $row) {
+      $blocks[$row->rbid] = array(
+        'info' => t('Rotating banner: @title', array('@title' => $row->title)),
+      );
+    }
+  }
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_configure().
+ */
+function rotating_banner_block_configure($delta) {
+  $rbid = $delta;
+
+  $banner = rotating_banner_load($rbid);
+  $defaults = rotating_banner_defaults();
+  $settings = array_merge($defaults, $banner->settings);
+  if (isset($banner->settings['cycle'])) {
+    $settings['cycle'] = array_merge($defaults['cycle'], $banner->settings['cycle']);
+  }
+
+  $form = array();
+
+  $path = drupal_get_path('module', 'rotating_banner');
+  
+  $form['#attached'] = array();
+  $form['#attached']['js'] = array();
+  $form['#attached']['js'][] = $path . '/includes/jquery.easing.js';
+  $form['#attached']['js'][] = $path . '/includes/jquery.cycle.js';
+
+  // Add sweet effects
+  $form['#attached']['libraries'] = array();
+  $form['#attached']['libraries'][] = 'effects';
+
+
+  $form['rotating_banner'] = array('#tree' => TRUE);
+  $rb_form =& $form['rotating_banner'];
+
+  $rb_form['#attached']['css'][] = drupal_get_path('module', 'rotating_banner') . '/rotating_banner.admin.css';
+  $rb_form['#attached']['js'][] = drupal_get_path('module', 'rotating_banner') . '/rotating_banner.admin.js';
+  
+
+  $options = array();
+  $i = 0;
+  
+  $slides = RotatingBannerSlide::getByRotatingBanner($rbid);
+
+  $rb_form['slides'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Banner images'),
+    '#collapsible' => TRUE,
+  );
+
+  $rb_form['slides']['slide_table'] = array(
+    '#theme' => 'rotating_banner_settings_form_slides',
+  );
+
+  $rb_form['slides']['slide_table']['weight'] = array('#tree' => TRUE);
+  
+  foreach ($slides as $slide) {
+    if (module_exists('file_entity')) {
+      $loaded_file = file_load($slide->fid);
+      $preview = file_view_file($loaded_file, 'media_preview');
+    }
+    else {
+      $media = media_load($slide->fid);
+      $preview = field_view_field('media', $media, 'file', 'media_preview');
+    }
+    $preview['#theme_wrappers'][] = 'media_thumbnail';
+
+    $i++;
+    $rb_form['slides']['slide_table']['weight'][$slide->sid] = array(
+      '#type' => 'weight',
+      '#default_value' => $slide->weight,
+      '#attributes' => array(
+        'class' => array('rb-slide-weight'),
+      ),
+    );
+
+    $rb_form['slides']['slide_table']['link'][$slide->sid] = array(
+      '#markup' => url($slide->link, array('absolute' => TRUE)),
+    );
+
+    $rb_form['slides']['slide_table']['background'][$slide->sid] = $preview;
+    
+  }
+  
+  $rb_form['slides']['add'] = array(
+    '#markup' => l(t('Add a new slide to this banner'), 'admin/structure/rotating_banner/' . $rbid . '/slide/add'),
+  );
+
+  $rb_form['banner_settings'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Banner settings'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+  );
+  
+  $rb_form['banner_settings']['fluid'] = array(
+    '#type' => 'radios',
+    '#title' => t('Banner size'),
+    '#options' => array(
+      '1' => 'The banner will shrink to fit the page.',
+      '0' => 'The banner will not shrink to fit the page and you have the option to specify the width and/or height.',
+    ),
+    '#default_value' => $settings['fluid'],
+  );
+
+  $rb_form['banner_settings']['width'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Width'),
+    '#attributes' => array(
+      'class' => array('rb-dimension-settings'),
+    ),
+    '#size' => 5,
+    '#field_suffix' => ' ' . t('pixels'),
+    '#default_value' => $settings['width'],
+  );
+
+  $rb_form['banner_settings']['height'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Height'),
+    '#size' => 5,
+    '#attributes' => array(
+      'class' => array('rb-dimension-settings'),
+    ),
+    '#field_suffix' => ' ' . t('pixels'),
+    '#default_value' => $settings['height'],
+  );
+
+  $rb_form['banner_settings']['cycle'] = array();
+
+  $relative_path = str_replace(DRUPAL_ROOT, '', drupal_get_path('module', 'rotating_banner'));
+
+  $demo_image1 = theme('image', array('path' => $relative_path . '/images/demo-slide-1.jpg'));
+  $demo_image2 = theme('image', array('path' => $relative_path. '/images/demo-slide-2.jpg'));
+  
+  $rb_form['banner_settings']['cycle']['fx'] = array(
+    '#type' => 'select',
+    '#title' => 'Transition type',
+    '#suffix' => '<div id="rb-settings-effect-preview">' . $demo_image1 . $demo_image2 . '</div>',
+    '#options' => array(
+      'fade' => t('Fade'),
+      'blindX' => t('BlindX'),
+      'blindY' => t('BlindY'),
+      'blindZ' => t('BlindZ'),
+      'cover' => t('Cover'),
+      'scrollUp' => t('ScrollUp'),
+      'scrollDown' => t('ScrollDown'),
+      'scrollLeft' => t('ScrollLeft'),
+      'scrollRight' => t('ScrollRight'),
+      'scrollHorz' => t('ScrollHorz'),
+      'scrollVert' => t('ScrollVert'),
+      'toss' => t('Toss'),
+      'uncover' => t('Uncover'),
+    ),
+    '#default_value' => $settings['cycle']['fx'],
+  );
+
+  $rb_form['banner_settings']['cycle']['auto_slide'] = array(
+    '#id' => 'auto-transition-selector', // Keeps it from going in the cycle settings
+    '#type' => 'checkbox',
+    '#title' => t('Automatically change slides'),
+  );
+  
+  $rb_form['banner_settings']['cycle']['timeout'] = array(
+    '#title' => t('Delay between slides in milliseconds.'),
+    '#type' => 'textfield',
+    '#description' => t('Leave blank to disable automatic transition.'),
+    '#default_value' => $settings['cycle']['timeout'],
+  );
+
+  $rb_form['banner_settings']['controls'] = array(
+    '#type' => 'select',
+    '#title' => t('Type of control to switch between slides'),
+    '#options' => array(
+      'none' => t('None'),
+      'buttons' => t('Buttons'),
+      'numbers' => t('Numbers'),
+      'prev_next' => t('Prev / Next'),
+    ),
+    '#default_value' => $settings['controls'],
+  );
+  
+  return $form;
+}
+
+function theme_rotating_banner_settings_form_slides($variables) {
+  $fieldset = $variables['fieldset'];
+  if (!isset($fieldset['background'])) {
+    return '';
+  }
+  $rows = array();
+
+  foreach (element_children($fieldset['background']) as $key) {
+    $rows[] = array(
+      'data' => array(
+        drupal_render($fieldset['background'][$key]),
+        drupal_render($fieldset['link'][$key]),
+        drupal_render($fieldset['weight'][$key]),
+        l(t('Edit'), 'admin/structure/rotating_banner/slide/' . $key . '/edit'),
+        l(t('Delete'), 'admin/structure/rotating_banner/slide/' . $key . '/delete'),
+       ),
+      'class' => array('draggable'),
+    );
+  }
+  
+  drupal_add_tabledrag('rb-slide-order', 'order', 'sibling', 'rb-slide-weight');
+  return theme('table', array('header' => array(t('Image'), t('Link'), t('Weight'), array('data' => t('Operations'), 'colspan' => '2')), 'rows' => $rows, 'attributes' => array('id' => 'rb-slide-order')));
+}
+
+
+/**
+ * Implements hook_block_save().
+ */
+function rotating_banner_block_save($delta, $edit = array()) {
+  $settings = $edit['rotating_banner']['banner_settings'];
+  $slides = $edit['rotating_banner']['slides']['slide_table'];
+
+  $rb = RotatingBanner::get($delta);
+  $rb->settings = $settings;
+  if (!$rb->save()) {
+    drupal_set_message('Error saving rotating banner block.');
+  }
+  
+  if(isset($slides) && isset($slides['weight'])) {
+    foreach($rb->getSlides() as $slide) {
+      if (isset($slides['weight'][$slide->sid])) {
+        $slide->weight = $slides['weight'][$slide->sid];
+        $slide->save();
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function rotating_banner_block_view($delta) {
+  $rbid = $delta;
+  $banner = rotating_banner_load($rbid);
+  $slides = $banner->getSlides();
+
+  $content = theme('rotating_banner', array('banner' => $banner, 'slides' => $slides));
+  // We wrap this in another array so the #prefix and #suffix in theme_rotating_banner
+  // do not end up before and after the block... Basically D7 theming kills me.
+  return array('content' => array($content));
+}
+
+function rotating_banner_defaults() {
+  return RotatingBanner::getDefaultSettings();
+}
+
+function rotating_banner_rotating_banner_slide_layouts() {
+  return array(
+    'custom' => 'Custom',
+    'top-left' => 'Top left',
+    'top-right' => 'Top right',
+    'bottom-left' => 'Bottom left',
+    'bottom-right' => 'Bottom right',
+  );
+};
+
+function theme_rotating_banner($variables) {
+  $banner = $variables['banner'];
+  $slides = $variables['slides'];
+
+  #print $banner->rbid;
+
+  $settings = $banner->settings;
+  if (is_string($settings)) {
+    $settings = unserialize($settings);
+  }
+  $fluid = $settings['fluid'];
+  
+  // This is kinda annoying, but this actually needs to be 0 for it to not show.
+  if (!$settings['cycle']['timeout']) {
+    $settings['cycle']['timeout'] = 0;
+  }
+  $path = drupal_get_path('module', 'rotating_banner');
+
+  $banners = array();
+  $id = 'rotating-banner-' . $banner->rbid;
+  $banners[$id] = $settings;
+
+  drupal_add_js(array('rotatingBanners' => $banners), 'setting');
+
+  // The prefix will be added later based on the contained slides and the layout type
+  $element = array(
+    '#prefix' => '<div class="rotating-banner" id="' . $id,
+    '#suffix' => '</div>',
+  );
+
+  $element['#attached']['css'][] = $path . '/rotating_banner.css';
+  $element['#attached']['js'][] = $path . '/includes/jquery.easing.js';
+  $element['#attached']['js'][] = $path . '/includes/jquery.cycle.js';
+  $element['#attached']['js'][] = $path . '/rotating_banner.js';
+  
+  // Add sweet effects
+  $element['#attached']['libraries'][] = 'effects';
+
+  // We set the max-height here because the controls shouldn't be affected by overflow:hidden;
+  if (!$fluid) {
+    $rbStyle = "max-height: {$settings['height']}" . 'px;';
+  } else {
+    $rbStyle = "max-height: auto;";
+  }
+  $element['slides'] = array(
+    '#prefix' => '<div class="rb-slides" style="' . $rbStyle . '">'  . "\n\t",
+    '#suffix' => '</div>',
+  );
+ 
+  // These values are to set the w/h for fluid banners and the height for static banners
+  $smallest = NULL;
+  $ratio = NULL;
+  $ratioPointer = NULL;
+
+  
+  foreach ($slides as $k => $slide) {
+    $first_slide = FALSE;
+    if ($k == 0) {
+      $first_slide = TRUE;
+    }
+
+    $file = file_load($slide->fid);
+    if ($file) {
+      $size = getimagesize($file->uri);
+      if ($size[0] < $smallest || $smallest == NULL) {
+        $smallest = $size[0];
+      }
+
+      // Determine if the slide has the smallest w/h ratio
+      if (($size[0]/$size[1]) < $ratio || $ratio == NULL) {
+        $ratio = $size[0]/$size[1];
+        $ratioPointer = $k;
+      }
+    }
+    
+    $link = $slide->link;
+
+    $textboxes = $slide->textboxes;
+    $layout = $slide->layout;
+
+    $element['slides']['slide_' . $k] = array(
+      '#theme' => 'rotating_banner_slide',
+      '#banner' => $banner,
+      '#background_image' => $file,
+      '#textboxes' => $textboxes,
+      '#link' => $link,
+      '#layout' => $layout,
+      '#tallest' => false,
+      '#first' => $first_slide,
+    );
+  }
+  
+  $element['slides']['slide_' . $ratioPointer]['#tallest'] = 'tallest';
+  
+  // If the banner is static, we set the width, and if fluid it is a max-width.
+  if (!$fluid) {
+    $style = 'width: ';
+    $element['#prefix'] = '<div class="static-wrapper"><div class="rotating-banner" id="' . $id;
+    $element['#suffix'] = '</div></div>';
+  } else {
+    $style = 'max-width: ';
+  }
+  
+  // If the banner is fluid or doesn't have a set width, we need to use the width of the narrowest slide that we calculated earlier
+  if ($fluid || $settings['width'] <= 0) {
+    if ($smallest) {
+      $style .= $smallest . "px;";
+    }
+    $element['#prefix'] = $element['#prefix'] . '" style="' . $style . '">' . "\n\t";
+  } else {
+    
+    $style .= $settings['width'] . "px;";
+    $element['#prefix'] = $element['#prefix'] . '" style="' . $style . '">' . "\n\t";
+  }
+
+  if (isset($settings['controls'])) {
+    $content = $settings['controls'] == 'prev_next' ? '<a href="#" class="prev">' . t('Prev') . '</a><a href="#" class="next">' . t('Next') . '</a>' : '';
+
+
+    $element['controls'] = array(
+      '#markup' => '<div class="' . $settings['controls'] . ' controls">' . $content . '</div>',
+    );
+  }
+  
+  return $element;
+}
+
+/**
+ * Creates HTML for the individual slides
+ *
+ * @param {Array} variables
+ *   Array of properties associated with the slide
+ *
+ * @return {String}
+ *   A string that when printed produces HTML.
+ */
+function theme_rotating_banner_slide($variables) {
+  $banner = $variables['banner'];
+  $background_image = $variables['background_image'];
+  $link = $variables['link'];
+  // The following check was added because json_decode behavior is
+  // inconsistent across versions of PHP.  Details can be found here
+  // http://php.net/manual/en/function.json-decode.php
+  if(is_string($variables['textboxes'])) {
+    $textboxes = drupal_json_decode($variables['textboxes']);
+  }
+  else {
+    $textboxes = $variables['textboxes'];
+  }
+  $layout = $variables['layout'];
+  $tallest = $variables['tallest'];
+  $first = $variables['first'];
+  $fluid = $banner->settings['fluid'];
+  $image_url = '';
+  $textbox_output = '';
+  if ($textboxes) {
+    foreach ($textboxes as $textbox) {
+      $textbox['layout'] = $layout;
+      $textbox['link'] = $link;
+      $textbox_output .= theme('rotating_banner_slide_textbox', $textbox);
+    }
+  }
+  // Get ready to output the HTML.
+  $contents = '';
+  // We need the wrapper even if their aren't textboxes so that the banner edit form has something to prepend new ones to.
+  $contents .= '<div class="' . $layout . ' layout-wrapper"';
+  if ($link) {
+    $contents .= ' data-link="'.url($link).'"';
+  } 
+  $contents .= '>' . "\n\t";
+  
+  if ($textbox_output) {
+    $contents .= $textbox_output;
+  }
+  $contents .= '</div>' . "\n";
+  
+  if ($background_image) {
+    $contents .= theme('rotating_banner_slide_image', array('background_image' => $background_image, 'link' => $link));
+  }
+  // First slide in the set.
+  if ($first) {
+    $first = "rb-first-slide";
+  }
+  else {
+    $first = '';
+  }
+  if ($fluid) {
+    $fluid = 'fluid';
+  }
+  else {
+    $fluid = 'static';
+  }
+  return '<div class="rb-slide ' . $layout . ' ' . $tallest . ' ' . $first . ' ' . $fluid . '">' . "\n\t" . $contents . '</div>' . "\n";
+}
+
+/**
+ * Creates the HTML structure that displays the set of textboxes wraps it in a link if a link exists
+ *
+ * @param {Array} variables
+ *   Array of properties associated with the textboxes include the textbox text
+ *
+ * @return {String}
+ *   A string that when printed produces HTML.
+ */
+function theme_rotating_banner_slide_textbox($variables) {
+  $position = $variables['position'];
+  $content = filter_xss_admin($variables['content']);
+  $type = $variables['type'];
+  $link = $variables['link'];
+  if ($position) {
+    $position += array('top' => 0, 'left' => 0, 'right' => 0, 'bottom' => 0);
+    $style = "top: " . $position['top'] . "%; left: " . $position['left'] . "%; right: " . $position['right'] . "%; bottom: ". $position['bottom'] . "%;";
+  }
+  if ($link) {
+    $content = l($content, $link, array('html' => TRUE, 'attributes' => array('class' => array('rb-link'))));
+  }
+  return '<div style="' . $style . '" class="' . $type . ' rb-textbox-wrapper"><div class="rb-textbox">' . $content . '</div></div>';;
+}
+
+/**
+ * Creates an image tag and wraps it in a link if a link exists
+ *
+ * @param {Array} variables
+ *   Array of properties associated with the background image
+ *
+ * @return {String}
+ *   A string that when printed produces HTML.
+ */
+function theme_rotating_banner_slide_image($variables) {
+  $background_image = $variables['background_image'];
+  $link = $variables['link'];
+  $output = '';
+  
+  if ($background_image) {
+    $image_url = file_create_url($background_image->uri);
+  }
+  
+  if ($image_url) {
+    $output .= "\n" . theme('image', array('path' => $image_url, 'attributes' => array('class' => 'rb-background-image')));
+  }
+  if ($link) {
+    $output = l($output, $link, array('html' => TRUE, 'attributes' => array('class' => array('rb-link'))));
+  }
+  return $output;
+}
+
+function theme_rotating_banner_control($variables) {
+  $type = $variables['type'];
+  $func = "theme_rotating_banner_control__$type";
+  if (function_exists($func)) {
+    return call_user_func_array($func, array($variables));
+  }
+  return '';
+}
+
+function theme_rotating_banner_control__buttons($variables) {
+  $output = '';
+  $slides = $variables['slides'];
+  $i = 0;
+  foreach ($slides as $slide) {
+    $buttons[$i] = '<a href="#">Button</a>';
+  }
+  $list =  array(
+    'items' => $buttons,
+    'title' => '',
+    'type' => 'ul',
+    'attributes' => array( 'class' => 'banner-buttons' ),
+  );
+
+  return theme_item_list($list);
+}
+
+function rotating_banner_form_block_admin_display_form_alter(&$form, &$form_state, $form_id) {
+  foreach($form['blocks'] as $key => $block) {
+    if ($block['module']['#value'] == 'rotating_banner') {
+      $form['blocks'][$key]['delete'] = array(
+        '#type' => 'link',
+        '#title' => t('delete'),
+        '#href' => 'admin/structure/rotating_banner/' . $block['delta']['#value'] . '/delete',
+      );
+    }
+  }
+}

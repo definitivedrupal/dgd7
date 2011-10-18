@@ -1,0 +1,40 @@
+// $Id: CHANGELOG.txt,v 1.1.2.12 2010/01/27 11:56:28 JacobSingh Exp $
+
+CHANGELOG for File: Styles
+
+by JacobSingh: Put an array_filter into image themeing to remove empty height and width so IE doesn't insert a 1x1px image.
+by aaron: Add original video size.
+by aaron: Add support for HTML5 video.
+by aaron: Fix error w/ no title.
+#692594 by aaron: Override for image title/alt.
+by aaron: Allow overrides (for WYSIWYG and the like).
+by aaron: Fix original image style.
+by aaron: Add original image style.
+by aaron: Fix image style preview.
+by aaron: Add hooks for Styles UI.
+by aaron: Rename module from media_styles to file_styles.
+by aaron: Define styles for media, file, and image fields.
+by aaron: Require dependency of the Styles module.
+by aaron: Allow description variable.
+by aaron: Fix badly named file.
+by aaron: Move theme functions to external file.
+by aaron: Begin cleaning module.
+by aaron: Grab style URL directly from object.
+by aaron: Modify style containers to match new styles API.
+by aaron: Begin implementing default style themes.
+by aaron: Begin 'default' style.
+by aaron: Add a weight to style containers.
+by aaron: New themes for styles.
+by aaron: Image theme callbacks.
+by aaron: Define filter callbacks.
+by aaron: Fix return value for hook_styles_presets().
+by aaron: Preserve Image namespace.
+by aaron: Implement hook_styles_presets().
+by aaron: Add variables to preview theme.
+by aaron: Key by media field.
+by aaron: Begin dependency on Styles module.
+by aaron: Use vertical tabs on admin style edit page.
+by aaron: Create previews on admin style edit page.
+by aaron: Pull in default styles and image styles.
+by aaron: Remove bundles; create admin list & add style form.
+by aaron: Create Media Styles, based largely off Image styles.

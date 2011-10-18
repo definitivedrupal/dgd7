@@ -1,0 +1,8 @@
+
+.webform-client-form .form-actions input + input {
+  margin-left: 10px;
+}
+
+.webform-client-form input {
+  max-width: 98%;
+}

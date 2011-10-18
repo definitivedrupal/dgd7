@@ -1,0 +1,16 @@
+
+.media-embed-wrapper {
+  padding: 0;
+  position: relative;
+  width: 100%;
+}
+
+.media-embed-wrapper iframe,
+.media-embed-wrapper object,
+.media-embed-wrapper embed{
+  height: 100%;
+  left: 0;
+  position: absolute;
+  top: 0;
+  width: 100%;
+}

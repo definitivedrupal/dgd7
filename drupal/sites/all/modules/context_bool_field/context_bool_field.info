@@ -1,0 +1,11 @@
+core = "7.x"
+description = "Provides a context condition to be set by a bool field on a node"
+name = "Context Bool Field"
+package = "Context"
+
+; Information added by drupal.org packaging script on 2011-09-27
+version = "7.x-1.0-beta1"
+core = "7.x"
+project = "context_bool_field"
+datestamp = "1317154001"
+

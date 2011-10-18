@@ -1,0 +1,35 @@
+<?php
+
+/**
+ * @file
+ * UI improvements to the Drupal Core Contextual links module.
+ */
+
+/**
+ * Implements hook_init().
+ */
+
+function contextual_flyout_links_init() {
+  $path = drupal_get_path('module', 'contextual_flyout_links');
+
+  // Add the contextual flyout links overriding javascript and css.
+  drupal_add_css($path . '/css/contextual_flyout_links.css', array('every_page' => TRUE));
+  drupal_add_js($path . '/js/contextual_flyout_links.js', array('every_page' => TRUE));
+
+  // If Views is running and this is a Views admin page, override contextual link styling
+  if (module_exists('views_ui') && path_is_admin(current_path()) && arg(2) === 'views') {
+    drupal_add_css($path . '/css/contextual_flyout_links.views_ui.css', array('weight' => 100));
+    drupal_add_js($path . '/js/contextual_flyout_links.views_ui.js');
+  }
+}
+
+/**
+ * Implements hook_library_alter().
+ */
+function contextual_flyout_links_library_alter(&$libraries, $module) {
+  // Remove the Contextual module CSS and JS
+  if ($module == 'contextual' && isset($libraries['contextual-links'])) {
+    unset($libraries['contextual-links']['css']);
+    unset($libraries['contextual-links']['js']);
+  }
+}

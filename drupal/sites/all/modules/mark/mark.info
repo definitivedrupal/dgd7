@@ -1,0 +1,21 @@
+; $Id: mark.info,v 1.1.4.1 2010/09/15 22:04:22 tristanoneil Exp $
+name = Mark
+description = "Let users mark any item accessible to views."
+package = Voting
+dependencies[] = ctools
+dependencies[] = votingapi
+dependencies[] = views
+files[] = mark.admin.inc
+files[] = mark.install
+files[] = mark.module
+files[] = mark.views.inc
+files[] = include/views_handler_field_mark.inc
+core = 7.x
+
+
+; Information added by drupal.org packaging script on 2010-12-16
+version = "7.x-1.0-beta1"
+core = "7.x"
+project = "mark"
+datestamp = "1292534161"
+

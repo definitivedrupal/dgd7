@@ -1,0 +1,48 @@
+<?php
+// $Id: mark.install,v 1.1.4.1 2010/10/01 18:17:41 yhahn Exp $
+
+/**
+ * Implementation of hook_schema().
+ */
+function mark_schema() {
+  $schema = array();
+  $schema['mark'] = array(
+    'description' => 'Storage for normal (user-defined) marks.',
+    'export' => array(
+      'key' => 'name',
+      'identifier' => 'mark',
+      'default hook' => 'mark_default_marks',  // Function hook name.
+      'status' => 'mark_status',
+      'api' => array(
+        'owner' => 'mark',
+        'api' => 'mark',  // Base name for api include files.
+        'minimum_version' => 1,
+        'current_version' => 1,
+      ),
+    ),
+    'fields' => array(
+      'name' => array(
+        'description' => 'The primary identifier for a mark.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'basetable' => array(
+        'description' => 'Table for this mark.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'settings' => array(
+        'description' => 'Serialized storage of all mark settings.',
+        'type' => 'text',
+        'serialize' => TRUE,
+      ),
+    ),
+    'primary key' => array('name'),
+  );
+  return $schema;
+}
+

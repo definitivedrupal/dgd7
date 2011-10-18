@@ -1,0 +1,13 @@
+name = Rotating banner
+description = Provides a way to create rotating banners as blocks.
+dependencies[] = media
+core = 7.x
+files[] = rotating_banner.module
+files[] = rotating_banner.install
+
+; Information added by drupal.org packaging script on 2011-03-31
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "rotating_banner"
+datestamp = "1301544000"
+

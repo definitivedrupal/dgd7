@@ -1,0 +1,26 @@
+<?php
+
+/**
+ * @file
+ * Install file for webform_alt_ui.
+ */
+
+/**
+ * This sets the default delimiter for webform export to be a comma.
+ */
+function webform_alt_ui_enable() {
+  variable_set('webform_csv_delimiter', ',');
+
+  $type = node_type_load('webform');
+  if ($type) {
+    $type->description = 'Create a new form or questionnaire. Submission results and statistics are recorded and accessible to privileged users.';
+    node_type_save($type);
+  }
+
+  // Turn off comments by default for webform nodes.
+  variable_set('comment_webform', COMMENT_NODE_CLOSED);
+  // Disable the AddThis block by default.
+  variable_set('addthis_nodetype_webform', 0);
+  // Hide the submitted by text by default
+  variable_set('node_submitted_webform', FALSE);
+}

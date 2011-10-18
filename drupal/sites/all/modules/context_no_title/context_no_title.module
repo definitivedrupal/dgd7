@@ -1,0 +1,41 @@
+<?php
+/*
+ * implemntation of hook_context_plugins()
+ */
+function context_no_title_context_plugins() {
+  $plugins = array();
+    $plugins['context_no_title_reaction'] = array(
+      'handler' => array(
+      'path' => drupal_get_path('module', 'context_no_title') .'/plugins',
+      'file' => 'context_no_title_reaction.inc',
+      'class' => 'context_no_title_reaction',
+      'parent' => 'context_reaction',
+    ),
+  );
+  return $plugins;
+}
+
+
+/*
+ * implemntation of hook_context_registry()
+ */
+function context_no_title_context_registry() {
+  return array(
+    'reactions' => array(
+      'no_title' => array(
+        'title' => t('No Title in Page'),
+        'description' => 'Remove the title from the page template',
+        'plugin' => 'context_no_title_reaction',
+      ),
+    ),
+  );
+}
+
+/*
+ * implemntation of hook_process_page()
+ */
+function context_no_title_process_page(&$vars) {
+  if ($plugin = context_get_plugin('reaction', 'no_title')) {
+    $plugin->execute($vars);
+  } 
+}

@@ -1,0 +1,14 @@
+// $Id: CHANGELOG.txt,v 1.1.2.7 2010/01/08 23:15:05 aaron Exp $
+
+CHANGELOG for Styles UI
+
+by aaron: Change previews on radio change.
+by aaron: Add a style preset preview.
+by aaron: Begin implementation of the style preset edit form.
+by aaron: Implement styles_ui_preset_add_form_validate().
+by aaron: Change overview listing to presets from containers.
+by aaron: Automate 'add' option from UI Admin.
+by aaron: Rename $field_name to $field_type.
+by aaron: Create overview listing page for styles.
+by aaron: Add callback for adding/editing styles.
+by aaron: Add callback for admin overview.
