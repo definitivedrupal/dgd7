@@ -65,17 +65,13 @@ class SchemaorgFieldUIManageFieldsTestCase extends FieldUITestCase {
     $admin_path = 'admin/structure/types/manage/page';
     $type_element_id = 'edit-schemaorg-type';
     $type_element_name = 'schemaorg_type';
-    $title_element_id = 'edit-schemaorg-title';
-    $title_element_name = 'schemaorg_title';
 
     $this->drupalGet($admin_path);
     $this->assertFieldById($type_element_id, '', t('The schema.org type was empty.'));
-    $this->assertFieldById($type_element_id, '', t('The schema.org property was empty.'));
 
     // Check that the schema.org terms are saved.
     $edit = array();
     $edit[$type_element_name] = 'WebPage';
-    $edit[$title_element_name] = 'url';
     $this->drupalPost($admin_path, $edit, t('Save content type'));
     $this->assertText("The content type Basic page has been updated.", t('The form was successfully submitted.'));
     entity_info_cache_clear();
@@ -86,22 +82,27 @@ class SchemaorgFieldUIManageFieldsTestCase extends FieldUITestCase {
     );
     $rdf_mapping_title_expected = array(
       'predicates' => array(
-        'schema:url',
+        'schema:name',
         'dc:title',
       ),
     );
+    $rdf_mapping_url_expected = array(
+      'predicates' => array(
+        'schema:url',
+      ),
+      'type' => 'rel',
+    );
     $this->assertEqual($rdf_mapping['rdftype'], $rdf_mapping_type_expected, t('The schema.org type was correctly saved.'));
     $this->assertEqual($rdf_mapping['title'], $rdf_mapping_title_expected, t('The schema.org title property was correctly saved.'));
+    $this->assertEqual($rdf_mapping['url'], $rdf_mapping_url_expected, t('The schema.org url property was correctly saved.'));
 
     // Check that the schema.org terms shows up in the form
     $this->drupalGet($admin_path);
     $this->assertFieldById($type_element_id, 'WebPage', t('The schema.org type form element was displayed with the correct value.'));
-    $this->assertFieldById($title_element_id, 'url', t('The schema.org title property form element was displayed with the correct value.'));
 
-    // Check that the schema.org terms can be emptied.
+    // Check that the schema.org type can be emptied.
     $edit = array();
     $edit[$type_element_name] = '';
-    $edit[$title_element_name] = '';
     $this->drupalPost($admin_path, $edit, t('Save content type'));
     $this->assertText("The content type Basic page has been updated.", t('The form was successfully submitted.'));
     entity_info_cache_clear();
@@ -114,8 +115,9 @@ class SchemaorgFieldUIManageFieldsTestCase extends FieldUITestCase {
         1 => 'dc:title',
       ),
     );
-    $this->assertEqual($rdf_mapping['rdftype'], $rdf_mapping_type_expected, t('The schema.org type was correctly saved.'));
-    $this->assertEqual($rdf_mapping['title'], $rdf_mapping_title_expected, t('The schema.org title property was correctly saved.'));
+    $this->assertEqual($rdf_mapping['rdftype'], $rdf_mapping_type_expected, t('The schema.org type mapping was correctly saved.'));
+    $this->assertEqual($rdf_mapping['title'], $rdf_mapping_title_expected, t('The schema.org title mapping was correctly saved.'));
+    $this->assertTrue(!isset($rdf_mapping['url']), t('The schema.org url mapping was correctly saved.'));
   }
 
   /**
