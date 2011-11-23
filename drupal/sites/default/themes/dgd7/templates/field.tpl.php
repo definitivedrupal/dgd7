@@ -25,13 +25,15 @@ $count = count($items);
     <?php // Use a list for multiple values. ?>
     <ul<?php print $content_attributes; ?>>
       <?php foreach ($items as $delta => $item): ?>
-      <li><?php print render($item); ?></li>
+      <li <?php print $item_attributes[$delta]; ?>><?php print render($item); ?></li>
       <?php endforeach; ?>
     </ul>
   <?php else: ?>
     <?php // Omit wrapper unless attributes exist for single values. ?>
     <?php if (!empty($content_attributes)): ?><div<?php print $content_attributes; ?>><?php endif; ?>
-      <?php print render($items); ?>
+      <?php foreach ($items as $delta => $item): ?>
+      <li <?php print $item_attributes[$delta]; ?>><?php print render($item); ?></li>
+      <?php endforeach; ?>
     <?php if (!empty($content_attributes)): ?></div><?php endif; ?>
   <?php endif; ?>
 </div>
