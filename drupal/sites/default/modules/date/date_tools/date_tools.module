@@ -1,5 +1,4 @@
 <?php
-// $Id: date_tools.module,v 1.16 2010/07/29 11:15:28 karens Exp $
 
 /**
  * Implementation of hook_help().
@@ -11,7 +10,7 @@ function date_tools_help($section, $arg) {
 
     case 'admin/structure/date/change':
       return '<p>'. t('Change a date field from one type to another. Very experimental, use at your own risk!') .'</p>';
-                 
+
     case 'admin/structure/date/date_wizard':
 
       $output =        
@@ -45,7 +44,6 @@ function date_tools_menu() {
     'description' => 'Tools to import and auto-create dates and calendars. ',
     'access arguments'   => array('administer date tools'),
     'page callback' => 'date_tools_page',
-    'type' => MENU_NORMAL_ITEM,
   );
   $items['admin/structure/date/about'] = array(
     'title' => 'About',
@@ -69,18 +67,17 @@ function date_tools_menu() {
     'title'    => 'Remove calendar',
     'access arguments'   => array('administer date tools'),
     'page callback' => 'drupal_get_form',
-    'page arguments' => array('date_tools_remove_form', 3),
+    'page arguments' => array('date_tools_remove_form', 4),
     'type' => MENU_CALLBACK,
   );
   $items['admin/structure/date/change'] = array(
-    'title'    => 'Change',
+    'title'    => 'Change type',
     'access arguments'   => array('administer date tools'),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('date_tools_change_type_form'),
     'type' => MENU_LOCAL_TASK,
     'weight' => 3,
     'file' => 'date_tools.change_type.inc',
-    'path' => drupal_get_path('module', 'date_tools'),
   );
   return $items;
 }
@@ -96,15 +93,15 @@ function date_tools_page() {
   if (module_exists('calendar')) {
     $calendar_options = variable_get('calendar_default_view_options', array());
     $calendars = array();
-    $node_types = node_get_types();
+    $node_types = node_type_get_names();
     foreach ($calendar_options as $key => $option) {
-      $bundle = str_replace('calendar_', '', $key);
+      $bundle = str_replace(array('calendar_', 'cal_'), '', $key);
       if (array_key_exists($bundle, $node_types)) {
         $type = $node_types[$bundle];
         $calendars[] = array(
-          l($type->name, 'admin/structure/types/manage/' . $bundle . '/fields'), 
+          l($type, 'admin/structure/types/manage/' . $bundle . '/fields'), 
           l($key, 'admin/structure/views/edit/' . $key), 
-          t('The calendar %view is a default calendar created for the content type %bundle. ', array('%view' => $key, '%bundle' => $type->name)),
+          t('The calendar %view is a default calendar created for the content type %bundle. ', array('%view' => $key, '%bundle' => $type)),
           l(t('remove !view', array('!view' => $key)), 'admin/structure/date/remove/' . $key),
         );
       }
@@ -115,18 +112,18 @@ function date_tools_page() {
       }
     }
     if (!empty($calendars)) {
-      $headers = array(t('Content Type'), t('Calendar'), t('Description'), t('Operations'));
-      $content .= theme('table', $headers, $calendars);
+      $header = array(t('Content Type'), t('Calendar'), t('Description'), t('Operations'));
+      $content .= theme('table', array('header' => $header, 'rows' => $calendars));
     }
   }
-  
+
   return $content;
 }
 
 /**
  * Menu callback; present a form for removing a field from a content type.
  */
-function date_tools_remove_form(&$form_state, $view_name) {
+function date_tools_remove_form($form, &$form_state, $view_name) {
   $form = array();
   $form['view_name'] = array(
     '#type' => 'value',
@@ -148,118 +145,10 @@ function date_tools_remove_form(&$form_state, $view_name) {
 function date_tools_remove_form_submit($form, &$form_state) {
   $form_values = $form_state['values'];
   $view_name = $form_values['view_name'];
-  
   if ($view_name && $form_values['confirm']) {
     calendar_remove($view_name);
     drupal_set_message(t('Removed calendar %calendar. ', array(
       '%calendar' => $view_name)));
   }
   $form_state['redirect'] = 'admin/structure/date';
-}
-
-/**
- * Helper function to create a field array with default values for a date 
- * $field, based on field type, widget type, and timezone handling.
- * 
- * This function can be used to make it easier to create new date fields
- * in profiles or custom code.
- * 
- * @param $field_type
- *   Can be 'date', 'datestamp', or 'datetime' .
- * @param $widget_type
- *   Can be 'date_text', 'date_text_repeat', 'date_select', 
- *   'date_select_repeat', 'date_popup', 'date_popup_repeat' .
- * @param $tz_handling
- *   Can be 'site', 'date', 'utc', 'none', or 'user' .
- * @param $overrides
- *   An optional array of field/widget values that should 
- *   override the normal defaults.
- */
-function date_tools_default_values($field_type, $widget_type, $tz_handling, $overrides = array()) {
-  module_load_include('inc', 'field', 'field.crud');
-  $repeat_widgets = array('date_select_repeat', 'date_text_repeat', 'date_popup_repeat');
-  
-  $base_field_values = array(
-    'settings' => array(
-      'timezone_db' => date_get_timezone_db($tz_handling),
-      'tz_handling' => $tz_handling,
-      'todate' => 'optional',
-      'repeat' => in_array($widget_type, $repeat_widgets) ? 1 : 0,
-      'default_format' => 'medium',
-    ),
-  );
-  $base_instance_values = array(
-    'widget' => array(
-      'settings' => array(
-        'input_format' => date_default_format($widget_type),
-        'increment' => 15,
-      ),
-    ),
-  );
-  $field_values['date'] = $base_field_values;
-  $field_values['date']['type'] = 'date';
-  
-  $field_values['datestamp'] = $base_field_values;
-  $field_values['datestamp']['widget']['type'] = 'datestamp';
-
-  $field_values['datetime'] = $base_field_values;
-  $field_values['datetime']['widget']['type'] = 'datetime';
-
-  $instance_values['date_select'] = $base_instance_values;
-  $instance_values['date_select']['widget']['type'] = 'date_select';
-  
-  $instance_values['date_text'] = $base_instance_values;
-  $instance_values['date_text']['widget']['type'] = 'date_text';
-  
-  $instance_values['date_popup'] = $base_instance_values;
-  $instance_values['date_popup']['widget']['type'] = 'date_popup';
-    
-  $instance_values['date_select_repeat'] = $base_instance_values;
-  $instance_values['date_select_repeat']['widget']['type'] = 'date_select_repeat';
-  
-  $instance_values['date_text_repeat'] = $base_instance_values;
-  $instance_values['date_text_repeat']['widget']['type'] = 'date_text_repeat';
-  
-  $instance_values['date_popup_repeat'] = $base_instance_values;
-  $instance_values['date_popup_repeat']['widget']['type'] = 'date_popup_repeat';
-  
-  // Get the basic field array with field module default values.
-  $field = array('field_name' => '', 'type' => '');
-  $instance = array('field_name' => '', 'entity_type' => 'node', 'bundle' => '');
-
-  // Update it with default values for this date field and widget type.
-  _date_tools_overrides($field, $field_values[$field_type]);
-  _date_tools_overrides($instance, $instance_values[$widget_type]);
-  
-  // Allow overrides of specific default values. 
-  _date_tools_overrides($field, $overrides['field']);
-  _date_tools_overrides($instance, $overrides['instance']);
-
-  // Make sure multiple gets set correctly for repeating dates.
-  if ($field['settings']['repeat']) $field['cardinality'] = FIELD_CARDINALITY_UNLIMITED;
-  
-  return array('field' => $field, 'instance' => $instance);
-}
-
-/**
- * Helper function to update field and instance values.
- */
-function _date_tools_overrides(&$base, $values) {
-  foreach ($values as $key => $value) {
-    if (is_array($value)) {
-      foreach ($value as $key2 => $value2) {
-        if (is_array($value2)) {
-          foreach ($value2 as $key3 => $value3) {
-            $base[$key][$key2][$key3] = $value3;
-          }
-        }
-        else {
-          $base[$key][$key2] = $value2;
-        }
-      }
-    }
-    else {
-      $base[$key] = $value;
-    }  
-  } 
 }

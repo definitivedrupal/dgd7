@@ -1,7 +1,7 @@
 <p>Custom modules and add their own dates to the list the <a href="&topic:date_api/date-filter&">Date API Views filter</a> and <a href="&topic:date_api/date-argument&">Date API Views argument</a> can handle. See the following example for the way that core dates have been added:</p>
 <pre>
 /**
- * Implementation of hook_date_api_fields().
+ * Implementation of hook_date_views_fields().
  * on behalf of core fields.
  * 
  * All modules that create custom fields that use the 
@@ -10,7 +10,7 @@
  * date they create so the date can be used by
  * the Date API views date argument and date filter.
  */
-function date_api_date_api_fields($field) {
+function date_views_date_views_fields($field) {
   $values = array(
     // The type of date: DATE_UNIX, DATE_ISO, DATE_DATETIME.
     'sql_type' => DATE_UNIX, 
@@ -26,7 +26,7 @@ function date_api_date_api_fields($field) {
     // Granularity of this date field's db data. 
     'granularity' => array('year', 'month', 'day', 'hour', 'minute', 'second'),
   );
-  
+
   switch ($field) {
     case 'users.created':
     case 'users.access':

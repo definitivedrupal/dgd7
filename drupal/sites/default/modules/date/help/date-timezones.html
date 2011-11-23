@@ -21,7 +21,7 @@ $date = the UTC value from the database
 $local_zone = the name of the local timezone
 $type = the type of date value, DATE_DATETIME, DATE_ISO, or DATE_UNIX
 
-$date = date_make_date($date, 'UTC', $type);
+$date = new DateObject($date, 'UTC', date_type_format($type));
 date_timezone_set($date, timezone_open($local_zone);
 
 $date now contains the local value of the date.
@@ -39,7 +39,7 @@ $date = local date value
 $local_zone = the name of the local timezone
 $type = the type of date value, DATE_DATETIME, DATE_ISO, or DATE_UNIX
 
-$date = date_make_date($date, $local_zone, $type);
+$date = new DateObject($date, $local_zone, $type);
 date_timezone_set($date, timezone_open('UTC');
 
 $date now contains the UTC value of the date.
