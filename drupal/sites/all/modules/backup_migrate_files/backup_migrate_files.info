@@ -1,0 +1,15 @@
+name = Backup and Migrate Files
+description = "Add file backup and restore support to backup and migrate."
+dependencies[] = backup_migrate
+core = 7.x
+
+files[] = backup_migrate_files.install
+files[] = backup_migrate_files.module
+files[] = includes/destinations.filesource.inc
+
+; Information added by drupal.org packaging script on 2011-08-02
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "backup_migrate_files"
+datestamp = "1312286657"
+
