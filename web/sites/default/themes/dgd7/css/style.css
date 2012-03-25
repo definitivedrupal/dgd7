@@ -1358,3 +1358,36 @@ div.view-author-chapters li.row {
     width: 100%;
   }
 }
+/* ---------- Forum Module Styles ----------- */
+/* ---------- NancyDru 03/19/2012 ----------- */
+
+#forum thead tr th {
+  background-color: #ffa500;
+}
+
+#forum tr.odd {
+  background-color: #ffffff;
+}
+
+#forum td.container {
+  background-color: #ffff20;
+  border-top: 9px solid #ffffff;
+  font-weight: bold;
+}
+
+
+#forum td.forum {
+  text-indent: 1em;
+}
+
+#forum .description {
+  font-size: 89%;
+  font-style: italic;
+  font-weight: normal;
+  margin-left: 1em;
+}
+
+.node .field-name-taxonomy-forums ul.links li a {
+  color: #ffa500;
+  font-weight: bold;
+}
