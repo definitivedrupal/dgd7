@@ -1,5 +1,5 @@
 /* This CSS was written using SASS and Compass.
- * @see http://compass-style.org/ 
+ * @see http://compass-style.org/
  -----------------------------------------------------------------------------*/
 html {
   background-color: #ffcc00;
@@ -771,6 +771,7 @@ ul.pager a:focus {
   padding: 0;
   margin: 1em 0 0 0;
 }
+
 .comment-form .form-item label {
   display: inline;
 }
@@ -780,31 +781,44 @@ ul.pager a:focus {
 }
 
 .comment {
-  border-top: solid 1px #eee;
-  padding: 20px 0 20px 110px;
+  border: 1px solid #ffcc00;
+  border-radius: 1em;
+  margin: 0 0 1em 3em;
+  padding: 1em 1em 0 0;
   position: relative;
 }
+
 .comment h3 {
   margin: 0;
 }
+
 .comment h3 a,
 .comment h3 a:visited {
   color: #666;
 }
+
 .comment .meta {
-  margin: 8px 0;
   color: #666;
-  font-size: 0.923em;
+  font-size: 0.89em;
+  font-style: italic;
+  margin: 8px 0;
 }
+
+.comment ul.links {
+  margin-top: 1em;
+}
+
 .comment .content {
   margin: 0;
   padding: 0;
 }
+
 .comment .user-picture {
   width: 110px;
   position: absolute;
   left: 0;
 }
+
 .comment .user-picture img {
   margin: 0;
 }
