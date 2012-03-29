@@ -1365,6 +1365,10 @@ div.view-author-chapters li.row {
   background-color: #ffa500;
 }
 
+#forum thead tr th a {
+  color: #ffffff;
+}
+
 #forum tr.odd {
   background-color: #ffffff;
 }
@@ -1374,7 +1378,6 @@ div.view-author-chapters li.row {
   border-top: 9px solid #ffffff;
   font-weight: bold;
 }
-
 
 #forum td.forum {
   text-indent: 1em;
