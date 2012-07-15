@@ -1,5 +1,5 @@
 ENVIRONMENTS = {
-  "live" => ["dgd7@sojourner.mayfirst.org",
+  "live" => ["definitivedrupal@sojourner.mayfirst.org",
              "/home/members/agariclabs/sites/definitivedrupal.com/web",
              "stable",
             ],
