@@ -1,6 +1,14 @@
 <?php
+
+/**
+ * @file
+ * Definition of views_handler_field_user_link_edit.
+ */
+
 /**
  * Field handler to present a link to user edit.
+ *
+ * @ingroup views_field_handlers
  */
 class views_handler_field_user_link_edit extends views_handler_field_user_link {
   function render_link($data, $values) {

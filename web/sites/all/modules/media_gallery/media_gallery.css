@@ -392,71 +392,72 @@ a.media-gallery-thumb img,
  * of items with the .field class.
  */
 .mg-col-1 > .field-items > .field-item,
-.mg-col-1 .node,
+.mg-col-1 .mg-gallery,
 .media-gallery-detail .field-items > .field-item {
   width: 100% !important;
 }
 
 .mg-col-2 > .field-items > .field-item,
-.mg-col-2 .node {
+.mg-col-2 .mg-gallery {
   width: 50% !important;
 }
 
 .mg-col-3 > .field-items > .field-item,
-.mg-col-3 .node {
+.mg-col-3 .mg-gallery {
   width: 33.3% !important;
 }
 
 .mg-col-4 > .field-items > .field-item,
-.mg-col-4 .node {
+.mg-col-4 .mg-gallery {
   width: 24.96% !important;
 }
 
 .mg-col-5 > .field-items > .field-item,
-.mg-col-5 .node {
+.mg-col-5 .mg-gallery {
   width: 20% !important;
 }
 
 .mg-col-6 > .field-items > .field-item,
-.mg-col-6 .node {
+.mg-col-6 .mg-gallery {
   width: 16.6666666665% !important;
 }
 
 .mg-col-7 > .field-items > .field-item,
-.mg-col-7 .node {
+.mg-col-7 .mg-gallery {
   width: 14.2857142857% !important;
 }
 
 .mg-col-8 > .field-items > .field-item,
-.mg-col-8 .node {
+.mg-col-8 .mg-gallery {
   width: 12.5% !important;
 }
 
 .mg-col-9 > .field-items > .field-item,
-.mg-col-9 .node {
+.mg-col-9 .mg-gallery {
   width: 11.1111111111% !important;
 }
 
 .mg-col-10 > .field-items > .field-item,
-.mg-col-10 .node {
+.mg-col-10 .mg-gallery {
   width: 10% !important;
 }
 
-.mg-col .node-media-gallery.node-teaser {
+.mg-col .mg-gallery.mg-teaser {
   float: left;
 }
 
-.mg-col .node-media-gallery.node-teaser,
-.mg-col .node-media-gallery.node-teaser .content {
+.mg-col .mg-gallery.mg-teaser,
+.mg-col .mg-gallery.mg-teaser .content {
   margin: 0;
   outline: none;
+  position: relative;
 }
 
-.mg-col .node-media-gallery.node-teaser h2 {
+.mg-col .mg-gallery.mg-teaser h2 {
   display: none;
 }
 
-.mg-col .node-media-gallery.node-teaser .float-overflow {
+.mg-col .mg-gallery.mg-teaser .float-overflow {
   margin: 0.5em;
   overflow: visible;
   position: relative;
@@ -584,6 +585,12 @@ a.media-gallery-thumb img,
 .media-collection-item-wrapper .media-gallery-item {
   border: none;
   position: relative;
+}
+
+.mg-gallery img.stack-image,
+.mg-gallery .media-gallery-thumb img {
+  border: 0;
+  padding: 0;
 }
 
 /* @end */

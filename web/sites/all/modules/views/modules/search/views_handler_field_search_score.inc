@@ -1,6 +1,14 @@
 <?php
+
+/**
+ * @file
+ * Definition of views_handler_field_search_score.
+ */
+
 /**
  * Field handler to provide simple renderer that allows linking to a node.
+ *
+ * @ingroup views_field_handlers
  */
 class views_handler_field_search_score extends views_handler_field_numeric {
   function option_definition() {
@@ -70,5 +78,4 @@ class views_handler_field_search_score extends views_handler_field_numeric {
       return parent::render($values);
     }
   }
-
 }

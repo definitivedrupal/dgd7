@@ -1,11 +1,16 @@
 <?php
+
 /**
  * @file
+ * Definition of ViewsUpgradeTestCase.
+ */
+
+/**
  * Try to test the upgrade path of all conversions.
  *
  * You can find all conversions by searching for "moved to".
  */
-class viewsUpgradeTestCase extends ViewsSqlTest {
+class ViewsUpgradeTestCase extends ViewsSqlTest {
   public static function getInfo() {
     return array(
       'name' => 'Views Upgrade test',
@@ -17,9 +22,9 @@ class viewsUpgradeTestCase extends ViewsSqlTest {
   protected function setUp() {
 //     // To import a view the user needs use PHP for settings rights, so enable php module.
     parent::setUp();
-// 
-// //     $admin_user = $this->drupalCreateUser(array('administer views', 'administer site configuration', 'use PHP for settings'));
-// //     $this->drupalLogin($admin_user);
+
+    module_enable(array('php'));
+    $this->resetAll();
   }
 
   function viewsData() {
@@ -35,7 +40,7 @@ class viewsUpgradeTestCase extends ViewsSqlTest {
 
     return $data;
   }
-  
+
   function debugField($field) {
     $keys = array('id', 'table', 'field', 'actual_field', 'original_field', 'real_field');
     $info = array();
@@ -46,11 +51,12 @@ class viewsUpgradeTestCase extends ViewsSqlTest {
   }
 
   /**
-   * Test the moved to parameter in general.
+   * Tests the moved to parameter in general.
    */
   public function testMovedTo() {
     // Test moving on field lavel.
     $view = $this->viewsMovedToField();
+    $view->update();
     $view->build();
 
 //     $this->assertEqual('old_field_1', $view->field['old_field_1']->options['id'], "Id shouldn't change during conversion");
@@ -61,6 +67,7 @@ class viewsUpgradeTestCase extends ViewsSqlTest {
 
     // Test moving on handler lavel.
     $view = $this->viewsMovedToHandler();
+    $view->update();
     $view->build();
 
 //     $this->assertEqual('old_field_2', $view->field['old_field_2']->options['id']);
@@ -73,20 +80,24 @@ class viewsUpgradeTestCase extends ViewsSqlTest {
 
     // Test moving on table level.
     $view = $this->viewsMovedToTable();
+    $view->update();
     $view->build();
 
-    $this->assertEqual('views_test', $view->base_table, 'Take sure that view->base_table gets automatically converted.');
+    $this->assertEqual('views_test', $view->base_table, 'Make sure that view->base_table gets automatically converted.');
 //     $this->assertEqual('id', $view->field['id']->field, 'If we move a whole table fields of this table should work, too.');
     $this->assertEqual('id', $view->field['id']->real_field, 'To run the query right the real_field has to be set right.');
     $this->assertEqual('views_test', $view->field['id']->table);
   }
-  
+
   /**
-   * Test a import via ui.
+   * Tests a import via ui.
    *
-   * To ensure the general functionality the recent comments view from drupal6 is used.
+   * To ensure the general functionality, the recent comments view from drupal6
+   * is used.
    */
   public function testUpgradeImport() {
+    $admin_user = $this->drupalCreateUser(array('administer views', 'administer site configuration', 'use PHP for settings'));
+    $this->drupalLogin($admin_user);
     $edit = array(
       'view' => $this->viewUpgradeImport(),
     );
@@ -133,11 +144,11 @@ class viewsUpgradeTestCase extends ViewsSqlTest {
     $handler->display->display_options['fields']['old_field_2']['id'] = 'old_field_2';
     $handler->display->display_options['fields']['old_field_2']['table'] = 'views_test';
     $handler->display->display_options['fields']['old_field_2']['field'] = 'old_field_2';
-    
+
     $handler->display->display_options['filters']['old_field_3']['id'] = 'old_field_3';
     $handler->display->display_options['filters']['old_field_3']['table'] = 'views_test';
     $handler->display->display_options['filters']['old_field_3']['field'] = 'old_field_3';
-    
+
     return $view;
   }
 

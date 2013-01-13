@@ -1,10 +1,16 @@
 <?php
+
+/**
+ * @file
+ * Definition of views_handler_field_math.
+ */
+
 /**
  * Render a mathematical expression as a numeric value
  *
  * Definition terms:
  * - float: If true this field contains a decimal value. If unset this field
- *          will be assumed to be integer.
+ *   will be assumed to be integer.
  *
  * @ingroup views_field_handlers
  */
@@ -20,7 +26,7 @@ class views_handler_field_math extends views_handler_field_numeric {
     $form['expression'] = array(
       '#type' => 'textarea',
       '#title' => t('Expression'),
-      '#description' => t('Enter mathematical expressions such as 2 + 2 or sqrt(5). You my assign variables and create mathematical functions and evaluate them. Use the ; to separate these. For example: f(x) = x + 2; f(2).'),
+      '#description' => t('Enter mathematical expressions such as 2 + 2 or sqrt(5). You may assign variables and create mathematical functions and evaluate them. Use the ; to separate these. For example: f(x) = x + 2; f(2).'),
       '#default_value' => $this->options['expression'],
     );
 
@@ -64,6 +70,11 @@ class views_handler_field_math extends views_handler_field_numeric {
     // Check to see if hiding should happen before adding prefix and suffix.
     if ($this->options['hide_empty'] && empty($value) && ($value !== 0 || $this->options['empty_zero'])) {
       return '';
+    }
+
+    // Should we format as a plural.
+    if (!empty($this->options['format_plural']) && ($value != 0 || !$this->options['empty_zero'])) {
+      $value = format_plural($value, $this->options['format_plural_singular'], $this->options['format_plural_plural']);
     }
 
     return $this->sanitize_value($this->options['prefix'] . $value . $this->options['suffix']);

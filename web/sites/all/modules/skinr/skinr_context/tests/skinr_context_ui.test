@@ -1,0 +1,175 @@
+<?php
+
+/**
+ * @file
+ * Tests for the Skinr UI module.
+ */
+
+/**
+ * Base class for Skinr UI tests.
+ */
+class SkinrContextUITestCase extends SkinrUITestCase {
+  protected $profile = 'testing';
+
+  function setUp() {
+    parent::setUp(array('skinr_context', 'skinr_context_ui'));
+  }
+}
+
+/**
+ * Tests UI functionality.
+ */
+class SkinrContextUIBasicTestCase extends SkinrContextUITestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Context UI',
+      'description' => 'Tests basic Skinr Context UI functionality.',
+      'dependencies' => array('ctools', 'context', 'context_ui'),
+      'group' => 'Skinr',
+    );
+  }
+
+  /**
+   * Tests basic configuration and applying of a skin.
+   */
+  function testGroupList() {
+    // Add a group.
+    $group = (object) array(
+      'module' => 'block',
+      'element' => 'system__user-menu',
+      'title' => 'Default',
+      'description' => '',
+      'conditions' => array('sitewide' => array('values' => array(1 => 1))),
+      'condition_mode' => CONTEXT_CONDITION_MODE_OR,
+      'weight' => 0,
+      'status' => 1,
+    );
+    skinr_context_group_save($group);
+
+    $this->drupalGet('');
+    // Click the first (index 0) 'Edit skin' link on the page, which should be
+    // the link in the contextual links of the user menu block, since no other
+    // skinnable elements are visible on the page.
+    $this->clickLink(t('Edit skin'), 0);
+    // Verify that we end up on the expected URL.
+    $front = variable_get('site_frontpage', 'node');
+    $this->assertUrl('admin/structure/skinr/edit/block/system__user-menu/configure', array(
+      'query' => array('destination' => $front),
+    ));
+
+    // Make sure the group list is showing instead of the skin settings edit page.
+    $this->assertText('Skin settings group', 'Skin settings groups are listed.');
+
+    // Click the first 'edit' link which should bring us to the group's edit
+    // skin settings page.
+    $this->clickLink(t('edit'), 0);
+    // Verify that we end up on the expected URL to configure skins for our group.
+    $this->assertUrl('admin/structure/skinr/edit/block/system__user-menu/1', array(
+      'query' => array('destination' => 'admin/structure/skinr/edit/block/system__user-menu/configure?destination=' . $front),
+    ));
+
+    // Verify that we can apply the skinr_ui_test_border skin to the block, and
+    // limit the groups visibility to the front page.
+    $edit = array(
+      'skinr_group[title]' => 'SkinrContextGroupTitle',
+      'skinr_group[description]' => 'SkinrContextGroupDescription',
+      'skinr_settings[bartik][groups][general][skinr_ui_test_bgcolor]' => 'bgcolor_red',
+      'conditions[state]' => 'path',
+      'conditions[plugins][path][values]' => '<front>',
+    );
+    $this->drupalPost(NULL, $edit, t('Save'));
+
+    // Verify that we were redirected back to the originating page.
+    $this->assertUrl('admin/structure/skinr/edit/block/system__user-menu/configure', array(
+      'query' => array('destination' => $front),
+    ));
+
+    // Make sure the group title and description were updated.
+    $this->assertText('SkinrContextGroupTitle', 'Skin settings group title was updated.');
+    $this->assertText('SkinrContextGroupDescription', 'Skin settings group description was updated.');
+
+    // Click the done link.
+    $this->clickLink(t('Done'), 0);
+    // Verify that we were redirected to the originating page.
+    $this->assertUrl($front);
+
+    // Verify that the skin has been applied.
+    $this->assertSkinrClass('block-system-user-menu', 'bgcolor-red', 'CSS class of configured skin option found.');
+
+    // Verify that the skin has only been applied to the front page.
+    $this->drupalGet('user');
+    $this->assertNoSkinrClass('block-system-user-menu', 'bgcolor-red', 'CSS class of configured skin option not found on other pages.');
+  }
+
+  /**
+   * Tests adding a group to an element.
+   */
+  function testGroupAdd() {
+    $this->drupalGet('');
+    $this->clickLink(t('Edit skin'), 0);
+    // Verify that we end up on the expected URL.
+    $front = variable_get('site_frontpage', 'node');
+    $this->assertUrl('admin/structure/skinr/edit/block/system__user-menu/configure', array(
+      'query' => array('destination' => $front),
+    ));
+
+    // Make sure the add group link is present.
+    $this->assertLink('Add group', 0, 'Add group link is present.');
+
+    // Click on the 'Add group' link.
+    $this->clickLink(t('Add group'), 0);
+
+    // Verify that we end up on the expected URL to configure skins for our group.
+    $this->assertUrl('admin/structure/skinr/edit/block/system__user-menu/add', array(
+      'query' => array('destination' => 'admin/structure/skinr/edit/block/system__user-menu/configure?destination=' . $front),
+    ));
+
+    // Post the form.
+    $edit = array(
+      'title' => 'SkinrContextGroupTest',
+    );
+    $this->drupalPost(NULL, $edit, t('Add group'));
+
+    // Verify that we were redirected back to the originating page.
+    $this->assertUrl('admin/structure/skinr/edit/block/system__user-menu/configure', array(
+      'query' => array('destination' => $front),
+    ));
+
+    // Verify that the new group is added.
+    $this->assertText('SkinrContextGroupTest', 'Successfully added a skin settings group.');
+  }
+
+  /**
+   * Tests skin configuration listing functionality.
+   */
+  function testSkinListingWithGroups() {
+    $group = (object) array(
+      'module' => 'block',
+      'element' => 'system__user-menu',
+      'title' => 'SkinListingWithGroup',
+      'description' => '',
+      'conditions' => array('sitewide' => array('values' => array(1 => 1))),
+      'condition_mode' => CONTEXT_CONDITION_MODE_OR,
+      'weight' => 0,
+      'status' => 1,
+    );
+    skinr_context_group_save($group);
+
+    $skin = (object) array(
+      'theme' => 'skinr_test_subtheme',
+      'module' => 'block',
+      'element' => 'system__user-menu',
+      'gid' => $group->gid,
+      'skin' => 'skinr_test_subtheme',
+      'options' => array('option1', 'option2'),
+      'status' => 1,
+    );
+    skinr_skin_save($skin);
+
+    // Verify that the skin configuration appears on the skin configurations overview page.
+    $this->drupalGet('admin/structure/skinr');
+    $this->assertLinkByHref('admin/structure/skinr/edit/' . $skin->module . '/' . $skin->element . '/' . $skin->gid, 0, 'Skin configuration was found on overview page.');
+
+    // @todo Should we check the filtering and update options functionality?
+  }
+}

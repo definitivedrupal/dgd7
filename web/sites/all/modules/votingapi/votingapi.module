@@ -1,5 +1,4 @@
 <?php
-// $Id: votingapi.module,v 1.46.2.23.2.11 2011/01/12 16:39:47 eaton Exp $
 
 /**
  * @file
@@ -71,14 +70,15 @@ function votingapi_cron() {
   if (variable_get('votingapi_calculation_schedule', 'immediate') == 'cron') {
     $time = REQUEST_TIME;
     $last_cron = variable_get('votingapi_last_cron', 0);
-    $result = db_query('SELECT DISTINCT entity_type, entity_id FROM {votingapi_vote} WHERE timestamp > %d', $last_cron);
-
-    while ($content = db_fetch_object($result)) {
+    $result = db_query('SELECT DISTINCT entity_type, entity_id FROM {votingapi_vote} WHERE timestamp > :timestamp', array(':timestamp' => $last_cron));
+    foreach ($result as $content) {
       votingapi_recalculate_results($content->entity_type, $content->entity_id, TRUE);
     }
 
     variable_set('votingapi_last_cron', $time);
   }
+
+  _votingapi_cron_delete_orphaned();
 }
 
 /**
@@ -190,6 +190,39 @@ function votingapi_current_user_identifier() {
 }
 
 /**
+ * Implementation of hook_votingapi_storage_add_vote().
+ */
+function votingapi_votingapi_storage_add_vote(&$vote) {
+  drupal_write_record('votingapi_vote', $vote);
+}
+
+/**
+ * Implementation of hook_votingapi_storage_delete_votes().
+ */
+function votingapi_votingapi_storage_delete_votes($votes, $vids) {
+  db_delete('votingapi_vote')->condition('vote_id', $vids, 'IN')->execute();
+}
+
+/**
+ * Implementation of hook_votingapi_storage_select_votes().
+ */
+function votingapi_votingapi_storage_select_votes($criteria, $limit) {
+  $query = db_select('votingapi_vote')->fields('votingapi_vote');
+  foreach ($criteria as $key => $value) {
+    if ($key == 'timestamp') {
+      $query->condition($key, $value, '>');
+    }
+    else {
+      $query->condition($key, $value, is_array($value) ? 'IN' : '=');
+    }
+  }
+  if (!empty($limit)) {
+    $query->range(0, $limit);
+  }
+  return $query->execute()->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
  * Save a collection of votes to the database.
  *
  * This function does most of the heavy lifting for VotingAPI the main
@@ -220,9 +253,10 @@ function votingapi_add_votes(&$votes) {
   if (!empty($votes['entity_id'])) {
     $votes = array($votes);
   }
+  $function = variable_get('votingapi_storage_module', 'votingapi') . '_votingapi_storage_add_vote';
   foreach ($votes as $key => $vote) {
     _votingapi_prep_vote($vote);
-    drupal_write_record('votingapi_vote', $vote);
+    $function($vote);
     $votes[$key] = $vote;
   }
   module_invoke_all('votingapi_insert', $votes);
@@ -272,7 +306,8 @@ function votingapi_delete_votes($votes = array()) {
     foreach ($votes as $vote) {
       $vids[] = $vote['vote_id'];
     }
-    db_delete('votingapi_vote')->condition('vote_id', $vids, 'IN')->execute();
+    $function = variable_get('votingapi_storage_module', 'votingapi') . '_votingapi_storage_delete_votes';
+    $function($votes, $vids);
   }
 }
 
@@ -314,18 +349,12 @@ function votingapi_delete_results($vote_results = array()) {
  *   An array of votes matching the criteria.
  */
 function votingapi_select_votes($criteria = array(), $limit = 0) {
-  $anon_window = variable_get('votingapi_anonymous_window', 3600);
+  $anon_window = variable_get('votingapi_anonymous_window', 86400);
   if (!empty($criteria['vote_source']) && $anon_window >= 0) {
     $criteria['timestamp'] = REQUEST_TIME - $anon_window;
   }
-  $query = db_select('votingapi_vote')->fields('votingapi_vote');
-  foreach ($criteria as $key => $value) {
-    $query->condition($key, $value, is_array($value) ? 'IN' : '=');
-  }
-  if (!empty($limit)) {
-    $query->range(0, $limit);
-  }
-  return $query->execute()->fetchAll(PDO::FETCH_ASSOC);
+  $function = variable_get('votingapi_storage_module', 'votingapi') . '_votingapi_storage_select_votes';
+  return $function($criteria, $limit);
 }
 
 /**
@@ -386,9 +415,10 @@ function votingapi_recalculate_results($entity_type, $entity_id, $force_calculat
       ->condition('entity_type', $entity_type)
       ->condition('entity_id', $entity_id)
       ->execute();
-      
+
+    $function = variable_get('votingapi_storage_module', 'votingapi') . '_votingapi_storage_standard_results';
     // Bulk query to pull the majority of the results we care about.
-    $cache = _votingapi_get_standard_results($entity_type, $entity_id);
+    $cache = $function($entity_type, $entity_id);
 
     // Give other modules a chance to alter the collection of votes.
     drupal_alter('votingapi_results', $cache, $entity_type, $entity_id);
@@ -486,7 +516,7 @@ function votingapi_metadata($reset = FALSE) {
 /**
  * Builds the default VotingAPI results for the three supported voting styles.
  */
-function _votingapi_get_standard_results($entity_type, $entity_id) {
+function votingapi_votingapi_storage_standard_results($entity_type, $entity_id) {
   $cache = array();
 
   $sql  = "SELECT v.value_type, v.tag, ";
@@ -556,5 +586,69 @@ function _votingapi_prep_vote(&$vote) {
       'vote_source' => ip_address(),
       'prepped' => TRUE
     );
+  }
+}
+
+/**
+ * Implements hook_entity_delete().
+ *
+ * Delete all votes and cache entries for the deleted entities
+ */
+function votingapi_entity_delete($entity, $type) {
+  $ids = entity_extract_ids($type, $entity);
+  $id = array($ids[0]);
+  _votingapi_delete_cache_by_entity($id, $type);
+  _votingapi_delete_votes_by_entity($id, $type);
+}
+
+/**
+ * Helper function to delete all cache entries on given entities.
+ *
+ * @param array entity ids
+ * @param string entity type
+ */
+function _votingapi_delete_cache_by_entity($entity_ids, $type) {
+  $result = db_select('votingapi_cache', 'v')
+    ->fields('v', array('vote_cache_id'))
+    ->condition('entity_type', $type)
+    ->condition('entity_id', $entity_ids)
+    ->execute();
+  $votes = array();
+  foreach ($result as $row) {
+    $votes[]['vote_cache_id'] = $row->vote_cache_id;
+  }
+  votingapi_delete_results($votes);
+}
+
+/**
+ * Helper function to delete all votes on given entities.
+ *
+ * @param array entity ids
+ * @param string entity type
+ */
+function _votingapi_delete_votes_by_entity($entity_ids, $type) {
+  $result = db_select('votingapi_vote', 'v')
+    ->fields('v', array('vote_id', 'entity_type', 'entity_id'))
+    ->condition('entity_type', $type)
+    ->condition('entity_id', $entity_ids)
+    ->execute();
+  $votes = array();
+  foreach ($result as $row) {
+    $votes[] = (array) $row;
+  }
+  votingapi_delete_votes($votes);
+}
+
+/**
+ * Delete votes and cache entries for a number of entities in the queue.
+ */
+function _votingapi_cron_delete_orphaned() {
+  $queue = DrupalQueue::get('VotingAPIOrphaned');
+  $limit = variable_get('votingapi_cron_orphaned_max', 50);
+  $done = 0;
+  while (($item = $queue->claimItem()) && $done++ < $limit) {
+    _votingapi_delete_cache_by_entity(array($item->data['entity_id']), $item->data['entity_type']);
+    _votingapi_delete_votes_by_entity(array($item->data['entity_id']), $item->data['entity_type']);
+    $queue->deleteItem($item);
   }
 }

@@ -7,12 +7,14 @@
 
 /**
  * Field handler to present the path to the node.
+ *
+ * @ingroup views_field_handlers
  */
 class views_handler_field_node_path extends views_handler_field {
 
   function option_definition() {
     $options = parent::option_definition();
-    $options['absolute'] = array('default' => FALSE);
+    $options['absolute'] = array('default' => FALSE, 'bool' => TRUE);
 
     return $options;
   }

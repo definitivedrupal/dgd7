@@ -1,4 +1,3 @@
-$id$
 README.txt
 ==========
 Plus1
@@ -56,9 +55,3 @@ From plus1.module theme_plus1_widget function header:
 AUTHOR/MAINTAINER
 ==================
 -Caroline Schnapp at http://11heavens.com (chill35 on http://drupal.org)
-
-
-Drupal 7 Conversion
-==================
-Eaton http://drupal.org/user/16496 (patch provided in http://drupal.org/node/506936#comment-2527110)
-ReneB http://drupal.org/user/590180 (Rewrote a few things for vote_api 2, moved theme_ to seperate template file)

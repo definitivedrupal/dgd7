@@ -1,5 +1,49 @@
 Skinr 7.x-2.x, xxxx-xx-xx
 -------------------------
+Issue #1588158 by JurriaanRoelofs: Added CSS so that body element is position: static even when
+  contextual links are used on body element.
+Issue #1547250 by moonray: Fixed skins on Panels never appear when Skinr Context
+  module is enabled.
+Issue #1549536 by moonray: Fixed "require all conditions" option not being saved.
+Issue #954710 by arosboro, moonray | Anticosti: Added a more descriptive title
+  for each setting on admin/structure/skinr.
+#1342698 by moonray: Fixed notice in _skinr_add_path_to_files when attached CSS
+  or JS file has advanced settings.
+by moonray: Fixed undefined index error in skinr_context.test.
+#1082686 by moonray: Fixed migration path for Skinr from 6.x-1.x and 6.x-2.x to
+  7.x-2.x when importing from skinr table.
+Issue #1149726 by moonray: Created an 'add skin configuration' form to edit any
+  element on the site.
+#1082686 by moonray: Created migration path for Skinr from 6.x-1.x and 6.x-2.x
+  to 7.x-2.x.
+by moonray: Removed redundant code from skinr_ui.install.
+#1007482 by moonray: Fixed unable to add skin settings to multiple groups due to
+  unique key for skinr_skins table.
+by moonray: Fixed notices on mass delete skins when related theme is disabled
+  or missing.
+#1515478 by moonray: Removed redundant panels display related code from
+  skinr_panels.
+#1160924 by moonray: Undefined property: stdClass::$did in
+  skinr_panels_skinr_elements().
+#1007482 by moonray: Make use of Context API instead of custom rules.
+by moonray: Fixed test for unserialized data of skin settings object in
+  skinr.test.
+by moonray: Fixed skinr_skin_load_multiple(FALSE) not returning all skins in DB.
+by moonray: Simplified Skinr UI by removing legacy code related to js and module
+  type form elements.
+by moonray: Removed rules functionality in anticipation of the new skinr_context
+  module and simplified handling of html and region hook handling.
+by moonray: Fixed notice when status of skin is not set for a theme.
+by moonray: Fixed a unit test that included the query part of a URL in
+  asserLinkByHref(), which only works with clean urls.
+by moonray: Removed wayward devel module reference from unit tests.
+Issue #1299162 by nedjo: Added form callback functionality to skin plugins.
+  Fixed call by reference error.
+Issue #1331004 by mrfelton: Fixed Undefined index: panels_pane() in
+  skinr_panels_preprocess_links().
+Issue #1299162 by JurriaanRoelofs, moonray: Added form callback functionality to
+  skin plugins.
+Issue #984402 by moonray: Updated Skinr admin UI.
 Issue #952610 by aquariumtap, moonray | Alan D.: Added Vertical tabs integration.
 Issue #1163618 by moonray: Fixed *.skinr.inc not auto-loading for certain hooks.
 Issue #1163618 by moonray: Removed skinr_handlers and replaced them with proper

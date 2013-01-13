@@ -17,6 +17,12 @@ function mailchimp_lists_schema() {
         'not null' => TRUE,
         'description' => 'Primary Key: Unique mailchimp_list entity ID.',
       ),
+      'name' => array(
+        'description' => 'The machine-readable name of this mailchimp_list type.',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+      ),
       'mc_list_id' => array(
         'type' => 'varchar',
         'not null' => TRUE,
@@ -51,6 +57,21 @@ function mailchimp_lists_schema() {
         'serialize' => TRUE,
         'description' => 'A serialized object that stores the settings for the specific list.',
       ),
+      'status' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        // Set the default to ENTITY_CUSTOM without using the constant as it is
+        // not safe to use it at this point.
+        'default' => 0x01,
+        'size' => 'tiny',
+        'description' => 'The exportable status of the entity.',
+      ),
+      'module' => array(
+        'description' => 'The name of the providing module if the entity has been defined in code.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+      ),
       'created' => array(
         'description' => 'The Unix timestamp when the mailchimp_list was created.',
         'type' => 'int',
@@ -65,6 +86,7 @@ function mailchimp_lists_schema() {
       ),
     ),
     'primary key' => array('id'),
+    'unique key' => array('name')
   );
 
   return $schema;
@@ -81,11 +103,12 @@ function mailchimp_lists_install() {
     $register = variable_get('mailchimp_user_register', FALSE);
     $user = variable_get('mailchimp_user_edit', FALSE);
     $intgroups = variable_get('mailchimp_interest_groups_user_forms', FALSE);
-    
-    foreach($old_lists as $id => $old_list) {
+
+    foreach ($old_lists as $id => $old_list) {
       $list = new stdClass();
       $list->mc_list_id = $id;
-      $list->label = $old_list->name;
+      $list->label = substr($old_list->label, 0, 32);
+      $list->name = substr($old_list->name, 0, 32);
       $list->description = $old_list->description;
       $list->list_type = ($old_list->list_type == 'required') ? MAILCHIMP_LISTTYPE_REQUIRED : MAILCHIMP_LISTTYPE_OPTIONAL;
       $list->settings = array(
@@ -114,7 +137,7 @@ function mailchimp_lists_install() {
   variable_del('mailchimp_interest_groups_user_forms');
   variable_del('mailchimp_lists');
   variable_del('mailchimp_user_edit');
-  variable_del('mailchimp_user_register');  
+  variable_del('mailchimp_user_register');
 }
 
 /**
@@ -124,4 +147,175 @@ function mailchimp_lists_uninstall() {
   module_load_include('module', 'mailchimp_lists');
   $queue = DrupalQueue::get(MAILCHIMP_QUEUE_CRON);
   $queue->deleteQueue();
+}
+
+/**
+ * Add name, status, and module fields to make lists exportable.
+ */
+function mailchimp_lists_update_7200() {
+  // The update was previously broken. To fix the broken state, we need to
+  // remove the left-over field first.
+  if (db_field_exists('mailchimp_lists', 'name')) {
+    db_drop_field('mailchimp_lists', 'name');
+  }
+
+  // Add the machine name field.
+  db_add_field('mailchimp_lists', 'name', array(
+    'description' => 'The machine-readable name of this mailchimp_list.',
+    'type' => 'varchar',
+    'length' => 32,
+    'not null' => FALSE,
+  ));
+
+  // Add the exportable status field.
+  if (!db_field_exists('mailchimp_lists', 'status')) {
+    db_add_field('mailchimp_lists', 'status', array(
+      'type' => 'int',
+      'not null' => TRUE,
+      // Set the default to ENTITY_CUSTOM without using the constant as it is
+      // not safe to use it at this point.
+      'default' => 0x01,
+      'size' => 'tiny',
+      'description' => 'The exportable status of the entity.',
+    ));
+  }
+
+  // Add the exportable module field.
+  if (!db_field_exists('mailchimp_lists', 'module')) {
+    db_add_field('mailchimp_lists', 'module', array(
+      'description' => 'The name of the providing module if the entity has been defined in code.',
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => FALSE,
+    ));
+  }
+
+  // Generate a machine name for existing lists.
+  $lists = db_select('mailchimp_lists', 'm')
+    ->fields('m')
+    ->execute()
+    ->fetchAll();
+
+  foreach ($lists as $list) {
+    $list->name = strtolower(str_replace(' ', '_', $list->label));
+    db_update('mailchimp_lists')
+      ->fields(array('name' => substr($list->name, 0, 32)))
+      ->condition('id', $list->id)
+      ->execute();
+  }
+
+  // Now set the name field to be required.
+  db_change_field('mailchimp_lists', 'name', 'name', array(
+    'description' => 'The machine-readable name of this mailchimp_list.',
+    'type' => 'varchar',
+    'length' => 32,
+    'not null' => TRUE,
+  ));
+}
+
+/**
+ * Add a unique key for the machine name field.
+ */
+function mailchimp_lists_update_7201() {
+  db_add_unique_key('mailchimp_lists', 'name', array('name'));
+}
+
+/**
+ * Convert block deltas from ID numbers to machine names.
+ */
+function mailchimp_lists_update_7202() {
+  $num_updated = 0;
+  $num_deleted = 0;
+  
+  $query = db_select('block', 'b')
+    ->fields('b', array('bid', 'delta', 'module', 'theme'))
+    ->condition('module', 'mailchimp_lists', '=')
+    ->execute();
+
+  $results = $query->fetchAll();
+
+  foreach ($results as $result) {
+    if (is_numeric($result->delta)) {
+      $list_query = db_select('mailchimp_lists', 'm')
+        ->fields('m', array('name'))
+        ->condition('id', $result->delta)
+        ->execute();
+
+      $list_results = $list_query->fetchAll();
+      
+      if ($list_results) {
+        $list_machine_name = $list_results[0]->name;
+        
+        // Check to see if a machine name delta already exists
+        $check_query = db_select('block', 'b')
+          ->fields('b', array('bid', 'delta'))
+          ->condition('delta', $list_machine_name, '=')
+          ->condition('module', $result->module, '=')
+          ->condition('theme', $result->theme, '=')
+          ->execute();
+  
+        $check_results = $check_query->fetchAll();
+        
+        if (count($check_results)) {
+          // Delete the numeric fields
+          $num_deleted += db_delete('block')
+            ->condition('bid', $result->bid, '=')
+            ->execute();
+        }
+        else {
+          $num_updated += db_update('block')
+            ->fields(array(
+              'delta' => $list_machine_name,
+            ))
+            ->condition('bid', $result->bid, '=')
+            ->execute();
+        }
+      }
+    }
+  }
+  
+  if ($num_deleted > 0) {
+    return t('Deleted !num duplicate block(s).', array('!num' => $num_deleted));
+  } elseif ($num_updated > 0) {
+    return t('Updated !num block(s).', array('!num' => $num_updated));
+  } else {
+    return TRUE;
+  }
+}
+
+/**
+ * Update list webhook endpoint URLs to be more secure.
+ */
+function mailchimp_lists_update_7203() {
+  $efq = new EntityFieldQuery();
+  $results = $efq
+    ->entityCondition('entity_type', 'mailchimp_list')
+    ->propertyCondition('list_type', array(MAILCHIMP_LISTTYPE_OPTIONAL, MAILCHIMP_LISTTYPE_REQUIRED), 'IN')
+    ->execute();
+
+  if (empty($results)) {
+    return t('There are no lists to update.');
+  }
+  $lists = mailchimp_lists_load_multiple(array_keys($results['mailchimp_list']));
+  $mcapi = mailchimp_get_api_object();
+
+  // This is the old format of the webhook URL, used below.
+  $old_url = $GLOBALS['base_url'] . '/mailchimp/webhook/' . md5($GLOBALS['base_url']);
+  foreach ($lists as $list) {
+    if (isset($list->settings['webhooks']) && $list->settings['webhooks']) {
+      // Delete the old webhook.
+      $ret = $mcapi->listWebhookDel($list->mc_list_id, $old_url);
+      if (!$ret) {
+        return t('Failed to delete old web hook for @list', array('@list' => $list->label));
+      }
+
+      // Now add the new one.
+      $ret = $mcapi->listWebhookAdd($list->mc_list_id, mailchimp_webhook_url(), array('unsubscribe', 'profile', 'cleaned', 'upemail'));
+      if (!$ret) {
+        return t('Failed to create new web hook for @list', array('@list' => $list->label));
+      }
+    }
+  }
+
+  return t('MailChimp list webhooks have been updated with the new, more secure endpoint URL.');
 }

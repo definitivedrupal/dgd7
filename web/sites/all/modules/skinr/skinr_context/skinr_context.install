@@ -1,0 +1,166 @@
+<?php
+
+/**
+ * @file
+ * Contains install, update, and uninstall functions for Skinr Context.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function skinr_context_schema() {
+  $schema['skinr_groups'] = array(
+    'description' => 'Stores skin configuration group data for Skinr.',
+    'fields' => array(
+      'gid' => array(
+        'description' => 'The primary identifier for a skin configuration group.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'module' => array(
+        'description' => 'The module this group applies to.',
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'element' => array(
+        'description' => 'The element this group applies to.',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'title' => array(
+        'description' => 'The administrative title for this group.',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'description' => array(
+        'description' => 'Description for this group.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'conditions' => array(
+        'description' => 'Serialized storage of all context condition settings.',
+        'type' => 'text',
+        'serialize' => TRUE,
+      ),
+      'condition_mode' => array(
+        'description' => 'Condition mode for this context.',
+        'type' => 'int',
+        'default' => 0,
+      ),
+      'weight' => array(
+        'description' => 'Weight of the group. Lighter weights are higher up, heavier weights go down.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'status' => array(
+        'description' => 'Boolean indicating whether or not this item is enabled.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 1,
+        'size' => 'tiny',
+      ),
+    ),
+    'primary key' => array('gid'),
+    'indexes' => array(
+      'module' => array('module'),
+      'element' => array('module', 'element'),
+    ),
+  );
+
+  $schema['skinr_group_skins'] = array(
+    'description' => 'Associates skin configurations with a particular group.',
+    'fields' => array(
+      'gid' => array(
+        'description' => 'The skin configuration group ID.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'sid' => array(
+        'description' => 'The skin configuration ID.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('gid', 'sid'),
+    'indexes' => array(
+      'gid' => array('gid'),
+    ),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function skinr_context_uninstall() {
+}
+
+/**
+ * Implements hook_enable().
+ */
+function skinr_context_enable() {
+  $t = get_t();
+
+  // Associate each skin with a group, if it isn't already.
+  $query = db_select('skinr_skins', 's');
+  $query->leftJoin('skinr_group_skins', 'gs', 's.sid = gs.sid');
+  $query->fields('s');
+  $query->fields('gs', array('gid'));
+  $result = $query->execute();
+  foreach ($result as $skin) {
+    $skin->options = unserialize($skin->options);
+
+    $group = NULL;
+    if (empty($skin->gid)) {
+      // Lookup existing group. Grab the one with the lowest weight for this set.
+      $params = array(
+        'module' => $skin->module,
+        'element' => $skin->element,
+      );
+      $gids = skinr_context_group_get_gids($params);
+      $gid = reset($gids);
+      if (!$gid) {
+        // Create a group.
+        $group = (object) array(
+          'gid' => NULL,
+          'module' => $skin->module,
+          'element' => $skin->element,
+          'title' => $t('Default'),
+          'description' => '',
+          'conditions' => array('sitewide' => array('values' => array(1 => 1))),
+          'condition_mode' => CONTEXT_CONDITION_MODE_OR,
+          'weight' => 0,
+          'status' => 1,
+        );
+        skinr_context_group_save($group);
+        $gid = $group->gid;
+      }
+      $skin->gid = $gid;
+      // Simulate insert to ensure group is linked.
+      skinr_context_skinr_skin_insert($skin);
+    }
+
+    if (!$group) {
+      $group = skinr_context_group_load($skin->gid);
+    }
+
+    if ($skin->status && $group && !$group->status) {
+      // Disable skins where group is disabled.
+      $skin->status = 0;
+      skinr_skin_save($skin);
+    }
+  }
+}

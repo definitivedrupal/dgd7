@@ -40,21 +40,6 @@ class FieldsRSIPreventor {
     return $this->entity->{$field_name}[$language][$delta];
   }
   
-  function getAllItems($field_name, $language = LANGUAGE_NONE) {
-    if (isset($this->entity->{$field_name}) && !isset($this->entity->{$field_name}[$language])) {
-      return array();
-    }
-    return $this->entity->{$field_name}[$language];
-  }
-  
-  function getAllValues($field_name, $language = LANGUAGE_NONE) {
-    $ret = array();
-    foreach ($this->getAllItems($field_name, $language) as $item) {
-      $ret[] = $item['value'];
-    }
-    return $ret;
-  }
-  
   function __get($key) {
     return $this->entity->{$key};
   }

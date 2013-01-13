@@ -1,33 +1,35 @@
 <?php
-// $Id: plus1.install,v 1.1.4.1 2008/09/07 22:14:32 chill35 Exp $
-// @file 
-/**
- * Implementation of hook_install().
- */
-function plus1_install() {
-  // Create tables.
-  drupal_install_schema('plus1');
-}
-/**
- * Implementation of hook_schema().
- */
-function plus1_schema() {
-  return array();
-}
-/**
- * Implementation of hook_uninstall().
- */
-function plus1_uninstall() {
-  // Remove tables.
-  drupal_uninstall_schema('plus1');
-}
 
 /**
- * Upgrade to using VotingAPI 2.
- * 
+ * @file
+ * Install file
  */
-function fivestar_update_6200() {
-  $ret = array();
-  // db_drop_table($ret, 'plus1');
-  return $ret;
+
+/**
+ * Implements hook_uninstall().
+ */
+function plus1_uninstall() {
+  variable_del('plus1_add_js');
+  variable_del('plus1_add_css');
+  variable_del('plus1_node_types');
+  variable_del('plus1_node_in_teaser');
+  variable_del('plus1_node_in_full_view');
+  variable_del('plus1_node_vote_text');
+  variable_del('plus1_node_voted_text');
+  variable_del('plus1_node_undo_vote');
+  variable_del('plus1_node_undo_vote_text');
+  variable_del('plus1_node_widget_weight');
+  variable_del('plus1_comment_widget_show');
+  variable_del('plus1_comment_vote_text');
+  variable_del('plus1_comment_voted_text');
+  variable_del('plus1_comment_undo_vote');
+  variable_del('plus1_comment_undo_vote_text');
+  variable_del('plus1_comment_widget_weight');
+  variable_del('plus1_taxonomy_term_widget_show');
+  variable_del('plus1_taxonomy_vocabularies');
+  variable_del('plus1_taxonomy_term_vote_text');
+  variable_del('plus1_taxonomy_term_voted_text');
+  variable_del('plus1_taxonomy_term_undo_vote');
+  variable_del('plus1_taxonomy_term_undo_vote_text');
+  variable_del('plus1_taxonomy_term_widget_weight');
 }

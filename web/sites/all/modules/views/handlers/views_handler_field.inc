@@ -1,10 +1,33 @@
 <?php
+
 /**
- * @defgroup views_field_handlers Views' field handlers
+ * @file
+ * @todo.
+ */
+
+/**
+ * @defgroup views_field_handlers Views field handlers
  * @{
  * Handlers to tell Views how to build and display fields.
  *
  */
+
+/**
+ * Indicator of the render_text() method for rendering a single item.
+ * (If no render_item() is present).
+ */
+define('VIEWS_HANDLER_RENDER_TEXT_PHASE_SINGLE_ITEM', 0);
+
+/**
+ * Indicator of the render_text() method for rendering the whole element.
+ * (if no render_item() method is available).
+ */
+define('VIEWS_HANDLER_RENDER_TEXT_PHASE_COMPLETELY', 1);
+
+/**
+ * Indicator of the render_text() method for rendering the empty text.
+ */
+define('VIEWS_HANDLER_RENDER_TEXT_PHASE_EMPTY', 2);
 
 /**
  * Base field handler that has no options and renders an unformatted field.
@@ -16,10 +39,26 @@
  *                      'field' => fieldname); as many fields as are necessary
  *                      may be in this array.
  * - click sortable: If TRUE, this field may be click sorted.
+ *
+ * @ingroup views_field_handlers
  */
 class views_handler_field extends views_handler {
   var $field_alias = 'unknown';
   var $aliases = array();
+
+  /**
+   * The field value prior to any rewriting.
+   *
+   * @var mixed
+   */
+  public $original_value = NULL;
+
+  /**
+   * @var array
+   * Stores additional fields which get's added to the query.
+   * The generated aliases are stored in $aliases.
+   */
+  var $additional_fields = array();
 
   /**
    * Construct a new field handler.
@@ -49,10 +88,6 @@ class views_handler_field extends views_handler {
 
   function init(&$view, &$options) {
     parent::init($view, $options);
-
-    $this->options += array(
-      'exclude' => FALSE,
-    );
   }
 
   /**
@@ -234,17 +269,17 @@ class views_handler_field extends views_handler {
       $elements = variable_get('views_field_rewrite_elements', array(
         '' => t('- Use default -'),
         '0' => t('- None -'),
-        'div' => t('DIV'),
-        'span' => t('SPAN'),
-        'h1' => t('H1'),
-        'h2' => t('H2'),
-        'h3' => t('H3'),
-        'h4' => t('H4'),
-        'h5' => t('H5'),
-        'h6' => t('H6'),
-        'p' => t('P'),
-        'strong' => t('STRONG'),
-        'em' => t('EM'),
+        'div' => 'DIV',
+        'span' => 'SPAN',
+        'h1' => 'H1',
+        'h2' => 'H2',
+        'h3' => 'H3',
+        'h4' => 'H4',
+        'h5' => 'H5',
+        'h6' => 'H6',
+        'p' => 'P',
+        'strong' => 'STRONG',
+        'em' => 'EM',
       ));
     }
 
@@ -328,6 +363,9 @@ class views_handler_field extends views_handler {
   /**
    * Get the value that's supposed to be rendered.
    *
+   * This api exists so that other modules can easy set the values of the field
+   * without having the need to change the render method as well.
+   *
    * @param $values
    *   An object containing all retrieved values.
    * @param $field
@@ -340,6 +378,17 @@ class views_handler_field extends views_handler {
     }
   }
 
+  /**
+   * Determines if this field will be available as an option to group the result
+   * by in the style settings.
+   *
+   * @return bool
+   *  TRUE if this field handler is groupable, otherwise FALSE.
+   */
+  function use_string_group_by() {
+    return TRUE;
+  }
+
   function option_definition() {
     $options = parent::option_definition();
 
@@ -347,28 +396,32 @@ class views_handler_field extends views_handler {
     $options['exclude'] = array('default' => FALSE, 'bool' => TRUE);
     $options['alter'] = array(
       'contains' => array(
-        'alter_text' => array('default' => FALSE),
+        'alter_text' => array('default' => FALSE, 'bool' => TRUE),
         'text' => array('default' => '', 'translatable' => TRUE),
-        'make_link' => array('default' => FALSE),
-        'path' => array('default' => '', 'translatable' => TRUE),
-        'absolute' => array('default' => '', 'translatable' => FALSE),
-        'external' => array('default' => '', 'translatable' => FALSE),
-        'replace_spaces' => array('default' => '', 'translatable' => FALSE),
-        'trim_whitespace' => array('default' => FALSE),
+        'make_link' => array('default' => FALSE, 'bool' => TRUE),
+        'path' => array('default' => ''),
+        'absolute' => array('default' => FALSE, 'bool' => TRUE),
+        'external' => array('default' => FALSE, 'bool' => TRUE),
+        'replace_spaces' => array('default' => FALSE, 'bool' => TRUE),
+        'path_case' => array('default' => 'none', 'translatable' => FALSE),
+        'trim_whitespace' => array('default' => FALSE, 'bool' => TRUE),
         'alt' => array('default' => '', 'translatable' => TRUE),
         'rel' => array('default' => ''),
         'link_class' => array('default' => ''),
         'prefix' => array('default' => '', 'translatable' => TRUE),
         'suffix' => array('default' => '', 'translatable' => TRUE),
         'target' => array('default' => '', 'translatable' => TRUE),
-        'nl2br' => array('default' => FALSE),
+        'nl2br' => array('default' => FALSE, 'bool' => TRUE),
         'max_length' => array('default' => ''),
-        'word_boundary' => array('default' => TRUE),
-        'ellipsis' => array('default' => TRUE),
-        'strip_tags' => array('default' => FALSE),
-        'trim' => array('default' => FALSE),
+        'word_boundary' => array('default' => TRUE, 'bool' => TRUE),
+        'ellipsis' => array('default' => TRUE, 'bool' => TRUE),
+        'more_link' => array('default' => FALSE, 'bool' => TRUE),
+        'more_link_text' => array('default' => '', 'translatable' => TRUE),
+        'more_link_path' => array('default' => ''),
+        'strip_tags' => array('default' => FALSE, 'bool' => TRUE),
+        'trim' => array('default' => FALSE, 'bool' => TRUE),
         'preserve_tags' => array('default' => ''),
-        'html' => array('default' => FALSE),
+        'html' => array('default' => FALSE, 'bool' => TRUE),
       ),
     );
     $options['element_type'] = array('default' => '');
@@ -376,17 +429,17 @@ class views_handler_field extends views_handler {
 
     $options['element_label_type'] = array('default' => '');
     $options['element_label_class'] = array('default' => '');
-    $options['element_label_colon'] = array('default' => TRUE);
+    $options['element_label_colon'] = array('default' => TRUE, 'bool' => TRUE);
 
     $options['element_wrapper_type'] = array('default' => '');
     $options['element_wrapper_class'] = array('default' => '');
 
-    $options['element_default_classes'] = array('default' => TRUE);
+    $options['element_default_classes'] = array('default' => TRUE, 'bool' => TRUE);
 
     $options['empty'] = array('default' => '', 'translatable' => TRUE);
-    $options['hide_empty'] = array('default' => FALSE);
-    $options['empty_zero'] = array('default' => FALSE);
-    $options['hide_alter_empty'] = array('default' => FALSE);
+    $options['hide_empty'] = array('default' => FALSE, 'bool' => TRUE);
+    $options['empty_zero'] = array('default' => FALSE, 'bool' => TRUE);
+    $options['hide_alter_empty'] = array('default' => TRUE, 'bool' => TRUE);
 
     return $options;
   }
@@ -662,7 +715,22 @@ class views_handler_field extends views_handler {
           'edit-options-alter-make-link' => array(1),
         ),
       );
-
+      $form['alter']['path_case'] = array(
+        '#type' => 'select',
+        '#title' => t('Transform the case'),
+        '#description' => t('When printing url paths, how to transform the case of the filter value.'),
+        '#dependency' => array(
+          'edit-options-alter-make-link' => array(1),
+        ),
+       '#options' => array(
+          'none' => t('No transform'),
+          'upper' => t('Upper case'),
+          'lower' => t('Lower case'),
+          'ucfirst' => t('Capitalize first letter'),
+          'ucwords' => t('Capitalize each word'),
+        ),
+        '#default_value' => $this->options['alter']['path_case'],
+      );
       $form['alter']['link_class'] = array(
         '#title' => t('Link class'),
         '#type' => 'textfield',
@@ -673,10 +741,10 @@ class views_handler_field extends views_handler {
         ),
       );
       $form['alter']['alt'] = array(
-        '#title' => t('Alt text'),
+        '#title' => t('Title text'),
         '#type' => 'textfield',
         '#default_value' => $this->options['alter']['alt'],
-        '#description' => t('Text to place as "alt" text which most browsers display as a tooltip when hovering over the link.'),
+        '#description' => t('Text to place as "title" text which most browsers display as a tooltip when hovering over the link.'),
         '#dependency' => array(
           'edit-options-alter-make-link' => array(1),
         ),
@@ -741,7 +809,7 @@ class views_handler_field extends views_handler {
       // We have some options, so make a list.
       if (!empty($options)) {
         $output = t('<p>The following tokens are available for this field. Note that due to rendering order, you cannot use fields that come after this field; if you need a field not listed here, rearrange your fields.
-If you would like to have the characters %5B and %5D please use the html entity codes \'%5B\' or  \'%5D\' or they will get replaced with empty space.</p>');
+If you would like to have the characters \'[\' and \']\' please use the html entity codes \'%5B\' or  \'%5D\' or they will get replaced with empty space.</p>');
         foreach (array_keys($options) as $type) {
           if (!empty($options[$type])) {
             $items = array();
@@ -769,6 +837,7 @@ If you would like to have the characters %5B and %5D please use the html entity 
         '#dependency' => array(
           'edit-options-alter-make-link' => array(1),
           'edit-options-alter-alter-text' => array(1),
+          'edit-options-alter-more-link' => array(1),
         ),
       );
 
@@ -809,6 +878,39 @@ If you would like to have the characters %5B and %5D please use the html entity 
         ),
       );
 
+      $form['alter']['more_link'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Add a read-more link if output is trimmed.'),
+        '#description' => t('If checked, a read-more link will be added at the end of the trimmed output'),
+        '#default_value' => $this->options['alter']['more_link'],
+        '#dependency' => array(
+          'edit-options-alter-trim' => array(1),
+        ),
+      );
+
+      $form['alter']['more_link_text'] = array(
+        '#type' => 'textfield',
+        '#title' => t('More link text'),
+        '#default_value' => $this->options['alter']['more_link_text'],
+        '#description' => t('The text which will be displayed on the more link. You may enter data from this view as per the "Replacement patterns" above.'),
+        '#dependency_count' => 2,
+        '#dependency' => array(
+          'edit-options-alter-trim' => array(1),
+          'edit-options-alter-more-link' => array(1),
+        ),
+      );
+      $form['alter']['more_link_path'] = array(
+        '#type' => 'textfield',
+        '#title' => t('More link path'),
+        '#default_value' => $this->options['alter']['more_link_path'],
+        '#description' => t('The path which is used for the more link. You may enter data from this view as per the "Replacement patterns" above.'),
+        '#dependency_count' => 2,
+        '#dependency' => array(
+          'edit-options-alter-trim' => array(1),
+          'edit-options-alter-more-link' => array(1),
+        ),
+      );
+
       $form['alter']['html'] = array(
         '#type' => 'checkbox',
         '#title' => t('Field can contain HTML'),
@@ -825,12 +927,7 @@ If you would like to have the characters %5B and %5D please use the html entity 
         '#description' => t('If checked, all HTML tags will be stripped.'),
         '#default_value' => $this->options['alter']['strip_tags'],
       );
-      $form['alter']['trim_whitespace'] = array(
-        '#type' => 'checkbox',
-        '#title' => t('Remove whitespace'),
-        '#description' => t('If checked, all whitespaces at the beginning and the end of the output will be removed.'),
-        '#default_value' => $this->options['alter']['trim_whitespace'],
-      );
+
       $form['alter']['preserve_tags'] = array(
         '#type' => 'textfield',
         '#title' => t('Preserve certain tags'),
@@ -839,6 +936,13 @@ If you would like to have the characters %5B and %5D please use the html entity 
         '#dependency' => array(
           'edit-options-alter-strip-tags' => array(1),
         ),
+      );
+
+      $form['alter']['trim_whitespace'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Remove whitespace'),
+        '#description' => t('If checked, all whitespaces at the beginning and the end of the output will be removed.'),
+        '#default_value' => $this->options['alter']['trim_whitespace'],
       );
 
       $form['alter']['nl2br'] = array(
@@ -858,10 +962,10 @@ If you would like to have the characters %5B and %5D please use the html entity 
     );
 
     $form['empty'] = array(
-      '#type' => 'textfield',
+      '#type' => 'textarea',
       '#title' => t('No results text'),
       '#default_value' => $this->options['empty'],
-      '#description' => t('Provide text to display if this field returns no results.'),
+      '#description' => t('Provide text to display if this field returns no results. You may include HTML. You may enter data from this view as per the "Replacement patterns" in the "Rewrite Results" section below.'),
       '#fieldset' => 'empty_field_behavior',
     );
 
@@ -877,7 +981,7 @@ If you would like to have the characters %5B and %5D please use the html entity 
       '#type' => 'checkbox',
       '#title' => t('Hide if empty'),
       '#default_value' => $this->options['hide_empty'],
-      '#description' => t('Enable to hide this field if it is empty. Note that the field label or rewritten output may still be displayed. To hide labels, check the style or row style settings for empty fields. To hide rewritten content, check the Hide rewriting if empty checkbox.'),
+      '#description' => t('Enable to hide this field if it is empty. Note that the field label or rewritten output may still be displayed. To hide labels, check the style or row style settings for empty fields. To hide rewritten content, check the "Hide rewriting if empty" checkbox.'),
       '#fieldset' => 'empty_field_behavior',
     );
 
@@ -928,6 +1032,10 @@ If you would like to have the characters %5B and %5D please use the html entity 
   function advanced_render($values) {
     if ($this->allow_advanced_render() && method_exists($this, 'render_item')) {
       $raw_items = $this->get_items($values);
+      // If there are no items, set the original value to NULL.
+      if (empty($raw_items)) {
+        $this->original_value = NULL;
+      }
     }
     else {
       $value = $this->render($values);
@@ -951,13 +1059,15 @@ If you would like to have the characters %5B and %5D please use the html entity 
           $this->original_value = $this->last_render;
 
           $alter = $item + $this->options['alter'];
+          $alter['phase'] = VIEWS_HANDLER_RENDER_TEXT_PHASE_SINGLE_ITEM;
           $items[] = $this->render_text($alter);
         }
 
         $value = $this->render_items($items);
       }
       else {
-        $value = $this->render_text($this->options['alter']);
+        $alter = array('phase' => VIEWS_HANDLER_RENDER_TEXT_PHASE_COMPLETELY) + $this->options['alter'];
+        $value = $this->render_text($alter);
       }
 
       if (is_array($value)) {
@@ -969,15 +1079,43 @@ If you would like to have the characters %5B and %5D please use the html entity 
     }
 
     if (empty($this->last_render)) {
-      if (($this->last_render !== 0 && $this->last_render !== '0') || !empty($this->options['empty_zero'])) {
+      if ($this->is_value_empty($this->last_render, $this->options['empty_zero'], FALSE)) {
         $alter = $this->options['alter'];
         $alter['alter_text'] = 1;
         $alter['text'] = $this->options['empty'];
+        $alter['phase'] = VIEWS_HANDLER_RENDER_TEXT_PHASE_EMPTY;
         $this->last_render = $this->render_text($alter);
       }
     }
 
     return $this->last_render;
+  }
+
+  /**
+   * Checks if a field value is empty.
+   *
+   * @param $value
+   *   The field value.
+   * @param bool $empty_zero
+   *   Whether or not this field is configured to consider 0 as empty.
+   * @param bool $no_skip_empty
+   *   Whether or not to use empty() to check the value.
+   *
+   * @return bool
+   * TRUE if the value is considered empty, FALSE otherwise.
+   */
+  function is_value_empty($value, $empty_zero, $no_skip_empty = TRUE) {
+    if (!isset($value)) {
+      $empty = TRUE;
+    }
+    else {
+      $empty = ($empty_zero || ($value !== 0 && $value !== '0'));
+    }
+
+    if ($no_skip_empty) {
+      $empty = empty($value) && $empty;
+    }
+    return $empty;
   }
 
   /**
@@ -988,30 +1126,66 @@ If you would like to have the characters %5B and %5D please use the html entity 
    */
   function render_text($alter) {
     $value = $this->last_render;
-    if (!empty($this->options['alter']['trim_whitespace'])) {
-      $value = trim($value);
-    }
 
     if (!empty($alter['alter_text']) && $alter['text'] !== '') {
       $tokens = $this->get_render_tokens($alter);
       $value = $this->render_altered($alter, $tokens);
     }
 
-    if ((($this->options['hide_empty'] && empty($value)) || ($this->options['hide_alter_empty'] && empty($this->original_value))) && ($value !== 0 || $this->options['empty_zero'])) {
+    if (!empty($this->options['alter']['trim_whitespace'])) {
+      $value = trim($value);
+    }
+
+    // Check if there should be no further rewrite for empty values.
+    $no_rewrite_for_empty = $this->options['hide_alter_empty'] && $this->is_value_empty($this->original_value, $this->options['empty_zero']);
+
+    // Check whether the value is empty and return nothing, so the field isn't rendered.
+    // First check whether the field should be hidden if the value(hide_alter_empty = TRUE) /the rewrite is empty (hide_alter_empty = FALSE).
+    // For numeric values you can specify whether "0"/0 should be empty.
+    if ((($this->options['hide_empty'] && empty($value))
+        || ($alter['phase'] != VIEWS_HANDLER_RENDER_TEXT_PHASE_EMPTY && $no_rewrite_for_empty))
+      && $this->is_value_empty($value, $this->options['empty_zero'], FALSE)) {
       return '';
+    }
+    // Only in empty phase.
+    if ($alter['phase'] == VIEWS_HANDLER_RENDER_TEXT_PHASE_EMPTY && $no_rewrite_for_empty) {
+      // If we got here then $alter contains the value of "No results text"
+      // and so there is nothing left to do.
+      return $value;
     }
 
     if (!empty($alter['strip_tags'])) {
       $value = strip_tags($value, $alter['preserve_tags']);
     }
 
+    $suffix = '';
     if (!empty($alter['trim']) && !empty($alter['max_length'])) {
+      $length = strlen($value);
       $value = $this->render_trim_text($alter, $value);
+      if ($this->options['alter']['more_link'] && strlen($value) < $length) {
+        $tokens = $this->get_render_tokens($alter);
+        $more_link_text = $this->options['alter']['more_link_text'] ? $this->options['alter']['more_link_text'] : t('more');
+        $more_link_text = strtr(filter_xss_admin($more_link_text), $tokens);
+        $more_link_path = $this->options['alter']['more_link_path'];
+        $more_link_path = strip_tags(decode_entities(strtr($more_link_path, $tokens)));
+
+        // Take sure that paths which was runned through url() does work as well.
+        $base_path = base_path();
+        // Checks whether the path starts with the base_path.
+        if (strpos($more_link_path, $base_path) === 0) {
+          $more_link_path = drupal_substr($more_link_path, drupal_strlen($base_path));
+        }
+
+        $more_link = l($more_link_text, $more_link_path, array('attributes' => array('class' => array('views-more-link'))));
+
+        $suffix .= " " . $more_link;
+      }
     }
 
     if (!empty($alter['nl2br'])) {
       $value = nl2br($value);
     }
+    $this->last_render_text = $value;
 
     if (!empty($alter['make_link']) && !empty($alter['path'])) {
       if (!isset($tokens)) {
@@ -1020,7 +1194,7 @@ If you would like to have the characters %5B and %5D please use the html entity 
       $value = $this->render_as_link($alter, $value, $tokens);
     }
 
-    return $value;
+    return $value . $suffix;
   }
 
   /**
@@ -1067,12 +1241,16 @@ If you would like to have the characters %5B and %5D please use the html entity 
     // sanitize it ourselves.
     $path = $alter['path'];
 
-    // html_entity_decode removes <front>, so check whether its different to front.
+    // strip_tags() removes <front>, so check whether its different to front.
     if ($path != '<front>') {
       // Use strip tags as there should never be HTML in the path.
       // However, we need to preserve special characters like " that
       // were removed by check_plain().
-      $path = strip_tags(html_entity_decode(strtr($path, $tokens)));
+      $path = strip_tags(decode_entities(strtr($path, $tokens)));
+
+      if (!empty($alter['path_case']) && $alter['path_case'] != 'none') {
+        $path = $this->case_transform($path, $this->options['alter']['path_case']);
+      }
 
       if (!empty($alter['replace_spaces'])) {
         $path = str_replace(' ', '-', $path);
@@ -1090,7 +1268,7 @@ If you would like to have the characters %5B and %5D please use the html entity 
     // If the path is empty do not build a link around the given text and return
     // it as is.
     // http://www.example.com URLs will not have a $url['path'], so check host as well.
-    if (empty($url['path']) && empty($url['host'])) {
+    if (empty($url['path']) && empty($url['host']) && empty($url['fragment'])) {
       return $text;
     }
 
@@ -1108,7 +1286,15 @@ If you would like to have the characters %5B and %5D please use the html entity 
 
     if (isset($url['query'])) {
       $path = strtr($path, array('?' . $url['query'] => ''));
-      $options['query'] = drupal_get_query_array($url['query']);
+      $query = drupal_get_query_array($url['query']);
+      // Remove query parameters that were assigned a query string replacement
+      // token for which there is no value available.
+      foreach ($query as $param => $val) {
+        if ($val == '%' . $param) {
+          unset($query[$param]);
+        }
+      }
+      $options['query'] = $query;
     }
     if (isset($url['fragment'])) {
       $path = strtr($path, array('#' . $url['fragment'] => ''));
@@ -1122,7 +1308,7 @@ If you would like to have the characters %5B and %5D please use the html entity 
     $alt = strtr($alter['alt'], $tokens);
     // Set the title attribute of the link only if it improves accessibility
     if ($alt && $alt != $text) {
-      $options['attributes']['title'] = html_entity_decode($alt, ENT_QUOTES);
+      $options['attributes']['title'] = decode_entities($alt);
     }
 
     $class = strtr($alter['link_class'], $tokens);
@@ -1208,8 +1394,11 @@ If you would like to have the characters %5B and %5D please use the html entity 
       // Use strip tags as there should never be HTML in the path.
       // However, we need to preserve special characters like " that
       // were removed by check_plain().
-      $tokens['!' . $count] = isset($this->view->args[$count - 1]) ? strip_tags(html_entity_decode($this->view->args[$count - 1])) : '';
+      $tokens['!' . $count] = isset($this->view->args[$count - 1]) ? strip_tags(decode_entities($this->view->args[$count - 1])) : '';
     }
+
+    // Get flattened set of tokens for any array depth in $_GET parameters.
+    $tokens += $this->get_token_values_recursive($_GET);
 
     // Now add replacements for our fields.
     foreach ($this->view->display_handler->get_handlers('field') as $field => $handler) {
@@ -1232,6 +1421,64 @@ If you would like to have the characters %5B and %5D please use the html entity 
     // Store the tokens for the row so we can reference them later if necessary.
     $this->view->style_plugin->render_tokens[$this->view->row_index] = $tokens;
     $this->last_tokens = $tokens;
+
+    return $tokens;
+  }
+
+  /**
+   * Recursive function to add replacements for nested query string parameters.
+   *
+   * E.g. if you pass in the following array:
+   *   array(
+   *     'foo' => array(
+   *       'a' => 'value',
+   *       'b' => 'value',
+   *     ),
+   *     'bar' => array(
+   *       'a' => 'value',
+   *       'b' => array(
+   *         'c' => value,
+   *       ),
+   *     ),
+   *   );
+   *
+   * Would yield the following array of tokens:
+   *   array(
+   *     '%foo_a' => 'value'
+   *     '%foo_b' => 'value'
+   *     '%bar_a' => 'value'
+   *     '%bar_b_c' => 'value'
+   *   );
+   *
+   * @param $array
+   *   An array of values.
+   *
+   * @param $parent_keys
+   *   An array of parent keys. This will represent the array depth.
+   *
+   * @return
+   *   An array of available tokens, with nested keys representative of the array structure.
+   */
+  function get_token_values_recursive(array $array, array $parent_keys = array()) {
+    $tokens = array();
+
+    foreach ($array as $param => $val) {
+      if (is_array($val)) {
+         // Copy parent_keys array, so we don't afect other elements of this iteration.
+         $child_parent_keys = $parent_keys;
+         $child_parent_keys[] = $param;
+         // Get the child tokens.
+         $child_tokens = $this->get_token_values_recursive($val, $child_parent_keys);
+         // Add them to the current tokens array.
+         $tokens += $child_tokens;
+      }
+      else {
+        // Create a token key based on array element structure.
+        $token_string = !empty($parent_keys) ? implode('_', $parent_keys) . '_' . $param : $param;
+        $tokens['%' . $token_string] = strip_tags(decode_entities($val));
+      }
+    }
+
     return $tokens;
   }
 
@@ -1251,7 +1498,7 @@ If you would like to have the characters %5B and %5D please use the html entity 
   /**
    * Document any special tokens this field might use for itself.
    *
-   * @see add_self_tokens() for details.
+   * @see add_self_tokens()
    */
   function document_self_tokens(&$tokens) { }
 
@@ -1301,6 +1548,8 @@ If you would like to have the characters %5B and %5D please use the html entity 
 
 /**
  * A special handler to take the place of missing or broken handlers.
+ *
+ * @ingroup views_field_handlers
  */
 class views_handler_field_broken extends views_handler_field {
   function ui_name($short = FALSE) {
@@ -1323,6 +1572,8 @@ class views_handler_field_broken extends views_handler_field {
 
 /**
  * Render a numeric value as a size.
+ *
+ * @ingroup views_field_handlers
  */
 class views_handler_field_file_size extends views_handler_field {
   function option_definition() {
@@ -1363,7 +1614,9 @@ class views_handler_field_file_size extends views_handler_field {
 }
 
 /**
- * A handler to run a field through simple XSS filtering
+ * A handler to run a field through simple XSS filtering.
+ *
+ * @ingroup views_field_handlers
  */
 class views_handler_field_xss extends views_handler_field {
   function render($values) {

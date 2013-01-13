@@ -143,6 +143,10 @@ Features provides several useful drush commands:
   If called with no arguments, display a list of available components.
   If called with one argument, take the argument as a component name and 
   attempt to create a feature with the same name.
+  
+  The option '--destination=foo' may be used to specify the path (from Drupal
+  root) where the feature should be created. The default destination is
+  'sites/all/modules'.
 
 - `drush features-update [feature name]`
 
@@ -175,15 +179,23 @@ Features provides integration for the following exportables:
 Features also provides faux-exportable functionality for the following Drupal
 core and contrib components:
 
-- CCK fields
-- CCK fieldgroups
+- Fields
 - Content types
 - Input filters
 - User roles/permissions
 - Custom menus and menu links *
-- Taxonomy vocabularies *
+- Taxonomy vocabularies
 
 * Currently in development.
+
+
+Security Concerns
+-----------------
+If you are using Features to export Roles and also use those Roles in other
+exportable code (like Views filters) you can wind up with an unintended
+security hole.  When you import your Feature, if the Roles do not get created
+with the exact same Role IDs then your Views filters (or other component) will
+be referencing a different Role than you intended.
 
 
 For developers
@@ -194,8 +206,10 @@ points in the Features module.
 
 Maintainers
 -----------
-- yhahn (Young Hahn)
-- jmiccolis (Jeff Miccolis)
+- febbraro (Frank Febbraro)
+- hefox (Fox)
+- mpotter (Mike Potter)
+- timplunkett (Tim Plunkett)
 
 
 [1]: http://drupal.org/project/drush

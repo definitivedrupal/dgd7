@@ -1,8 +1,15 @@
 <?php
 
 /**
+ * @file
+ * Definition of views_handler_relationship_translation.
+ */
+
+/**
  * Handles relationships for content translation sets and provides multiple
  * options.
+ *
+ * @ingroup views_relationship_handlers
  */
 class views_handler_relationship_translation extends views_handler_relationship {
   function option_definition() {

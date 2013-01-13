@@ -17,9 +17,9 @@ function field_group_schema() {
       'key' => 'identifier',
       'identifier' => 'field_group',
       'default hook' => 'field_group_info',
-      'save callback' => 'field_group_save',
-      'delete callback' => 'field_group_export_delete',
-      'can disable' => FALSE,
+      'save callback' => 'field_group_group_save',
+      'delete callback' => 'field_group_group_export_delete',
+      'can disable' => TRUE,
       'api' => array(
         'owner' => 'field_group',
         'api' => 'field_group',
@@ -89,6 +89,9 @@ function field_group_schema() {
     'indexes' => array(
       'group_name' => array('group_name'),
     ),
+    'unique keys' => array(
+      'identifier' => array('identifier'),
+    ),
   );
   return $schema;
 }
@@ -100,7 +103,9 @@ function _field_group_install_read_groups() {
   $groups = array();
   if (db_table_exists('content_group')) {
     $query = db_select('content_group', 'cg', array('fetch' => PDO::FETCH_ASSOC))
-      ->fields('cg');
+      ->fields('cg')
+      // We only want non-multigroups.
+      ->condition('group_type', 'standard');
     foreach ($query->execute() as $record) {
       $record['settings'] = unserialize($record['settings']);
       $groups[$record['group_name']] = $record;
@@ -127,10 +132,10 @@ function _field_group_install_read_groups() {
 function field_group_install() {
 
   $groups = _field_group_install_read_groups();
+  module_load_include('module', 'field_group');
 
   if (!empty($groups)) {
 
-    module_load_include('module', 'field_group');
     module_load_include('module', 'ctools');
     ctools_include('export');
 
@@ -158,6 +163,7 @@ function field_group_install() {
         'formatter' => preg_match("/fieldset/", $group->settings['form']['style']) ? 'collapsible' : 'collapsed',
         'instance_settings' => array(),
       );
+      $new->identifier = $new->group_name . '|' . $new->entity_type . '|' . $new->bundle . '|' . $new->mode;
       ctools_export_crud_save('field_group', $new);
 
       // The full node.
@@ -169,6 +175,7 @@ function field_group_install() {
         'formatter' => 'collapsible',
         'instance_settings' => array(),
       );
+      $new->identifier = $new->group_name . '|' . $new->entity_type . '|' . $new->bundle . '|' . $new->mode;
       ctools_export_crud_save('field_group', $new);
 
       // The teaser node.
@@ -180,6 +187,7 @@ function field_group_install() {
         'formatter' => 'collapsible',
         'instance_settings' => array(),
       );
+      $new->identifier = $new->group_name . '|' . $new->entity_type . '|' . $new->bundle . '|' . $new->mode;
       ctools_export_crud_save('field_group', $new);
 
     }
@@ -191,6 +199,7 @@ function field_group_install() {
     ->fields(array('weight' => 1))
     ->condition('name', 'field_group')
     ->execute();
+
 }
 
 /**
@@ -224,6 +233,24 @@ function field_group_update_7001() {
  * Update hook to clear cache for new changes to take effect.
  */
 function field_group_update_7002() {
+
+  module_load_include('module', 'field_group');
+
+  // This hook is called to satify people with older version of field_group.
+  // This will recreate all identifiers for the field_groups known in database.
+  // At the moment, we only trigger field_groups that are stored in the database, where
+  // we should maybe get all field_groups as ctools has registered them.
+  // See http://drupal.org/node/1169146.
+  // See http://drupal.org/node/1018550.
+  _field_group_recreate_identifiers();
+
+}
+
+/**
+ * Update hook to recreate identifiers.
+ * @see function field_group_update_7002.
+ */
+function field_group_update_7003() {
 
   module_load_include('module', 'field_group');
   _field_group_recreate_identifiers();

@@ -1,5 +1,4 @@
 <?php
-// $Id: votingapi_views_handler_field_value.inc,v 1.1.2.3.2.4 2010/10/10 01:39:41 eaton Exp $
 
 /**
  * @file
@@ -36,7 +35,7 @@ class votingapi_views_handler_field_value extends views_handler_field_numeric {
     }
   }
 
-  function element_type() {
+  function element_type($none_supported = FALSE, $default_empty = FALSE, $inline = FALSE) {
     return 'div';
   }
 

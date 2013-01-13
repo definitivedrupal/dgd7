@@ -76,8 +76,13 @@ require_once dirname(__FILE__) . '/query.inc';
  *       the precision (total number of significant digits) and scale
  *       (decimal digits right of the decimal point). Both values are
  *       mandatory. Ignored for other field types.
+ *     - 'binary': A boolean indicating that MySQL should force 'char',
+ *       'varchar' or 'text' fields to use case-sensitive binary collation.
+ *       This has no effect on other database types for which case sensitivity
+ *       is already the default behavior.
  *     All parameters apart from 'type' are optional except that type
- *     'numeric' columns must specify 'precision' and 'scale'.
+ *     'numeric' columns must specify 'precision' and 'scale', and type
+ *     'varchar' must specify the 'length' parameter.
  *  - 'primary key': An array of one or more key column specifiers (see below)
  *    that form the primary key.
  *  - 'unique keys': An associative array of unique keys ('keyname' =>
@@ -176,10 +181,33 @@ abstract class DatabaseSchema implements QueryPlaceholderInterface {
    */
   protected $defaultSchema = 'public';
 
+  /**
+   * A unique identifier for this query object.
+   */
+  protected $uniqueIdentifier;
+
   public function __construct($connection) {
+    $this->uniqueIdentifier = uniqid('', TRUE);
     $this->connection = $connection;
   }
 
+  /**
+   * Implements the magic __clone function.
+   */
+  public function __clone() {
+    $this->uniqueIdentifier = uniqid('', TRUE);
+  }
+
+  /**
+   * Implements QueryPlaceHolderInterface::uniqueIdentifier().
+   */
+  public function uniqueIdentifier() {
+    return $this->uniqueIdentifier;
+  }
+
+  /**
+   * Implements QueryPlaceHolderInterface::nextPlaceholder().
+   */
   public function nextPlaceholder() {
     return $this->placeholder++;
   }

@@ -1,7 +1,8 @@
 <?php
+
 /**
- * @file views-view.tpl.php
- * Main view template
+ * @file
+ * Main view template.
  *
  * Variables available:
  * - $classes_array: An array of classes determined in
@@ -86,4 +87,4 @@
     </div>
   <?php endif; ?>
 
-</div> <?php /* class view */ ?>
+</div><?php /* class view */ ?>

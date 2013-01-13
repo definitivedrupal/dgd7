@@ -1,4 +1,3 @@
-
 /**
  * @file
  * Javascript for the interface at admin/content/media and also for interfaces
@@ -14,19 +13,16 @@
  */
 Drupal.behaviors.mediaAdmin = {
   attach: function (context) {
-    var show_confirm_if_existing_selections = function () {
+    // Show a javascript confirmation dialog if a user has files selected and
+    // they try to switch between the "Thumbnail" and "List" local tasks.
+    $('.media-display-switch a').bind('click', function () {
       if ($(':checkbox:checked', $('form#media-admin')).length != 0) {
         return confirm(Drupal.t('If you switch views, you will lose your selection.'));
       }
-    }
-    
-    $('.media-display-switch a').bind('click', show_confirm_if_existing_selections)
+    });
+
     // Configure the "Add file" link to fire the media browser popup.
-    $('ul.action-links li', context).remove();
-    if ($('form.media-list-operation', context).length != 0) {
-      return;  
-    }
-    var $launcherLink = $('<a class="media-launcher" href="#"></a>').html('Add file');
+    var $launcherLink = $('<a class="media-launcher" href="#"></a>').html(Drupal.t('Add file'));
     $launcherLink.bind('click', function () {
       // This option format needs *serious* work.
       // Not even bothering documenting it because it needs to be thrown.
@@ -43,10 +39,10 @@ Drupal.behaviors.mediaAdmin = {
         return false;
       }, options);
     });
-    $('ul.action-links', context).append($('<li></li>').append($launcherLink));
 
+    $('ul.action-links', context).prepend($('<li></li>').append($launcherLink));
 
-    if ($('body.page-admin-content-media-thumbnails').length != 0) {
+    if ($('.media-display-thumbnails').length) {
       // Implements 'select all/none' for thumbnail view.
       // @TODO: Support grabbing more than one page of thumbnails.
       var allLink = $('<a href="#">' + Drupal.t('all') + '</a>')
@@ -78,14 +74,14 @@ Drupal.behaviors.mediaAdmin = {
           checkbox.attr('checked', true).change();
         }
       });
-  
+
       // Add an extra class to selected thumbnails.
       $('.media-display-thumbnails :checkbox').each(function () {
         var checkbox = $(this);
         if (checkbox.is(':checked')) {
           $(checkbox.parents('li').find('.media-item')).addClass('selected');
         }
-  
+
         checkbox.bind('change.media', function () {
           if (checkbox.is(':checked')) {
             $(checkbox.parents('li').find('.media-item')).addClass('selected');
@@ -144,6 +140,5 @@ Drupal.behaviors.mediaTypesAdmin = {
 };
 
 
-  
-})(jQuery);
 
+})(jQuery);

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * Contains the node from URL argument default plugin.
@@ -23,4 +24,3 @@ class views_plugin_argument_default_node extends views_plugin_argument_default {
     }
   }
 }
-

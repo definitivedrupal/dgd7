@@ -1,10 +1,8 @@
 <?php
 
 /**
- * @file theme.inc
- *
- * An array of preprocessors to fill variables for templates and helper
- * functions to make theming easier.
+ * @file
+ * Preprocessors and helper functions to make theming easier.
  */
 
 /**
@@ -24,6 +22,12 @@ function _views_theme_functions($hook, $view, $display = NULL) {
     $themes[] = $hook . '__' . $view->name . '__' . $display->id;
     $themes[] = $hook . '__' . $display->id;
     $themes[] = $hook . '__' . preg_replace('/[^a-z0-9]/', '_', strtolower($view->tag));
+
+    // Add theme suggestions foreach single tag.
+    foreach (drupal_explode_tags($view->tag) as $tag) {
+      $themes[] = $hook . '__' . preg_replace('/[^a-z0-9]/', '_', strtolower($tag));
+    }
+
     if ($display->id != $display->display_plugin) {
       $themes[] = $hook . '__' . $view->name . '__' . $display->display_plugin;
       $themes[] = $hook . '__' . $display->display_plugin;
@@ -42,13 +46,15 @@ function template_preprocess_views_view(&$vars) {
 
   $view = $vars['view'];
 
-  $vars['rows']       = !empty($view->result) || $view->style_plugin->even_empty() ? $view->style_plugin->render($view->result) : '';
+  $vars['rows']       = (!empty($view->result) || $view->style_plugin->even_empty()) ? $view->style_plugin->render($view->result) : '';
 
   $vars['css_name']   = drupal_clean_css_identifier($view->name);
   $vars['name']       = $view->name;
   $vars['display_id'] = $view->current_display;
 
   // Basic classes
+  $vars['css_class'] = '';
+
   $vars['classes_array'] = array();
   $vars['classes_array'][] = 'view';
   $vars['classes_array'][] = 'view-' . drupal_clean_css_identifier($vars['name']);
@@ -66,7 +72,7 @@ function template_preprocess_views_view(&$vars) {
   $vars['header'] = $view->display_handler->render_area('header', $empty);
   $vars['footer'] = $view->display_handler->render_area('footer', $empty);
   if ($empty) {
-    $vars['empty'] = $view->display_handler->render_area('empty');
+    $vars['empty'] = $view->display_handler->render_area('empty', $empty);
   }
 
   $vars['exposed']    = !empty($view->exposed_widgets) ? $view->exposed_widgets : '';
@@ -104,11 +110,10 @@ function template_preprocess_views_view(&$vars) {
     // It is true that the DIV wrapper has classes denoting the name of the view
     // and its display ID, but this is not enough to unequivocally match a view
     // with its HTML, because one view may appear several times on the page. So
-    // we set up a running counter, $dom_id, to issue a "unique" identifier for
+    // we set up a hash with the current time, $dom_id, to issue a "unique" identifier for
     // each view. This identifier is written to both Drupal.settings and the DIV
     // wrapper.
-    static $dom_id = 1;
-    $vars['dom_id'] = !empty($view->dom_id) ? $view->dom_id : $dom_id++;
+    $vars['dom_id'] = $view->dom_id;
     $vars['classes_array'][] = 'view-dom-id-' . $vars['dom_id'];
   }
 
@@ -118,7 +123,7 @@ function template_preprocess_views_view(&$vars) {
       'views' => array(
         'ajax_path' => url('views/ajax'),
         'ajaxViews' => array(
-          array(
+          'views_dom_id:' . $vars['dom_id'] => array(
             'view_name' => $view->name,
             'view_display_id' => $view->current_display,
             'view_args' => check_plain(implode('/', $view->args)),
@@ -138,12 +143,11 @@ function template_preprocess_views_view(&$vars) {
     drupal_add_js($settings, 'setting');
     views_add_js('ajax_view');
   }
-  // Flatten the classes to a string for the template file.
-  $vars['classes'] = implode(' ', $vars['classes_array']);
 
   // If form fields were found in the View, reformat the View output as a form.
   if (views_view_has_form_elements($view)) {
-    $form = drupal_get_form(views_form_id($view), $view, $vars['rows']);
+    $output = !empty($vars['rows']) ? $vars['rows'] : $vars['empty'];
+    $form = drupal_get_form(views_form_id($view), $view, $output);
     // The form is requesting that all non-essential views elements be hidden,
     // usually because the rendered step is not a view result.
     if ($form['show_view_elements']['#value'] == FALSE) {
@@ -154,8 +158,20 @@ function template_preprocess_views_view(&$vars) {
       $vars['more'] = '';
       $vars['feed_icon'] = '';
     }
-    $vars['rows'] = drupal_render($form);
+    $vars['rows'] = $form;
   }
+}
+
+/**
+ * Process function to render certain elements into the view.
+ */
+function template_process_views_view(&$vars) {
+  if (is_array($vars['rows'])) {
+    $vars['rows'] = drupal_render($vars['rows']);
+  }
+
+  // Flatten the classes to a string for the template file.
+  $vars['classes'] = implode(' ', $vars['classes_array']);
 }
 
 /**
@@ -170,7 +186,7 @@ function template_preprocess_views_view_fields(&$vars) {
   foreach ($view->field as $id => $field) {
     // render this even if set to exclude so it can be used elsewhere.
     $field_output = $view->style_plugin->get_field($view->row_index, $id);
-    $empty = $field_output !== 0 && empty($field_output);
+    $empty = $field->is_value_empty($field_output, $field->options['empty_zero']);
     if (empty($field->options['exclude']) && (!$empty || (empty($field->options['hide_empty']) && empty($vars['options']['hide_empty'])))) {
       $object = new stdClass();
       $object->handler = &$view->field[$id];
@@ -291,6 +307,29 @@ function template_preprocess_views_view_fields(&$vars) {
 }
 
 /**
+ * Display a single views grouping.
+ */
+function theme_views_view_grouping($vars) {
+  $view = $vars['view'];
+  $title = $vars['title'];
+  $content = $vars['content'];
+
+  $output = '<div class="view-grouping">';
+  $output .= '<div class="view-grouping-header">' . $title . '</div>';
+  $output .= '<div class="view-grouping-content">' . $content . '</div>' ;
+  $output .= '</div>';
+
+  return $output;
+}
+
+/**
+ * Process a single grouping within a view.
+ */
+function template_preprocess_views_view_grouping(&$vars) {
+  $vars['content'] = $vars['view']->style_plugin->render_grouping_sets($vars['rows'], $vars['grouping_level']);
+}
+
+/**
  * Display a single views field.
  *
  * Interesting bits of info:
@@ -329,9 +368,15 @@ function template_preprocess_views_view_summary(&$vars) {
     $url_options['query'] = $view->exposed_raw_input;
   }
 
+  $active_urls = drupal_map_assoc(array(
+    url($_GET['q'], array('alias' => TRUE)), // force system path
+    url($_GET['q']), // could be an alias
+  ));
+
   // Collect all arguments foreach row, to be able to alter them for example by the validator.
   // This is not done per single argument value, because this could cause performance problems.
   $row_args = array();
+
   foreach ($vars['rows'] as $id => $row) {
     $row_args[$id] = $argument->summary_argument($row);
   }
@@ -350,7 +395,7 @@ function template_preprocess_views_view_summary(&$vars) {
     }
     $vars['rows'][$id]->url = url($view->get_url($args, $base_path), $url_options);
     $vars['rows'][$id]->count = intval($row->{$argument->count_alias});
-    if ($vars['rows'][$id]->url == base_path() . $_GET['q'] || $vars['rows'][$id]->url == base_path() . drupal_get_path_alias($_GET['q'])) {
+    if (isset($active_urls[$vars['rows'][$id]->url])) {
       $vars['row_classes'][$id] = 'active';
     }
   }
@@ -372,6 +417,10 @@ function template_preprocess_views_view_summary_unformatted(&$vars) {
   }
 
   $count = 0;
+  $active_urls = drupal_map_assoc(array(
+    url($_GET['q'], array('alias' => TRUE)), // force system path
+    url($_GET['q']), // could be an alias
+  ));
 
   // Collect all arguments foreach row, to be able to alter them for example by the validator.
   // This is not done per single argument value, because this could cause performance problems.
@@ -396,7 +445,7 @@ function template_preprocess_views_view_summary_unformatted(&$vars) {
     }
     $vars['rows'][$id]->url = url($view->get_url($args, $base_path), $url_options);
     $vars['rows'][$id]->count = intval($row->{$argument->count_alias});
-    if ($vars['rows'][$id]->url == base_path() . $_GET['q'] || $vars['rows'][$id]->url == base_path() . drupal_get_path_alias($_GET['q'])) {
+    if (isset($active_urls[$vars['rows'][$id]->url])) {
       $vars['row_classes'][$id] = 'active';
     }
   }
@@ -416,9 +465,13 @@ function template_preprocess_views_view_table(&$vars) {
   $result   = $vars['result'] = $vars['rows'];
   $vars['rows'] = array();
   $vars['field_classes'] = array();
+  $vars['header'] = array();
 
   $options  = $view->style_plugin->options;
   $handler  = $view->style_plugin;
+
+  $default_row_class = isset($options['default_row_class']) ? $options['default_row_class'] : TRUE;
+  $row_class_special = isset($options['row_class_special']) ? $options['row_class_special'] : TRUE;
 
   $fields   = &$view->field;
   $columns  = $handler->sanitize_columns($options['columns'], $fields);
@@ -430,8 +483,6 @@ function template_preprocess_views_view_table(&$vars) {
   if (isset($view->exposed_raw_input)) {
     $query += $view->exposed_raw_input;
   }
-
-  $header = array();
 
   // Fields must be rendered in order as of Views 2.3, so we will pre-render
   // everything.
@@ -484,6 +535,10 @@ function template_preprocess_views_view_table(&$vars) {
           $vars['header_classes'][$field] .= ' ';
         }
         $vars['header_classes'][$field] .= $class;
+      }
+      // Add a CSS align class to each field if one was set
+      if (!empty($options['info'][$field]['align'])) {
+        $vars['header_classes'][$field] .= ' ' . drupal_clean_css_identifier($options['info'][$field]['align']);
       }
 
       // Add a header label wrapper if one was selected.
@@ -542,18 +597,42 @@ function template_preprocess_views_view_table(&$vars) {
         $vars['rows'][$num][$column] .= $field_output;
       }
     }
+
+    // Remove columns if the option is hide empty column is checked and the field is not empty.
+    if (!empty($options['info'][$field]['empty_column'])) {
+      $empty = TRUE;
+      foreach ($vars['rows'] as $num => $columns) {
+        $empty &= empty($columns[$column]);
+      }
+      if ($empty) {
+        foreach ($vars['rows'] as $num => &$column_items) {
+          unset($column_items[$column]);
+          unset($vars['header'][$column]);
+        }
+      }
+    }
+  }
+
+  // Hide table header if all labels are empty.
+  if (!array_filter($vars['header'])) {
+    $vars['header'] = array();
   }
 
   $count = 0;
   foreach ($vars['rows'] as $num => $row) {
-    $vars['row_classes'][$num][] = ($count++ % 2 == 0) ? 'odd' : 'even';
+    $vars['row_classes'][$num] = array();
+    if ($row_class_special) {
+      $vars['row_classes'][$num][] = ($count++ % 2 == 0) ? 'odd' : 'even';
+    }
     if ($row_class = $handler->get_row_class($num)) {
       $vars['row_classes'][$num][] = $row_class;
     }
   }
 
-  $vars['row_classes'][0][] = 'views-row-first';
-  $vars['row_classes'][count($vars['row_classes']) - 1][] = 'views-row-last';
+  if ($row_class_special) {
+    $vars['row_classes'][0][] = 'views-row-first';
+    $vars['row_classes'][count($vars['row_classes']) - 1][] = 'views-row-last';
+  }
 
   $vars['classes_array'] = array('views-table');
   if (empty($vars['rows']) && !empty($options['empty_table'])) {
@@ -583,6 +662,8 @@ function template_preprocess_views_view_grid(&$vars) {
   $result   = $view->result;
   $options  = $view->style_plugin->options;
   $handler  = $view->style_plugin;
+  $default_row_class = isset($options['default_row_class']) ? $options['default_row_class'] : TRUE;
+  $row_class_special = isset($options['row_class_special']) ? $options['row_class_special'] : TRUE;
 
   $columns  = $options['columns'];
 
@@ -608,7 +689,7 @@ function template_preprocess_views_view_grid(&$vars) {
     }
     if ($row) {
       // Fill up the last line only if it's configured, but this is default.
-      if (!empty($handler->options['fill_single_line']) || count($rows)) {
+      if (!empty($handler->options['fill_single_line']) && count($rows)) {
         for ($i = 0; $i < ($columns - $col_count); $i++) {
           $row[] = '';
         }
@@ -648,22 +729,30 @@ function template_preprocess_views_view_grid(&$vars) {
   // Apply the row classes
   foreach ($rows as $row_number => $row) {
     $row_classes = array();
-    $row_classes[] =  'row-' . ($row_number + 1);
-    if ($row_number == 0) {
-      $row_classes[] =  'row-first';
+    if ($default_row_class) {
+      $row_classes[] =  'row-' . ($row_number + 1);
     }
-    if (count($rows) == ($row_number + 1)) {
-      $row_classes[] =  'row-last';
+    if ($row_class_special) {
+      if ($row_number == 0) {
+        $row_classes[] =  'row-first';
+      }
+      if (count($rows) == ($row_number + 1)) {
+        $row_classes[] =  'row-last';
+      }
     }
     $vars['row_classes'][$row_number] = implode(' ', $row_classes);
     foreach ($rows[$row_number] as $column_number => $item) {
       $column_classes = array();
-      $column_classes[] = 'col-'. ($column_number + 1);
-      if ($column_number == 0) {
-        $column_classes[] = 'col-first';
+      if ($default_row_class) {
+        $column_classes[] = 'col-'. ($column_number + 1);
       }
-      elseif (count($rows[$row_number]) == ($column_number + 1)) {
-        $column_classes[] = 'col-last';
+      if ($row_class_special) {
+        if ($column_number == 0) {
+          $column_classes[] = 'col-first';
+        }
+        elseif (count($rows[$row_number]) == ($column_number + 1)) {
+          $column_classes[] = 'col-last';
+        }
       }
       if (isset($row_indexes[$row_number][$column_number]) && $column_class = $view->style_plugin->get_row_class($row_indexes[$row_number][$column_number])) {
         $column_classes[] = $column_class;
@@ -684,22 +773,30 @@ function template_preprocess_views_view_grid(&$vars) {
 function template_preprocess_views_view_unformatted(&$vars) {
   $view = $vars['view'];
   $rows = $vars['rows'];
+  $style = $view->style_plugin;
+  $options = $style->options;
 
   $vars['classes_array'] = array();
   $vars['classes'] = array();
+  $default_row_class = isset($options['default_row_class']) ? $options['default_row_class'] : FALSE;
+  $row_class_special = isset($options['row_class_special']) ? $options['row_class_special'] : FALSE;
   // Set up striping values.
   $count = 0;
   $max = count($rows);
   foreach ($rows as $id => $row) {
     $count++;
-    $vars['classes'][$id][] = 'views-row';
-    $vars['classes'][$id][] = 'views-row-' . $count;
-    $vars['classes'][$id][] = 'views-row-' . ($count % 2 ? 'odd' : 'even');
-    if ($count == 1) {
-      $vars['classes'][$id][] = 'views-row-first';
+    if ($default_row_class) {
+      $vars['classes'][$id][] = 'views-row';
+      $vars['classes'][$id][] = 'views-row-' . $count;
     }
-    if ($count == $max) {
-      $vars['classes'][$id][] = 'views-row-last';
+    if ($row_class_special) {
+      $vars['classes'][$id][] = 'views-row-' . ($count % 2 ? 'odd' : 'even');
+      if ($count == 1) {
+        $vars['classes'][$id][] = 'views-row-first';
+      }
+      if ($count == $max) {
+        $vars['classes'][$id][] = 'views-row-last';
+      }
     }
 
     if ($row_class = $view->style_plugin->get_row_class($id)) {
@@ -707,7 +804,7 @@ function template_preprocess_views_view_unformatted(&$vars) {
     }
 
     // Flatten the classes to a string for each row for the template file.
-    $vars['classes_array'][$id] = implode(' ', $vars['classes'][$id]);
+    $vars['classes_array'][$id] = isset($vars['classes'][$id]) ? implode(' ', $vars['classes'][$id]) : '';
   }
 }
 
@@ -756,7 +853,7 @@ function template_preprocess_views_view_rss(&$vars) {
   // The RSS 2.0 "spec" doesn't indicate HTML can be used in the description.
   // We strip all HTML tags, but need to prevent double encoding from properly
   // escaped source data (such as &amp becoming &amp;amp;).
-  $vars['description'] = check_plain(decode_entities(strip_tags($options['description'])));
+  $vars['description'] = check_plain(decode_entities(strip_tags($style->get_description())));
 
   if ($view->display_handler->get_option('sitename_title')) {
     $title = variable_get('site_name', 'Drupal');
@@ -839,16 +936,23 @@ function template_preprocess_views_exposed_form(&$vars) {
     }
     $widget = new stdClass;
     // set up defaults so that there's always something there.
-    $widget->label = $widget->operator = $widget->widget = NULL;
+    $widget->label = $widget->operator = $widget->widget = $widget->description = NULL;
 
-    $widget->id = $form[$info['value']]['#id'];
+    $widget->id = isset($form[$info['value']]['#id']) ? $form[$info['value']]['#id'] : '';
+
     if (!empty($info['label'])) {
-      $widget->label = $info['label'];
+      $widget->label = check_plain($info['label']);
     }
     if (!empty($info['operator'])) {
       $widget->operator = drupal_render($form[$info['operator']]);
     }
+
     $widget->widget = drupal_render($form[$info['value']]);
+
+    if (!empty($info['description'])) {
+      $widget->description = check_plain($info['description']);
+    }
+
     $vars['widgets'][$id] = $widget;
   }
 
@@ -857,6 +961,7 @@ function template_preprocess_views_exposed_form(&$vars) {
     $widget = new stdClass;
     // set up defaults so that there's always something there.
     $widget->label = $widget->operator = $widget->widget = NULL;
+    $widget->id = 'checkboxes';
     $widget->widget = $checkboxes;
     $vars['widgets']['checkboxes'] = $widget;
   }
@@ -928,31 +1033,34 @@ function theme_views_mini_pager($vars) {
   // End of marker calculations.
 
 
-  $li_previous = theme('pager_previous',
-    array(
-      'text' => (isset($tags[1]) ? $tags[1] : t('‹‹')),
-      'element' => $element,
-      'interval' => 1,
-      'parameters' => $parameters,
-    )
-  );
-  if (empty($li_previous)) {
-    $li_previous = "&nbsp;";
-  }
-
-  $li_next = theme('pager_next',
-    array(
-      'text' => (isset($tags[3]) ? $tags[3] : t('››')),
-      'element' => $element,
-      'interval' => 1,
-      'parameters' => $parameters,
-    )
-  );
-  if (empty($li_next)) {
-    $li_next = "&nbsp;";
-  }
 
   if ($pager_total[$element] > 1) {
+
+    $li_previous = theme('pager_previous',
+      array(
+        'text' => (isset($tags[1]) ? $tags[1] : t('‹‹')),
+        'element' => $element,
+        'interval' => 1,
+        'parameters' => $parameters,
+      )
+    );
+    if (empty($li_previous)) {
+      $li_previous = "&nbsp;";
+    }
+
+    $li_next = theme('pager_next',
+      array(
+        'text' => (isset($tags[3]) ? $tags[3] : t('››')),
+        'element' => $element,
+        'interval' => 1,
+        'parameters' => $parameters,
+      )
+    );
+
+    if (empty($li_next)) {
+      $li_next = "&nbsp;";
+    }
+
     $items[] = array(
       'class' => array('pager-previous'),
       'data' => $li_previous,
@@ -987,7 +1095,7 @@ function theme_views_container($variables) {
 }
 
 /**
- * @defgroup views_templates Views' template files
+ * @defgroup views_templates Views template files
  * @{
  * All views templates can be overridden with a variety of names, using
  * the view, the display ID of the view, the display type of the view,
@@ -1029,6 +1137,6 @@ function theme_views_container($variables) {
  * Important! When adding a new template to your theme, be sure to flush the
  * theme registry cache!
  *
- * @see _views_theme_functions
+ * @see _views_theme_functions()
  * @}
  */

@@ -1,7 +1,14 @@
 <?php
 
 /**
+ * @file
+ * Definition of views_handler_argument_aggregator_iid.
+ */
+
+/**
  * Argument handler to accept an aggregator item id.
+ *
+ * @ingroup views_argument_handlers
  */
 class views_handler_argument_aggregator_iid extends views_handler_argument_numeric {
   /**

@@ -5,6 +5,12 @@
  * API extensions of Drupal core's file.inc.
  */
 
+
+/**
+ * The {file_managed}.type value when the file type has not yet been determined.
+ */
+define('FILE_TYPE_NONE', 'undefined');
+
 /**
  * Returns information about file types from hook_file_type_info().
  *
@@ -22,13 +28,31 @@ function file_info_file_types($file_type = NULL) {
     drupal_alter('file_type_info', $info);
     _file_sort_array_by_weight($info);
   }
-  if ($file_type) {
+  if (isset($file_type)) {
     if (isset($info[$file_type])) {
       return $info[$file_type];
     }
   }
   else {
     return $info;
+  }
+}
+
+/**
+ * Returns an object with file type information, so that %file_type can be used in hook_menu() paths.
+ *
+ * In addition to the information returned by file_info_file_types(), the 'type'
+ * property is set for use by field_extract_bundle().
+ */
+function file_type_load($type) {
+  $info = file_info_file_types($type);
+  if (isset($info)) {
+    $info = (object) $info;
+    $info->type = $type;
+    return $info;
+  }
+  else {
+    return FALSE;
   }
 }
 
@@ -97,17 +121,21 @@ function file_info_cache_clear() {
  *   An array in the format expected by drupal_render().
  */
 function file_view_multiple($files, $view_mode = 'default', $weight = 0, $langcode = NULL) {
+  if (empty($files)) {
+    return array();
+  }
+
   field_attach_prepare_view('file', $files, $view_mode);
   entity_prepare_view('file', $files);
 
-  $build = array(
-    '#sorted' => TRUE,
-  );
+  $build = array();
   foreach ($files as $file) {
     $build[$file->fid] = file_view($file, $view_mode, $langcode);
     $build[$file->fid]['#weight'] = $weight;
     $weight++;
   }
+  $build['#sorted'] = TRUE;
+
   return $build;
 }
 
@@ -219,7 +247,6 @@ function file_view_file($file, $displays = 'default', $langcode = NULL) {
   // If none of the configured formatters were able to display the file, attempt
   // to display the file using the file type's default view callback.
   if (!isset($element)) {
-    $display = NULL;
     $file_type_info = file_info_file_types($file->type);
     if (isset($file_type_info['default view callback']) && ($function = $file_type_info['default view callback']) && function_exists($function)) {
       $element = $function($file, $view_mode, $langcode);
@@ -232,10 +259,8 @@ function file_view_file($file, $displays = 'default', $langcode = NULL) {
     $element += array(
       '#file' => $file,
       '#view_mode' => $view_mode,
-      '#display' => $display,
       '#language' => $langcode,
     );
-    drupal_alter('file_view_file', $element);
     return $element;
   }
 }
@@ -275,28 +300,32 @@ function file_view_file($file, $displays = 'default', $langcode = NULL) {
  * @see file_view_file()
  */
 function file_displays($file_type, $view_mode = 'default') {
+  $cache = &drupal_static(__FUNCTION__, array());
+
   // If the requested view mode isn't configured to use a custom display for its
   // fields, then don't use a custom display for its file either.
-  $view_mode_settings = field_view_mode_settings('file', $file_type);
-  if (empty($view_mode_settings[$view_mode]['custom_settings'])) {
-    $view_mode = 'default';
-  }
-
-  // Load the display configurations for the file type and view mode. If none
-  // exist for the view mode, use the default view mode.
   if ($view_mode != 'default') {
+    $view_mode_settings = field_view_mode_settings('file', $file_type);
+    $view_mode = !empty($view_mode_settings[$view_mode]['custom_settings']) ? $view_mode : 'default';
+  }
+
+  if (!isset($cache[$file_type][$view_mode])) {
+    // Load the display configurations for the file type and view mode. If none
+    // exist for the view mode, use the default view mode.
     $displays = file_displays_load($file_type, $view_mode, TRUE);
-  }
-  if (empty($displays)) {
-    $displays = file_displays_load($file_type, 'default', TRUE);
+    if (empty($displays) && $view_mode != 'default') {
+      $cache[$file_type][$view_mode] = file_displays($file_type, 'default');
+    }
+    else {
+      // Convert the display objects to arrays and remove unnecessary keys.
+      foreach ($displays as $formatter_name => $display) {
+        $displays[$formatter_name] = array_intersect_key((array) $display, drupal_map_assoc(array('status', 'weight', 'settings')));
+      }
+      $cache[$file_type][$view_mode] = $displays;
+    }
   }
 
-  // Convert the display objects to arrays and remove unnecessary keys.
-  foreach ($displays as $formatter_name => $display) {
-    $displays[$formatter_name] = array_intersect_key((array) $display, drupal_map_assoc(array('status', 'weight', 'settings')));
-  }
-
-  return $displays;
+  return $cache[$file_type][$view_mode];
 }
 
 /**

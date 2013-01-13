@@ -1,18 +1,14 @@
 <?php
+
 /**
  * @file
- * Provide views data and handlers for node.module
- */
-
-/**
- * @defgroup views_node_module node.module handlers
+ * Provide views data and handlers for node.module.
  *
- * Includes the tables 'node', 'node_revision' and 'history'.
- * @{
+ * @ingroup views_module_handlers
  */
 
 /**
- * Implements hook_views_data()
+ * Implements hook_views_data().
  */
 function node_views_data() {
   // ----------------------------------------------------------------
@@ -20,7 +16,7 @@ function node_views_data() {
 
   // Define the base group of this table. Fields that don't
   // have a group defined will go into this field by default.
-  $data['node']['table']['group']  = t('Content');
+  $data['node']['table']['group'] = t('Content');
 
   // Advertise this table as a possible base table
   $data['node']['table']['base'] = array(
@@ -32,23 +28,13 @@ function node_views_data() {
       'field' => 'title',
     ),
   );
+  $data['node']['table']['entity type'] = 'node';
 
-  // For other base tables, explain how we join
-  $data['node']['table']['join'] = array(
-    // this explains how the 'node' table (named in the line above)
-    // links toward the node_revision table.
+  $data['node']['table']['default_relationship'] = array(
     'node_revision' => array(
-      'handler' => 'views_join', // this is actually optional
-      'left_table' => 'node_revision', // Because this is a direct link it could be left out.
-      'left_field' => 'nid',
-      'field' => 'nid',
-      // also supported:
-      // 'type' => 'INNER',
-      // 'extra' => array(array('field' => 'fieldname', 'value' => 'value', 'operator' => '='))
-      //   Unfortunately, you can't specify other tables here, but you can construct
-      //   alternative joins in the handlers that can do that.
-      // 'table' => 'the actual name of this table in the database',
-     ),
+      'table' => 'node_revision',
+      'field' => 'vid',
+    ),
   );
 
   // ----------------------------------------------------------------
@@ -196,6 +182,9 @@ function node_views_data() {
     'field' => array(
       'handler' => 'views_handler_field_boolean',
       'click sortable' => TRUE,
+      'output formats' => array(
+        'promoted-notpromoted' => array(t('Promoted'), t('Not promoted')),
+      ),
     ),
     'filter' => array(
       'handler' => 'views_handler_filter_boolean_operator',
@@ -216,7 +205,7 @@ function node_views_data() {
       'handler' => 'views_handler_field_boolean',
       'click sortable' => TRUE,
       'output formats' => array(
-        'sticky' => array('', t('Sticky')),
+        'sticky' => array(t('Sticky'), t('Not sticky')),
       ),
     ),
     'filter' => array(
@@ -230,9 +219,14 @@ function node_views_data() {
     ),
   );
 
-  // links to operate on the node
+  // Define some fields based upon views_handler_field_entity in the entity
+  // table so they can be re-used with other query backends.
+  // @see views_handler_field_entity
 
-  $data['node']['view_node'] = array(
+  $data['views_entity_node']['table']['group'] = t('Content');
+
+  $data['node']['view_node']['moved to'] = array('views_entity_node', 'view_node');
+  $data['views_entity_node']['view_node'] = array(
     'field' => array(
       'title' => t('Link'),
       'help' => t('Provide a simple link to the content.'),
@@ -240,7 +234,8 @@ function node_views_data() {
     ),
   );
 
-  $data['node']['edit_node'] = array(
+  $data['node']['edit_node']['moved to'] = array('views_entity_node', 'edit_node');
+  $data['views_entity_node']['edit_node'] = array(
     'field' => array(
       'title' => t('Edit link'),
       'help' => t('Provide a simple link to edit the content.'),
@@ -248,7 +243,8 @@ function node_views_data() {
     ),
   );
 
-  $data['node']['delete_node'] = array(
+  $data['node']['delete_node']['moved to'] = array('views_entity_node', 'delete_node');
+  $data['views_entity_node']['delete_node'] = array(
     'field' => array(
       'title' => t('Delete link'),
       'help' => t('Provide a simple link to delete the content.'),
@@ -269,7 +265,7 @@ function node_views_data() {
 
   $data['node']['created_fulldate'] = array(
     'title' => t('Created date'),
-    'help' => t('In the form of CCYYMMDD.'),
+    'help' => t('Date in the form of CCYYMMDD.'),
     'argument' => array(
       'field' => 'created',
       'handler' => 'views_handler_argument_node_created_fulldate',
@@ -278,7 +274,7 @@ function node_views_data() {
 
   $data['node']['created_year_month'] = array(
     'title' => t('Created year + month'),
-    'help' => t('In the form of YYYYMM.'),
+    'help' => t('Date in the form of YYYYMM.'),
     'argument' => array(
       'field' => 'created',
       'handler' => 'views_handler_argument_node_created_year_month',
@@ -287,7 +283,7 @@ function node_views_data() {
 
   $data['node']['created_year'] = array(
     'title' => t('Created year'),
-    'help' => t('In the form of YYYY.'),
+    'help' => t('Date in the form of YYYY.'),
     'argument' => array(
       'field' => 'created',
       'handler' => 'views_handler_argument_node_created_year',
@@ -296,7 +292,7 @@ function node_views_data() {
 
   $data['node']['created_month'] = array(
     'title' => t('Created month'),
-    'help' => t('In the form of MM (01 - 12).'),
+    'help' => t('Date in the form of MM (01 - 12).'),
     'argument' => array(
       'field' => 'created',
       'handler' => 'views_handler_argument_node_created_month',
@@ -305,7 +301,7 @@ function node_views_data() {
 
   $data['node']['created_day'] = array(
     'title' => t('Created day'),
-    'help' => t('In the form of DD (01 - 31).'),
+    'help' => t('Date in the form of DD (01 - 31).'),
     'argument' => array(
       'field' => 'created',
       'handler' => 'views_handler_argument_node_created_day',
@@ -314,7 +310,7 @@ function node_views_data() {
 
   $data['node']['created_week'] = array(
     'title' => t('Created week'),
-    'help' => t('In the form of WW (01 - 53).'),
+    'help' => t('Date in the form of WW (01 - 53).'),
     'argument' => array(
       'field' => 'created',
       'handler' => 'views_handler_argument_node_created_week',
@@ -323,7 +319,7 @@ function node_views_data() {
 
   $data['node']['changed_fulldate'] = array(
     'title' => t('Updated date'),
-    'help' => t('In the form of CCYYMMDD.'),
+    'help' => t('Date in the form of CCYYMMDD.'),
     'argument' => array(
       'field' => 'changed',
       'handler' => 'views_handler_argument_node_created_fulldate',
@@ -332,7 +328,7 @@ function node_views_data() {
 
   $data['node']['changed_year_month'] = array(
     'title' => t('Updated year + month'),
-    'help' => t('In the form of YYYYMM.'),
+    'help' => t('Date in the form of YYYYMM.'),
     'argument' => array(
       'field' => 'changed',
       'handler' => 'views_handler_argument_node_created_year_month',
@@ -341,7 +337,7 @@ function node_views_data() {
 
   $data['node']['changed_year'] = array(
     'title' => t('Updated year'),
-    'help' => t('In the form of YYYY.'),
+    'help' => t('Date in the form of YYYY.'),
     'argument' => array(
       'field' => 'changed',
       'handler' => 'views_handler_argument_node_created_year',
@@ -350,7 +346,7 @@ function node_views_data() {
 
   $data['node']['changed_month'] = array(
     'title' => t('Updated month'),
-    'help' => t('In the form of MM (01 - 12).'),
+    'help' => t('Date in the form of MM (01 - 12).'),
     'argument' => array(
       'field' => 'changed',
       'handler' => 'views_handler_argument_node_created_month',
@@ -359,7 +355,7 @@ function node_views_data() {
 
   $data['node']['changed_day'] = array(
     'title' => t('Updated day'),
-    'help' => t('In the form of DD (01 - 31).'),
+    'help' => t('Date in the form of DD (01 - 31).'),
     'argument' => array(
       'field' => 'changed',
       'handler' => 'views_handler_argument_node_created_day',
@@ -368,7 +364,7 @@ function node_views_data() {
 
   $data['node']['changed_week'] = array(
     'title' => t('Updated week'),
-    'help' => t('In the form of WW (01 - 53).'),
+    'help' => t('Date in the form of WW (01 - 53).'),
     'argument' => array(
       'field' => 'changed',
       'handler' => 'views_handler_argument_node_created_week',
@@ -377,13 +373,24 @@ function node_views_data() {
 
   // uid field
   $data['node']['uid'] = array(
-    'title' => t('Author'),
-    'help' => t('Relate content to the user who created it.'),
+    'title' => t('Author uid'),
+    'help' => t('The user authoring the content. If you need more fields than the uid add the content: author relationship'),
     'relationship' => array(
+      'title' => t('Author'),
+      'help' => t('Relate content to the user who created it.'),
       'handler' => 'views_handler_relationship',
       'base' => 'users',
       'field' => 'uid',
       'label' => t('author'),
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_user_name',
+    ),
+    'argument' => array(
+      'handler' => 'views_handler_argument_numeric',
+    ),
+    'field' => array(
+      'handler' => 'views_handler_field_user',
     ),
   );
 
@@ -405,6 +412,7 @@ function node_views_data() {
   // Define the base group of this table. Fields that don't
   // have a group defined will go into this field by default.
   $data['node_revisions']['moved to'] = 'node_revision';
+  $data['node_revision']['table']['entity type'] = 'node';
   $data['node_revision']['table']['group']  = t('Content revision');
   // Support the conversion of the field body
   $data['node_revisions']['body']['moved to'] = array('field_revision_data', 'body-revision_id');
@@ -424,6 +432,13 @@ function node_views_data() {
     // Directly links to node table.
     'node' => array(
       'left_field' => 'vid',
+      'field' => 'vid',
+    ),
+  );
+
+  $data['node_revision']['table']['default_relationship'] = array(
+    'node' => array(
+      'table' => 'node',
       'field' => 'vid',
     ),
   );
@@ -519,6 +534,14 @@ function node_views_data() {
     ),
     'filter' => array(
       'handler' => 'views_handler_filter_date',
+    ),
+  );
+
+  $data['node_revision']['link_to_revision'] = array(
+    'field' => array(
+      'title' => t('Link'),
+      'help' => t('Provide a simple link to the revision.'),
+      'handler' => 'views_handler_field_node_revision_link',
     ),
   );
 
@@ -644,7 +667,7 @@ function node_views_plugins() {
 }
 
 /**
- * Implements hook_preprocess_node
+ * Implements hook_preprocess_node().
  */
 function node_row_node_view_preprocess_node(&$vars) {
   $node = $vars['node'];
@@ -660,8 +683,7 @@ function node_row_node_view_preprocess_node(&$vars) {
   }
 
   if (!empty($options['comments']) && user_access('access comments') && $node->comment) {
-    $build = comment_node_page_additions($node);
-    $vars['content']['comments'] = drupal_render($build);
+    $vars['content']['comments'] = comment_node_page_additions($node);
   }
 }
 
@@ -672,6 +694,7 @@ function node_views_query_substitutions() {
   return array(
     '***ADMINISTER_NODES***' => intval(user_access('administer nodes')),
     '***VIEW_OWN_UNPUBLISHED_NODES***' => intval(user_access('view own unpublished content')),
+    '***BYPASS_NODE_ACCESS***' =>  intval(user_access('bypass node access')),
   );
 }
 
@@ -683,6 +706,9 @@ function node_views_analyze($view) {
   // Check for something other than the default display:
   if ($view->base_table == 'node') {
     foreach ($view->display as $id => $display) {
+      if (empty($display->handler)) {
+        continue;
+      }
       if (!$display->handler->is_defaulted('access') || !$display->handler->is_defaulted('filters')) {
         // check for no access control
         $access = $display->handler->get_option('access');
@@ -723,7 +749,3 @@ function node_views_analyze($view) {
 
   return $ret;
 }
-
-/**
- * @}
- */

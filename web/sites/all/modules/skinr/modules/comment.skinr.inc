@@ -12,6 +12,31 @@ function comment_skinr_config_info() {
 }
 
 /**
+ * Implements hook_skinr_ui_element_options().
+ */
+function comment_skinr_ui_element_options($theme_name = NULL) {
+  $options = array('comment' => array());
+
+  $types = node_type_get_types();
+  foreach ($types as $type) {
+    $options['comment'][$type->type] = $type->name;
+  }
+  asort($options['comment']);
+
+  return $options;
+}
+
+/**
+ * Implements hook_skinr_ui_element_title().
+ */
+function comment_skinr_ui_element_title($module, $element, $theme_name) {
+  if ($module == 'comment') {
+    $type = node_type_get_type($element);
+    return $type->name;
+  }
+}
+
+/**
  * Implements hook_skinr_theme_hooks().
  */
 function comment_skinr_theme_hooks($module, $element) {

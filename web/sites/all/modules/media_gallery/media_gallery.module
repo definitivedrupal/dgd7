@@ -61,8 +61,8 @@ function media_gallery_menu() {
   $items['media-gallery/detail/%node/%file'] = array(
     'page callback' => 'media_gallery_detail_page',
     'page arguments' => array(2, 3),
-    'access callback' => 'node_access',
-    'access arguments' => array('view', 2),
+    'access callback' => 'media_gallery_view_item_access',
+    'access arguments' => array(2, 3),
     'file' => 'media_gallery.pages.inc',
   );
   $items['media-gallery/detail/%node/%file/view'] = array(
@@ -75,14 +75,12 @@ function media_gallery_menu() {
     'title' => 'Edit',
     'page callback' => 'media_gallery_media_page_edit',
     'page arguments'  => array(2, 3),
-    'access callback' => 'media_access',
-    'access arguments' => array('edit'),
+    'access callback' => 'media_gallery_edit_item_access',
+    'access arguments' => array(2, 3),
     'weight' => 0,
     'type' => MENU_LOCAL_TASK,
     'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
     'file' => 'media_gallery.pages.inc',
-     // Use the same setting as node module
-    'theme callback' => '_node_custom_theme',
   );
   $items['media-gallery/detail/%node/%file/remove'] = array(
     'title' => 'Remove',
@@ -93,16 +91,14 @@ function media_gallery_menu() {
     'type' => MENU_LOCAL_TASK,
     'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
     'file' => 'media_gallery.pages.inc',
-     // Use the same setting as node module.
-    'theme callback' => '_node_custom_theme',
   );
   $items['media-gallery/lightbox/%node/%file'] = array(
     'page callback' => 'media_gallery_lightbox_page',
     'page arguments' => array(2, 3),
-    'access callback' => 'node_access',
-    'access arguments' => array('view', 2),
+    'access callback' => 'media_gallery_view_item_access',
+    'access arguments' => array(2, 3),
     'file' => 'media_gallery.pages.inc',
-    'delivery callback' => 'media_gallery_lightbox_page_deliver',
+    'delivery callback' => 'media_gallery_lightbox_delivery_callback',
   );
   $items['media-gallery/add-images/%node/%'] = array(
     'access callback' => 'media_gallery_edit_access_ajax',
@@ -172,7 +168,7 @@ function media_gallery_admin_paths() {
  */
 function media_gallery_menu_local_tasks_alter(&$data, $router_item, $root_path) {
   // Rename the "Edit" tab on gallery nodes to "Edit gallery".
-  if (($node = menu_get_object()) && isset($node->type) && $node->type == 'media_gallery') {
+  if (($node = menu_get_object()) && isset($node->type) && $node->type == 'media_gallery' && !empty($data['tabs'])) {
     $tabs = &$data['tabs'][0]['output'];
     foreach ($tabs as &$tab) {
       if (isset($tab['#link']['path']) && $tab['#link']['path'] == 'node/%/edit') {
@@ -239,16 +235,21 @@ function media_gallery_view($node, $view_mode) {
       // @todo Drupal could really use a theme_menu_local_actions() function...
       '#prefix' => '<ul class="field action-links">',
       '#suffix' => '</ul>',
-      // Add front-end resources related to this link, only when it is actually
-      // being rendered.
-      '#pre_render' => array('media_gallery_add_images_link_pre_render'),
     );
 
-    // These JS settings are used by the "add media" link but are also shared
-    // by the drag-and-drop code below.
+    // Enable the "Add media" link to launch the media browser.
+    module_load_include('inc', 'media', 'includes/media.browser');
+    media_attach_browser_js($node->content['add_media_link']);
+    $node->content['add_media_link']['#attached']['js'][] = drupal_get_path('module', 'media_gallery') . '/media_gallery.addimage.js';
+
+    // These JS settings are used by the "add media" link but some are also
+    // shared by the drag-and-drop code below.
+    $instance = field_info_instance('node', 'media_gallery_media', $node->type);
+    $token = drupal_get_token('media_gallery');
     $gallery_js_settings = array(
-      'mediaGalleryNid' => $node->nid,
-      'mediaGalleryToken' => drupal_get_token('media_gallery'),
+      'mediaGalleryAddImagesUrl' => url('media-gallery/add-images/' . $node->nid . '/' . $token),
+      'mediaGallerySortGalleryUrl' => url('media-gallery/sort/gallery/' . $node->nid . '/' . $token),
+      'mediaGalleryAllowedMediaTypes' => array_filter($instance['widget']['settings']['allowed_types']),
     );
 
     // When viewing the full node, add front-end resources for drag-and-drop
@@ -274,15 +275,20 @@ function media_gallery_view($node, $view_mode) {
   // time building the render structure for items that won't be shown.
   if ($view_mode == 'teaser') {
     if (!empty($node->media_gallery_media[LANGUAGE_NONE])) {
-      $first_item = array_shift($node->media_gallery_media[LANGUAGE_NONE]);
-      $node->media_gallery_media[LANGUAGE_NONE] = array($first_item);
+      if (media_access('view')) {
+        $first_item = array_shift($node->media_gallery_media[LANGUAGE_NONE]);
+        $node->media_gallery_media[LANGUAGE_NONE] = array($first_item);
+      }
+      else {
+        $node->media_gallery_media[LANGUAGE_NONE] = array();
+      }
     }
   }
   // For the full display, implement pagination.
   elseif ($view_mode == 'full' || $view_mode == 'media_gallery_block') {
     $full = $view_mode == 'full' ? TRUE : FALSE;
-    if (!empty($node->media_gallery_media)) {
-      $media = $full ? $node->media_gallery_media[LANGUAGE_NONE] : $node->media_gallery_media_original[LANGUAGE_NONE];  
+    if (!empty($node->media_gallery_media) && media_access('view')) {
+      $media = $node->media_gallery_media[LANGUAGE_NONE];
     }
     else {
       $media = array();
@@ -364,27 +370,6 @@ function media_gallery_view($node, $view_mode) {
     }
   }
   return $node;
-}
-
-/**
- * Prerender function to add front-end resources for the "Add media" link.
- */
-function media_gallery_add_images_link_pre_render($elements) {
-  drupal_add_library('media', 'media_browser');
-  module_load_include('inc', 'media', 'includes/media.browser');
-  // The correct function to call here switched between Media 7.x-1.0-beta3 and
-  // the latest Media 7.x-1.x code, and calling the wrong function in either
-  // case leads to a PHP fatal error. So for now, we have to support both.
-  // @todo: After we require the next release of Media and no longer support
-  //   7.x-1.0-beta3, switch to using media_attach_browser_js() for everyone.
-  if (function_exists('media_attach_browser_js')) {
-    media_attach_browser_js($elements);
-  }
-  else {
-    media_include_browser_js();
-  }
-  drupal_add_js(drupal_get_path('module', 'media_gallery') . '/media_gallery.addimage.js');
-  return $elements;
 }
 
 /**
@@ -520,8 +505,10 @@ function media_gallery_node_info() {
  */
 function media_gallery_update($node) {
   // If the media gallery node is being saved and is configured to not provide
-  // a block, remove all blocks associated with it from the database.
-  if (empty($node->media_gallery_expose_block[LANGUAGE_NONE][0]['value'])) {
+  // a block, remove all blocks associated with it from the database. The block
+  // module might not be installed, so we need to check that the database table
+  // exists before querying it.
+  if (empty($node->media_gallery_expose_block[LANGUAGE_NONE][0]['value']) && db_table_exists('block')) {
     db_delete('block')
       ->condition('module', 'media_gallery')
       ->condition('delta', $node->nid)
@@ -564,9 +551,15 @@ function media_gallery_block_info() {
  */
 function media_gallery_block_view($delta = '') {
   $node = node_load($delta);
-  $block['subject'] = check_plain($node->title);
-  if (empty($node->media_gallery_media_original)) {
+  if (empty($node->media_gallery_expose_block[LANGUAGE_NONE][0]['value'])) {
+    // Bail out now if the node doesn't exist or if it is configured not to
+    // display a block.
+    $block['subject'] = NULL;
+    $block['content'] = '';
+  }
+  elseif (empty($node->media_gallery_media_original) || !media_access('view')) {
     // Bail out now if there won't be any media items to show.
+    $block['subject'] = check_plain($node->title);
     $block['content'] = t('No content available.');
   }
   else {
@@ -612,6 +605,7 @@ function media_gallery_block_view($delta = '') {
     // Perform the sort.
     usort($files, '_media_gallery_sort_by_recent');
     // Display the block.
+    $block['subject'] = check_plain($node->title);
     $block['content']['gallery'] = node_view($node, 'media_gallery_block');
     // Move the node's contextual links so that they display on the block
     // rather than the node (i.e., in the same dropdown as the "Configure
@@ -689,17 +683,23 @@ function media_gallery_block_save($delta = '', $edit = array()) {
  * Implements hook_library().
  */
 function media_gallery_library() {
-  $library_path = variable_get('media_gallery_library_path', 'sites/all/libraries');
+  $colorbox_path = variable_get('media_gallery_library_path', FALSE);
+  if ($colorbox_path === FALSE ) {
+    $colorbox_path = module_exists('libraries') ? libraries_get_path('colorbox') : 'sites/all/libraries/colorbox';
+  }
+  else {
+    $colorbox_path .= '/colorbox';
+  }
   $stylesheet = variable_get('media_gallery_colorbox_stylesheet', 'example1');
   $libraries['colorbox'] = array(
     'title' => 'Colorbox',
     'website' => 'http://colorpowered.com/colorbox/',
     'version' => '1.3.9',
     'js' => array(
-      $library_path . '/colorbox/colorbox/jquery.colorbox-min.js' => array(),
+      $colorbox_path . '/colorbox/jquery.colorbox-min.js' => array(),
     ),
     'css' => array(
-      $library_path . '/colorbox/' . $stylesheet . '/colorbox.css' => array(
+      $colorbox_path . '/' . $stylesheet . '/colorbox.css' => array(
         'type' => 'file',
         'media' => 'screen',
       ),
@@ -758,11 +758,29 @@ function media_gallery_get_media_type_count($node, $media_field = 'media_gallery
  */
 function media_gallery_get_file_ids($node, $media_field = 'media_gallery_media') {
   $fids = array();
-  $enhanced_node = new FieldsRSIPreventor($node);
-  foreach ($enhanced_node->getAllItems($media_field) as $item) {
-    $fids[] = _media_gallery_get_media_fid($item);
+  $media_items = _media_gallery_field_get_items('node', $node, $media_field);
+  if( $media_items !== FALSE ) {
+    foreach ($media_items as $item) {
+      $fids[] = _media_gallery_get_media_fid($item);
+    }
   }
   return drupal_map_assoc($fids);
+}
+
+/**
+ * media_gallery_media_original is not a field and therefore cannot be used by field_get_items.
+ */
+function _media_gallery_field_get_items($entity_type, $entity, $field_name, $langcode = NULL) {
+  if ($entity_type == 'node' && $field_name == 'media_gallery_media_original') {
+    $media = $entity->media_gallery_media;
+    $entity->media_gallery_media = $entity->media_gallery_media_original;
+    $field_name = 'media_gallery_media';
+  }
+  $items = field_get_items($entity_type, $entity, $field_name, $langcode);
+  if (isset($media)) {
+    $entity->media_gallery_media = $media;
+  }
+  return $items;
 }
 
 /**
@@ -995,10 +1013,13 @@ function _media_gallery_add_remove_checkbox(&$form, &$form_state, $node) {
 
   // Put the remove checkbox inside the "preview" section, so it shows up
   // underneath the thumbnail.
-  $form['preview']['remove'] = array(
+  // @todo: Move into $form['preview']['remove'] when issue
+  // http://drupal.org/node/1055986 get committed.
+  $form['remove'] = array(
     '#type' => 'checkbox',
     '#title' => t('Remove from gallery'),
     '#description' => t('The original file remains in your <a href="@library">media library</a>.', array('@library' => url('admin/content/media'))),
+    '#access' => node_access('update', $node),
   );
 
   // Add our own submit handler. We need to add it to both the form and the
@@ -1133,6 +1154,8 @@ function media_gallery_preprocess_node(&$variables) {
   if ($variables['node']->type == 'media_gallery' && $variables['view_mode'] == 'teaser') {
     $variables['content']['#theme'] = 'media_gallery_teaser';
     $variables['content']['#node'] = $variables['node'];
+    $variables['classes_array'][] = 'mg-gallery';
+    $variables['classes_array'][] = 'mg-teaser';
   }
 }
 
@@ -1191,10 +1214,15 @@ function media_gallery_preprocess_field(&$variables, $hook) {
         break;
       case 'full':
         $columns = $variables['element']['#object']->media_gallery_columns['und'][0]['value'];
+        $media_gallery_view_mode_css = 'media-gallery-view-full';
         break;
     }
     // Don't add the columning classes if the field is being displayed in a teaser
     $variables['classes_array'][] = ($variables['element']['#view_mode'] != 'teaser') ? 'clearfix media-gallery-media mg-col mg-col-' . $columns : 'clearfix media-gallery-media';
+    // add css to find draggalbe elements (see media_gallery.dragdrop.js)
+    if (!empty($media_gallery_view_mode_css)) {
+      $variables['classes_array'][] = $media_gallery_view_mode_css;
+    }
     foreach ($variables['items'] as $delta => $item) {
       $variables['item_attributes_array'][$delta] = array('id' => 'media-gallery-media-' . $delta);
 
@@ -1363,6 +1391,19 @@ function media_gallery_get_default_gallery_collection() {
 }
 
 /**
+ * Access callback for viewing parts of a node that are only relevant for media
+ * galleries.
+ */
+function media_gallery_view_access($node) {
+  if (!node_access('view', $node)) {
+    return FALSE;
+  }
+  if ($node->type == 'media_gallery') {
+    return TRUE;
+  }
+}
+
+/**
  * Access callback for editing parts of a node that are only relevant for media
  * galleries.
  */
@@ -1380,12 +1421,47 @@ function media_gallery_edit_access($node) {
  * galleries.
  */
 function media_gallery_multiedit_access($node) {
-  if (media_gallery_edit_access($node)) {
-    $node = new FieldsRSIPreventor($node);
-    if (count($node->getAllItems('media_gallery_media')) > 0 ) {
+  if (media_gallery_edit_access($node) && media_access('edit')) {
+    $media_items = field_get_items('node', $node, 'media_gallery_media');
+    if( $media_items !== FALSE && count($media_items) > 0 ) {
       return TRUE;
     }
   }
+}
+
+/**
+ * Access callback for viewing a media item in a gallery.
+ *
+ * @param $node
+ *   The gallery node object.
+ * @param $file
+ *   The file to view.
+ *
+ * @return
+ *   TRUE if access is granted; FALSE otherwise.
+ */
+function media_gallery_view_item_access($node, $file) {
+  // Only grant access if the user can view the gallery and the provided media.
+  return media_gallery_view_access($node) && media_access('view')
+    && in_array($file->fid, media_gallery_get_file_ids($node));
+}
+
+/**
+ * Access callback for editing a media item in a gallery.
+ *
+ * @param $node
+ *   The gallery node object.
+ * @param $file
+ *   The file to view.
+ *
+ * @return
+ *   TRUE if access is granted; FALSE otherwise.
+ */
+function media_gallery_edit_item_access($node, $file) {
+  // Only grant access if the user can edit the provided media
+  // and the media is part of the gallery.
+  return media_access('edit')
+    && in_array($file->fid, media_gallery_get_file_ids($node));
 }
 
 /**
@@ -1693,4 +1769,17 @@ function media_gallery_file_default_displays() {
   }
 
   return $default_displays;
+}
+
+/**
+ * Menu page delivery callback.
+ * This is a delegate function. In case, the user has no access to the menu
+ * item, the menu system does not load the specified file and therefore can
+ * not use the custom deliver function.
+ */
+function media_gallery_lightbox_delivery_callback($page_content) {
+  if (!function_exists('media_gallery_lightbox_page_deliver')) {
+    module_load_include('inc', 'media_gallery', 'media_gallery.pages');
+  }
+  media_gallery_lightbox_page_deliver($page_content);
 }

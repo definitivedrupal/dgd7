@@ -165,18 +165,18 @@ Drupal.wysiwyg.plugins.media = {
    * Detach function, called when a rich text editor detaches
    */
   detach: function (content, settings, instanceId) {
-    var regex = new RegExp(/<img[^>]+class=([\'"])media-image[^>]*>/gi);
-    var matches = content.match(regex);
-
-    if (matches) {
-      for(var i = 0; i < matches.length; i++) {
+    // Replace all Media placeholder images with the appropriate inline json
+    // string. Using a regular expression instead of jQuery manipulation to
+    // prevent <script> tags from being displaced.
+    // @see http://drupal.org/node/1280758.
+    if (matches = content.match(/<img[^>]+class=([\'"])media-image[^>]*>/gi)) {
+      for (var i = 0; i < matches.length; i++) {
         var imageTag = matches[i];
         var inlineTag = Drupal.wysiwyg.plugins.media.createTag($(imageTag));
         Drupal.settings.tagmap[inlineTag] = imageTag;
         content = content.replace(imageTag, inlineTag);
       }
     }
-
     return content;
   },
 
@@ -214,7 +214,7 @@ Drupal.wysiwyg.plugins.media = {
     }
 
     sorter.sort(this.sortAttributes);
-    
+
     for (var prop in sorter) {
       mediaAttributes[sorter[prop].name] = sorter[prop].value;
     }
@@ -351,7 +351,7 @@ Drupal.wysiwyg.plugins.media = {
   },
 
   /*
-   * 
+   *
    */
   sortAttributes: function (a, b) {
     var nameA = a.name.toLowerCase();

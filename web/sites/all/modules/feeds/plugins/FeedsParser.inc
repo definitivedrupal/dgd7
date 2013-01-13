@@ -1,6 +1,11 @@
 <?php
 
 /**
+ * @file
+ * Contains FeedsParser and related classes.
+ */
+
+/**
  * A result of a parsing stage.
  */
 class FeedsParserResult extends FeedsResult {
@@ -91,13 +96,18 @@ abstract class FeedsParser extends FeedsPlugin {
   public function getMappingSources() {
     self::loadMappers();
     $sources = array();
-    feeds_alter('feeds_parser_sources', $sources, feeds_importer($this->id)->config['content_type']);
+    $content_type = feeds_importer($this->id)->config['content_type'];
+    drupal_alter('feeds_parser_sources', $sources, $content_type);
     if (!feeds_importer($this->id)->config['content_type']) {
       return $sources;
     }
     $sources['parent:uid'] = array(
       'name' => t('Feed node: User ID'),
       'description' => t('The feed node author uid.'),
+    );
+    $sources['parent:nid'] = array(
+      'name' => t('Feed node: Node ID'),
+      'description' => t('The feed node nid.'),
     );
     return $sources;
   }
@@ -121,14 +131,21 @@ abstract class FeedsParser extends FeedsPlugin {
    *   The source element from $item identified by $element_key.
    *
    * @see FeedsProcessor::map()
-   * @see FeedsCSVParser::getSourceElement().
+   * @see FeedsCSVParser::getSourceElement()
    */
   public function getSourceElement(FeedsSource $source, FeedsParserResult $result, $element_key) {
-    if ($element_key == 'parent:uid' &&
-        $source->feed_nid &&
-        ($node = node_load($source->feed_nid))) {
-      return $node->uid;
+
+    switch ($element_key) {
+
+      case 'parent:uid':
+        if ($source->feed_nid && $node = node_load($source->feed_nid)) {
+          return $node->uid;
+        }
+        break;
+      case 'parent:nid':
+        return $source->feed_nid;
     }
+
     $item = $result->currentItem();
     return isset($item[$element_key]) ? $item[$element_key] : '';
   }
@@ -264,14 +281,40 @@ class FeedsEnclosure extends FeedsElement {
   }
 
   /**
+   * Use this method instead of FeedsElement::getValue() when fetching the file
+   * from the URL.
+   *
+   * @return
+   *   Value with encoded space characters to safely fetch the file from the URL.
+   *
+   * @see FeedsElement::getValue()
+   */
+  public function getUrlEncodedValue() {
+    return str_replace(' ', '%20', $this->getValue());
+  }
+
+  /**
+   * Use this method instead of FeedsElement::getValue() to get the file name
+   * transformed for better local saving (underscores instead of spaces)
+   *
+   * @return
+   *   Value with space characters changed to underscores.
+   *
+   * @see FeedsElement::getValue()
+   */
+  public function getLocalValue() {
+    return str_replace(' ', '_', $this->getValue());
+  }
+
+  /**
    * @return
    *   The content of the referenced resource.
    */
   public function getContent() {
     feeds_include_library('http_request.inc', 'http_request');
-    $result = http_request_get($this->getValue());
+    $result = http_request_get($this->getUrlEncodedValue());
     if ($result->code != 200) {
-      throw new Exception(t('Download of @url failed with code !code.', array('@url' => $this->getValue(), '!code' => $result->code)));
+      throw new Exception(t('Download of @url failed with code !code.', array('@url' => $this->getUrlEncodedValue(), '!code' => $result->code)));
     }
     return $result->data;
   }
@@ -318,12 +361,20 @@ class FeedsEnclosure extends FeedsElement {
         }
       }
       else {
-        $filename = basename($this->getValue());
+        $filename = basename($this->getLocalValue());
         if (module_exists('transliteration')) {
           require_once drupal_get_path('module', 'transliteration') . '/transliteration.inc';
           $filename = transliteration_clean_filename($filename);
         }
-        $file = file_save_data($this->getContent(), "$destination/$filename");
+        if (file_uri_target($destination)) {
+          $destination = trim($destination, '/') . '/';
+        }
+        try {
+          $file = file_save_data($this->getContent(), $destination . $filename);
+        }
+        catch (Exception $e) {
+          watchdog_exception('Feeds', $e, nl2br(check_plain($e)));
+        }
       }
 
       // We couldn't make sense of this enclosure, throw an exception.
@@ -494,7 +545,7 @@ class FeedsDateTimeElement extends FeedsElement {
  * This class is a Drupal independent extension of the >= PHP 5.2 DateTime
  * class.
  *
- * @see FeedsDateTimeElement class
+ * @see FeedsDateTimeElement
  */
 class FeedsDateTime extends DateTime {
   public $granularity = array();
@@ -534,7 +585,10 @@ class FeedsDateTime extends DateTime {
   public function __construct($time = '', $tz = NULL) {
     // Assume UNIX timestamp if numeric.
     if (is_numeric($time)) {
-      $time = "@" . $time;
+      // Make sure it's not a simple year
+      if ((is_string($time) && strlen($time) > 4) || is_int($time)) {
+        $time = "@" . $time;
+      }
     }
 
     // PHP < 5.3 doesn't like the GMT- notation for parsing timezones.
@@ -692,7 +746,7 @@ function feeds_to_unixtime($date, $default_value) {
   if (is_numeric($date)) {
     return $date;
   }
-  elseif (is_string($date)) {
+  elseif (is_string($date) && !empty($date)) {
     $date = new FeedsDateTimeElement($date);
     return $date->getValue();
   }

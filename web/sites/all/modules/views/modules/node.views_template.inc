@@ -1,8 +1,10 @@
 <?php
+
 /**
  * @file
  * Contains views templates on behalf of the node module.
  */
+
 function node_views_templates() {
   // Only the standard install profile has the image field provided so only show it for it.
   if (variable_get('install_profile', 'standard') != 'standard') {
@@ -15,7 +17,7 @@ function node_views_templates() {
   $view->base_table = 'node';
   $view->human_name = 'Image Gallery';
   $view->core = 7;
-  $view->api_version = '3.0-alpha1';
+  $view->api_version = '3.0';
   $view->disabled = TRUE; /* Edit this to true to make a default view disabled initially */
 
   /* Display: Defaults */

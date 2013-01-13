@@ -1,0 +1,90 @@
+
+a.follow-link {
+	height: 30px;
+	display: block;
+	line-height: 26px;
+	padding-left: 28px;
+	background-position: 0 0;
+	background-repeat: no-repeat;
+	padding-right: 3px;
+}
+
+span.follow-link-wrapper a {
+	float: left;
+}
+
+a.follow-link-facebook {
+	background-image: url(small/icon-facebook.png);
+}
+
+a.follow-link-googleplus {
+  background-image: url(small/icon-googleplus.png);
+}
+
+a.follow-link-myspace {
+	background-image: url(small/icon-myspace.png);
+}
+
+a.follow-link-virb {
+	background-image: url(small/icon-virb.png);
+}
+
+a.follow-link-bliptv {
+	background-image: url(small/icon-bliptv.png);
+}
+
+a.follow-link-lastfm {
+	background-image: url(small/icon-lastfm.png);
+}
+
+a.follow-link-youtube {
+	background-image: url(small/icon-youtube.png);
+}
+
+a.follow-link-twitter {
+	background-image: url(small/icon-twitter.png);
+}
+
+a.follow-link-picasa {
+	background-image: url(small/icon-picasa.png);
+}
+
+a.follow-link-flickr {
+	background-image: url(small/icon-flickr.png);
+}
+
+a.follow-link-vimeo {
+	background-image: url(small/icon-vimeo.png);
+}
+
+a.follow-link-linkedin {
+	background-image: url(small/icon-linkedin.png);
+}
+
+a.follow-link-delicious {
+	background-image: url(small/icon-delicious.png);
+}
+
+a.follow-link-tumblr {
+	background-image: url(small/icon-tumblr.png);
+}
+
+a.follow-link-this-site {
+	background-image: url(small/icon-feed.png);
+}
+
+a.follow-link-viadeo {
+  background-image: url(small/icon-viadeo.png);
+}
+
+a.follow-link-xing {
+	background-image: url(small/icon-xing.png);
+}
+
+a.follow-link-spiceworks {
+	background-image: url(small/icon-spiceworks.png);
+}
+
+a.follow-link-newsletter {
+	background-image: url(small/icon-newsletter.png);
+}

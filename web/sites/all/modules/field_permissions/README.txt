@@ -15,10 +15,13 @@ CONTENTS OF THIS FILE
 OVERVIEW
 ========
 
-The Field Permissions module allows site administrators set field-level
-permissions to edit or view CCK fields in any content, edit field during
-content creation, and edit or view permissions for content owned by the
-current user.
+The Field Permissions module allows site administrators to set field-level
+permissions for fields that are attached to any kind of entity (such as nodes
+or users).
+
+Permissions can be set for editing or viewing the field (either in all
+contexts, or only when it is attached to an entity owned by the current user).
+Permissions can also be set for editing the field while creating a new entity.
 
 Permissions for each field are not created by default. Instead, administrators
 can enable these permissions explicitly for the fields where this feature is
@@ -30,46 +33,52 @@ USAGE
 
 Once Field Permissions module is installed, you need to edit the field settings
 form to enable permissions for each field where you need this feature. You can
-enable any of the following permission types:
+choose from three options:
 
-  * Create FIELD (edit on content creation).
-  * Edit any FIELD, regardless of its content author.
-  * Edit own FIELD on content created by the user.
-  * View any FIELD, regardless of its content author.
-  * View own FIELD on content created by the user.
+  * Public (author and administrators can edit, everyone can view)
+  * Private (only author and administrators can edit and view)
+  * Custom permissions
 
-Use these options to enable role based permissions for this field. When
-permissions are enabled, access to this field is denied by default and explicit
-permissions should be granted to the proper user roles from the permissions
-administration page. On the other hand, when these options are disabled, field
-permissions are inherited from content view and/or edit permissions. In example,
-users allowed to view a particular node will also be able to view this field,
-and so on.
+The default value ("Public") does not impose any field-level access control,
+meaning that permissions are inherited from the entity view or edit
+permissions. For example, users who are allowed to view a particular node that
+the field is attached to will also be able to view the field.
 
+"Private" provides quick and easy access to a commonly used form of field
+access control.
 
-REQUIREMENTS
-============
+Finally, if "Custom permissions" is chosen, a standard permissions matrix will
+be revealed allowing you full flexibility to assign the following permissions
+to any role on your site:
 
-- Field UI module (Drupal core).
+  * Create own value for field FIELD
+  * Edit own value for field FIELD
+  * Edit anyone's value for field FIELD
+  * View own value for field FIELD
+  * View anyone's value for field FIELD
+
+These permissions will also be available on the standard permissions page at
+Administer -> People -> Permissions.
 
 
 INSTALLATION
 ============
 
-1) Be sure to install all dependent modules.
-
-2) Copy all contents of this package to your modules directory preserving
+1) Copy all contents of this package to your modules directory preserving
    subdirectory structure.
 
-3) Go to Administer -> Modules to install module.
+2) Go to Administer -> Modules to install module. If the (Drupal core) Field UI
+   module is not enabled, do so.
 
-4) Review the settings of your fields. You will find a new option labelled
-   "Field permissions" that allows you to enable permissions per field. It
-   is disabled by default.
+3) Review the settings of your fields. You will find a new option labelled
+   "Field visibility and permissions" that allows you to control access to the
+   field.
 
-5) Visit the Administer -> People -> Permissions page to enable the permission
-   for selected roles.
+4) If you chose the setting labelled "Custom permissions", you will be able to
+   set this field's permissions for any role on your site directly from the
+   field edit form, or later on by going to the Administer -> People ->
+   Permissions page.
 
-6) Get an overview of the Field Permissions at:
+5) Get an overview of the Field Permissions at:
    Administer -> Reports -> Field list -> Permissions
 

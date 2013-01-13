@@ -117,15 +117,10 @@ imce.firstSort = function() {
 //sort file list according to column index.
 imce.columnSort = function(cid, dsc) {
   if (imce.findex.length < 2) return;
-  if (cid == imce.vars.cid && dsc != imce.vars.dsc) {
-    imce.findex.reverse();
-  }
-  else {
-    var func = 'sort'+ (cid == 0 ? 'Str' : 'Num') + (dsc ? 'Dsc' : 'Asc');
-    var prop = cid == 2 || cid == 3 ? 'innerHTML' : 'id';
-    //sort rows
-    imce.findex.sort(cid ? function(r1, r2) {return imce[func](r1.cells[cid][prop], r2.cells[cid][prop])} : function(r1, r2) {return imce[func](r1.id, r2.id)});
-  }
+  var func = 'sort'+ (cid == 0 ? 'Str' : 'Num') + (dsc ? 'Dsc' : 'Asc');
+  var prop = cid == 2 || cid == 3 ? 'innerHTML' : 'id';
+  //sort rows
+  imce.findex.sort(cid ? function(r1, r2) {return imce[func](r1.cells[cid][prop], r2.cells[cid][prop])} : function(r1, r2) {return imce[func](r1.id, r2.id)});
   //insert sorted rows
   for (var row, i=0; row = imce.findex[i]; i++) {
     imce.tbody.appendChild(row);

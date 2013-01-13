@@ -1,17 +1,16 @@
 <?php
+
 /**
  * @file
- * Contains the fixed argument default plugin.
+ * Definition of views_plugin_argument_default.
  */
 
 /**
- * @defgroup views_argument_default_plugins Views' argument default plugins
+ * @defgroup views_argument_default_plugins Views argument default plugins
  * @{
+ * Allow specialized methods of filling in arguments when they aren't provided.
  *
- * Allow specialized methods of filling in arguments when they aren't
- * provided.
- *
- * @see hook_views_plugins
+ * @see hook_views_plugins()
  */
 
 /**
@@ -56,7 +55,7 @@ class views_plugin_argument_default extends views_plugin {
   /**
    * Provide the default form form for submitting options
    */
-  function options_submit(&$form, &$form_state) { }
+  function options_submit(&$form, &$form_state, &$options = array()) { }
 
   /**
    * Determine if the administrator has the privileges to use this
@@ -93,4 +92,3 @@ class views_plugin_argument_default extends views_plugin {
 /**
  * @}
  */
-

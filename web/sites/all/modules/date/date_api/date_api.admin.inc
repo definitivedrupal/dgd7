@@ -1,5 +1,4 @@
 <?php
-// $Id: date_api.admin.inc,v 1.1 2011/01/15 11:49:32 karens Exp $
 
 /**
  * @file
@@ -10,7 +9,7 @@
  * Create replacement values for deprecated timezone names.
  */
 function _date_timezone_replacement($old) {
-  $replace = array (
+  $replace = array(
   'Brazil/Acre' => 'America/Rio_Branco',
   'Brazil/DeNoronha' => 'America/Noronha',
   'Brazil/East' => 'America/Recife',
@@ -19,7 +18,7 @@ function _date_timezone_replacement($old) {
   'Canada/Central' => 'America/Winnipeg',
   'Canada/East-Saskatchewan' => 'America/Regina',
   'Canada/Eastern' => 'America/Toronto',
-  'Canada/Mountain' =>'America/Edmonton',
+  'Canada/Mountain' => 'America/Edmonton',
   'Canada/Newfoundland' => 'America/St_Johns',
   'Canada/Pacific' => 'America/Vancouver',
   'Canada/Saskatchewan' => 'America/Regina',
@@ -100,7 +99,7 @@ function _date_timezone_replacement($old) {
   'PST8PDT' => 'America/Los_Angeles',
   'ROC' => 'Asia/Taipei',
   'ROK' => 'Asia/Seoul',
-  'Singapore' =>'Asia/Singapore',
+  'Singapore' => 'Asia/Singapore',
   'Turkey' => 'Europe/Istanbul',
   'US/Alaska' => 'America/Anchorage',
   'US/Aleutian' => 'America/Adak',

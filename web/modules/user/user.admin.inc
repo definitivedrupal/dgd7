@@ -413,6 +413,7 @@ function user_admin_settings() {
     '#maxlength' => 10,
     '#field_suffix' => ' ' . t('KB'),
     '#description' => t('Maximum allowed file size for uploaded pictures. Upload size is normally limited only by the PHP maximum post and file upload settings, and images are automatically scaled down to the dimensions specified above.'),
+    '#element_validate' => array('element_validate_integer_positive'),
   );
   $form['personalization']['pictures']['user_picture_guidelines'] = array(
     '#type' => 'textarea',
@@ -841,7 +842,7 @@ function user_admin_roles($form, $form_state) {
     $form['roles'][$rid]['#weight'] = $order;
     $form['roles'][$rid]['weight'] = array(
       '#type' => 'textfield',
-      '#title' => t('Weight for @title', array('@title' => $name['label'])),
+      '#title' => t('Weight for @title', array('@title' => $name)),
       '#title_display' => 'invisible',
       '#size' => 4,
       '#default_value' => $order,

@@ -21,222 +21,37 @@ function schemaorg_help($path, $arg) {
 }
 
 /**
- * Implements hook_form_FORM_ID_alter().
+ * Implements hook_entity_view().
  */
-function schemaorg_form_node_type_form_alter(&$form, $form_state) {
-  if (isset($form['type'])) {
-    $bundle = $form['#node_type']->type;
-    $form['schemaorg'] = array(
-      '#type' => 'fieldset',
-      '#title' => t('Schema.org settings'),
-      '#collapsible' => TRUE,
-      '#collapsed' => TRUE,
-      '#group' => 'additional_settings',
-    );
-    $form['schemaorg']['schemaorg_type'] = array(
-      '#type' => 'textfield',
-      '#title' => t('Type'),
-      '#description' => t('Specify the type you want to associated to this content type e.g. Article, Blog, etc.'),
-      '#default_value' => schemaorg_term_load('node', $bundle, 'rdftype'),
-      '#attributes' => array('class' => array('schemaorg-autocomplete-types')),
-    );
-    $form['#submit'][] = 'schemaorg_node_type_form_submit';
-    // Use jQuery UI autocomplete to provide a faster autocomplete without
-    // callback to the server.
-    $form['#attached']['library'][] = array('system', 'ui.autocomplete');
-    $form['#attached']['css'][] = drupal_get_path('module', 'schemaorg') . '/css/schemaorg.jquery.ui.theme.css';
-    $form['#attached']['js'][] = drupal_get_path('module', 'schemaorg') . '/js/schemaorg.js';
-    $form['#attached']['js'][] =  array(
-          'data' => array('schemaorgapiTermsPath' => base_path() . drupal_get_path('module', 'schemaorg') . '/js/schemaorg.terms.json'),
-          'type' => 'setting'
-        );
-  }
-}
-
-/**
- * Submit function for node type form.
- */
-function schemaorg_node_type_form_submit($form, &$form_state) {
-  $bundle = $form_state['values']['type'];
-  $mapping = rdf_mapping_load('node', $bundle);
-  $mapping['rdftype'] = schemaorg_terms_merge($form_state['values']['schemaorg_type'], $mapping['rdftype']);
-
-
-  if ($form_state['values']['schemaorg_type']) {
-    // Specifies the title mapping as expected by schema.org. This mapping is
-    // always set to schema:name and is not exposed in the UI.
-    $mapping['title']['predicates'] = schemaorg_terms_merge('name', $mapping['title']['predicates']);
-    // Sets the mapping for the url of the node. This mapping is
-    // always set to schema:url and is not exposed in the UI.
-    $mapping['url']['predicates'] = array('schema:url');
-    $mapping['url']['type'] = 'rel';
-  }
-  else {
-    // Makes sure no schema.org mapping for title remains if no type is defined.
-    $mapping['title']['predicates'] = array_filter($mapping['title']['predicates'], 'schemaorg_filter_schema_term');
-    // Since this pseudo-field mapping is only used for the purpose of
-    // schema.org, it is entirely remove when no type mapping is defined.
-    unset($mapping['url']);
-  }
-
-  rdf_mapping_save(array(
-    'type' => 'node',
-    'bundle' => $bundle,
-    'mapping' => $mapping,
-    )
-  );
-}
-
-/**
- * Implements hook_form_FORM_ID_alter().
- */
-function schemaorg_form_field_ui_field_edit_form_alter(&$form, &$form_state) {
-  $field_name = $form['#field']['field_name'];
-  $bundle = $form['instance']['bundle']['#value'];
-  $instance = $form['instance'];
-  $label = isset($instance['label']) ? $instance['label']['#default_value'] : $instance['field_name'];
-  $entity_type = $instance['entity_type']['#value'];
-  $mapping = rdf_mapping_load($entity_type, $instance['bundle']['#value']);
-
-  $form['schemaorg'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('%label schema.org mapping', array('%label' => $label)),
-  );
-
-  $form['schemaorg']['schemaorg_field_property'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Property'),
-    '#description' => t('Specify the property you want to associated to this field.'),
-    '#default_value' => schemaorg_term_load('node', $bundle, $field_name),
-    '#attributes' => array('class' => array('schemaorg-autocomplete-properties')),
-  );
-
-  $form['#submit'][] = 'schemaorg_field_ui_field_edit_form_submit';
-  // Use jQuery UI autocomplete to provide a faster autocomplete without
-  // callback to the server.
-  $form['#attached']['library'][] = array('system', 'ui.autocomplete');
-  $form['#attached']['css'][] = drupal_get_path('module', 'schemaorg') . '/css/schemaorg.jquery.ui.theme.css';
-  $form['#attached']['js'][] = drupal_get_path('module', 'schemaorg') . '/js/schemaorg.js';
-  $form['#attached']['js'][] =  array(
-        'data' => array('schemaorgapiTermsPath' => base_path() . drupal_get_path('module', 'schemaorg') . '/js/schemaorg.terms.json'),
-        'type' => 'setting'
-  );
-}
-
-/**
- * Submit function for edit field form.
- */
-function schemaorg_field_ui_field_edit_form_submit($form, &$form_state) {
-  $bundle = $form['instance']['bundle']['#value'];
-  $field_name = $form['#field']['field_name'];
-  $field_type = $form['#field']['type'];
-
-  $mapping = rdf_mapping_load('node', $bundle);
-
-  // This field might not have an RDF mapping yet.
-  if (empty($mapping[$field_name])) {
-    $mapping[$field_name]['predicates'] = array();
-  }
-
-  $mapping[$field_name]['predicates'] = schemaorg_terms_merge($form_state['values']['schemaorg_field_property'], $mapping[$field_name]['predicates']);
-
-  // Sets RDF mapping type in the case of fields where the object is a resource
-  // such as image, file, etc.
-  $rel_field_types = array('image', 'file', 'taxonomy_term_reference');
-  if (in_array($field_type, $rel_field_types)) {
-    $mapping[$field_name]['type'] = 'rel';
-  }
-
-  // Some terms from schema.org are not yet supported, and legacy properties
-  // are being used instead. The legacy property is added to the RDF mappings
-  // along with the official property.
-  $property = $form_state['values']['schemaorg_field_property'];
-  $legacy_properties = array(
-    'image' => 'photo',
-    'description' => 'summary',
-    'jobTitle' => 'title',
-  );
-  if (array_key_exists($property, $legacy_properties)) {
-    array_unshift($mapping[$field_name]['predicates'], 'schema:' . $legacy_properties[$property]);
-  }
-
-  rdf_mapping_save(array(
-    'type' => 'node',
-    'bundle' => $bundle,
-    'mapping' => $mapping,
-    )
-  );
-}
-
-/**
- * Implements hook_node_view().
- */
-function schemaorg_node_view($node, $view_mode, $langcode) {
-  // Adds the schema.org url to the node content as RDF metadata.
-  if (!empty($node->rdf_mapping['url']['predicates'])) {
-    $attributes = rdf_rdfa_attributes($node->rdf_mapping['url']);
-    $attributes['resource'] = url('node/' . $node->nid);
-    $node->content['schemaorg_url'] = array(
+function schemaorg_entity_view($entity, $type, $view_mode, $langcode) {
+  // Adds the schema.org url to the entity content as RDF metadata.
+  if (!empty($entity->rdf_mapping['url']['predicates'])) {
+    $attributes = rdf_rdfa_attributes($entity->rdf_mapping['url']);
+    $uri = entity_uri($type, $entity);
+    $attributes['resource'] = url($uri['path'], $uri['options']);
+    $entity->content['schemaorg_url'] = array(
       '#markup' => theme('rdf_metadata', array('metadata' => array('span' => $attributes))),
       '#weight' => 100,
     );
   }
 
-  // It seems parsers are expecting to find the title/name of the node within
-  // the body of the node. Drupal displays the title outside the body on full
-  // node display, so we assert it in the body as hidden RDF metadata.
-  if (!empty($node->rdf_mapping['title']['predicates'])) {
-    $attributes = rdf_rdfa_attributes($node->rdf_mapping['title']);
-    $attributes['content'] = $node->title;
-    $node->content['schemaorg_name'] = array(
-      '#markup' => theme('rdf_metadata', array('metadata' => array('span' => $attributes))),
-      '#weight' => 100,
-    );
-  }
-}
-
-/**
- * Loads the schema.org term for a particular Drupal field or rdftype.
- */
-function schemaorg_term_load($type, $bundle, $field) {
-  $terms = array();
-  $mapping = rdf_mapping_load($type, $bundle);
-  if ($field == 'rdftype') {
-    $terms = $mapping['rdftype'];
-  }
-  elseif (!empty($mapping[$field]['predicates'])) {
-    $terms = $mapping[$field]['predicates'];
-  }
-  // Return the first schema: term.
-  foreach ($terms as $term) {
-    if (strpos(trim($term), 'schema:') === 0) {
-      return str_replace('schema:', '', $term);
+  // It seems parsers are expecting to find the title/name of the entity within
+  // the main content of the entity. Drupal displays the title outside the main
+  // content on full entity display, so we assert it as hidden RDF metadata.
+  foreach (array('title', 'subject', 'name') as $field_name) {
+    if (!empty($entity->{$field_name})) {
+      $label_field = $field_name;
+      break;
     }
   }
-}
-
-/**
- * Add, update or remove a schema term from a set of terms.
- */
-function schemaorg_terms_merge($schema_term, $terms) {
-  // Strip out existing schema.org mappings.
-  $terms = array_filter($terms, 'schemaorg_filter_schema_term');
-
-  if ($schema_term) {
-    // Place the schema term first for commodity so it appears first in the
-    // list of CURIEs in the HTML output.
-    array_unshift($terms, 'schema:' . $schema_term);
+  if (isset($label_field) && !empty($entity->rdf_mapping[$label_field]['predicates'])) {
+    $attributes = rdf_rdfa_attributes($entity->rdf_mapping[$label_field]);
+    $attributes['content'] = $entity->{$label_field};
+    $entity->content['schemaorg_name'] = array(
+      '#markup' => theme('rdf_metadata', array('metadata' => array('span' => $attributes))),
+      '#weight' => 100,
+    );
   }
-  return $terms;
-}
-
-/**
- * Filters out non schema: terms.
- *
- * @see schemaorg_terms_merge()
- */
-function schemaorg_filter_schema_term($term) {
-  return strpos(trim($term), 'schema:') !== 0;
 }
 
 /**
@@ -245,5 +60,18 @@ function schemaorg_filter_schema_term($term) {
 function schemaorg_rdf_namespaces() {
   return array(
     'schema' => 'http://schema.org/',
+  );
+}
+
+/**
+ * Implementation of hook_features_api().
+ */
+function schemaorg_features_api() {
+  return array(
+    'schemaorg' => array(
+      'name' => t('Schema.org mappings'),
+      'default_hook' => 'rdf_default_mappings',
+      'file' => drupal_get_path('module', 'schemaorg') .'/schemaorg.features.inc',
+    ),
   );
 }

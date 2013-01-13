@@ -1,6 +1,14 @@
 <?php
+
+/**
+ * @file
+ * Definition of views_handler_field_filter_format_name.
+ */
+
 /**
  * Field handler to output the name of an input format.
+ *
+ * @ingroup views_field_handlers
  */
 class views_handler_field_filter_format_name extends views_handler_field {
   function construct() {

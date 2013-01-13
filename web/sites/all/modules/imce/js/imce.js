@@ -424,7 +424,7 @@ navCache: function (dir, newdir) {
 
 //validate upload form
 uploadValidate: function (data, form, options) {
-  var path = data[0].value;
+  var path = $('#edit-imce').val();
   if (!path) return false;
   if (imce.conf.extensions != '*') {
     var ext = path.substr(path.lastIndexOf('.') + 1);
@@ -492,7 +492,7 @@ fopSettings: function (fop) {
 
 //toggle loading state
 fopLoading: function(fop, state) {
-  var el = imce.el('edit-'+ fop), func = state ? 'addClass' : 'removeClass'
+  var el = imce.el('edit-'+ fop), func = state ? 'addClass' : 'removeClass';
   if (el) {
     $(el)[func]('loading').attr('disabled', state);
   }

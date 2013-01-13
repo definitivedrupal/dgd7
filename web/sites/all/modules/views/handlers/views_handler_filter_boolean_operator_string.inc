@@ -1,4 +1,10 @@
 <?php
+
+/**
+ * @file
+ * Definition of views_handler_filter_boolean_operator_string.
+ */
+
 /**
  * Simple filter to handle matching of boolean values.
  *
@@ -7,6 +13,8 @@
  *
  * Definition items:
  * - label: (REQUIRED) The label for the checkbox.
+ *
+ * @ingroup views_filter_handlers
  */
 class views_handler_filter_boolean_operator_string extends views_handler_filter_boolean_operator {
   function query() {

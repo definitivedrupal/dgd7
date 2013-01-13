@@ -1,21 +1,19 @@
 <?php
+
 /**
  * @file
  * Provide views data and handlers that aren't tied to any other module.
- */
-
-/**
- * @defgroup views_views_module miscellaneous handlers
  *
- * @{
+ * @ingroup views_module_handlers
  */
 
 /**
- * Implements hook_views_data()
+ * Implements hook_views_data().
  */
 function views_views_data() {
   $data['views']['table']['group'] = t('Global');
   $data['views']['table']['join'] = array(
+    // #global is a special flag which let's a table appear all the time.
     '#global' => array(),
   );
 
@@ -59,11 +57,45 @@ function views_views_data() {
     ),
   );
 
+  $data['views']['area_text_custom'] = array(
+    'title' => t('Unfiltered text'),
+    'help' => t('Add unrestricted, custom text or markup. This is similar to the custom text field.'),
+    'area' => array(
+      'handler' => 'views_handler_area_text_custom',
+    ),
+  );
+
   $data['views']['view'] = array(
     'title' => t('View area'),
     'help' => t('Insert a view inside an area.'),
     'area' => array(
       'handler' => 'views_handler_area_view',
+    ),
+  );
+
+  $data['views']['result'] = array(
+    'title' => t('Result summary'),
+    'help' => t('Shows result summary, for example the items per page.'),
+    'area' => array(
+      'handler' => 'views_handler_area_result',
+    ),
+  );
+
+  if (module_exists('contextual')) {
+    $data['views']['contextual_links'] = array(
+      'title' => t('Contextual Links'),
+      'help' => t('Display fields in a contextual links menu.'),
+      'field' => array(
+        'handler' => 'views_handler_field_contextual_links',
+      ),
+    );
+  }
+
+  $data['views']['combine'] = array(
+   'title' => t('Combine fields filter'),
+    'help' => t('Combine two fields together and search by them.'),
+    'filter' => array(
+      'handler' => 'views_handler_filter_combine',
     ),
   );
 
@@ -80,7 +112,3 @@ function views_views_data() {
 
   return $data;
 }
-
-/**
- * @}
- */

@@ -4,7 +4,8 @@ class context_no_title_reaction extends context_reaction {
 
   function editor_form($context) {
   }
-
+  
+  // Add option to reactions menu.
   function options_form($context) {
     $values = $this->fetch_from_context($context);
     $form = array(
@@ -18,9 +19,9 @@ class context_no_title_reaction extends context_reaction {
     );
     return $form;
   }
-  
+
+  // Hide node title if option is set.
   function execute(&$vars) {
-    
     foreach ($this->get_contexts() as $k => $v) { 
       if ((isset($v->reactions[$this->plugin])) &&
           ($v->reactions[$this->plugin]['no_title'])) {

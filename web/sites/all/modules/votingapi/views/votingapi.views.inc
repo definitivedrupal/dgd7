@@ -1,5 +1,4 @@
 <?php
-// $Id: votingapi.views.inc,v 1.1.2.17.2.3 2010/10/10 00:47:46 eaton Exp $
 
 /**
  * @file
@@ -287,7 +286,7 @@ function votingapi_views_data_alter(&$views_data) {
   $default_relationships[] = array(
     'description' => t('comments'),
     'entity_type' => 'comment',
-    'base_table' => 'comments',
+    'base_table' => 'comment',
     'entity_id_column' => 'cid',
     'pseudo_vote' => 'votingapi_vote',    // for legacy compatability w/RC1.
     'pseudo_cache' => 'votingapi_cache',  // for legacy compatability w/RC1.

@@ -8,7 +8,7 @@
 }
 
 .media-gallery-item-wrapper.draggable:hover .media-gallery-item,
-.mg-col .node-media-gallery.node-teaser .float-overflow:hover .stack-image {
+.mg-col .mg-gallery.mg-teaser .float-overflow:hover .stack-image {
   outline: 1px dashed #98C4DF;
 }
 

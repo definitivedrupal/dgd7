@@ -40,7 +40,10 @@ class FeedsUserProcessor extends FeedsProcessor {
    * Loads an existing user.
    */
   protected function entityLoad(FeedsSource $source, $uid) {
-    return user_load($uid);
+    // Copy the password so that we can compare it again at save.
+    $user = user_load($uid);
+    $user->feeds_original_pass = $user->pass;
+    return $user;
   }
 
   /**
@@ -59,7 +62,15 @@ class FeedsUserProcessor extends FeedsProcessor {
     if ($this->config['defuse_mail']) {
       $account->mail = $account->mail . '_test';
     }
-    user_save($account, (array) $account);
+
+    $edit = (array) $account;
+
+    // Remove pass from $edit if the password is unchanged.
+    if (isset($account->feeds_original_pass) && $account->pass == $account->feeds_original_pass) {
+      unset($edit['pass']);
+    }
+
+    user_save($account, $edit);
     if ($account->uid && !empty($account->openid)) {
       $authmap = array(
         'uid' => $account->uid,
@@ -140,6 +151,9 @@ class FeedsUserProcessor extends FeedsProcessor {
       case 'created':
         $target_user->created = feeds_to_unixtime($value, REQUEST_TIME);
         break;
+      case 'language':
+        $target_user->language = strtolower($value);
+        break;
       default:
         parent::setTargetElement($source, $target_user, $target_element, $value);
         break;
@@ -170,6 +184,14 @@ class FeedsUserProcessor extends FeedsProcessor {
         'name' => t('Unencrypted Password'),
         'description' => t('The unencrypted user password.'),
       ),
+      'status' => array(
+        'name' => t('Account status'),
+        'description' => t('Whether a user is active or not. 1 stands for active, 0 for blocked.'),
+      ),
+      'language' => array(
+        'name' => t('User language'),
+        'description' => t('Default language for the user.'),
+      ),
     );
     if (module_exists('openid')) {
       $targets['openid'] = array(
@@ -181,7 +203,9 @@ class FeedsUserProcessor extends FeedsProcessor {
 
     // Let other modules expose mapping targets.
     self::loadMappers();
-    feeds_alter('feeds_processor_targets', $targets, 'user', 'user');
+    $entity_type = $this->entityType();
+    $bundle = $this->entityType();
+    drupal_alter('feeds_processor_targets', $targets, $entity_type, $bundle);
 
     return $targets;
   }

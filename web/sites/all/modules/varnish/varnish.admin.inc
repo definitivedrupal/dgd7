@@ -31,11 +31,16 @@ function varnish_admin_settings_form() {
     '#description' => t('Internally Drupal will attempt to flush its page cache every time cron.php runs. This can mean too-frequent cache flushes if you have cron running frequently. NOTE: this cache flush is global!'),
   );
 
-  $form['varnish_legacy'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Varnish Legacy Mode'),
-    '#default_value' => variable_get('varnish_legacy', 0),
-    '#description' => t('Check this if you use a version of varnish lower than 2.1'),
+  $form['varnish_version'] = array(
+    '#type' => 'select',
+    '#title' => t('Varnish version'),
+    '#default_value' => variable_get('varnish_version', 2.1),
+    '#description' => t('Select your varnish version.'),
+    '#options' => array(
+      '2' => '2.0.x',
+      '2.1' => '2.1.x',
+      '3' => '3.x',
+    ),
   );
 
   $form['varnish_control_terminal'] = array(
@@ -55,7 +60,7 @@ function varnish_admin_settings_form() {
   $form['varnish_socket_timeout'] = array(
    '#type' => 'textfield',
    '#title' => t('Varnish connection timeout (milliseconds)'),
-   '#default_value' => variable_get('varnish_socket_timeout', VARNISH_DEFAULT_TIMETOUT),
+   '#default_value' => variable_get('varnish_socket_timeout', VARNISH_DEFAULT_TIMEOUT),
    '#description' => t('If Varnish is running on a different server, you may need to increase this value.'),
    '#required' => TRUE,
   );
@@ -79,11 +84,23 @@ function varnish_admin_settings_form() {
     $form['varnish_cache_clear']['#description'] .= ' ' . t('Installing the !link will enable "Selective" clearing.', array('!link' => '<a href="http://drupal.org/project/expire" target="_blank">' . t('Expire module') . '</a>'));
   }
 
+  // Allow users to select Varnish ban type to use.
+  $form['varnish_bantype'] = array(
+    '#type' => 'select',
+    '#title' => t('Varnish ban type'),
+    '#default_value' => variable_get('varnish_bantype', VARNISH_DEFAULT_BANTYPE),
+    '#description' => t('Select the type of varnish ban you wish to use. Ban lurker support requires you to add beresp.http.x-url and beresp.http.x-host entries to the response in vcl_fetch.'),
+    '#options' => array(
+      VARNISH_BANTYPE_NORMAL => 'Normal',
+      VARNISH_BANTYPE_BANLURKER => 'Ban Lurker',
+    ),
+  );
+
   // Check status
   $form['varnish_stats'] = array(
     '#type' => 'item',
     '#title' => t('Status'),
-    '#markup' => theme('varnish_status', varnish_get_status()),
+    '#markup' => theme('varnish_status', varnish_get_status(), floatval(variable_get('varnish_version', 2.1))),
   );
 
   return system_settings_form($form);
@@ -103,6 +120,9 @@ function varnish_admin_settings_form_validate($form, &$form_state) {
  * Menu callback for varnish admin settings.
  */
 function varnish_admin_reports_page() {
+  if (floatval(variable_get('varnish_version', 2.1)) >= 3) {
+    return t('Varnish 3 has removed the option to display statistics directly from the terminal. Use varnishstat instead.');
+  }
   // Connect to varnish and do a full status report.
   $status = _varnish_terminal_run(array('stats'));
   $output = '';

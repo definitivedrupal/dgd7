@@ -1,263 +1,192 @@
 
 (function ($) {
 
-Drupal.chatroom = Drupal.chatroom || {'initialised' : false};
+Drupal.chatroom = Drupal.chatroom || {'initialised' : false, chats: {}};
+
+Drupal.chatroom.initialiseChat = function(chat) {
+  if (chat.latestMsgId > 0) {
+    var targetOffset = $('#chatroom-board-' + chat.cid + ' div.new-message:last').offset().top;
+    var boardOffset = $('#chatroom-board-' + chat.cid).offset().top;
+    var scrollAmount = targetOffset - boardOffset;
+    $('#chatroom-board-' + chat.cid).animate({scrollTop: '+='+ scrollAmount +'px'}, 250);
+    $('#chatroom-board-' + chat.cid + '.new-message').removeClass('new-message');
+  }
+
+  $('#edit-chatroom-message-entry-box-' + chat.cid).keyup(function(e) {
+    var chat = Drupal.settings.chatroom.chats[this.id.replace(/^edit-chatroom-message-entry-box-/, '')];
+    var messageText = $('#edit-chatroom-message-entry-box-' + chat.cid).val().replace(/^\s+|\s+$/g, '');
+    var anonNameText = '';
+    if (messageText && e.keyCode == 13 && !e.shiftKey && !e.ctrlKey) {
+      Drupal.chatroom.postMessage(messageText, anonNameText, chat);
+      $('#edit-chatroom-message-entry-box-' + chat.cid).val('').focus();
+    }
+    else {
+      return true;
+    }
+  });
+
+  $('#edit-chatroom-message-entry-submit-' + chat.cid).click(function (e) {
+    var chat = Drupal.settings.chatroom.chats[this.id.replace(/^edit-chatroom-message-entry-submit-/, '')];
+    e.preventDefault();
+    e.stopPropagation();
+    var messageText = $('#edit-chatroom-message-entry-box-' + chat.cid).val().replace(/^\s+|\s+$/g, '');
+    var anonNameText = '';
+    if (messageText) {
+      Drupal.chatroom.postMessage(messageText, anonNameText, chat);
+      $('#edit-chatroom-message-entry-box-' + chat.cid).val('').focus();
+    }
+  });
+
+  $('#chatroom-board-' + chat.cid).scroll(function() {
+    var chat = Drupal.settings.chatroom.chats[this.id.replace(/^chatroom-board-/, '')];
+    var yPos = $('#chatroom-board-' + chat.cid).scrollTop();
+    if (yPos === 0) {
+      Drupal.chatroom.getPreviousMessages(chat.cid, chat.prevMsgId);
+    }
+  });
+}
 
 /**
- * Add behaviours to chatroom elements.
+ * Provide js API functions for modules that want to create chatrooms
+ * from js events.
  */
-Drupal.behaviors.chatroom = {
-  attach: function (context, settings) {
-    if (!Drupal.chatroom.initialised) {
-      if (!Drupal.settings.chatroom.customPollingBackend) {
-        setInterval("Drupal.chatroom.poll()", Drupal.settings.chatroom.pollInterval * 1000);
-      }
-      Drupal.settings.chatroom.pageTitle = document.title;
-      Drupal.settings.chatroom.hasFocus = true;
-      if (Drupal.settings.chatroom.latestMsgId > 0) {
-        var targetOffset = $('div.new-message:last').offset().top;
-        var boardOffset = $('#chatroom-board').offset().top;
-        var scrollAmount = targetOffset - boardOffset;
-        $('#chatroom-board').animate({scrollTop: '+='+ scrollAmount +'px'}, 500);
-        $('.new-message').removeClass('new-message');
-      }
-      $(self).focus(
-        function() {
-          clearInterval(Drupal.settings.chatroom.warnInterval);
-          Drupal.settings.chatroom.hasFocus = true;
-          document.title = Drupal.settings.chatroom.pageTitle;
-        }
-      );
-      $(self).blur(
-        function() {
-          Drupal.settings.chatroom.hasFocus = false;
-        }
-      );
-      Drupal.chatroom.initialised = true;
+Drupal.chatroom.createChat = function(options, callback) {
+  if (typeof options.uid === 'undefined') {
+    options.uid = Drupal.settings.chatroom.uid;
+  }
+  if (typeof options.public === 'undefined') {
+    options.public = 0;
+  }
+  $.ajax({
+    type: 'POST',
+    url: Drupal.settings.chatroom.createChatPath,
+    dataType: 'json',
+    success: function (data, textStatus, XHR) {
+      callback(data.data);
+    },
+    data: {
+      chatroom: options,
+      formToken: Drupal.settings.chatroom.createChatToken,
+      formId: Drupal.settings.chatroom.createChatFormId
     }
+  });
+}
 
-    $('#edit-chatroom-message-entry-box').keyup(function(e) {
-      var messageText = $('#edit-chatroom-message-entry-box').val().replace(/^\s+|\s+$/g, '');
-      var anonNameText = '';
-      if ($('#edit-chatroom-anon-name').length) {
-        anonNameText = $('#edit-chatroom-anon-name').val().replace(/^\s+|\s+$/g, '');
-      }
-      if (messageText && e.keyCode == 13 && !e.shiftKey && !e.ctrlKey) {
-        Drupal.chatroom.postMessage(messageText, anonNameText);
-        $('#edit-chatroom-message-entry-box').val('').focus();
-      }
-      else {
-        return true;
-      }
-    });
-    $('#edit-chatroom-message-entry-submit').click(function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      var messageText = $('#edit-chatroom-message-entry-box').val().replace(/^\s+|\s+$/g, '');
-      var anonNameText = '';
-      if ($('#edit-chatroom-anon-name').length) {
-        anonNameText = $('#edit-chatroom-anon-name').val().replace(/^\s+|\s+$/g, '');
-      }
-      if (messageText) {
-        Drupal.chatroom.postMessage(messageText, anonNameText);
-        $('#edit-chatroom-message-entry-box').val('').focus();
-      }
-    });
-
-    $('.chatroom-kick-user-link').click(function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      Drupal.chatroom.kickUser(e.target.parentNode.id);
-    });
-
-    $('.chatroom-ban-user-link').click(function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      Drupal.chatroom.banUser(e.target.parentNode.id);
-    });
-
-    $('.chatroom-remove-user-link').click(function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      Drupal.chatroom.removeUser(e.target.parentNode.id);
-    });
+/**
+ * We depend on the Nodejs module successfully create a socket for us.
+ */
+Drupal.Nodejs.connectionSetupHandlers.chatroom = {
+  connect: function () {
+    for (var cid in Drupal.settings.chatroom.chats) {
+      Drupal.chatroom.initialiseChat(Drupal.settings.chatroom.chats[cid]);
+    }
+    Drupal.chatroom.initialised = true;
   }
 };
 
-Drupal.chatroom.banUser = function(uid) {
+Drupal.chatroom.postMessage = function(message, anonName, chat) {
+  var formId = 'chatroom_form_token_' + chat.cid;
+  if (typeof chat.formId !== 'undefined') {
+    formId = chat.formId;
+  }
+  var formTokenDomId = '#edit-chatroom-chat-buttons-form-token-' + chat.cid;
+  if (typeof chat.formTokenDomId !== 'undefined') {
+    formTokenDomId = chat.formTokenDomId;
+  }
   $.ajax({
     type: 'POST',
-    url: Drupal.settings.basePath + Drupal.settings.chatroom.banUserPath + '/' + Drupal.settings.chatroom.chatId,
+    url: Drupal.settings.chatroom.postMessagePath + '/' + chat.cid,
     dataType: 'json',
-    success: Drupal.chatroom.pollHandler,
-    data: {
-      uid: uid,
-      formToken: $('#edit-chatroom-chat-management-form-form-token').val(),
-      formId: 'chatroom_chat_management_form'
-    }
-  });
-}
-
-Drupal.chatroom.kickUser = function(uid) {
-  $.ajax({
-    type: 'POST',
-    url: Drupal.settings.basePath + Drupal.settings.chatroom.kickUserPath + '/' + Drupal.settings.chatroom.chatId,
-    dataType: 'json',
-    success: Drupal.chatroom.pollHandler,
-    data: {
-      uid: uid,
-      formToken: $('#edit-chatroom-chat-management-form-form-token').val(),
-      formId: 'chatroom_chat_management_form'
-    }
-  });
-}
-
-Drupal.chatroom.removeUser = function(uid) {
-  $.ajax({
-    type: 'POST',
-    url: Drupal.settings.basePath + Drupal.settings.chatroom.removeUserPath + '/' + Drupal.settings.chatroom.chatId,
-    dataType: 'json',
-    success: Drupal.chatroom.pollHandler,
-    data: {
-      uid: uid,
-      formToken: $('#edit-chatroom-chat-management-form-form-token').val(),
-      formId: 'chatroom_chat_management_form'
-    }
-  });
-}
-
-Drupal.chatroom.poll = function() {
-  var skipCacheCheck = 0;
-  if (Drupal.settings.chatroom.successiveCacheHits > Drupal.settings.chatroom.skipCacheCheckCount) {
-    skipCacheCheck = 1;
-  }
-
-  $.ajax({
-    type: 'POST',
-    url: Drupal.settings.basePath + 'chatroomread.php',
-    dataType: 'json',
-    success: Drupal.chatroom.pollHandler,
-    data: {
-      latest_msg_id: Drupal.settings.chatroom.latestMsgId,
-      chat_cache_directory: Drupal.settings.chatroom.cacheDirectory,
-      chat_id: Drupal.settings.chatroom.chatId,
-      skip_cache: skipCacheCheck,
-      successive_cache_hits: Drupal.settings.chatroom.successiveCacheHits
-    }
-  });
-}
-
-Drupal.chatroom.pollHandler = function(response, responseStatus) {
-  if (!response) {
-    return;
-  }
-
-  // If the user was kicked or banned, get them out of here.
-  if (response.data.accessDenied) {
-    window.location = Drupal.settings.basePath + Drupal.settings.chatroom.accessDeniedPath + '/' + Drupal.settings.chatroom.chatId + '/' + response.data.accessDenied;
-  }
-
-  // If the chat was archived, reload the page.
-  if (response.data.archived) {
-    window.location = Drupal.settings.basePath + Drupal.settings.chatroom.chatPath;
-  }
-
-  // If we hit the cache, then keep track of that. If the number of
-  // successive cache hits gets high enough, we may want to signal to the
-  // server that we should skip the cache check so that our online time
-  // gets updated.
-  if (response.data.cacheHit) {
-    Drupal.settings.chatroom.successiveCacheHits++;
-  }
-  else {
-    Drupal.settings.chatroom.successiveCacheHits = 0;
-  }
-
-  if (response.data.messages) {
-    Drupal.chatroom.addMessagesToBoard(response.data.messages);
-  }
-
-  if (response.data.usersHtml) {
-    Drupal.chatroom.updateUserList(response.data.usersHtml);
-  }
-
-  if (response.data.commandResponse) {
-    Drupal.chatroom.addCommandMessage(response.data.commandResponse);
-  }
-}
-
-Drupal.chatroom.updateUserList  = function(usersHtml) {
-  $('#chatroom-user-list-wrapper').replaceWith(usersHtml);
-  Drupal.attachBehaviors('#chatroom-user-list-wrapper');
-}
-
-Drupal.chatroom.addMessagesToBoard = function(messages) {
-  var newMessage = false;
-  for (var i = 0; i < messages.length; i++) {
-    // Poll requests can pass each other over the wire, so we can't rely on
-    // getting a given message once only, so only add if we haven't already
-    // done so.
-    if (messages[i].cmid > Drupal.settings.chatroom.latestMsgId) {
-      Drupal.settings.chatroom.latestMsgId = messages[i].cmid;
-      $('#chatroom-board').append(messages[i].html);
-      newMessage = messages[i];
-      if (messages[i].newDayHtml) {
-        $('#chatroom-board').append(messages[i].newDayHtml);
-      }
-    }
-  }
-  if (newMessage) {
-    Drupal.chatroom.scrollToLatestMessage();
-    if (Drupal.settings.chatroom.hasFocus == false) {
-      Drupal.settings.chatroom.newMsg = newMessage;
-      clearInterval(Drupal.settings.chatroom.warnInterval);
-      Drupal.settings.chatroom.warnInterval = setInterval("Drupal.chatroom.warnNewMsgLoop()", 1500);
-    }
-  }
-}
-
-Drupal.chatroom.addCommandMessage = function(response) {
-  $('#chatroom-board').append('<div class="new-message command-message">** ' + response.msg + '</div>');
-  Drupal.chatroom.scrollToLatestMessage();
-}
-
-Drupal.chatroom.addCommandMessage = function(response) {
-  $('#chatroom-board').append('<div class="new-message command-message">** ' + response.msg + '</div>');
-  Drupal.chatroom.scrollToLatestMessage();
-}
-
-Drupal.chatroom.scrollToLatestMessage = function() {
-  var boardOffset = $('#chatroom-board').offset().top;
-  var targetOffset = $('div.new-message:last').offset().top;
-  var scrollAmount = targetOffset - boardOffset;
-  $('#chatroom-board').animate({scrollTop: '+='+ scrollAmount +'px'}, 500);
-  $('.new-message').removeClass('new-message');
-}
-
-Drupal.chatroom.postMessage = function(message, anonName) {
-  // Fix the resolution of the form tokens
-  $.ajax({
-    type: 'POST',
-    url: Drupal.settings.basePath + Drupal.settings.chatroom.postMessagePath + '/' + Drupal.settings.chatroom.chatId + '/' + Drupal.settings.chatroom.latestMsgId,
-    dataType: 'json',
-    success: Drupal.chatroom.pollHandler,
+    success: function () {},
     data: {
       message: message,
       anonName: anonName,
-      formToken: $('#edit-chatroom-chat-buttons-form-token').val(),
-      formId: 'chatroom_chat_buttons'
+      formToken: $(formTokenDomId).val(),
+      formId: formId
     }
-  })
+  });
 }
 
-Drupal.chatroom.warnNewMsgLoop = function() {
-  if (document.title == Drupal.settings.chatroom.pageTitle) {
-    document.title = Drupal.settings.chatroom.newMsg.name_stripped + ' says: ' + Drupal.settings.chatroom.newMsg.text;
-  }
-  else {
-    document.title = Drupal.settings.chatroom.pageTitle;
+Drupal.chatroom.getPreviousMessages = function(cid, cmid, limit) {
+  if (limit === undefined) limit = 20;
+
+  $.ajax({
+    type: 'GET',
+    url: Drupal.settings.chatroom.chatroomPath + '/' + cid + '/messages/previous/' + cmid + '/' + limit,
+    success: function(data) {
+      /**
+       * Shamelessly stolen and adapted from here:
+       *
+       * http://stackoverflow.com/questions/5688362/how-to-prevent-scrolling-on-prepend
+       *
+       * Better implementation ideas welcome.
+       */
+      var currentTop = $('#chatroom-board-' + cid).children().first();
+      for (var message in data) {
+        Drupal.chatroom.addPreviousMessageToBoard(data[message]);
+      }
+      var previousHeight = 0;
+      currentTop.prevAll().each(function() {
+        previousHeight += $(this).outerHeight();
+      });
+      $('#chatroom-board-' + cid).animate({scrollTop: '+='+ previousHeight +'px'}, 10);
+    }
+  });
+}
+
+Drupal.chatroom.updateUserList = function(message) {
+  if ($('#chatroom-user-' + message.cid + '-' + message.uid).length == 0) {
+    var userHtml = '<li style="display: none;" id="chatroom-user-'
+                   + message.cid + '-' + message.uid + '"><a href="/user/'
+                   + message.uid + '">' + message.name + '</a></li>';
+    $(userHtml).hide().appendTo($('#chatroom-irc-user-list-' + message.cid)).show('normal');
   }
 }
+
+Drupal.chatroom.addMessageToBoard = function(message) {
+  $('#chatroom-board-' + message.cid).append(message.msg);
+  Drupal.chatroom.scrollToLatestMessage(message.cid);
+}
+
+Drupal.chatroom.addPreviousMessageToBoard = function(message) {
+  var chat = Drupal.settings.chatroom.chats[message.cid];
+  chat.prevMsgId = message.cmid;
+  Drupal.settings.chatroom.chats[message.cid] = chat;
+  $('#chatroom-board-' + message.cid).prepend(message.msg);
+}
+
+Drupal.chatroom.scrollToLatestMessage = function(cid) {
+  var boardOffset = $('#chatroom-board-' + cid).offset().top;
+  var targetOffset = $('#chatroom-board-' + cid + ' div.new-message:last').offset().top;
+  var scrollAmount = targetOffset - boardOffset;
+  $('#chatroom-board-' + cid).animate({scrollTop: '+='+ scrollAmount +'px'}, 250);
+  $('#chatroom-board-' + cid + ' .new-message').removeClass('new-message');
+}
+
+Drupal.Nodejs.callbacks.chatroomMessageHandler = {
+  callback: function (message) {
+    Drupal.chatroom.addMessageToBoard(message.data);
+  }
+};
+
+Drupal.Nodejs.callbacks.chatroomUserOnlineHandler = {
+  callback: function (message) {
+    Drupal.chatroom.updateUserList(message.data);
+  }
+};
+
+Drupal.Nodejs.contentChannelNotificationCallbacks.chatroom = {
+  callback: function (message) {
+    if (message.data.type == 'disconnect') {
+      var cid = message.channel.replace(/^chatroom_/, '');
+      if ($('#chatroom-user-' + cid + '-' + message.data.uid).length == 1) {
+        $('#chatroom-user-' + cid + '-' + message.data.uid).hide('normal', function () {
+          $('#chatroom-user-' + cid + '-' + message.data.uid).remove();
+        });
+      }
+    }
+  }
+};
 
 })(jQuery);
 

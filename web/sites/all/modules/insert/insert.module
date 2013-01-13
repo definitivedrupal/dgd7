@@ -50,6 +50,11 @@ function insert_theme() {
       'template' => 'templates/insert-link',
       'file' => 'includes/insert.inc',
     ),
+    'insert_icon_link' => array(
+      'variables' => array('item' => NULL, 'widget' => NULL),
+      'template' => 'templates/insert-icon-link',
+      'file' => 'includes/insert.inc',
+    ),
 
     // Theme functions in includes/image.inc.
     'image_insert_image' => array(
@@ -193,12 +198,14 @@ function insert_element_process($element) {
     drupal_add_js(array('insert' => array('widgets' => array($widget_type => $insert_settings))), 'setting');
   }
 
-  if ($element['fid']['#value']) {
-    // Load the file if it's not entirely loaded.
-    if (!isset($item['filename'])) {
-      $item = array_merge((array) file_load($element['fid']['#value']), $item);
+  // Load the file if it's not entirely loaded.
+  if ($element['fid']['#value'] && !isset($item['filename'])) {
+    if ($loaded_file = file_load($element['fid']['#value'])) {
+      $item = array_merge((array) $loaded_file, $item);
     }
+  }
 
+  if (isset($item['filename'])) {
     $insert_styles = !empty($widget_settings['insert_styles']['<all>']) ? drupal_map_assoc(array_keys(insert_styles())) : array_filter((array) $widget_settings['insert_styles']);
     $default = !empty($instance['widget']['settings']['insert_default']) ? $widget_settings['insert_default'] : 'auto';
     if (!isset($insert_styles[$default])) {
@@ -243,9 +250,12 @@ function insert_element_process($element) {
  * Implements hook_form_alter().
  */
 function insert_form_field_ui_field_edit_form_alter(&$form, $form_state) {
-  if (array_key_exists($form['instance']['widget']['type']['#value'], insert_widgets())) {
+  $instance = $form['#instance'];
+  if (array_key_exists($instance['widget']['type'], insert_widgets())) {
     $field = $form['#field'];
-    $instance = field_info_instance($form['instance']['entity_type']['#value'], $form['instance']['field_name']['#value'], $form['instance']['bundle']['#value']);
+    if (empty($form['instance']['settings'])) {
+      $form['instance']['settings'] = array();
+    }
     $form['instance']['settings'] += insert_field_widget_settings_form($field, $instance);
   }
 }
@@ -258,6 +268,7 @@ function insert_form_field_ui_field_edit_form_alter(&$form, $form_state) {
 function insert_field_widget_info_alter(&$info) {
   $settings = array(
     'insert' => 0,
+    'insert_absolute' => variable_get('insert_absolute_paths', FALSE),
     'insert_styles' => array('auto'),
     'insert_default' => array('auto'),
     'insert_class' => '',
@@ -293,6 +304,15 @@ function insert_field_widget_settings_form($field, $instance) {
     '#title' => t('Enable insert button'),
     '#default_value' => $settings['insert'],
     '#description' => t('Enable the insert button and options for this widget.'),
+    '#weight' => -10,
+  );
+
+  $form['insert']['insert_absolute'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Use absolute paths'),
+    '#default_value' => isset($settings['insert_absolute']) ? $settings['insert_absolute'] : variable_get('insert_absolute_paths', FALSE),
+    '#description' => t('Includes the full URL prefix "@base_url" in all links and image tags.', array('@base_url' => $GLOBALS['base_url'])),
+    '#weight' => -9,
   );
 
   $form['insert']['insert_styles'] = array(
@@ -303,6 +323,7 @@ function insert_field_widget_settings_form($field, $instance) {
     '#description' => t('Select which styles should be available when sending items to text areas. If no styles are selected, the option to use a style is not displayed. If all styles are selected, new styles will be enabled by default.'),
     '#element_validate' => array('insert_field_widget_settings_styles_validate'),
     '#theme' => 'insert_field_widget_settings_styles',
+    '#weight' => 0,
   );
 
   $form['insert']['insert_default'] = array(
@@ -311,6 +332,7 @@ function insert_field_widget_settings_form($field, $instance) {
     '#options' => insert_styles_list(),
     '#default_value' => $settings['insert_default'],
     '#description' => t('Select the default style which will be selected by default or used if no specific styles above are enabled.'),
+    '#weight' => 1,
   );
 
   $form['insert']['insert_class'] = array(
@@ -318,6 +340,7 @@ function insert_field_widget_settings_form($field, $instance) {
     '#type' => 'textfield',
     '#default_value' => $settings['insert_class'],
     '#description' => t('Add any classes that should be added to the item on output.'),
+    '#weight' => 5,
   );
 
   $form['insert']['insert_width'] = array(
@@ -327,6 +350,7 @@ function insert_field_widget_settings_form($field, $instance) {
     '#field_suffix' => ' '. t('pixels'),
     '#default_value' => $settings['insert_width'],
     '#description' => t('When inserting images, the height and width of images may be scaled down to fit within the specified width. Note that this does not resize the image, it only affects the HTML output. To resize images it is recommended to install the <a href="http://drupal.org/project/image_resize_filter">Image Resize Filter</a> module.'),
+    '#weight' => 10,
   );
 
   return $form;
@@ -368,17 +392,24 @@ function theme_insert_field_widget_settings_styles($variables) {
  * will consistently use absolute or relative URLs, depending on the Insert
  * setting.
  */
-function insert_create_url($uri) {
-  // This variable has no configuration location. It may be set by placing
-  // $conf['insert_absolute_paths'] = FALSE;
-  // in the site settings.php file, or by manually running variable_set().
-  // For reasons why this might not do what you want and why there's no UI
-  // see http://drupal.org/node/640352.
-  $absolute = variable_get('insert_absolute_paths', TRUE);
+function insert_create_url($uri, $absolute = NULL, $clean_urls = TRUE) {
+  $absolute = isset($absolute) ? $absolute : variable_get('insert_absolute_paths', FALSE);
 
-  // TODO: Rewrite this function to support relative paths? Tricky because
-  // not all stream wrappers support local paths at all.
-  return file_create_url($uri);
+  // If not using clean URLs, the image derivative callback is only available
+  // with the query string. Always use the non-clean URL in the event that the
+  // image cache is flushed and needs to be regenerated. See image_style_url().
+  if (!$clean_urls && file_uri_scheme($uri) == 'public') {
+    $directory_path = file_stream_wrapper_get_instance_by_uri($uri)->getDirectoryPath();
+    $url = url($directory_path . '/' . file_uri_target($uri), array('absolute' => TRUE));
+  }
+  else {
+    $url = file_create_url($uri);
+  }
+
+  if (!$absolute && strpos($url, $GLOBALS['base_url']) === 0) {
+    $url = base_path() . ltrim(str_replace($GLOBALS['base_url'], '', $url), '/');
+  }
+  return $url;
 }
 
 /**

@@ -1,7 +1,14 @@
 <?php
 
 /**
+ * @file
+ * Definition of views_handler_filter_date.
+ */
+
+/**
  * Filter to handle dates stored as a timestamp.
+ *
+ * @ingroup views_filter_handlers
  */
 class views_handler_filter_date extends views_handler_filter_numeric {
   function option_definition() {
@@ -34,7 +41,7 @@ class views_handler_filter_date extends views_handler_filter_numeric {
   function options_validate(&$form, &$form_state) {
     parent::options_validate($form, $form_state);
 
-    if (empty($form_state['values']['options']['expose']['required'])) {
+    if (!empty($this->options['exposed']) && empty($form_state['values']['options']['expose']['required'])) {
       // Who cares what the value is if it's exposed and non-required.
       return;
     }
@@ -87,6 +94,34 @@ class views_handler_filter_date extends views_handler_filter_numeric {
       }
     }
   }
+
+  /**
+   * Validate the build group options form.
+   */
+  function build_group_validate($form, &$form_state) {
+    // Special case to validate grouped date filters, this is because the
+    // $group['value'] array contains the type of filter (date or offset)
+    // and therefore the number of items the comparission has to be done
+    // against 'one' instead of 'zero'.
+    foreach ($form_state['values']['options']['group_info']['group_items'] as $id => $group) {
+      if (empty($group['remove'])) {
+        // Check if the title is defined but value wasn't defined.
+        if (!empty($group['title'])) {
+          if ((!is_array($group['value']) && empty($group['value'])) || (is_array($group['value']) && count(array_filter($group['value'])) == 1)) {
+            form_error($form['group_info']['group_items'][$id]['value'], t('The value is required if title for this item is defined.'));
+          }
+        }
+
+        // Check if the value is defined but title wasn't defined.
+        if ((!is_array($group['value']) && !empty($group['value'])) || (is_array($group['value']) && count(array_filter($group['value'])) > 1)) {
+          if (empty($group['title'])) {
+            form_error($form['group_info']['group_items'][$id]['title'], t('The title is required if value for this item is defined.'));
+          }
+        }
+      }
+    }
+  }
+
 
   function accept_exposed_input($input) {
     if (empty($this->options['exposed'])) {

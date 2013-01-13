@@ -1,0 +1,239 @@
+<?php
+
+/**
+ * @file
+ * Tests for the Skinr Context module.
+ */
+
+/**
+ * Tests Skinr Context API functionality.
+ */
+class SkinrContextApiTestCase extends SkinrWebTestCase {
+  protected $profile = 'testing';
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Context',
+      'description' => 'Tests Skinr Context API functionality.',
+      'dependencies' => array('ctools', 'context'),
+      'group' => 'Skinr',
+    );
+  }
+
+  function setUp() {
+    parent::setUp(array('skinr', 'skinr_context', 'skinr_context_test'));
+  }
+
+  /**
+   * Test skinr_skin_save() against invalid entries.
+   */
+  public function testSkinrContextGroupLoadSave() {
+    // @todo Validation for groups.
+
+    // Only save valid groups.
+    $group = (object) array(
+      'module' => 'block',
+      'element' => 'system__user-menu',
+      'title' => 'Default',
+      'description' => '',
+      'conditions' => array('sitewide' => array('values' => array(1 => 1))),
+      'condition_mode' => CONTEXT_CONDITION_MODE_OR,
+      'weight' => 0,
+      'status' => 1,
+    );
+    $this->assertTrue(skinr_context_group_save($group), 'Skin settings group object saved.');
+    $this->assertTrue(isset($group->gid), 'Gid was added to skin settings group object.');
+
+    // Test loading a group.
+    $loaded_group = skinr_context_group_load($group->gid);
+    $this->assertTrue(is_array($loaded_group->conditions), 'Conditions for skin settings group object unserialized.');
+
+    $this->assertTrue($loaded_group->module == $group->module && $loaded_group->element == $group->element && $loaded_group->title == $group->title && $loaded_group->description == $group->description && $loaded_group->condition_mode == $group->condition_mode && $loaded_group->weight == $group->weight && $loaded_group->status == $group->status && isset($loaded_group->conditions['sitewide']) && isset($loaded_group->conditions['sitewide']['values']) && $loaded_group->conditions['sitewide']['values'][1] == $group->conditions['sitewide']['values'][1], 'Skin settings group object loaded properly.');
+
+    // Save a second group.
+    $second_group = (object) array(
+      'module' => 'block',
+      'element' => 'system__main-menu',
+      'title' => 'Default',
+      'description' => '',
+      'conditions' => array('sitewide' => array('values' => array(1 => 1))),
+      'condition_mode' => CONTEXT_CONDITION_MODE_OR,
+      'weight' => 0,
+      'status' => 1,
+    );
+    skinr_context_group_save($second_group);
+
+    // Test loading multiple groups.
+    $groups = skinr_context_group_load_multiple(array($group->gid, $second_group->gid));
+    $this->assertTrue(count($groups) == 2 && isset($groups[$group->gid]->gid) && isset($groups[$second_group->gid]->gid), 'Successfully loaded multiple skin settings groups.');
+
+    // Test loading all skin settings.
+    drupal_static_reset('skinr_context_group_load_multiple');
+    $groups = skinr_context_group_load_multiple(FALSE);
+    $this->assertTrue(count($groups) == 2 && isset($groups[$group->gid]->gid) && isset($groups[$second_group->gid]->gid), 'Successfully loaded all skin settings groups.');
+
+    // Test deleting groups.
+    $third_group = (object) array(
+      'module' => 'block',
+      'element' => 'system__main-menu',
+      'title' => 'Alternate',
+      'description' => '',
+      'conditions' => array('sitewide' => array('values' => array(1 => 1))),
+      'condition_mode' => CONTEXT_CONDITION_MODE_OR,
+      'weight' => 0,
+      'status' => 1,
+    );
+    $this->assertTrue(skinr_context_group_save($third_group), 'Skin settings group object saved.');
+
+    // Delete a single group.
+    $gid = $third_group->gid;
+    skinr_context_group_delete($gid);
+    $this->assertFalse(skinr_context_group_load($gid), 'Successfully deleted a skin settings group.');
+
+    // Delete multiple groups.
+    skinr_context_group_delete_multiple(array($group->gid, $second_group->gid));
+    $groups = skinr_context_group_load_multiple(FALSE);
+    $this->assertTrue(count($groups) == 0, 'Successfully deleted multiple skin settings groups.');
+  }
+
+  /**
+   * Test hook invocations for CRUD operations on skin settings groups.
+   */
+  public function testSkinrContextGroupHooks() {
+    $group = (object) array(
+      'module' => 'block',
+      'element' => 'system__user-menu',
+      'title' => 'Default',
+      'description' => '',
+      'conditions' => array('sitewide' => array('values' => array(1 => 1))),
+      'condition_mode' => CONTEXT_CONDITION_MODE_OR,
+      'weight' => 0,
+      'status' => 1,
+    );
+    $_SESSION['skinr_test'] = array();
+    skinr_context_group_save($group);
+    $this->verbose(highlight_string('<?php ' . var_export($group, TRUE), TRUE));
+    $this->verbose(highlight_string('<?php ' . var_export($_SESSION['skinr_test'], TRUE), TRUE));
+
+    $this->assertHookMessage('skinr_context_test_skinr_context_group_presave called');
+    $this->assertHookMessage('skinr_context_test_skinr_context_group_insert called');
+
+    $_SESSION['skinr_test'] = array();
+    $group = skinr_context_group_load($group->gid);
+
+    $this->assertHookMessage('skinr_context_test_skinr_context_group_load called');
+
+    $_SESSION['skinr_test'] = array();
+    $group = skinr_context_group_load_unchanged($group->gid);
+
+    $this->assertHookMessage('skinr_context_test_skinr_context_group_load called');
+
+    $_SESSION['skinr_test'] = array();
+    $group->status = 0;
+    skinr_context_group_save($group);
+
+    $this->assertHookMessage('skinr_context_test_skinr_context_group_presave called');
+    $this->assertHookMessage('skinr_context_test_skinr_context_group_update called');
+
+    $_SESSION['skinr_test'] = array();
+    skinr_context_group_delete($group->gid);
+
+    $this->assertHookMessage('skinr_context_test_skinr_context_group_delete called');
+  }
+}
+
+/**
+ * Tests API functionality.
+ *
+ * @link http://drupal.org/node/953336#comment-3738456 Make sure this patch is applied to drupal core @endlink
+ */
+class SkinrContextDisplayTestCase extends SkinrWebTestCase {
+  protected $profile = 'testing';
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Context Display',
+      'description' => 'Tests if applied skins appear on the front-end.',
+      'dependencies' => array('ctools', 'context'),
+      'group' => 'Skinr',
+    );
+  }
+
+  public function setUp() {
+    parent::setUp(array('block', 'skinr', 'skinr_context', 'skinr_test'));
+
+    $this->admin_user = $this->drupalCreateUser(array(
+      'administer blocks',
+    ));
+    $this->drupalLogin($this->admin_user);
+
+    // Enable main system block for content region and the user menu block for
+    // the first sidebar.
+    // @see http://drupal.org/node/913086
+    $default_theme = variable_get('theme_default', 'bartik');
+    db_merge('block')
+      ->key(array(
+        'theme' => $default_theme,
+        'module' => 'system',
+        'delta' => 'main',
+      ))
+      ->fields(array(
+        'status' => 1,
+        'region' => 'content',
+        'pages' => '',
+      ))
+      ->execute();
+    db_merge('block')
+      ->key(array(
+        'theme' => $default_theme,
+        'module' => 'system',
+        'delta' => 'user-menu',
+      ))
+      ->fields(array(
+        'status' => 1,
+        'region' => 'sidebar_first',
+        'pages' => '',
+      ))
+      ->execute();
+
+    // Enable Garland.
+    theme_enable(array('garland'));
+  }
+
+  public function testSkinrContextDisplayed() {
+    // Save a group.
+    $group = (object) array(
+      'module' => 'block',
+      'element' => 'system__main',
+      'title' => 'Default',
+      'description' => '',
+      'conditions' => array('path' => array('values' => array('<front>' => '<front>'))),
+      'condition_mode' => CONTEXT_CONDITION_MODE_OR,
+      'weight' => 0,
+      'status' => 1,
+    );
+    $this->assertTrue(skinr_context_group_save($group), 'Skin settings group object saved.');
+
+    // Save a skin configuration object.
+    $skin = (object) array(
+      'module' => 'block',
+      'element' => 'system__main',
+      'gid' => $group->gid,
+      'theme' => 'bartik',
+      'skin' => 'skinr_test_font',
+      'options' => array('font_1'),
+      'status' => 1,
+    );
+    $this->assertTrue(skinr_skin_save($skin), 'Skin configuration object was saved.');
+
+    // Go to the front page.
+    $this->drupalGet('');
+    $this->assertSkinrClass('block-system-main', 'font-1', 'CSS class of configured skin option found.');
+
+    // Check another page to make sure it only appears on the front page.
+    $this->drupalGet('user');
+    $this->assertNoSkinrClass('block-system-main', 'font-1', 'CSS class of configured skin option not found on other pages.');
+
+    // @todo Check for group B overriding group A.
+  }
+}

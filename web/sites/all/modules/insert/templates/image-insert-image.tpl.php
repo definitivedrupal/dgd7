@@ -2,12 +2,14 @@
 
 /**
  * @file
- * Template file for ImageCache content inserted via the Insert module.
+ * Template file for Image module content inserted via the Insert module.
  *
  * Available variables:
  * - $item: The complete item being inserted.
  * - $url: The URL to the image.
  * - $class: A set of classes assigned to this image (if any).
+ * - $width: The width of the image (if known).
+ * - $height: The height of the image (if known).
  * - $style_name: The Image style being used.
  *
  * Note that ALT and Title fields should not be filled in here, instead they
@@ -23,4 +25,4 @@
  *   use the file's name. i.e. __title_or_filename__.
  */
 ?>
-<img src="<?php print $url ?>" alt="__alt__" title="__title__" class="image-<?php print $style_name ?><?php print $class ? ' ' . $class : '' ?>" />
+<img src="<?php print $url ?>" <?php if ($width && $height): ?>width="<?php print $width; ?>" height="<?php print $height; ?>" <?php endif; ?>alt="__alt__" title="__title__" class="image-<?php print $style_name ?><?php print $class ? ' ' . $class : '' ?>" />

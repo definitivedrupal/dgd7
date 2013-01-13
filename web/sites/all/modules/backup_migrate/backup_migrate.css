@@ -19,10 +19,18 @@
 .backup-migrate-tables-checkboxes .form-item label.checked {
   background-color: #eee;
 }
+.backup-migrate-tables-checkboxes .form-item label input {
+  margin-right: .25em;
+}
+
 div.backup-migrate-tables-checkboxes {
-  height: 20em;
+  max-height: 40em;
   overflow: auto;
 }
+div.backup-migrate-description {
+  font-size: smaller;
+}
+
 
 div.row-error {
   color: #FF0000;

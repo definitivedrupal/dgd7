@@ -1,13 +1,13 @@
-; $Id: plus1.info,v 1.1.4.1 2008/09/07 22:14:32 chill35 Exp $
 name = Plus 1
-project = "plus1"
-
-description = "A +1 voting widget for nodes."
-package = Voting
-
-core = 7.x
-files[] = plus1.module
-files[] = plus1.install
+description = "A +1 voting widget for nodes and comments."
+package = Other
 dependencies[] = votingapi
+dependencies[] = ctools
+core = 7.x
 
-datestamp = "1237353342"
+; Information added by drupal.org packaging script on 2012-09-28
+version = "7.x-1.0-alpha1"
+core = "7.x"
+project = "plus1"
+datestamp = "1348837267"
+

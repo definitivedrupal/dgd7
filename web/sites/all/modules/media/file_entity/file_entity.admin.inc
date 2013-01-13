@@ -8,14 +8,8 @@
 /**
  * Displays the file type admin overview page.
  */
-function file_entity_list_types_page($type = NULL) {
-  if (isset($type)) {
-    $info = file_info_file_types($type);
-    $types = $info ? array($type => $info) : array();
-  }
-  else {
-    $types = file_info_file_types();
-  }
+function file_entity_list_types_page() {
+  $types = file_info_file_types();
   $entity_info = entity_get_info('file');
   $field_ui = module_exists('field_ui');
   $header = array(
@@ -48,7 +42,8 @@ function file_entity_list_types_page($type = NULL) {
 /**
  * Form callback; presents file display settings for a given view mode.
  */
-function file_entity_file_display_form($form, &$form_state, $file_type, $view_mode) {
+function file_entity_file_display_form($form, &$form_state, $bundle, $view_mode) {
+  $file_type = field_extract_bundle('file', $bundle);
   $form['#file_type'] = $file_type;
   $form['#view_mode'] = $view_mode;
   $form['#tree'] = TRUE;

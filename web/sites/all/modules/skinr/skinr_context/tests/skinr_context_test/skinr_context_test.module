@@ -1,0 +1,61 @@
+<?php
+
+/**
+ * @file
+ * Skinr Context testing module.
+ */
+
+//
+// Presave hooks
+//
+
+/**
+ * Implements hook_skinr_context_group_presave().
+ */
+function skinr_context_test_skinr_context_group_presave() {
+  $_SESSION['skinr_test'][] = (__FUNCTION__ . ' called');
+}
+
+//
+// Insert hooks
+//
+
+/**
+ * Implements hook_skinr_context_group_insert().
+ */
+function skinr_context_test_skinr_context_group_insert() {
+  $_SESSION['skinr_test'][] = (__FUNCTION__ . ' called');
+}
+
+//
+// Load hooks
+//
+
+/**
+ * Implements hook_skinr_context_group_load().
+ */
+function skinr_context_test_skinr_context_group_load() {
+  $_SESSION['skinr_test'][] = (__FUNCTION__ . ' called');
+}
+
+//
+// Update hooks
+//
+
+/**
+ * Implements hook_skinr_context_group_update().
+ */
+function skinr_context_test_skinr_context_group_update() {
+  $_SESSION['skinr_test'][] = (__FUNCTION__ . ' called');
+}
+
+//
+// Delete hooks
+//
+
+/**
+ * Implements hook_skinr_context_group_delete().
+ */
+function skinr_context_test_skinr_context_group_delete() {
+  $_SESSION['skinr_test'][] = (__FUNCTION__ . ' called');
+}

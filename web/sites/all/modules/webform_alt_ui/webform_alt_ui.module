@@ -68,15 +68,34 @@ function webform_alt_ui_menu_alter(&$items) {
   $items['node/%webform_menu/done']['page callback'] = '_webform_alt_ui_confirmation';
 }
 
-/*
+/**
  * The form_builder_positions form needs to be on the page but not within the
  * node edit form.
  */
 function webform_alt_ui_page_alter(&$page) {
-  if (isset($page['content']['system_main']['#node_edit_form']) && isset($page['content']['system_main']['webform'])) {
+  // If the main page content is not found in the expected place (for example,
+  // if the Block module isn't being used, or if the main content block is not
+  // in the expected region of the page) we need to get the fallback content
+  // that drupal_render_page() will eventually place there.
+  if (!isset($page['content']['system_main'])) {
+    // First we need to get the state of the content added.
+    $main_content_display = &drupal_static('system_main_content_added', FALSE);
+    $original_main_content_display = $main_content_display;
+    // Next retrieve the actual main page content that will be used.
+    $main = drupal_set_page_content();
+    // Finally, we must set the main_content_display variable back to its
+    // original state to make sure we don't get in the way of the page
+    // rendering.
+    $main_content_display = $original_main_content_display;
+  }
+  // Otherwise, just get the main page content from the expected place.
+  else {
+    $main = $page['content']['system_main'];
+  }
+  if (isset($main['#node_edit_form']) && isset($main['webform'])) {
     // If this is a new node, there will be no nid, so a temporary form_builder id
     // is created from the form token.
-    $nid = isset($page['content']['system_main']['nid']['#value']) ? $page['content']['system_main']['nid']['#value'] : $page['content']['system_main']['#form_builder_token'];
+    $nid = isset($main['nid']['#value']) ? $main['nid']['#value'] : $main['#form_builder_token'];
 
     // Set the active form
     form_builder_active_form('webform', $nid);
@@ -144,14 +163,31 @@ function webform_alt_ui_theme() {
   );
 }
 
-/*
+/**
  * Implements hook_element_info_alter();
  */
 function webform_alt_ui_element_info_alter(&$type) {
   $type['options']['#pre_render'][] = 'webform_alt_ui_pre_render_option';
 }
 
-/*
+/**
+ * Load a component file into memory.
+ *
+ * @param $form_state
+ *   $form_state from a form.
+ * @param $component_type
+ *   The string machine name of a component.
+ */
+function webform_alt_ui_component_include(&$form_state, $component_info) {
+  if (isset($component_info['file'])) {
+    $pathinfo = pathinfo($component_info['file']);
+    $basename = basename($pathinfo['basename'], '.' . $pathinfo['extension']);
+    $path = (!empty($pathinfo['dirname']) ? $pathinfo['dirname'] . '/' : '') . $basename;
+    form_load_include($form_state, $pathinfo['extension'], $component_info['module'], $path);
+  }
+}
+
+/**
  * Implements hook_form_alter().
  *
  * This form alter adds the fields and handling for the separate webform_configure_form
@@ -166,6 +202,22 @@ function webform_alt_ui_form_alter(&$form, &$form_state, $form_id) {
     form_load_include($form_state, 'inc', 'form_builder', 'includes/form_builder.api');
     form_load_include($form_state, 'inc', 'webform', 'includes/webform.pages');
     form_load_include($form_state, 'inc', 'webform', 'includes/webform.components');
+
+    // If the node title is empty, the form validation fails.
+    // This makes the form inconsistent (new data is in the form builder cache,
+    // old data gets rendered with the cached form).
+    // This value callback ensures that the node will always have a title.
+    $form['title']['#value_callback'] = 'webform_alt_ui_node_title_value';
+
+    // @see http://drupal.org/node/1332100 if a webform has a file field attached
+    // then ajax actions like removing a file results in a
+    // PHP Fatal error:  Call to undefined function webform_expand_checkboxes()
+    // The webform patch from quicksketch doesn't seem to be enough, but using
+    // form_load_include() here seems to work.
+    $components = webform_components(TRUE);
+    foreach ($components as $component_type => $component) {
+      webform_alt_ui_component_include($form_state, $component);
+    }
 
     // Modify the form.
     _webform_alt_ui_horizontal_tabs($form, $form_state);
@@ -213,6 +265,21 @@ function webform_alt_ui_form_alter(&$form, &$form_state, $form_id) {
     // Add the form_builder cache clear to the delete action
     $form['actions']['delete']['#submit'][] = 'webform_alt_ui_clear_cache';
   }
+}
+
+/**
+ * Value callback for the node title.
+ */
+function webform_alt_ui_node_title_value($element, $input = FALSE, $form_state = array()) {
+  if ($input === FALSE) {
+    $input = isset($element['#default_value']) ? $element['#default_value'] : '';
+  }
+
+  if (!$input && !empty($form_state['input'])) {
+    $input = t('Untitled webform');
+  }
+
+  return $input;
 }
 
 /**
@@ -588,6 +655,9 @@ function _webform_alt_ui_alter_confirm_redirect_settings(&$form, &$form_state, $
  * Helper function for altering part of the webform settings form.
  */
 function _webform_alt_ui_alter_submit_limit_settings(&$form, &$form_state, $node) {
+  // Hide the "total submissions limit" section for now.
+  $form['submission']['total_submit_limit']['#access'] = FALSE;
+
   // Remove all theming from the submission limit settings; for us it is just
   // an array container to hold other form elements that will be displayed.
   foreach (element_properties($form['submission']['submit_limit']) as $property) {
@@ -610,7 +680,7 @@ function _webform_alt_ui_alter_submit_limit_settings(&$form, &$form_state, $node
   $form['submission']['submit_limit']['submit_limit']['#default_value'] = $node->webform['submit_limit'] != -1 ? $node->webform['submit_limit'] : 1;
 
   // Other cosmetic adjustments.
-  $form['submission']['submit_limit']['submit_limit']['#prefix'] = '<div class="limit-wrapper">' . t('Limit to: ');
+  $form['submission']['submit_limit']['submit_limit']['#prefix'] = '<div class="limit-wrapper">' . t('Limit each user to: ');
   $form['submission']['submit_limit']['submit_interval']['#prefix'] = ' ' . t('submission(s)') . ' ';
   $form['submission']['submit_limit']['submit_interval']['#suffix'] = '</div>';
 }
@@ -648,13 +718,16 @@ function _webform_alt_ui_add_submission_email_settings(&$form, &$form_state, &$n
     '#title' => t('Send a confirmation e-mail'),
     '#default_value' => !empty($existing_email),
   );
-  $dependent_on_checkbox = array(
-    'visible' => array(
-      ':input[name="submission_email_checkbox"]' => array('checked' => TRUE),
+
+  $form['submission']['submission_email'] = array(
+    '#tree' => TRUE,
+    '#type' => 'container',
+    '#states' => array(
+      'visible' => array(
+        ':input[name="submission_email_checkbox"]' => array('checked' => TRUE),
+      ),
     ),
   );
-
-  $form['submission']['submission_email']['#tree'] = TRUE;
   $form['submission']['submission_email']['eid'] = array(
     '#type' => 'value',
     '#value' => ($existing_email ? $existing_email['eid'] : NULL),
@@ -663,19 +736,20 @@ function _webform_alt_ui_add_submission_email_settings(&$form, &$form_state, &$n
     '#type' => 'textfield',
     '#title' => t('To'),
     '#default_value' => $existing_email ? $existing_email['email'] : variable_get('site_mail', ''),
-    '#states' => $dependent_on_checkbox,
   );
   $form['submission']['submission_email']['subject'] = array(
     '#type' => 'textfield',
     '#title' => t('Subject'),
     '#default_value' => $existing_email ? $existing_email['subject']: t('Webform submission received'),
-    '#states' => $dependent_on_checkbox,
   );
   $form['submission']['submission_email']['template'] = array(
     '#type' => 'textarea',
     '#title' => t('Body'),
     '#default_value' => $existing_email ? $existing_email['template'] : t('A visitor completed a webform on your site. Please visit your website and click the webform\'s "Results" tab to review the submission.'),
-    '#states' => $dependent_on_checkbox,
+  );
+  $form['submission']['submission_email']['tokens'] = array(
+    '#type' => 'markup',
+    '#markup' => theme('webform_token_help', array('groups' => 'all')),
   );
   $form['#validate'][] = '_webform_alt_ui_validate_submission_email';
 
@@ -954,11 +1028,18 @@ function webform_alt_ui_form_form_builder_field_configure_alter(&$form, &$form_s
   // vertical_accordions.
   $form['#pre_render'][] = 'webform_alt_ui_pre_render_field_configure';
 
+  $form['title']['#description'] = '<small>' .
+    t('Machine name: %machine-name', array(
+      '%machine-name' => $form['#_edit_element']['#key'],
+    )) .
+    '</small>';
+
   // Set a default of showing a checkbox for the properties in this form.
   $holder = array();
   $keys = element_children($form);
   foreach($keys as $key) {
-    if (!in_array($form[$key]['#type'], array('checkbox', 'hidden', 'button', 'submit')) && !$form[$key]['#required']) {
+    $required = isset($form[$key]['#required']) && $form[$key]['#required'];
+    if (isset($form[$key]['#type']) && !in_array($form[$key]['#type'], array('checkbox', 'hidden', 'button', 'submit')) && !$required) {
       $form[$key]['#checkbox'] = TRUE;
     }
   }
@@ -1154,7 +1235,7 @@ function webform_alt_ui_form_form_builder_preview_alter(&$form, &$form_state) {
   //   because webform_component_include() gets called from form and non-form
   //   contexts. When time permits, submit an appropriate patch to the Webform
   //   project.
-  if ($form_state['build_info']['args'][1] === 'webform') {
+  if (isset($form_state['build_info']['args'][1]) && $form_state['build_info']['args'][1] === 'webform') {
     // @todo When the fix is moved to the Webform module, it should be possible
     //   to lazy-load files for only the component types used by the current
     //   form. But from within here, it's hard to determine what those are, so
@@ -1189,11 +1270,20 @@ function webform_alt_ui_pre_process_preview($form) {
  *
  * This lets us tie in a form in the page generation process.
  */
-function webform_alt_ui_results_submissions($node, $user_filter, $pager_count, $extra_filters = array()) {
-  $form = drupal_get_form('webform_alt_ui_result_buttons', $node, $user_filter, $extra_filters);
+function webform_alt_ui_results_submissions($node, $user_filter, $pager_count) {
+  // This callback is invoked by node/NID/webform-results and by
+  // node/NID/submissions. The latter is available to people who may not have
+  // access to view all submissions for this webform, so protect the CSV file
+  // accordingly.
+  // @todo Might be a UI improvement for the form generated from
+  //   node/NID/submissions to trigger a CSV file that contains the current
+  //   user's submissions only, so that it matches what is displayed on the
+  //   page. However, webform_results_download() does not currently support
+  //   filters.
+  $form = webform_results_access($node) ? drupal_get_form('webform_alt_ui_result_buttons', $node) : array();
 
   module_load_include('inc', 'webform', 'includes/webform.report');
-  $page = webform_results_submissions($node, $user_filter, $pager_count, $extra_filters);
+  $page = webform_results_submissions($node, $user_filter, $pager_count);
 
   // Line up the page components in order.
   return array(array('#type' => 'markup', '#markup' => $page), $form);
@@ -1202,10 +1292,9 @@ function webform_alt_ui_results_submissions($node, $user_filter, $pager_count, $
 /**
  * Form for our overriden webforms result page.
  */
-function webform_alt_ui_result_buttons($form, &$form_state, $node, $user_filter, $extra_filters) {
-  $form = array(
+function webform_alt_ui_result_buttons($form, &$form_state, $node) {
+  return array(
     '#node' => $node,
-    '#user_filter' => $user_filter,
     'buttons' => array(
       'download' => array(
         '#type' => 'submit',
@@ -1214,37 +1303,21 @@ function webform_alt_ui_result_buttons($form, &$form_state, $node, $user_filter,
       'clear' => array(
         '#type' => 'submit',
         '#value' => t('Clear'),
-        // @todo At some point, allow the user to clear just his or her own
-        //   submissions. Until then, remove the Clear button from the page
-        //   where the user is only viewing own submissions.
-        '#access' => !$user_filter,
       ),
     )
   );
-
-  $form_state['extra_filters'] = $extra_filters;
-
-  return $form;
 }
 
 /**
  * Form submission for our overriden webforms result page.
  */
 function webform_alt_ui_result_buttons_submit($form, &$form_state) {
-  global $user;
-
-  if (!empty($form_state['values']['op'])) {
-    if ($form_state['values']['op'] == $form_state['values']['clear']) {
-      $form_state['redirect'] = 'node/' . $form['#node']->nid . '/webform-results/clear';
-    }
-    elseif ($form_state['values']['op'] == $form_state['values']['download']) {
-      form_load_include($form_state, 'inc', 'webform', 'includes/webform.report');
-      $extra_filters = isset($form_state['extra_filters']) ? $form_state['extra_filters'] : array();
-      if ($form['#user_filter']) {
-        $extra_filters['uid'] = $user->uid;
-      }
-      webform_results_download($form['#node'], 'delimited', array(), $extra_filters);
-    }
+  if ($form_state['values']['op'] == $form_state['values']['clear']) {
+    $form_state['redirect'] = 'node/' . $form['#node']->nid . '/webform-results/clear';
+  }
+  elseif ($form_state['values']['op'] == $form_state['values']['download']) {
+    form_load_include($form_state, 'inc', 'webform', 'includes/webform.report');
+    webform_results_download($form['#node']);
   }
 }
 
@@ -1420,7 +1493,7 @@ function webform_alt_ui_form_webform_admin_settings_alter(&$form, &$form_state, 
       'input[name=webform_export_format]' => array('checked' => FALSE),
     ),
   );
-  
+
   $form['components']['file']['#title'] = t('File upload');
   $form['components']['hidden']['#title'] = t('Hidden field');
   $form['components']['textarea']['#title'] = t('Multi-line textfield');
@@ -1532,7 +1605,7 @@ function theme_webform_alt_ui_submission_navigation($vars) {
   $previous = $vars['previous'];
   $previous_url = $vars['previous_url'];
   $next_url = $vars['next_url'];
-  
+
   $output = '<div class="webform-submission-navigation">';
 
   drupal_add_css(drupal_get_path('module', 'webform_alt_ui') . '/css/webform_alt_ui.css');
@@ -1550,7 +1623,7 @@ function theme_webform_alt_ui_submission_navigation($vars) {
   }
 
   $output .= '</div>';
-    
+
   return $output;
 }
 
@@ -1562,7 +1635,7 @@ function webform_alt_ui_preprocess_webform_submission_information(&$vars) {
     ->condition('nid', $vars['node']->nid)
     ->condition('sid', $vars['submission']->sid, '<=');
   $vars['count']['current'] = $query->countQuery()->execute()->fetchField();
-  
+
   $vars['count']['total'] = webform_get_submission_count($vars['node']->nid);
 }
 
@@ -1595,7 +1668,7 @@ function webform_alt_ui_webform_submission_render_alter(&$renderable) {
 
 function webform_alt_ui_append_colon(&$element) {
   foreach(element_children($element) as $key) {
-    if ($element[$key]['#type'] != 'fieldset') {
+    if (isset($element[$key]['#type']) && ($element[$key]['#type'] != 'fieldset')) {
       $element[$key]['#title'] .= ':';
     }
     webform_alt_ui_append_colon($element[$key]);

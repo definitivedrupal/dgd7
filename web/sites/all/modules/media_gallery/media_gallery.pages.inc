@@ -15,12 +15,11 @@ function media_gallery_list_galleries($term) {
   // Add front-end resources for drag-and-drop sorting.
   if (user_access('administer media galleries')) {
     drupal_add_library('system', 'ui.sortable');
+    drupal_add_library('system', 'jquery.bbq');
     drupal_add_js(drupal_get_path('module', 'media_gallery') . '/media_gallery.dragdrop.js');
     drupal_add_css(drupal_get_path('module', 'media_gallery') . '/media_gallery.dragdrop.css');
-    drupal_add_js(array(
-        'mediaGalleryTid' => $term->tid,
-        'mediaGalleryToken' => drupal_get_token('media_gallery'),
-      ), array('type' => 'setting'));
+    $sort_collection_url = url('media-gallery/sort/collection/' . $term->tid . '/' . drupal_get_token('media_gallery'));
+    drupal_add_js(array('mediaGallerySortCollectionUrl' => $sort_collection_url), array('type' => 'setting'));
   }
   // Build breadcrumb based on the hierarchy of the term.
   $current = (object) array(
@@ -65,9 +64,12 @@ function media_gallery_list_galleries($term) {
   else {
     $build['no_content'] = array(
       '#prefix' => '<p>',
-      '#markup' => t('No galleries have been set up yet. <a href="@link">Add a gallery.</a>', array('@link' => url('node/add/media-gallery'))),
+      '#markup' => t('No galleries have been set up yet.'),
       '#suffix' => '</p>',
     );
+    if (node_access('create', 'media-gallery')) {
+      $build['no_content']['#markup'] .= ' ' . t('<a href="@link">Add a gallery.</a>', array('@link' => url('node/add/media-gallery')));
+    }
   }
   return $build;
 }
@@ -109,7 +111,13 @@ function media_gallery_lightbox_page($gallery_node, $file) {
 function media_gallery_lightbox_page_deliver($page_content) {
   // Display an error message if something went wrong.
   if (!isset($page_content) || is_int($page_content)) {
-    $content = array('#markup' => t('An unexpected error occurred. Please try again later.'));
+    if (is_int($page_content) && $page_content == MENU_ACCESS_DENIED) {
+      watchdog('access denied', check_plain($_GET['q']), NULL, WATCHDOG_WARNING);
+      $content = array('#markup' => t('You are not authorized to access this page.'));
+    }
+    else {
+      $content = array('#markup' => t('An unexpected error occurred. Please try again later.'));
+    }
   }
   // This shouldn't happen, but just in case.
   elseif (is_string($page_content)) {
@@ -186,7 +194,7 @@ function _media_gallery_sanitize_ids($prefix, $list) {
  */
 function media_gallery_reorder_collection($collection, $order) {
   // Get a complete ordered list of the galleries in this collection.
-  $galleries = db_query('SELECT ti.nid FROM {taxonomy_index} ti LEFT JOIN {media_gallery_weight} mgw on ti.nid = mgw.nid WHERE ti.tid = :tid ORDER BY mgw.weight ASC, ti.nid ASC', array(':tid' => $collection->tid))->fetchCol();
+  $galleries = db_query('SELECT ti.nid FROM {taxonomy_index} ti LEFT JOIN {media_gallery_weight} mgw ON (ti.nid = mgw.nid AND ti.tid = mgw.tid) WHERE ti.tid = :tid ORDER BY mgw.weight ASC, ti.nid ASC', array(':tid' => $collection->tid))->fetchCol();
   // Sort the list.
   $galleries = _media_gallery_reorder($galleries, $order);
   // Resave gallery weights for the entire collection.
@@ -211,7 +219,7 @@ function media_gallery_reorder_collection($collection, $order) {
  */
 function media_gallery_reorder_gallery($gallery, $order) {
   $media_field = $gallery->media_gallery_media[LANGUAGE_NONE];
-
+  $offset = 0;
   if (!empty($_POST['page'])) {
     $page = array_pop(explode(',', $_POST['page']));
     $num_per_page = $gallery->media_gallery_columns[LANGUAGE_NONE][0]['value'] * $gallery->media_gallery_rows[LANGUAGE_NONE][0]['value'];
@@ -263,7 +271,7 @@ function media_gallery_add_images($node) {
   $fids = $_POST['files'];
 
   // Determine which file ids are already included in this gallery.
-  $items = $node->media_gallery_media[LANGUAGE_NONE];
+  $items = isset($node->media_gallery_media[LANGUAGE_NONE]) ? $node->media_gallery_media[LANGUAGE_NONE] : array();
   foreach ($items as $item) {
     $existing_fids[$item['fid']] = TRUE;
   }

@@ -1,7 +1,14 @@
 <?php
 
 /**
+ * @file
+ * Definition of views_handler_filter_locale_language.
+ */
+
+/**
  * Filter by language.
+ *
+ * @ingroup views_filter_handlers
  */
 class views_handler_filter_locale_language extends views_handler_filter_in_operator {
   function get_value_options() {

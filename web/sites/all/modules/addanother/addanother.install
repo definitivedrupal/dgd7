@@ -34,7 +34,7 @@ function addanother_update_7001() {
   $tab = variable_get('addanother_tab', FALSE);
   $tabedit = variable_get('addanother_tab_edit', FALSE);
   $message = variable_get('addanother_message', FALSE);
-  
+
   foreach ($types as $type) {
     $typeid = $type->type;
     if (!empty($addanother_nodetypes[$typeid])) {
@@ -48,11 +48,19 @@ function addanother_update_7001() {
         variable_set('addanother_tab_edit_' . $typeid, TRUE);
       }
     }
-    
+
   }
   variable_del('addanother_nodetypes');
   variable_del('addanother_tab');
   variable_del('addanother_tab_edit');
   variable_del('addanother_message');
   return t('Existing Add another node options have been upgraded.  Please review the new Add another options for each node type.');
+}
+
+/**
+ * Clears site-wide menu cache as our callback and access arguments have changed.
+ */
+function addanother_update_7002() {
+  cache_clear_all(NULL, 'cache_menu');
+  menu_rebuild();
 }

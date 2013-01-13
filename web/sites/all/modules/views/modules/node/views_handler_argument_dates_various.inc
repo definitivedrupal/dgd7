@@ -1,4 +1,12 @@
 <?php
+
+/**
+ * @file
+ * Handlers for various date arguments.
+ *
+ * @ingroup views_argument_handlers
+ */
+
 /**
  * Argument handler for a full date (CCYYMMDD)
  */

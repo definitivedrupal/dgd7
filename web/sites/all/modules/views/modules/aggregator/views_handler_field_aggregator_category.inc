@@ -1,8 +1,15 @@
 <?php
 
 /**
+ * @file
+ * Definition of views_handler_field_aggregator_category.
+ */
+
+/**
  * Field handler to provide simple renderer that allows linking to aggregator
  * category.
+ *
+ * @ingroup views_field_handlers
  */
 class views_handler_field_aggregator_category extends views_handler_field {
   /**
@@ -15,7 +22,7 @@ class views_handler_field_aggregator_category extends views_handler_field {
 
   function option_definition() {
     $options = parent::option_definition();
-    $options['link_to_category'] = array('default' => FALSE);
+    $options['link_to_category'] = array('default' => FALSE, 'bool' => TRUE);
     return $options;
   }
 

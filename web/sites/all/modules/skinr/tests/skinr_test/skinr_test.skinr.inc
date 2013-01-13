@@ -29,7 +29,11 @@ function skinr_test_skinr_skin_info() {
     'theme hooks' => array('block', 'region'),
     'default status' => 1,
     'attached' => array(
-      'css' => array('skinr_test.css'),
+      'css' => array(
+        'skinr_test.css',
+        'skinr_test_advanced.css' => array('group' => CSS_THEME, 'weight' => 999),
+        array('data' => 'skinr_test_data.css', 'group' => CSS_THEME, 'weight' => 999),
+      ),
       'js' => array('skinr_test.js'),
     ),
     'options' => array(

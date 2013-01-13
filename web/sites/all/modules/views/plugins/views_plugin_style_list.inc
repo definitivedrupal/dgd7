@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * Contains the list style plugin.
@@ -50,4 +51,3 @@ class views_plugin_style_list extends views_plugin_style {
     );
   }
 }
-

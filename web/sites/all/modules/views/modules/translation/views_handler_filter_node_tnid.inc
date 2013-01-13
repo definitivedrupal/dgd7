@@ -1,6 +1,14 @@
 <?php
+
+/**
+ * @file
+ * Definition of views_handler_filter_node_tnid.
+ */
+
 /**
  * Filter by whether the node is the original translation.
+ *
+ * @ingroup views_filter_handlers
  */
 class views_handler_filter_node_tnid extends views_handler_filter {
   function admin_summary() { }
@@ -32,6 +40,6 @@ class views_handler_filter_node_tnid extends views_handler_filter {
   function query() {
     $table = $this->ensure_my_table();
     // Select for source translations (tnid = nid). Conditionally, also accept either untranslated nodes (tnid = 0).
-    $this->query->add_where($this->options['group'], "$table.tnid = $table.nid" . ($this->operator ? " OR $table.tnid = 0" : ''));
+    $this->query->add_where_expression($this->options['group'], "$table.tnid = $table.nid" . ($this->operator ? " OR $table.tnid = 0" : ''));
   }
 }

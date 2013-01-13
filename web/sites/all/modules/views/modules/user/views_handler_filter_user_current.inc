@@ -1,7 +1,14 @@
 <?php
 
 /**
- * Filter handler for the current user
+ * @file
+ * Definition of views_handler_filter_user_current.
+ */
+
+/**
+ * Filter handler for the current user.
+ *
+ * @ingroup views_filter_handlers
  */
 class views_handler_filter_user_current extends views_handler_filter_boolean_operator {
   function construct() {

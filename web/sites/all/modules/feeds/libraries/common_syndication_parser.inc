@@ -201,7 +201,19 @@ function _parser_common_syndication_atom10_parse($feed_XML) {
     $item['title'] = _parser_common_syndication_title($title, $body);
     $item['description'] = $body;
     $item['author_name'] = $original_author;
-    $item['timestamp'] = _parser_common_syndication_parse_date(isset($news->published) ? "{$news->published}" : "{$news->issued}");
+
+    // Fall back to updated for timestamp if both published and issued are
+    // empty.
+    if (isset($news->published)) {
+      $item['timestamp'] = _parser_common_syndication_parse_date("{$news->published}");
+    }
+    elseif (isset($news->issued)) {
+       $item['timestamp'] = _parser_common_syndication_parse_date("{$news->issued}");
+    }
+    elseif (isset($news->updated)) {
+      $item['timestamp'] = _parser_common_syndication_parse_date("{$news->updated}");
+    }
+
     $item['url'] = trim($original_url);
     if (valid_url($item['url']) && !valid_url($item['url'], TRUE) && !empty($base)) {
       $item['url'] = $base . $item['url'];
@@ -571,8 +583,8 @@ function _parser_common_syndication_link($links) {
 function _parser_common_syndication_title($title, $body = FALSE) {
   if (empty($title) && !empty($body)) {
     // Explode to words and use the first 3 words.
-    $words = preg_split("/[\s,]+/", strip_tags($body));
-    $title = $words[0] . ' ' . $words[1] . ' ' . $words[2];
+    $words = preg_split('/[\s,]+/', strip_tags($body));
+    $title = implode(' ', array_slice($words, 0, 3));
   }
   return $title;
 }

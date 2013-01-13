@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * @file
+ * Definition of ViewsHandlerFieldCustomTest.
+ */
+
+/**
+ * Tests the core views_handler_field_custom handler.
+ */
 class ViewsHandlerFieldCustomTest extends ViewsSqlTest {
   public static function getInfo() {
     return array(
@@ -34,6 +42,6 @@ class ViewsHandlerFieldCustomTest extends ViewsSqlTest {
 
     $this->executeView($view);
 
-    $this->assertEqual($random, $view->field['name']->advanced_render($view->result[0]));
+    $this->assertEqual($random, $view->style_plugin->get_field(0, 'name'));
   }
 }

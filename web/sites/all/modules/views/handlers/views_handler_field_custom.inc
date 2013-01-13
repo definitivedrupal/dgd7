@@ -1,6 +1,11 @@
 <?php
 
 /**
+ * @file
+ * Definition of views_handler_field_custom.
+ */
+
+/**
  * A handler to provide a field that is completely custom by the administrator.
  *
  * @ingroup views_field_handlers
@@ -14,7 +19,8 @@ class views_handler_field_custom extends views_handler_field {
     $options = parent::option_definition();
 
     // Override the alter text option to always alter the text.
-    $options['alter']['contains']['alter_text'] = array('default' => TRUE);
+    $options['alter']['contains']['alter_text'] = array('default' => TRUE, 'bool' => TRUE);
+    $options['hide_alter_empty'] = array('default' => FALSE, 'bool' => TRUE);
     return $options;
   }
 
@@ -31,8 +37,8 @@ class views_handler_field_custom extends views_handler_field {
   }
 
   function render($values) {
-    // Nothing to render.
-    return '';
+    // Return the text, so the code never thinks the value is empty.
+    return $this->options['alter']['text'];
   }
 }
 

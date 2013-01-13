@@ -10,7 +10,7 @@ Drupal.media_gallery = {};
 
 Drupal.media_gallery.open_browser = function (event) {
   event.preventDefault();
-  var pluginOptions = { 'id': 'media_gallery', 'multiselect' : true , 'types': ['image', 'video']};
+  var pluginOptions = { 'id': 'media_gallery', 'multiselect' : true , 'types': Drupal.settings.mediaGalleryAllowedMediaTypes};
   Drupal.media.popups.mediaBrowser(Drupal.media_gallery.add_media, pluginOptions);
 };
 
@@ -25,7 +25,7 @@ Drupal.media_gallery.add_media = function (mediaFiles) {
     //console.warn('Error: Media not added.');
   };
 
-  var src = Drupal.settings.basePath + 'media-gallery/add-images/' + Drupal.settings.mediaGalleryNid + '/' + Drupal.settings.mediaGalleryToken;
+  var src = Drupal.settings.mediaGalleryAddImagesUrl;
 
   var media = [];
 

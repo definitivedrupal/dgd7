@@ -79,12 +79,12 @@ class FeedsHTTPFetcher extends FeedsFetcher {
       catch (Exception $e) {
         // In case of an error, respond with a 503 Service (temporary) unavailable.
         header('HTTP/1.1 503 "Not Found"', NULL, 503);
-        exit();
+        drupal_exit();
       }
     }
     // Will generate the default 200 response.
     header('HTTP/1.1 200 "OK"', NULL, 200);
-    exit();
+    drupal_exit();
   }
 
   /**
@@ -147,6 +147,8 @@ class FeedsHTTPFetcher extends FeedsFetcher {
    * Override parent::sourceFormValidate().
    */
   public function sourceFormValidate(&$values) {
+    $values['source'] = trim($values['source']);
+
     if (!feeds_valid_url($values['source'], TRUE)) {
       $form_key = 'feeds][' . get_class($this) . '][source';
       form_set_error($form_key, t('The URL %source is invalid.', array('%source' => $values['source'])));
@@ -164,7 +166,15 @@ class FeedsHTTPFetcher extends FeedsFetcher {
    */
   public function sourceSave(FeedsSource $source) {
     if ($this->config['use_pubsubhubbub']) {
-      $this->subscribe($source);
+      // If this is a feeds node we want to delay the subscription to
+      // feeds_exit() to avoid transaction race conditions.
+      if ($source->feed_nid) {
+        $job = array('fetcher' => $this, 'source' => $source);
+        feeds_set_subscription_job($job);
+      }
+      else {
+        $this->subscribe($source);
+      }
     }
   }
 
@@ -173,7 +183,20 @@ class FeedsHTTPFetcher extends FeedsFetcher {
    */
   public function sourceDelete(FeedsSource $source) {
     if ($this->config['use_pubsubhubbub']) {
-      $this->unsubscribe($source);
+      // If we're in a feed node, queue the unsubscribe,
+      // else process immediately.
+      if ($source->feed_nid) {
+        $job = array(
+          'type' => $source->id,
+          'id' => $source->feed_nid,
+          'period' => 0,
+          'periodic' => FALSE,
+        );
+        JobScheduler::get('feeds_push_unsubscribe')->set($job);
+      }
+      else {
+        $this->unsubscribe($source);
+      }
     }
   }
 
@@ -285,7 +308,7 @@ class PuSHEnvironment implements PuSHSubscriberEnvironmentInterface {
    * Implements PuSHSubscriberEnvironmentInterface::msg().
    */
   public function msg($msg, $level = 'status') {
-    drupal_set_message($msg, $level);
+    drupal_set_message(check_plain($msg), $level);
   }
 
   /**

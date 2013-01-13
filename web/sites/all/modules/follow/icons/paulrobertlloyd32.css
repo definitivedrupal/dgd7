@@ -1,0 +1,90 @@
+
+a.follow-link {
+	height: 38px;
+	display: block;
+	line-height: 34px;
+	padding-left: 33px;
+	background-position: 0 0;
+	background-repeat: no-repeat;
+	padding-right: 5px;
+}
+
+span.follow-link-wrapper a {
+	float: left;
+}
+
+a.follow-link-facebook {
+	background-image: url(paulrobertlloyd/facebook-32x32.png);
+}
+
+a.follow-link-googleplus {
+  background-image: url(paulrobertlloyd/google+-32x32.png);
+}
+
+a.follow-link-myspace {
+	background-image: url(paulrobertlloyd/vcard-32x32.png);
+}
+
+a.follow-link-virb {
+	background-image: url(paulrobertlloyd/netvibes-32x32.png);
+}
+
+a.follow-link-bliptv {
+	background-image: url(paulrobertlloyd/bebo-32x32.png);
+}
+
+a.follow-link-lastfm {
+	background-image: url(paulrobertlloyd/lastfm-32x32.png);
+}
+
+a.follow-link-youtube {
+	background-image: url(paulrobertlloyd/youtube-32x32.png);
+}
+
+a.follow-link-twitter {
+	background-image: url(paulrobertlloyd/twitter-32x32.png);
+}
+
+a.follow-link-picasa {
+	background-image: url(paulrobertlloyd/picasa-32x32.png);
+}
+
+a.follow-link-flickr {
+	background-image: url(paulrobertlloyd/flickr-32x32.png);
+}
+
+a.follow-link-vimeo {
+	background-image: url(paulrobertlloyd/vimeo-32x32.png);
+}
+
+a.follow-link-linkedin {
+	background-image: url(paulrobertlloyd/linkedin-32x32.png);
+}
+
+a.follow-link-delicious {
+	background-image: url(paulrobertlloyd/delicious-32x32.png);
+}
+
+a.follow-link-tumblr {
+	background-image: url(paulrobertlloyd/tumblr-32x32.png);
+}
+
+a.follow-link-this-site {
+	background-image: url(paulrobertlloyd/feed-32x32.png);
+}
+
+a.follow-link-viadeo {
+  background-image: url(paulrobertlloyd/viddler-32x32.png);
+}
+
+a.follow-link-xing {
+	background-image: url(paulrobertlloyd/xing-32x32.png);
+}
+
+a.follow-link-spiceworks {
+	background-image: url(paulrobertlloyd/spiceworks-32x32.png);
+}
+
+a.follow-link-newsletter {
+	background-image: url(paulrobertlloyd/newsletter-32x32.png);
+}

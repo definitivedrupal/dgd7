@@ -13,6 +13,40 @@ function views_skinr_config_info() {
 }
 
 /**
+ * Implements hook_skinr_ui_element_options().
+ */
+function views_skinr_ui_element_options($theme_name = NULL) {
+  $options = array('views' => array());
+
+  $views = views_get_all_views();
+  // Load all enabled blocks.
+  foreach ($views as $view) {
+    foreach ($view->display as $display) {
+      $name = $view->name . '__' . $display->id;
+      // Fake indentation for views sub-items for better visual result.
+      $options['views']['&#160;&#160;&#160;' . $view->human_name][$name] = $display->display_title;
+    }
+  }
+  ksort($options['views']);
+
+  return $options;
+}
+
+/**
+ * Implements hook_skinr_ui_element_title().
+ */
+function views_skinr_ui_element_title($module, $element, $theme_name) {
+  if ($module == 'views') {
+    list($name, $display_id) = explode('__', $element, 2);
+    if ($view = views_get_view($name)) {
+      if ($view->set_display($display_id)) {
+        return $view->get_title();
+      }
+    }
+  }
+}
+
+/**
  * Implements hook_skinr_theme_hooks().
  */
 function views_skinr_theme_hooks($module, $element) {

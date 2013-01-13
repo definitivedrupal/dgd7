@@ -29,7 +29,7 @@ class backup_migrate_destination_files extends backup_migrate_destination {
   /**
    * File save destination callback.
    */
-  function save_file($file, $settings) {
+  function _save_file($file, $settings) {
     if ($dir = $this->get_location()) {
       if ($dir = $this->check_dir($dir)) {
         $filepath = rtrim($dir, "/") ."/". $file->filename();
@@ -37,7 +37,7 @@ class backup_migrate_destination_files extends backup_migrate_destination {
   
           // chmod, chown and chgrp the file if needed.
           if ($chmod = $this->settings('chmod')) {
-            if (!@chmod($filepath, octdec($chmod))) {
+            if (!@drupal_chmod($filepath, octdec($chmod))) {
               _backup_migrate_message('Unable to set the file mode for: @file', array('@file' => $filepath), 'error');
             }
           }
@@ -76,7 +76,7 @@ class backup_migrate_destination_files extends backup_migrate_destination {
   /**
    * File list destination callback.
    */
-  function list_files() {
+  function _list_files() {
     $files = array();
     if ($dir = $this->get_realpath()) {
       if ($handle = @opendir($dir)) {
@@ -201,7 +201,7 @@ class backup_migrate_destination_files extends backup_migrate_destination {
     }
 
     // Check to see if the destination is publicly accessible
-    $test_contents = "this file should not be publicly accesible";
+    $test_contents = "this file should not be publicly accessible";
     // Create the the text.txt file if it's not already there.
     if (!is_file($directory .'/test.txt') || file_get_contents($directory .'/test.txt') != $test_contents) {
       if ($fp = fopen($directory .'/test.txt', 'w')) {

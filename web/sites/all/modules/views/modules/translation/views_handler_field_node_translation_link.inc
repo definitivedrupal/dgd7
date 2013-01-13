@@ -1,6 +1,14 @@
 <?php
+
+/**
+ * @file
+ * Definition of views_handler_field_node_translation_link.
+ */
+
 /**
  * Field handler to present a link to the node.
+ *
+ * @ingroup views_field_handlers
  */
 class views_handler_field_node_translation_link extends views_handler_field {
   function construct() {

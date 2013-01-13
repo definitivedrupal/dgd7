@@ -55,12 +55,12 @@
   margin-bottom: 30px;
 }
 
-/* This is some stuff to just get some basic mockup done on the 
+/* This is some stuff to just get some basic mockup done on the
    content navigator. Should be removed/revised soon */
- 
+
 .result_limit {
   float: right;
-}  
+}
 .result_limit li {
    display: inline;
    list-style: none;
@@ -223,7 +223,7 @@ div#media-browser .throbber {
   height:100%;
   width:100%;
   position:absolute;
-  background: transparent url('images/loading.gif') no-repeat center center;
+  background: transparent url('../images/loading.gif') no-repeat center center;
 }
 
 #media-browser .ui-tabs-panel {
@@ -233,11 +233,6 @@ div#media-browser .throbber {
    */
   height: 410px;
   overflow-y: auto;
-}
-
-#media-tab-media_internet .media-provider img {
-  vertical-align: middle;
-  margin-right: 1em;
 }
 
 #media-browser-library-list .label-wrapper {
@@ -266,7 +261,7 @@ div#media-browser .throbber {
   margin-right: 5px;
 }
 
-a.button {
+#media-browser a.button {
   display: inline-block;
   line-height: 21px;
 }
@@ -348,26 +343,6 @@ a.button {
    margin-top:1.5em;
 }
 
-.media-edit-form .sidebar {
-  float: left;
-  width: 180px;
-}
-
-.media-edit-form .sidebar ~ * {
-  margin-left: 208px;
-  zoom: 1; /* IE7 needs this */
-}
-
-.media-edit-form .sidebar ~ .form-actions {
-  margin-left: 0;
-}
-
-/* This declaration fixes a layout issue in IE7 */
-.media-edit-form .sidebar .form-item {
-  margin-left: 0;
-  width: 100%;
-}
-
 body.page-media-format-form {
   background: none;
 }
@@ -384,7 +359,7 @@ body.page-media-format-form {
   display:none;
 }
 
-a.button {
+#media-browser-page a.button {
   display: inline-block;
   margin: 10px 5px 0 0;
 }

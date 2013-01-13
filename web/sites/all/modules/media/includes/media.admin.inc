@@ -16,7 +16,7 @@ require_once dirname(__FILE__) . '/media.pages.inc';
  */
 function media_admin($form, $form_state) {
   global $user;
-  
+
   $path = drupal_get_path('module', 'media');
 
   $form['#attached'] = array(
@@ -31,7 +31,7 @@ function media_admin($form, $form_state) {
 
   require_once dirname(__FILE__) . '/media.browser.inc';
   media_attach_browser_js($form);
-  
+
   $types = media_display_types();
 
   if (arg(3)) {
@@ -61,22 +61,22 @@ function media_admin($form, $form_state) {
   $form['switch'] = media_admin_display_switch(array('active display' => $display));
 
   // Build the 'Media operations' form.
+  $options = array();
+  foreach (module_invoke_all('media_operations') as $operation => $array) {
+    $options[$operation] = $array['label'];
+  }
   $form['options'] = array(
     '#type' => 'fieldset',
     '#title' => t('Operations'),
     '#prefix' => '<div class="container-inline">',
     '#suffix' => '</div>',
+    '#access' => !empty($options),
   );
-  $options = array();
-  foreach (module_invoke_all('media_operations') as $operation => $array) {
-    $options[$operation] = $array['label'];
-  }
   $form['options']['operation'] = array(
     '#type' => 'select',
     '#options' => $options,
     '#default_value' => 'delete',
   );
-  $options = array();
   $form['options']['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Submit'),
@@ -86,7 +86,7 @@ function media_admin($form, $form_state) {
 
   include_once $types[$display]['file'];
 
-  $form['admin'] = $types[$display]['callback']();
+  $form['admin'] = $types[$display]['callback']($form);
 
   return $form;
 }
@@ -95,53 +95,64 @@ function media_admin($form, $form_state) {
 /**
  * Form builder: Builds the media list administration overview.
  */
-function media_admin_list() {
+function media_admin_list(&$parent_form) {
   // @todo Change to media_variable_get('admin_pager_limit') for consistency
   //   with browser_pager_limit?
   $limit = variable_get('media_admin_limit', 50);
 
   // Build the sortable table header.
   $header = array(
-   'title' => array('data' => t('Title'), 'field' => 'f.filename'),
-   'type' => array('data' => t('Type'), 'field' => 'f.filemime'),
-   'size' => array('data' => t('Size'), 'field' => 'f.filesize'),
-   'author' => array('data' => t('Author'), 'field' => 'u.name'),
-   'timestamp' => array('data' => t('Updated'), 'field' => 'f.timestamp', 'sort' => 'asc'),
-   'operations' => array('data' => t('Operations')),
+    'title' => array('data' => t('Title'), 'field' => 'f.filename'),
+    'type' => array('data' => t('Type'), 'field' => 'f.filemime'),
+    'size' => array('data' => t('Size'), 'field' => 'f.filesize'),
+    'author' => array('data' => t('Author'), 'field' => 'u.name'),
+    'timestamp' => array('data' => t('Updated'), 'field' => 'f.timestamp', 'sort' => 'desc'),
+    'operations' => array('data' => t('Operations')),
   );
 
   $query = db_select('file_managed', 'f')->extend('PagerDefault')->extend('TableSort');
   $query->join('users', 'u', 'f.uid = u.uid');
+  $query->fields('f', array('fid'));
+  $query->fields('u', array('uid'));
+  $query->condition('f.status', FILE_STATUS_PERMANENT);
+  $query->limit($limit);
+  $query->orderByHeader($header);
 
-  $result = $query
-   ->fields('f')
-   ->fields('u', array('name'))
-   ->condition('f.status', FILE_STATUS_PERMANENT)
-   ->limit($limit)
-   ->orderByHeader($header)
-   ->execute();
+  foreach (array_keys(media_get_hidden_stream_wrappers()) as $name) {
+    $query->condition('f.uri', $name . '%', 'NOT LIKE');
+  }
+
+  // Result array keys are file IDs, values are the file owner's UIDs.
+  $result = $query->execute()->fetchAllKeyed();
+
+  // Hide the operations form if there are no files to operate on.
+  $parent_form['options']['#access'] &= !empty($result);
+
+  // Load all the file entities.
+  $files = $form['#files'] = file_load_multiple(array_keys($result));
+
+  // Load all the file owner user entities to display usernames.
+  $accounts = $form['#accounts'] = user_load_multiple(array_unique($result));
 
   $destination = drupal_get_destination();
-  $files = array();
   $options = array();
-
-  foreach ($result as $file) {
+  foreach ($files as $file) {
     $options[$file->fid] = array(
       'title' => theme('media_link', array('file' => $file)),
       'type' =>  check_plain($file->filemime),
       'size' => format_size($file->filesize),
-      'author' => theme('username', array('account' => $file)),
+      'author' => theme('username', array('account' => $accounts[$file->uid])),
       'timestamp' => format_date($file->timestamp, 'short'),
     );
-    $options[$file->fid]['operations'] = l(t('edit'), 'media/' . $file->fid . '/edit', array('query' => $destination));
+    $options[$file->fid]['operations'] = l(t('Edit'), 'media/' . $file->fid . '/edit', array('query' => $destination));
   }
 
   $form['files'] = array(
-   '#type' => 'tableselect',
-   '#header' => $header,
-   '#options' => $options,
-   '#empty' => t('No media available.'),
-   '#attributes' => array('class' => array('media-display-table', 'media-clear')),
+    '#type' => 'tableselect',
+    '#header' => $header,
+    '#options' => $options,
+    '#empty' => t('No media available.'),
+    '#attributes' => array('class' => array('media-display-table', 'media-clear')),
   );
   $form['pager'] = array('#markup' => theme('pager', array('tags' => NULL)));
 
@@ -151,39 +162,52 @@ function media_admin_list() {
 /**
  * Form builder: Builds the media thumbnails administration overview.
  */
-function media_admin_thumbnails() {
+function media_admin_thumbnails(&$parent_form) {
   // @todo Change to media_variable_get('admin_pager_limit') for consistency
   //   with browser_pager_limit?
   $limit = variable_get('media_admin_limit', 50);
 
+  $query = db_select('file_managed', 'f')->extend('PagerDefault');
+  $query->fields('f', array('fid'));
+  $query->condition('f.status', FILE_STATUS_PERMANENT);
+  $query->limit($limit);
+  $query->orderBy('f.timestamp', 'DESC');
 
-  $query = new EntityFieldQuery();
-  $query->pager($limit);
-  $query->entityCondition('entity_type', 'file');
-  $query->propertyCondition('status', FILE_STATUS_PERMANENT);
-  $result = $query->execute();
-  $files = file_load_multiple(array_keys($result['file']));
-
-  $destination = drupal_get_destination();
-  $rows = array();
-  $options = array();
-  $form['files'] = array(
-   '#tree' => TRUE,
-   '#prefix' => '<div class="media-display-thumbnails media-clear clearfix"><ul class="media-list-thumbnails">',
-   '#suffix' => '</ul></div>',
-  );
-
-  foreach ($files as $file) {
-   $preview = media_get_thumbnail_preview($file, TRUE);
-   $form['files'][$file->fid] = array(
-     '#type' => 'checkbox',
-     '#title' => '',
-     '#prefix' => '<li>' . drupal_render($preview),
-     '#suffix' => '</li>',
-   );
+  foreach (array_keys(media_get_hidden_stream_wrappers()) as $name) {
+    $query->condition('f.uri', $name . '%', 'NOT LIKE');
   }
 
-  $form['pager'] = array('#markup' => theme('pager', array('tags' => NULL)));
+  $fids = $query->execute()->fetchCol();
+  $files = file_load_multiple($fids);
+
+  // Hide the operations form if there are no files to operate on.
+  $parent_form['options']['#access'] &= !empty($files);
+
+  if (empty($files)) {
+    // Display empty text if there are no files.
+    $form['files'] = array(
+      '#markup' => '<p>' . t('No media available.') . '</p>',
+    );
+  }
+  else {
+    $form['files'] = array(
+      '#tree' => TRUE,
+      '#prefix' => '<div class="media-display-thumbnails media-clear clearfix"><ul class="media-list-thumbnails">',
+      '#suffix' => '</ul></div>',
+    );
+
+    foreach ($files as $file) {
+      $preview = media_get_thumbnail_preview($file, TRUE);
+      $form['files'][$file->fid] = array(
+        '#type' => 'checkbox',
+        '#title' => '',
+        '#prefix' => '<li>' . drupal_render($preview),
+        '#suffix' => '</li>',
+      );
+    }
+
+    $form['pager'] = array('#markup' => theme('pager', array('tags' => NULL)));
+  }
 
   return $form;
 }
@@ -286,7 +310,7 @@ function media_admin_type_manage_form($form, &$form_state, $media_type) {
     '#type' => 'value',
     '#value' => $media_type->name,
   );
-  
+
   // If this Media type is handled by us, then we can put in some default
   // options. Otherwise, we leave it to the implementing module to form_alter.
   if ($media_type->type_callback == 'media_is_type') {
@@ -321,7 +345,7 @@ function media_admin_type_manage_form($form, &$form_state, $media_type) {
 
     // Options for allowed Streams.
     $options = array('public' => t('Public files'), 'private' => t('Private files'));
-    foreach(file_get_stream_wrappers() as $stream => $wrapper) {
+    foreach (file_get_stream_wrappers() as $stream => $wrapper) {
       $options[$stream] = $wrapper['name'];
     }
     unset($options['temporary']);
@@ -418,12 +442,18 @@ function media_import($form, &$form_state) {
     $form['pattern'] = array(
       '#type' => 'textfield',
       '#title' => t('Pattern'),
-      '#description' => 'Only files matching this pattern will be imported.',
+      '#description' => 'Only files matching this pattern will be imported. For example, to import all jpg and gif files, the pattern would be <em>*.jpg|*.gif</em>.',
     );
 
-    $form['submit'] = array(
+    $form['actions'] = array('#type' => 'actions');
+    $form['actions']['submit'] = array(
       '#type' => 'submit',
       '#value' => t('Preview')
+    );
+    $form['actions']['cancel'] = array(
+      '#type' => 'link',
+      '#title' => t('Cancel'),
+      '#href' => isset($_GET['destination']) ? $_GET['destination'] : 'admin/content/media',
     );
   }
   else {
@@ -449,7 +479,7 @@ function media_import_validate($form, &$form_state) {
     }
     $pattern = !empty($pattern) ? $pattern :  '*';
     $files = glob("$directory/$pattern");
-    if (count($files) == 1) {
+    if (empty($files)) {
       form_set_error('pattern', t('No files were found in %directory matching %pattern', array('%directory' => $directory, '%pattern' => $pattern)));
     }
     $form_state['storage']['files'] = $files;
@@ -460,7 +490,7 @@ function media_import_validate($form, &$form_state) {
  * Submit handler for media_import().
  */
 function media_import_submit($form, &$form_state) {
-  if ($form_state['values']['op'] == 'Confirm') {
+  if ($form_state['values']['op'] == t('Confirm')) {
     $files = $form_state['storage']['files'];
     $batch = array(
       'title' => t('Importing'),
@@ -506,7 +536,7 @@ function media_import_batch_import_files($files, &$context) {
         $image_in_message = file_view_file($loaded_file, 'media_preview');
       }
     }
-    catch(Exception $e) {
+    catch (Exception $e) {
       $context['results']['errors'][] = $file . " Reason: " . $e->getMessage();
     }
   }
@@ -552,9 +582,10 @@ function media_admin_config_browser($form, &$form_state) {
 
   $form[media_variable_name('file_extensions')] = array(
     '#type' => 'textfield',
-    '#title' => 'Allowed file extensions',
+    '#title' => t('Allowed file extensions'),
     '#default_value' => media_variable_get('file_extensions'),
     '#description' => t('File extensions which are accepted in the media browser.  Use spaces to separate (e.g. "jpg gif pdf doc"). <br/><em>Note that this can be overriden on a per-field basis when creating multimedia asset fields and files of certain extensions cannot be embedded at this time.</em>'),
+    '#maxlength' => 255,
   );
 
   $form['#submit'][] = 'media_admin_config_browser_pre_submit';
@@ -577,15 +608,21 @@ function media_admin_rebuild_types_form($form, &$form_state) {
   if ($total == 0) {
     media_variable_del('show_file_type_rebuild_nag');
     // @TODO: Make this not sound stupid.
-    drupal_set_message('All files in the system have been assigned types. Media installation complete.');
+    drupal_set_message(t('All files in the system have been assigned types. Media installation complete.'));
     drupal_goto('admin');
   }
   $form['total'] = array('#type' => 'value', '#value' => $total);
-  return confirm_form($form, 'Update types for existing files', 'admin/config/media', 'This process is required when installing media on an existing site.  Media needs to scan through existing files and identify the file type. <br/><strong>Update types for ' . $total . ' files?</strogn>');
+
+  return confirm_form(
+    $form,
+    t('Update types for existing files'),
+    'admin/config/media',
+    t('This process is required when installing media on an existing site. Media needs to scan through existing files and identify the file type. <br/><strong>Update types for @file files?</strong>', array('@total' => $total))
+  );
 }
 
 /**
- * @see media_admin_rebuild_types_form().
+ * @see media_admin_rebuild_types_form()
  */
 function media_admin_rebuild_types_form_submit(&$form, &$form_state) {
   $total = $form_state['values']['total'];

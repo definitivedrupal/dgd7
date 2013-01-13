@@ -50,12 +50,14 @@ function image_insert_content($item, $style, $widget) {
 function template_preprocess_image_insert_image(&$vars) {
   $vars['file'] = file_load($vars['item']['fid']);
 
-  // We call this function merely to trigger access to the
-  // image_style_generate() callback. We actually use image_style_path() to
-  // build the final location of the file.
-  $url = image_style_url($vars['style_name'], $vars['file']->uri);
+  // Determine dimensions of the image after the image style transformations.
+  $image_info = @image_get_info($vars['file']->uri);
+  $vars['width'] = isset($image_info['width']) ? $image_info['width'] : NULL;
+  $vars['height'] = isset($image_info['height']) ? $image_info['height'] : NULL;
+  image_style_transform_dimensions($vars['style_name'], $vars);
 
   $vars['uri'] = image_style_path($vars['style_name'], $vars['file']->uri);
-  $vars['url'] = insert_create_url($vars['uri']);
+  $absolute = isset($vars['widget']['settings']['insert_absolute']) ? $vars['widget']['settings']['insert_absolute'] : NULL;
+  $vars['url'] = insert_create_url($vars['uri'], $absolute, variable_get('clean_url'));
   $vars['class'] = !empty($vars['widget']['settings']['insert_class']) ? $vars['widget']['settings']['insert_class'] : '';
 }

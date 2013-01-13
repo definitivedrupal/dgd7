@@ -42,7 +42,7 @@ $display->panel_settings = array(
   ),
 );
 $display->cache = array();
-$display->title = '';
+$display->title = 'Panels test page';
 $display->content = array();
 $display->panels = array();
   $pane = new stdClass;

@@ -1,6 +1,8 @@
 /* This CSS was written using SASS and Compass.
  * @see http://compass-style.org/
  -----------------------------------------------------------------------------*/
+ /* Modified by NancyDru. */
+
 html {
   background-color: #ffcc00;
 }
@@ -9,14 +11,14 @@ body {
   background-color: #111;
   color: #444;
   font-family: "Droid Sans", "Lucida Grande", Helvetica, Arial, sans-serif;
-  font-size: 81.3%;
+  font-size: 81%;
   line-height: 1.6;
   margin: 0;
   padding: 0;
 }
 
 p {
-  font-size: 1.077em;
+  /* font-size: 1.077em; */
 }
 
 a,
@@ -92,9 +94,11 @@ h6 {
 h1 a, h2 a {
   color: #444;
 }
+
 h1 a:visited, h2 a:visited {
   color: #888;
 }
+
 h1 a:hover, h1 a:focus, h1 a:active, h2 a:hover, h2 a:focus, h2 a:active {
   color: #d44510;
   outline: 0;
@@ -117,6 +121,17 @@ pre {
 blockquote {
   font-family: "Droid Serif", Georgia, Verdana, Arial, sans-serif;
   font-style: italic;
+}
+
+.field-label-inline h2,
+.field-label-inline h3,
+.field-label-inline li {
+  display: inline;
+  margin-left: 1em;
+}
+
+.node-type-book .field-label-inline li {
+  font-size: 1.692em;
 }
 
 /* Tables
@@ -184,6 +199,7 @@ th, td {
   -khtml-border-radius: 0 0 10px 10px;
   border-radius: 0 0 10px 10px;
 }
+
 .region-content .block {
   background-color: #fff;
 }
@@ -328,7 +344,7 @@ div.field-tags ul li {
   margin-bottom: 1em;
 }
 .block .content {
-  padding: 1em;
+  padding: 0 1em;
 }
 
 .main .region {
@@ -417,14 +433,41 @@ div.field-tags ul li {
   background-position: 0 -1819px;
 }
 
+/* Chapter Overview
+ -----------------------------------------------------------------------------*/
+div.menu-name-book-toc-50 {
+}
+
+div.menu-name-book-toc-50 ul.menu {
+  margin: 0 0 1em 0;
+}
+
+div.menu-name-book-toc-50 ul.menu li.expanded a {
+  color: #444444;
+  font-size: 1.1em;
+  font-weight: bold;
+}
+
+div.menu-name-book-toc-50 ul.menu li ul.menu li.leaf {
+  margin-bottom: 0;
+}
+
+div.menu-name-book-toc-50 ul.menu li ul.menu li.leaf a {
+  color: #3399cc;
+  font-size: .91em;
+  font-weight: normal;
+}
+
 /* Book navigation
  -----------------------------------------------------------------------------*/
 .book-navigation .menu {
   border-color: #eee;
 }
+
 .book-navigation .menu li {
-  list-style: disc;
+  list-style: none;
 }
+
 .book-navigation .page-links {
   background-color: #f8f8f8;
   border: solid 1px #eee;
@@ -441,11 +484,13 @@ div.field-tags ul li {
   border-radius: 4px;
   *zoom: 1;
 }
+
 .book-navigation .page-links:after {
   content: "";
   display: table;
   clear: both;
 }
+
 .book-navigation .page-links .icon {
   display: -moz-inline-box;
   -moz-box-orient: vertical;
@@ -457,13 +502,16 @@ div.field-tags ul li {
   height: 16px;
   width: 16px;
 }
+
 .book-navigation .page-links .icon {
   *display: inline;
 }
+
 .book-navigation .page-links li {
   margin: 0;
   padding: 0;
 }
+
 .book-navigation .page-links a {
   padding-left: 20px;
   vertical-align: middle;
@@ -473,9 +521,11 @@ div.field-tags ul li {
   vertical-align: middle;
   *vertical-align: auto;
 }
+
 .book-navigation .page-links a {
   *display: inline;
 }
+
 .book-navigation .page-links a:hover, .book-navigation .page-links a:active, .book-navigation .page-links a:focus {
   color: #3399cc;
   text-decoration: none;
@@ -721,6 +771,7 @@ ul.pager {
   margin: 1.5em 0 1em 0;
   text-align: right;
 }
+
 ul.pager li {
   margin: 0.5em 0.2em 0 0;
   display: -moz-inline-box;
@@ -729,9 +780,11 @@ ul.pager li {
   vertical-align: middle;
   *vertical-align: auto;
 }
+
 ul.pager li {
   *display: inline;
 }
+
 ul.pager a,
 ul.pager .pager-current {
   background-color: #eee;
@@ -748,14 +801,17 @@ ul.pager .pager-current {
   -khtml-border-radius: 3px;
   border-radius: 3px;
 }
+
 ul.pager a,
 ul.pager .pager-current {
   *display: inline;
 }
+
 ul.pager .pager-current {
   color: #000;
   font-weight: bold;
 }
+
 ul.pager a:hover,
 ul.pager a:active,
 ul.pager a:focus {
@@ -781,11 +837,14 @@ ul.pager a:focus {
 }
 
 .comment {
+  border-bottom: 1px solid #ffcc00;
+  margin: 0 0 1em 3em;
+  padding: 1em 1em 0 1em;
+}
+
+.node-type-forum .comment {
   border: 1px solid #ffcc00;
   border-radius: 1em;
-  margin: 0 0 1em 3em;
-  padding: 1em 1em 0 0;
-  position: relative;
 }
 
 .comment h3 {
@@ -805,6 +864,7 @@ ul.pager a:focus {
 }
 
 .comment ul.links {
+  clear: both;
   margin-top: 1em;
 }
 
@@ -814,9 +874,14 @@ ul.pager a:focus {
 }
 
 .comment .user-picture {
-  width: 110px;
-  position: absolute;
-  left: 0;
+  float: left;
+  margin-right: 1em;
+}
+
+.comment .user-picture a.change-user-picture {
+  display: block;
+  font-size: 75%;
+  margin-top: -.5em;
 }
 
 .comment .user-picture img {
@@ -832,6 +897,7 @@ ul.action-links,
 .item-list {
   *zoom: 1;
 }
+
 ul.tabs:after,
 ul.action-links:after,
 .field-item:after,
@@ -871,6 +937,7 @@ header[role=banner] {
   vertical-align: middle;
   *vertical-align: auto;
 }
+
 .site-slogan {
   *display: inline;
 }
@@ -884,6 +951,7 @@ header[role=banner] {
   min-width: 260px;
   max-width: 50%;
 }
+
 .region-header .block {
   margin: 0 0 1em 0;
 }
@@ -900,6 +968,7 @@ footer[role=contentinfo] {
   -khtml-border-radius: 0 50px 0 0;
   border-radius: 0 50px 0 0;
 }
+
 footer[role=contentinfo] a,
 footer[role=contentinfo] a:visited {
   color: #000;
@@ -914,12 +983,15 @@ footer[role=contentinfo] a:visited {
   text-align: right;
   width: 25%;
 }
+
 .region-footer #block-system-powered-by .content {
   padding: 1em 50px 1em 1em;
 }
+
 .region-footer #block-system-powered-by .content span {
   display: block;
 }
+
 .region-footer #block-system-powered-by .content a {
   background: transparent url("/misc/druplicon.png") no-repeat;
   display: block;
@@ -931,6 +1003,7 @@ footer[role=contentinfo] a:visited {
   top: -65px;
   width: 88px;
 }
+
 .region-footer .view-authors li {
   display: -moz-inline-box;
   -moz-box-orient: vertical;
@@ -941,6 +1014,7 @@ footer[role=contentinfo] a:visited {
   margin-bottom: 0.5em;
   width: 180px;
 }
+
 .region-footer .view-authors li {
   *display: inline;
 }
@@ -995,9 +1069,11 @@ footer[role=contentinfo] a:visited {
   vertical-align: middle;
   *vertical-align: auto;
 }
+
 .view-display-id-images ul {
   *display: inline;
 }
+
 .view-display-id-images li {
   display: -moz-inline-box;
   -moz-box-orient: vertical;
@@ -1009,9 +1085,11 @@ footer[role=contentinfo] a:visited {
   vertical-align: baseline;
   width: 180px;
 }
+
 .view-display-id-images li {
   *display: inline;
 }
+
 .view-display-id-images img {
   border: solid 4px #eee;
   border-bottom-color: #ccc;
@@ -1023,11 +1101,13 @@ footer[role=contentinfo] a:visited {
   margin-left: 45px;
   position: relative;
 }
+
 .view-display-id-biographies li:after {
   content: "";
   display: table;
   clear: both;
 }
+
 .view-display-id-biographies img {
   float: left;
   margin: 0 1.231em 0 0;
@@ -1048,40 +1128,56 @@ footer[role=contentinfo] a:visited {
   -ms-transform: rotate(-1deg);
   transform: rotate(-1deg);
 }
+
 .node-profile.node-full img {
   *display: inline;
+}
+
+.node-type-book .filter-wrapper {
+  font-size: 89%;
 }
 
 .node-book .field-author {
   *zoom: 1;
 }
+
+.node-book .field-forum-link {
+  font-size: 72%; /* roughly h4 size */
+}
+
 .node-book .field-author:after {
   content: "";
   display: table;
   clear: both;
 }
+
 .node-book .field-author ul li {
-  margin: 0 0 40px 0;
+  margin: 0 0 1em 0;
   list-style: none;
   *zoom: 1;
 }
+
 .node-book .field-author ul li:after {
   content: "";
   display: table;
   clear: both;
 }
+
 .node-book .field-image {
   float: left;
   margin: 0 20px 0 0;
   height: 100%;
   width: 120px;
 }
+
 .node-book .field-image img {
   margin: 0;
 }
+
 .node-book .field-do-uid {
   margin-top: 8px;
 }
+
 .node-book .field-do-uid h3 {
   background: url(../images/sprite.png) no-repeat 0 -356px;
   height: 16px;
@@ -1093,12 +1189,15 @@ footer[role=contentinfo] a:visited {
   vertical-align: middle;
   *vertical-align: auto;
 }
+
 .node-book .field-do-uid h3 {
   *display: inline;
 }
+
 .node-book .body {
   float: left;
 }
+
 
 /* Author chapters
  -----------------------------------------------------------------------------*/
@@ -1177,11 +1276,11 @@ div.view-author-chapters li.row {
 .sidebar .region {
   margin: 16px;
 }
+
 .sidebar .block {
-  background-color: #202020;
+  background-color: #222;
   border: 1px solid #333;
-  border-color: rgba(66, 66, 66, 0.15);
-  padding: 1em;
+  padding: 0 1em;
   -moz-border-radius: 4px;
   -webkit-border-radius: 4px;
   -o-border-radius: 4px;
@@ -1189,34 +1288,41 @@ div.view-author-chapters li.row {
   -khtml-border-radius: 4px;
   border-radius: 4px;
 }
+
 .sidebar .block .block-title {
   color: #eee;
   font-size: 1.381em;
   margin-bottom: 0;
   text-shadow: 1px 1px 1px #232323;
 }
+
 .sidebar .block ul.menu {
   color: #333;
   list-style-type: square;
   margin: 1em 0;
   padding: 0;
 }
+
 .sidebar .block ul.menu li {
   padding: 0;
   margin: 0;
 }
+
 .sidebar .block ul.menu li ul {
   margin: 5px 0 5px 20px;
 }
+
 .sidebar .block ul.menu li a.active:before {
   content: "\2192 \00A0";
   font-size: 1.231em;
   vertical-align: middle;
 }
+
 .sidebar .block a {
   color: #ddd;
   line-height: 1;
 }
+
 .sidebar .block .active-trail > a, .sidebar .block a.active {
   color: #ffcc00;
   font-weight: bold;
@@ -1227,9 +1333,11 @@ div.view-author-chapters li.row {
 .outer {
   color: #fff;
 }
+
 .outer .node .content {
   border: none;
 }
+
 .outer ul.pager a,
 .outer ul.pager a.active,
 .outer ul.pager .pager-current {
@@ -1377,10 +1485,7 @@ div.view-author-chapters li.row {
 
 #forum thead tr th {
   background-color: #ffa500;
-}
-
-#forum thead tr th a {
-  color: #ffffff;
+  color: #444444;
 }
 
 #forum tr.odd {
@@ -1391,6 +1496,11 @@ div.view-author-chapters li.row {
   background-color: #ffcc00;
   border-top: 9px solid #ffffff;
   font-weight: bold;
+}
+
+#forum td.container a {
+  color: #444444;
+  text-decoration: none;
 }
 
 #forum td.forum {

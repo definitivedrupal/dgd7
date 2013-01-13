@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Install, update and uninstall functions for the forum module.
+ * Install, update, and uninstall functions for the Forum module.
  */
 
 /**
@@ -113,6 +113,11 @@ function forum_uninstall() {
   variable_del('forum_block_num_active');
   variable_del('forum_block_num_new');
   variable_del('node_options_forum');
+
+  field_delete_field('taxonomy_forums');
+  // Purge field data now to allow taxonomy module to be uninstalled
+  // if this is the only field remaining.
+  field_purge_batch(10);
 }
 
 /**
@@ -214,6 +219,8 @@ function forum_schema() {
     ),
     'indexes' => array(
       'forum_topics' => array('nid', 'tid', 'sticky', 'last_comment_timestamp'),
+      'created' => array('created'),
+      'last_comment_timestamp' => array('last_comment_timestamp'),
     ),
     'foreign keys' => array(
       'tracked_node' => array(
@@ -231,6 +238,21 @@ function forum_schema() {
 
 
   return $schema;
+}
+
+/**
+ * Implements hook_update_dependencies().
+ */
+function forum_update_dependencies() {
+  $dependencies['forum'][7003] = array(
+    // Forum update 7003 uses field API update functions, so must run after
+    // Field API has been enabled.
+    'system' => 7020,
+    // Forum update 7003 relies on updated taxonomy module schema. Ensure it
+    // runs after all taxonomy updates.
+    'taxonomy' => 7010,
+  );
+  return $dependencies;
 }
 
 /**
@@ -330,17 +352,17 @@ function forum_update_7001() {
 }
 
 /**
+ * @addtogroup updates-7.x-extra
+ * @{
+ */
+
+/**
  * Add new index to forum_index table.
  */
 function forum_update_7002() {
   db_drop_index('forum_index', 'forum_topics');
   db_add_index('forum_index', 'forum_topics', array('nid', 'tid', 'sticky', 'last_comment_timestamp'));
 }
-
-/**
- * @addtogroup updates-7.x-extra
- * @{
- */
 
 /**
  * Rename field to 'taxonomy_forums'.
@@ -420,5 +442,26 @@ function forum_update_7003() {
 }
 
 /**
- * @} End of "addtogroup updates-7.x-extra"
+ * Update {forum_index} so that only published nodes are indexed.
+ */
+function forum_update_7011() {
+  $select = db_select('node', 'n')
+    ->fields('n', array('nid'))
+    ->condition('status', 0 );
+
+  db_delete('forum_index')
+    ->condition('nid', $select, 'IN')
+    ->execute();
+}
+
+/**
+ * Add 'created' and 'last_comment_timestamp' indexes.
+ */
+function forum_update_7012() {
+  db_add_index('forum_index', 'created', array('created'));
+  db_add_index('forum_index', 'last_comment_timestamp', array('last_comment_timestamp'));
+}
+
+/**
+ * @} End of "addtogroup updates-7.x-extra".
  */

@@ -6,6 +6,27 @@
  */
 
 /**
+ * Implements hook_libraries_info().
+ */
+function mailchimp_libraries_info() {
+  $libraries['mailchimp'] = array(
+    'name' => 'MailChimp MCAPI',
+    'vendor url' => 'http://apidocs.mailchimp.com/api/1.3',
+    'download url' => 'http://apidocs.mailchimp.com/api/downloads/mailchimp-api-class.zip',
+    'version arguments' => array(
+      'file' => 'README',
+      // Version 1.3
+      'pattern' => '/API Version: ((\d+)\.(\d+))/',
+    ),
+    'files' => array(
+      'php' => array('MCAPI.class.php'),
+    ),
+  );
+
+  return $libraries;
+}
+
+/**
  * Implements hook_menu().
  */
 function mailchimp_menu() {
@@ -23,7 +44,7 @@ function mailchimp_menu() {
   $items['admin/config/services/mailchimp/global'] = array(
     'title' => 'Global Settings',
     'type' => MENU_DEFAULT_LOCAL_TASK,
-    'weight' => -10,
+    'weight' => 10,
   );
   $items['mailchimp/webhook'] = array(
     'title' => 'MailChimp webhooks endpoint',
@@ -78,9 +99,8 @@ function mailchimp_subscribe_user($list, $email, $merge_vars, $message = TRUE, $
     $success = $mcapi->listSubscribe($list->mc_list_id, $email, $merge_vars, 'html', $double_optin, TRUE);
 
     if ($message && $success && $double_optin) {
-      drupal_set_message(t('You have chosen to subscribe to %list. An email 
-        will be sent to your address. Click the link in the email to confirm 
-        the subscription.', array('%list' => $list->name)));
+      drupal_set_message(t('You have chosen to subscribe to %list. An email will be sent to your address. Click the link in the email to confirm the subscription.',
+        array('%list' => $list->label)));
     }
     elseif ($message && $success) {
       drupal_set_message(t('You have subscribed to %list.', array('%list' => $list->label)));
@@ -90,6 +110,7 @@ function mailchimp_subscribe_user($list, $email, $merge_vars, $message = TRUE, $
     mailchimp_cache_clear_user($list->mc_list_id, $email);
 
     if ($success) {
+      module_invoke_all('mailchimp_subscribe_user', $list, $email, $merge_vars);
       watchdog('mailchimp', '@email was subscribed to list @list.',
         array('@email' => $merge_vars['EMAIL'], '@list' => $list->label), WATCHDOG_NOTICE
       );
@@ -142,12 +163,13 @@ function mailchimp_update_user($list, $email, $merge_vars, $message = TRUE, $mca
 /**
  * Unsubscribe a user from the given list.
  *
- * @param object $list 
- * @param string $email 
- * @param bool $message 
- * @param object $mcapi 
- * @param book $delete 
+ * @param object $list
+ * @param string $email
+ * @param bool $message
+ * @param object $mcapi
+ * @param bool $delete
  *   Indicates whether an email should be deleted or just unsubscribed.
+ *
  * @return bool
  */
 function mailchimp_unsubscribe_user($list, $email, $message = TRUE, $mcapi = NULL, $delete = FALSE) {
@@ -155,8 +177,12 @@ function mailchimp_unsubscribe_user($list, $email, $message = TRUE, $mcapi = NUL
   if ($mcapi || $mcapi = mailchimp_get_api_object()) {
     if (mailchimp_is_subscribed($list->mc_list_id, $email)) {
       $success = $mcapi->listUnsubscribe($list->mc_list_id, $email, $delete, FALSE, FALSE);
-      if ($message && $success) {
-        drupal_set_message(t('You have unsubscribed from %list.', array('%list' => $list->label)));
+      if ($success) {
+        module_invoke_all('mailchimp_unsubscribe_user', $list, $email);
+
+        if ($message) {
+          drupal_set_message(t('You have unsubscribed from %list.', array('%list' => $list->label)));
+        }
       }
 
       // clear user cache
@@ -171,7 +197,8 @@ function mailchimp_unsubscribe_user($list, $email, $message = TRUE, $mcapi = NUL
  * Get a Mailchimp API object for communication with the mailchimp server.
  */
 function mailchimp_get_api_object() {
-  $q = new MCAPI(variable_get('mailchimp_api_key', ''));
+  libraries_load('mailchimp');
+  $q = new Mailchimp(variable_get('mailchimp_api_key', ''));
 
   // set the timeout to something reasonsable to avoid taking down the Drupal site
   $q->setTimeout(60);
@@ -221,6 +248,7 @@ function mailchimp_get_lists($list_ids = array(), $reset = FALSE) {
         }
       }
     }
+    uasort($lists, '_mailchimp_list_cmp');
 
     cache_set('mailchimp_lists', $lists, 'cache', CACHE_TEMPORARY);
   }
@@ -304,6 +332,31 @@ function mailchimp_cache_clear_user($list_id, $email) {
 }
 
 /**
+ * Clear a mailchimp activity cache
+ *
+ * @param  $list_id
+ */
+function mailchimp_cache_clear_list_activity($list_id) {
+  cache_clear_all('mailchimp_activity_' . $list_id, 'cache');
+}
+
+/**
+ * Clear a mailchimp activity cache
+ *
+ * @param  $list_id
+ */
+function mailchimp_cache_clear_campaign($campaign_id) {
+  cache_clear_all('mailchimp_campaign_' . $campaign_id, 'cache');
+}
+
+/**
+ * Implements hook_flush_caches().
+ */
+function mailchimp_flush_caches() {
+  return array('cache_mailchimp_user');
+}
+
+/**
  * Access callback for mailchimp_process_webhook().
  *
  * @param string $key
@@ -331,11 +384,15 @@ function mailchimp_process_webhook() {
       mailchimp_cache_clear_user($data['list_id'], $data['old_email']);
       mailchimp_set_memberinfo($data['list_id'], $data['new_email']);
       break;
+    case 'campaign':
+      mailchimp_cache_clear_list_activity($data['list_id']);
+      mailchimp_cache_clear_campaign($data['id']);
+      break;
   }
 
   // log event
-  watchdog('mailchimp', 'Webhook type !type has been processed.',
-    array('!type' => $_POST['type']), WATCHDOG_INFO
+  watchdog('mailchimp', 'Webhook type @type has been processed.',
+    array('@type' => $_POST['type']), WATCHDOG_INFO
   );
 }
 
@@ -347,7 +404,7 @@ function mailchimp_process_webhook() {
  * @return string
  */
 function mailchimp_webhook_key() {
-  return md5($GLOBALS['base_url']);
+  return drupal_hash_base64($GLOBALS['base_url'] . drupal_get_private_key() . drupal_get_hash_salt());
 }
 
 /**
@@ -361,3 +418,93 @@ function mailchimp_webhook_url() {
   return $GLOBALS['base_url'] . '/mailchimp/webhook/' . mailchimp_webhook_key();
 }
 
+/**
+ * Helper function used by uasort() to sort lists alphabetically by name.
+ *
+ * @param array $a
+ *   An array representing the first list.
+ * @param array $b
+ *   An array representing the second list.
+ *
+ * @return One of the values -1, 0, 1
+ */
+function _mailchimp_list_cmp($a, $b) {
+  if ($a['name'] == $b['name']) {
+    return 0;
+  }
+  return ($a['name'] < $b['name']) ? -1 : 1;
+}
+
+/**
+ * Wrapper around MCAPI::campaigns() to return data for a given campaign. Data
+ * is stored in the temporary cache.
+ *
+ * @param $campaign_id
+ *
+ * @return mixed
+ *   Array of campaign data or NULL if not found.
+ */
+function mailchimp_get_campaign_data($campaign_id, $reset = FALSE) {
+  $cache = $reset ? NULL : cache_get('mailchimp_campaign_' . $campaign_id);
+  $campaign_data = array();
+  // return cached lists
+  if ($cache) {
+    $campaign_data = $cache->data;
+  }
+  else {
+    $q = mailchimp_get_api_object();
+    $filters = array(
+      'campaign_id' => $campaign_id,
+    );
+    $result_sandwich = $q->campaigns($filters);
+    $campaign_data = $result_sandwich['data'][0];
+    cache_set('mailchimp_campaign_' . $campaign_id, $campaign_data, 'cache', CACHE_TEMPORARY);
+  }
+
+  return $campaign_data;
+}
+
+/**
+ * Wrapper around MCAPI::campaignsForEmail() to return all IDs of campaigns
+ * that have included a given email address.
+ *
+ * @param $email
+
+ * @return array of campaign IDs
+ */
+function mailchimp_get_campaigns_for_email($email) {
+  $q = mailchimp_get_api_object();
+  $campaign_list = $q->campaignsForEmail($email);
+
+  return $campaign_list;
+}
+
+/**
+ * Returns an array of lists that the user has been a member of and
+ * a value indicating whether they are currently a subscribed or unsubscribed
+ *
+ * @param $email
+ *
+ * @return array containing 2 arrays -- one ('lists') of all lists that have
+ * made use of this email address (list_id -> list_data[]). One ('campaigns') of
+ * all campaigns that have included this email (campaign_id -> campaign_data[])
+ *
+ * We include the campaign data because we need it to get accurate list
+ * activity history anyway, and we want to keep the data handy to avoid
+ * excessive API calls.
+ */
+function mailchimp_get_lists_by_email($email) {
+  $campaign_ids = mailchimp_get_campaigns_for_email($email);
+  $lists = mailchimp_get_lists();
+  $filtered_lists = array();
+  if ($campaign_ids) {
+    // iterate through campaigns, add each campaign's list as an array index/value
+    foreach ($campaign_ids as $campaign_id) {
+      $campaign_data = mailchimp_get_campaign_data($campaign_id);
+      $filtered_lists['lists'][$campaign_data['list_id']] = $lists[$campaign_data['list_id']];
+      $filtered_lists['campaigns'][$campaign_id] = $campaign_data;
+    }
+  }
+
+  return $filtered_lists;
+}

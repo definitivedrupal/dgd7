@@ -1,20 +1,23 @@
 <?php
 
 /**
-* @file
-* Test abstract handlers of views
-*/
+ * @file
+ * Definition of ViewsHandlersTest.
+ */
 
+/**
+ * Tests abstract handlers of views.
+ */
 class ViewsHandlersTest extends ViewsSqlTest {
   public static function getInfo() {
     return array(
-      'name' => t('Handlers test'),
-      'description' => t('test abstract handler definitions'),
+      'name' => 'Handlers test',
+      'description' => 'test abstract handler definitions',
       'group' => 'Views',
     );
   }
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp('views', 'views_ui');
     module_enable(array('views_ui'));
   }
@@ -37,7 +40,7 @@ class ViewsHandlersTest extends ViewsSqlTest {
   }
 
   /**
-   * Test views_break_phrase_string function.
+   * Tests views_break_phrase_string function.
    */
   function test_views_break_phrase_string() {
     $empty_stdclass = new stdClass();
@@ -52,28 +55,47 @@ class ViewsHandlersTest extends ViewsSqlTest {
     $this->assertEqual($handler, views_break_phrase_string('', $handler));
 
     // test ors
-    $this->assertEqualValue(array('word1', 'word2', 'word'), views_break_phrase_string('word1 word2+word', $handler));
+    $handler = views_break_phrase_string('word1 word2+word');
+    $this->assertEqualValue(array('word1', 'word2', 'word'), $handler);
     $this->assertEqual('or', $handler->operator);
-    $this->assertEqualValue(array('word1', 'word2', 'word'), views_break_phrase_string('word1+word2+word', $handler));
+    $handler = views_break_phrase_string('word1+word2+word');
+    $this->assertEqualValue(array('word1', 'word2', 'word'), $handler);
     $this->assertEqual('or', $handler->operator);
-    $this->assertEqualValue(array('word1', 'word2', 'word'), views_break_phrase_string('word1 word2 word', $handler));
+    $handler = views_break_phrase_string('word1 word2 word');
+    $this->assertEqualValue(array('word1', 'word2', 'word'), $handler);
     $this->assertEqual('or', $handler->operator);
-    $this->assertEqualValue(array('word1', 'word2', 'word'), views_break_phrase_string('word1 word2++word', $handler));
+    $handler = views_break_phrase_string('word-1+word-2+word');
+    $this->assertEqualValue(array('word-1', 'word-2', 'word'), $handler);
+    $this->assertEqual('or', $handler->operator);
+    $handler = views_break_phrase_string('wõrd1+wõrd2+wõrd');
+    $this->assertEqualValue(array('wõrd1', 'wõrd2', 'wõrd'), $handler);
     $this->assertEqual('or', $handler->operator);
 
     // test ands.
-    $this->assertEqualValue(array('word1', 'word2', 'word'), views_break_phrase_string('word1,word2,word', $handler));
+    $handler = views_break_phrase_string('word1,word2,word');
+    $this->assertEqualValue(array('word1', 'word2', 'word'), $handler);
     $this->assertEqual('and', $handler->operator);
-    $this->assertEqualValue(array('word1', 'word2', 'word'), views_break_phrase_string('word1,,word2,word', $handler));
+    $handler = views_break_phrase_string('word1 word2,word');
+    $this->assertEqualValue(array('word1 word2', 'word'), $handler);
     $this->assertEqual('and', $handler->operator);
-    $this->assertEqualValue(array('word1 word2', 'word'), views_break_phrase_string('word1 word2,word', $handler));
+    $handler = views_break_phrase_string('word1,word2 word');
+    $this->assertEqualValue(array('word1', 'word2 word'), $handler);
     $this->assertEqual('and', $handler->operator);
-    $this->assertEqualValue(array('word1', 'word2 word'), views_break_phrase_string('word1,word2 word', $handler));
+    $handler = views_break_phrase_string('word-1,word-2,word');
+    $this->assertEqualValue(array('word-1', 'word-2', 'word'), $handler);
+    $this->assertEqual('and', $handler->operator);
+    $handler = views_break_phrase_string('wõrd1,wõrd2,wõrd');
+    $this->assertEqualValue(array('wõrd1', 'wõrd2', 'wõrd'), $handler);
+    $this->assertEqual('and', $handler->operator);
+
+    // test a single word
+    $handler = views_break_phrase_string('word');
+    $this->assertEqualValue(array('word'), $handler);
     $this->assertEqual('and', $handler->operator);
   }
 
   /**
-   * Test views_break_phrase function.
+   * Tests views_break_phrase function.
    */
   function test_views_break_phrase() {
     $empty_stdclass = new stdClass();
@@ -113,13 +135,13 @@ class ViewsHandlersTest extends ViewsSqlTest {
    *
    * @param $first
    *   The first value to check.
-   * @param $second
-   *   The second value to check.
-   * @param $message
+   * @param views_handler $handler
+   * @param string $message
    *   The message to display along with the assertion.
-   * @param $group
+   * @param string $group
    *   The type of assertion - examples are "Browser", "PHP".
-   * @return
+   *
+   * @return bool
    *   TRUE if the assertion succeeded, FALSE otherwise.
    */
   protected function assertEqualValue($first, $handler, $message = '', $group = 'Other') {

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * Contains the node view row style plugin.
@@ -8,6 +9,8 @@
  * Plugin which performs a node_view on the resulting object.
  *
  * Most of the code on this object is in the theme function.
+ *
+ * @ingroup views_row_plugins
  */
 class views_plugin_row_node_view extends views_plugin_row {
   // Basic properties that let the row style follow relationships.
@@ -33,8 +36,8 @@ class views_plugin_row_node_view extends views_plugin_row {
     $options = parent::option_definition();
 
     $options['view_mode'] = array('default' => 'teaser');
-    $options['links'] = array('default' => TRUE);
-    $options['comments'] = array('default' => FALSE);
+    $options['links'] = array('default' => TRUE, 'bool' => TRUE);
+    $options['comments'] = array('default' => FALSE, 'bool' => TRUE);
 
     return $options;
   }
@@ -96,10 +99,12 @@ class views_plugin_row_node_view extends views_plugin_row {
   }
 
   function render($row) {
-    $node = $this->nodes[$row->{$this->field_alias}];
-    $node->view = $this->view;
-    $build = node_view($node, $this->options['view_mode']);
+    if (isset($this->nodes[$row->{$this->field_alias}])) {
+      $node = $this->nodes[$row->{$this->field_alias}];
+      $node->view = $this->view;
+      $build = node_view($node, $this->options['view_mode']);
 
-    return drupal_render($build);
+      return drupal_render($build);
+    }
   }
 }

@@ -3,12 +3,29 @@
 /**
  * @file
  * Hooks provided by the Field group module.
+ *
+ * Fieldgroup is a module that will wrap fields and other fieldgroups. Nothing more, nothing less.
+ * For this there are formatters we can create on forms and view modes.
+ *
+ * Some of the elements defined in fieldgroup will be ported to the elements module.
+ *
+ * DEVELOPERS NOTES
+ *
+ * - Fieldgroup uses a ''#fieldgroups' property to know what fieldgroups are to be pre_rendered and
+ *   rendered by the field_group module. This means we need to be sure our groups are in #fieldgroups.
+ *   #fieldgroups is later merged with the normal #groups that can be used by any other module.
+ *   This is done to be sure fieldgroup is not taking fieldsets from profile2, commerce line items,
+ *   commerce user profiles, ... .
+ *   When trying to merge a programmatically created field wrapper (div, markup, fieldset, ...) into
+ *   groups, you might consider adding it in #field_groups as well if you want the element processed
+ *   by fieldgroup.
  */
 
 /**
  * @addtogroup hooks
  * @{
  */
+
 
 /**
  * Javascript hooks
@@ -196,6 +213,10 @@ function hook_field_group_format_settings($group) {
  *
  * Note that at this point, the field group has no notion of the fields in it.
  *
+ * There is also an alternative way of handling this. The default implementation
+ * within field_group calls "field_group_pre_render_<format_type>".
+ * @see field_group_pre_render_fieldset.
+ *
  * @param Array $elements by address.
  * @param Object $group The Field group info.
  */
@@ -221,7 +242,7 @@ function hook_field_group_pre_render(& $element, $group, & $form) {
       if ($group->format_settings['formatter'] != 'open') {
         $add['#prefix'] = '<div class="field-group-format ' . $classes . '">
           <span class="field-group-format-toggler">' . check_plain(t($group->label)) . '</span>
-          <div class="field-group-format-wrapper" style="display: ' . ($collapsed ? 'none' : 'block') . ';">';
+          <div class="field-group-format-wrapper" style="display: none;">';
         $add['#suffix'] = '</div></div>';
       }
       else {
@@ -240,6 +261,19 @@ function hook_field_group_pre_render(& $element, $group, & $form) {
       break;
     break;
   }
+}
+
+/**
+ * Implements hook_field_group_pre_render().
+ *
+ * Function that fungates as last resort to alter the pre_render build.
+ */
+function hook_field_group_pre_render_alter(&$element, $group, & $form) {
+
+  if ($group->format_type == 'htab') {
+    $element['#theme_wrappers'] = array('my_horizontal_tab');
+  }
+
 }
 
 /**

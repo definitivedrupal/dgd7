@@ -1,5 +1,21 @@
+/**
+ * @file
+ * Some basic behaviors and utility functions for Views UI.
+ */
 Drupal.viewsUi = {};
 
+Drupal.behaviors.viewsUiEditView = {};
+
+/**
+ * Improve the user experience of the views edit interface.
+ */
+Drupal.behaviors.viewsUiEditView.attach = function (context, settings) {
+  // Only show the SQL rewrite warning when the user has chosen the
+  // corresponding checkbox.
+  jQuery('#edit-query-options-disable-sql-rewrite').click(function () {
+    jQuery('.sql-rewrite-warning').toggleClass('js-hide');
+  });
+};
 
 Drupal.behaviors.viewsUiAddView = {};
 
@@ -213,7 +229,7 @@ Drupal.behaviors.viewsUiRenderAddViewButton.attach = function (context, settings
   if (!$menu.length) {
     return;
   }
-  var $addDisplayDropdown = $('<li class="add"><a href="#"><span class="icon add"></span>Add</a><ul class="action-list" style="display:none;"></ul></li>');
+  var $addDisplayDropdown = $('<li class="add"><a href="#"><span class="icon add"></span>' + Drupal.t('Add') + '</a><ul class="action-list" style="display:none;"></ul></li>');
   var $displayButtons = $menu.nextAll('input.add-display').detach();
   $displayButtons.appendTo($addDisplayDropdown.find('.action-list')).wrap('<li>')
     .parent().first().addClass('first').end().last().addClass('last');
@@ -308,15 +324,16 @@ Drupal.viewsUi.OptionsSearch = function ($form) {
  */
 Drupal.viewsUi.OptionsSearch.prototype.getOptions = function ($allOptions) {
   var $ = jQuery;
-  var i, $label, $option;
+  var i, $label, $description, $option;
   var options = [];
   var length = $allOptions.length;
   for (i = 0; i < length; i++) {
     $option = $($allOptions[i]);
     $label = $option.find('label');
+    $description = $option.find('div.description');
     options[i] = {
-      // Search on the lowercase version of the label text.
-      'labelText': $label.text().toLowerCase(),
+      // Search on the lowercase version of the label text + description.
+      'searchText': $label.text().toLowerCase() + " " + $description.text().toLowerCase(),
       // Maintain a reference to the jQuery object for each row, so we don't
       // have to create a new object inside the performance-sensitive keyup
       // handler.
@@ -332,7 +349,7 @@ Drupal.viewsUi.OptionsSearch.prototype.getOptions = function ($allOptions) {
 Drupal.viewsUi.OptionsSearch.prototype.handleKeyup = function (event) {
   var found, i, j, option, search, words, wordsLength, zebraClass, zebraCounter;
 
-  // Determine the user's search query. The label text has been converted to
+  // Determine the user's search query. The search text has been converted to
   // lowercase.
   search = this.$searchBox.val().toLowerCase();
   words = search.split(' ');
@@ -341,16 +358,16 @@ Drupal.viewsUi.OptionsSearch.prototype.handleKeyup = function (event) {
   // Start the counter for restriping rows.
   zebraCounter = 0;
 
-  // Search through the labels in the form for matching text.
+  // Search through the search texts in the form for matching text.
   var length = this.options.length;
   for (i = 0; i < length; i++) {
     // Use a local variable for the option being searched, for performance.
     option = this.options[i];
     found = true;
-    // Each word in the search string has to match the label in order for the
-    // label to be shown.
+    // Each word in the search string has to match the item in order for the
+    // item to be shown.
     for (j = 0; j < wordsLength; j++) {
-      if (option.labelText.indexOf(words[j]) === -1) {
+      if (option.searchText.indexOf(words[j]) === -1) {
         found = false;
       }
     }
@@ -389,6 +406,11 @@ Drupal.behaviors.viewsUiPreview.attach = function (context, settings) {
   }
   else {
     $('#preview-args').parent().hide();
+  }
+
+  // Executes an initial preview.
+  if ($('#edit-displays-live-preview').once('edit-displays-live-preview').is(':checked')) {
+    $('#preview-submit').once('edit-displays-live-preview').click();
   }
 };
 
@@ -541,7 +563,7 @@ Drupal.viewsUi.rearrangeFilterHandler.prototype.duplicateGroupsOperator = functi
   dropdowns = this.operator;
 
   // Move the operator to a new row just above the second group.
-  titleRow = $('tr#views-group-title-1');
+  titleRow = $('tr#views-group-title-2');
   newRow = $('<tr class="filter-group-operator-row"><td colspan="5"></td></tr>');
   newRow.find('td').append(this.operator);
   newRow.insertBefore(titleRow);
@@ -754,6 +776,14 @@ Drupal.behaviors.viewsFilterConfigSelectAll.attach = function(context) {
       $(this).attr('checked', checked);
     });
   });
+  // Uncheck the select all checkbox if any of the others are unchecked.
+  $('#views-ui-config-item-form div.form-type-checkbox').not($('.form-item-options-value-all')).find('input[type=checkbox]').each(function() {
+    $(this).click(function() {
+      if ($(this).is('checked') == 0) {
+        $('#edit-options-value-all').removeAttr('checked');
+      }
+    });
+  });
 };
 
 /**
@@ -797,7 +827,7 @@ Drupal.behaviors.viewsRemoveIconClass.attach = function (context, settings) {
     $('.icon', $this).removeClass('icon');
     $('.horizontal', $this).removeClass('horizontal');
   });
-}
+};
 
 /**
  * Change "Expose filter" buttons into checkboxes.
@@ -805,12 +835,39 @@ Drupal.behaviors.viewsRemoveIconClass.attach = function (context, settings) {
 Drupal.behaviors.viewsUiCheckboxify = {};
 Drupal.behaviors.viewsUiCheckboxify.attach = function (context, settings) {
   var $ = jQuery;
-  var $buttons = $('#edit-options-expose-button-button').once('views-ui-checkboxify');
+  var $buttons = $('#edit-options-expose-button-button, #edit-options-group-button-button').once('views-ui-checkboxify');
   var length = $buttons.length;
   var i;
   for (i = 0; i < length; i++) {
     new Drupal.viewsUi.Checkboxifier($buttons[i]);
   }
+};
+
+/**
+ * Change the default widget to select the default group according to the
+ * selected widget for the exposed group.
+ */
+Drupal.behaviors.viewsUiChangeDefaultWidget = {};
+Drupal.behaviors.viewsUiChangeDefaultWidget.attach = function (context, settings) {
+  var $ = jQuery;
+  function change_default_widget(multiple) {
+    if (multiple) {
+      $('input.default-radios').hide();
+      $('td.any-default-radios-row').parent().hide();
+      $('input.default-checkboxes').show();
+    }
+    else {
+      $('input.default-checkboxes').hide();
+      $('td.any-default-radios-row').parent().show();
+      $('input.default-radios').show();
+    }
+  }
+  // Update on widget change.
+  $('input[name="options[group_info][multiple]"]').change(function() {
+    change_default_widget($(this).attr("checked"));
+  });
+  // Update the first time the form is rendered.
+  $('input[name="options[group_info][multiple]"]').trigger('change');
 };
 
 /**
@@ -822,13 +879,14 @@ Drupal.behaviors.viewsUiCheckboxify.attach = function (context, settings) {
 Drupal.viewsUi.Checkboxifier = function (button) {
   var $ = jQuery;
   this.$button = $(button);
-  this.$parent = this.$button.parent('div.views-expose');
-  this.$checkbox = this.$parent.find('input:checkbox');
+  this.$parent = this.$button.parent('div.views-expose, div.views-grouped');
+  this.$input = this.$parent.find('input:checkbox, input:radio');
   // Hide the button and its description.
   this.$button.hide();
-  this.$parent.find('.exposed-description').hide();
+  this.$parent.find('.exposed-description, .grouped-description').hide();
 
-  this.$checkbox.click($.proxy(this, 'clickHandler'));
+  this.$input.click($.proxy(this, 'clickHandler'));
+
 };
 
 /**
@@ -859,6 +917,9 @@ Drupal.behaviors.viewsUiOverrideSelect.attach = function (context, settings) {
     $(this).bind('change', function() {
       if ($(this).val() == 'default') {
         $submit.val(Drupal.t('Apply (all displays)'));
+      }
+      else if ($(this).val() == 'default_revert') {
+        $submit.val(Drupal.t('Revert to default'));
       }
       else {
         $submit.val(Drupal.t('Apply (this display)'));

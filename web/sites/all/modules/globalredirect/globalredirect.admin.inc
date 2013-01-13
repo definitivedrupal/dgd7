@@ -1,5 +1,4 @@
 <?php
-// $Id: globalredirect.admin.inc,v 1.5 2010/07/13 00:46:27 njt1982 Exp $
 
 /**
  * @file
@@ -87,9 +86,35 @@ function globalredirect_settings() {
     '#default_value' => $settings['term_path_handler'],
   );
 
+  $form['settings']['frontpage_redirect'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Frontpage Redirect Handler'),
+    '#description' => t('If enabled, any request to the frontpage path will redirect to the site root.<br />
+                         Whatever you set as the path of the front page on the !link settings page will redirect to the site root (e.g. "node" or "node/1" and also its alias (e.g. in case you have set "node/1" as your home page but that page also has an alias "home")).', array(
+      '!link' => l(t('Site Information'), 'admin/settings/site-information'),
+    )),
+    '#default_value' => $settings['frontpage_redirect'],
+  );
 
-  $form['buttons']['submit'] = array('#type' => 'submit', '#submit' => array('globalredirect_settings_submit_save'),  '#value' => t('Save Configuration') );
-  $form['buttons']['reset']  = array('#type' => 'submit', '#submit' => array('globalredirect_settings_submit_reset'), '#value' => t('Reset to defaults') );
+  $form['settings']['ignore_admin_path'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Ignore Admin Path'),
+    '#description' => t('If enabled, any request to the admin section of the site will be ignored by Global Redirect.<br />
+                         This is useful if you are experiencing problems with Global Redirect and want to protect the admin section of your website. NOTE: This may not be desirable if you are using path aliases for certain admin URLs.'),
+    '#default_value' => $settings['ignore_admin_path'],
+  );
+
+  $form['buttons']['submit'] = array(
+    '#type' => 'submit',
+    '#submit' => array('globalredirect_settings_submit_save'),
+    '#value' => t('Save Configuration'),
+  );
+
+  $form['buttons']['reset'] = array(
+    '#type' => 'submit',
+    '#submit' => array('globalredirect_settings_submit_reset'),
+    '#value' => t('Reset to defaults'),
+  );
 
   return $form;
 }

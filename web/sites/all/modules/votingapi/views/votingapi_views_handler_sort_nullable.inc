@@ -1,5 +1,4 @@
 <?php
-// $Id: votingapi_views_handler_sort_nullable.inc,v 1.1.2.2 2010/10/09 21:05:44 eaton Exp $
 
 /**
  * @file

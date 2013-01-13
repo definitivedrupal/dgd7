@@ -69,7 +69,7 @@ function _webform_edit_textfield($component) {
   );
   $form['display']['field_prefix'] = array(
     '#type' => 'textfield',
-    '#title' => t('Label placed to the left of the textfield'),
+    '#title' => t('Prefix text placed to the left of the textfield'),
     '#default_value' => $component['extra']['field_prefix'],
     '#description' => t('Examples: $, #, -.'),
     '#size' => 20,
@@ -79,7 +79,7 @@ function _webform_edit_textfield($component) {
   );
   $form['display']['field_suffix'] = array(
     '#type' => 'textfield',
-    '#title' => t('Label placed to the right of the textfield'),
+    '#title' => t('Postfix text placed to the right of the textfield'),
     '#default_value' => $component['extra']['field_suffix'],
     '#description' => t('Examples: lb, kg, %.'),
     '#size' => 20,
@@ -122,23 +122,30 @@ function _webform_edit_textfield($component) {
  * Implements _webform_render_component().
  */
 function _webform_render_textfield($component, $value = NULL, $filter = TRUE) {
+  $node = isset($component['nid']) ? node_load($component['nid']) : NULL;
+
   $element = array(
     '#type' => 'textfield',
     '#title' => $filter ? _webform_filter_xss($component['name']) : $component['name'],
     '#title_display' => $component['extra']['title_display'] ? $component['extra']['title_display'] : 'before',
-    '#default_value' => $filter ? _webform_filter_values($component['value'], NULL, NULL, NULL, FALSE) : $component['value'],
+    '#default_value' => $filter ? _webform_filter_values($component['value'], $node, NULL, NULL, FALSE) : $component['value'],
     '#required' => $component['mandatory'],
     '#weight' => $component['weight'],
     '#field_prefix' => empty($component['extra']['field_prefix']) ? NULL : ($filter ? _webform_filter_xss($component['extra']['field_prefix']) : $component['extra']['field_prefix']),
     '#field_suffix' => empty($component['extra']['field_suffix']) ? NULL : ($filter ? _webform_filter_xss($component['extra']['field_suffix']) : $component['extra']['field_suffix']),
-    '#description' => $filter ? _webform_filter_descriptions($component['extra']['description']) : $component['extra']['description'],
+    '#description' => $filter ? _webform_filter_descriptions($component['extra']['description'], $node) : $component['extra']['description'],
     '#attributes' => $component['extra']['attributes'],
     '#theme_wrappers' => array('webform_element'),
-    '#webform_component' => $component,
+    '#translatable' => array('title', 'description', 'field_prefix', 'field_suffix'),
   );
 
   if ($component['extra']['disabled']) {
-    $element['#attributes']['readonly'] = 'readonly';
+    if ($filter) {
+      $element['#attributes']['readonly'] = 'readonly';
+    }
+    else {
+      $element['#disabled'] = TRUE;
+    }
   }
 
   // Enforce uniqueness.
@@ -174,7 +181,7 @@ function _webform_display_textfield($component, $value, $format = 'html') {
     '#field_suffix' => $component['extra']['field_suffix'],
     '#format' => $format,
     '#value' => isset($value[0]) ? $value[0] : '',
-    '#webform_component' => $component,
+    '#translatable' => array('title', 'field_prefix', 'field_suffix'),
   );
 }
 

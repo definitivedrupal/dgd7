@@ -1,6 +1,14 @@
 <?php
+
+/**
+ * @file
+ * Definition of views_handler_sort_group_by_numeric.
+ */
+
 /**
  * Handler for GROUP BY on simple numeric fields.
+ *
+ * @ingroup views_sort_handlers
  */
 class views_handler_sort_group_by_numeric extends views_handler_sort {
   function init(&$view, &$options) {

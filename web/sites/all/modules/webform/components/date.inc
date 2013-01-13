@@ -117,23 +117,25 @@ function _webform_edit_date($component) {
  * Implements _webform_render_component().
  */
 function _webform_render_date($component, $value = NULL, $filter = TRUE) {
+  $node = isset($component['nid']) ? node_load($component['nid']) : NULL;
+
   $element = array(
     '#type' => 'date',
     '#title' => $filter ? _webform_filter_xss($component['name']) : $component['name'],
     '#title_display' => $component['extra']['title_display'] ? $component['extra']['title_display'] : 'before',
     '#weight' => $component['weight'],
-    '#description' => $filter ? _webform_filter_descriptions($component['extra']['description']) : $component['extra']['description'],
+    '#description' => $filter ? _webform_filter_descriptions($component['extra']['description'], $node) : $component['extra']['description'],
     '#required' => $component['mandatory'],
     '#start_date' => trim($component['extra']['start_date']),
     '#end_date' => trim($component['extra']['end_date']),
     '#year_textfield' => $component['extra']['year_textfield'],
-    '#default_value' => $filter ? _webform_filter_values($component['value'], NULL, NULL, NULL, FALSE) : $component['value'],
+    '#default_value' => $filter ? _webform_filter_values($component['value'], $node, NULL, NULL, FALSE) : $component['value'],
     '#timezone' => $component['extra']['timezone'],
     '#process' => array('webform_expand_date'),
     '#theme' => 'webform_date',
     '#theme_wrappers' => array('webform_element'),
     '#element_validate' => array('webform_validate_date'),
-    '#webform_component' => $component,
+    '#translatable' => array('title', 'description'),
   );
 
   if ($component['extra']['datepicker']) {
@@ -291,15 +293,27 @@ function webform_validate_date($element, $form_state) {
     $timestamp = strtotime($element['year']['#value'] . '-' . $element['month']['#value'] . '-' . $element['day']['#value']);
     $format = webform_date_format('short');
 
+    // Flip start and end if needed.
+    $date1 = strtotime($element['#start_date']);
+    $date2 = strtotime($element['#end_date']);
+    if ($date1 !== FALSE && $date2 !== FALSE) {
+      $start_date = $date1 < $date2 ? $date1 : $date2;
+      $end_date = $date1 > $date2 ? $date1 : $date2;
+    }
+    else {
+      $start_date = $date1;
+      $end_date = $date2;
+    }
+
     // Check that the date is after the start date.
-    if ($element['#start_date'] !== '' && (($start_date = strtotime($element['#start_date'])) || $start_date !== FALSE)) {
+    if ($start_date !== FALSE) {
       if ($timestamp < $start_date) {
         form_error($element, t('The entered date must be @start_date or later.', array('@start_date' => date($format, $start_date))));
       }
     }
 
     // Check that the date is before the end date.
-    if ($element['#end_date'] !== '' && (($end_date = strtotime($element['#end_date'])) || $end_date !== FALSE)) {
+    if ($end_date !== FALSE) {
       if ($timestamp > $end_date) {
         form_error($element, t('The entered date must be @end_date or earlier.', array('@end_date' => date($format, $end_date))));
       }
@@ -328,7 +342,7 @@ function _webform_display_date($component, $value, $format = 'html') {
     '#theme_wrappers' => $format == 'html' ? array('webform_element') : array('webform_element_text'),
     '#format' => $format,
     '#value' => $value,
-    '#webform_component' => $component,
+    '#translatable' => array('title'),
   );
 }
 

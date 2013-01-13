@@ -1,11 +1,11 @@
 <?php
 /*
- * implemntation of hook_context_plugins()
+ * Implementation of hook_context_plugins().
  */
 function context_no_title_context_plugins() {
   $plugins = array();
-    $plugins['context_no_title_reaction'] = array(
-      'handler' => array(
+  $plugins['context_no_title_reaction'] = array(
+    'handler' => array(
       'path' => drupal_get_path('module', 'context_no_title') .'/plugins',
       'file' => 'context_no_title_reaction.inc',
       'class' => 'context_no_title_reaction',
@@ -17,7 +17,7 @@ function context_no_title_context_plugins() {
 
 
 /*
- * implemntation of hook_context_registry()
+ * Implementation of hook_context_registry().
  */
 function context_no_title_context_registry() {
   return array(
@@ -32,10 +32,13 @@ function context_no_title_context_registry() {
 }
 
 /*
- * implemntation of hook_process_page()
+ * Implementation of hook_process_page().
  */
 function context_no_title_process_page(&$vars) {
-  if ($plugin = context_get_plugin('reaction', 'no_title')) {
-    $plugin->execute($vars);
-  } 
+  if(module_exists('context')) {
+    if ($plugin = context_get_plugin('reaction', 'no_title')) {
+      $plugin->execute($vars);
+    } 
+  }
 }
+

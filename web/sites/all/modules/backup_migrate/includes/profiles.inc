@@ -93,6 +93,18 @@ function _backup_migrate_ui_backup_settings_form($profile) {
   );
   $form['file']['filename']['#description'] = t('You can use tokens in the file name.');
 
+  $form['file']['token_help'] = array(
+    '#title' => t('Replacement patterns'),
+    '#type' => 'fieldset',
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+  );
+  $form['file']['token_help']['help'] = array(
+    '#theme' => 'token_tree',
+    '#token_types' => array('current-date', 'site'),
+    '#global_types' => FALSE,
+  );
+
   $form['file']['append_timestamp'] = array(
     "#type" => "checkbox",
     "#title" => t("Append a timestamp."),
@@ -146,7 +158,6 @@ function _backup_migrate_profile_default_profile() {
     'filename' => _backup_migrate_default_filename(),
     'append_timestamp' => 1,
     'timestamp_format' => 'Y-m-d\TH-i-s',
-    'compression' => "none",
     'filters' => backup_migrate_filters_settings_default('backup'),
   );
 }

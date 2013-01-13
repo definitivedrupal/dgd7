@@ -11,14 +11,14 @@
  */
 function hook_follow_networks_alter(&$networks, $uid = 0) {
   // Add a network.
-  $networks['mailinglist'] = array(
+  $networks[$uid]['mailinglist'] = array(
     'title' => t('Mailing List'),
-    'domain' => '',
+    'domain' => 'mailinglist.domain.com',
   );
 
   // Replace Twitter with Identi.ca
-  unset($networks['twitter']);
-  $networks['identica'] = array(
+  unset($networks[$uid]['twitter']);
+  $networks[$uid]['identica'] = array(
     'title' => t('Identi.ca'),
     'domain' => 'identi.ca',
   );

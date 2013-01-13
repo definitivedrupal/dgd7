@@ -64,7 +64,9 @@ class VarnishConnectionTestCase extends VarnishTestCase {
   }
 
   function testVarnishStats() {
-    $this->assertVarnishCommand(array('stats'));
+    if (variable_get('varnish_version', 2.1) < 3) {
+      $this->assertVarnishCommand(array('stats'));
+    }
   }
 
   function testMultipleCommands() {
@@ -166,7 +168,7 @@ class VarnishAdminTestCase extends VarnishTestCase {
     return array(
       'varnish_control_terminal' => variable_get('varnish_control_terminal', '127.0.0.1:6082'),
       'varnish_flush_cron' => variable_get('varnish_flush_cron', 0),
-      'varnish_legacy' => variable_get('varnish_legacy', 0),
+      'varnish_version' => variable_get('varnish_version', 2.1),
       'varnish_control_key' => variable_get('varnish_control_key', 0),
       'varnish_socket_timeout' => variable_get('varnish_socket_timeout', 100),
       'varnish_cache_clear' => variable_get('varnish_cache_clear', 0),

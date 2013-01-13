@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * Contains the base row style plugin.
@@ -18,8 +19,8 @@ class views_plugin_row_fields extends views_plugin_row {
 
     $options['inline'] = array('default' => array());
     $options['separator'] = array('default' => '');
-    $options['hide_empty'] = array('default' => FALSE);
-    $options['default_field_elements'] = array('default' => TRUE);
+    $options['hide_empty'] = array('default' => FALSE, 'bool' => TRUE);
+    $options['default_field_elements'] = array('default' => TRUE, 'bool' => TRUE);
     return $options;
   }
 
@@ -38,7 +39,7 @@ class views_plugin_row_fields extends views_plugin_row {
       '#type' => 'checkbox',
       '#title' => t('Provide default field wrapper elements'),
       '#default_value' => $this->options['default_field_elements'],
-      '#description' => t('If checked, fields that are not configured to customize their HTML elements will get no wrappers at all for their field, label and field + label wrappers. You can use this to quickly reduce the amount of markup the view provides by default, at the cost of making it more difficult to apply CSS.'),
+      '#description' => t('If not checked, fields that are not configured to customize their HTML elements will get no wrappers at all for their field, label and field + label wrappers. You can use this to quickly reduce the amount of markup the view provides by default, at the cost of making it more difficult to apply CSS.'),
     );
 
     $form['inline'] = array(
@@ -61,6 +62,9 @@ class views_plugin_row_fields extends views_plugin_row {
       '#size' => 10,
       '#default_value' => isset($this->options['separator']) ? $this->options['separator'] : '',
       '#description' => t('The separator may be placed between inline fields to keep them from squishing up next to each other. You can use HTML in this field.'),
+      '#dependency' => array(
+        'edit-row-options-default-field-elements' => array(1),
+      ),
     );
 
     $form['hide_empty'] = array(
@@ -80,4 +84,3 @@ class views_plugin_row_fields extends views_plugin_row {
     $form_state['values']['row_options']['inline'] = array_filter($form_state['values']['row_options']['inline']);
   }
 }
-

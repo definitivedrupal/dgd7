@@ -1,11 +1,12 @@
 core = "7.x"
 description = "Add Context Reaction that remove the title from the page"
 name = "Context No Title"
+dependencies[] = context
 package = "Context"
 
-; Information added by drupal.org packaging script on 2011-08-16
-version = "7.x-1.0-beta2"
+; Information added by drupal.org packaging script on 2012-02-29
+version = "7.x-1.0-beta3"
 core = "7.x"
 project = "context_no_title"
-datestamp = "1313509915"
+datestamp = "1330539041"
 

@@ -507,7 +507,7 @@ class backup_migrate_item {
     );
     $form['actions'] = array('#prefix' => '<div class="container-inline">', '#suffix' => '</div>', '#weight' => 99);
     $form['actions']['submit'] = array('#type' => 'submit', '#value' => t('Save !type', array('!type' => t($this->singular))));
-    $form['actions']['cancel'] = array('#value' => l(t('Cancel'), BACKUP_MIGRATE_MENU_PATH . '/destination'));
+    $form['actions']['cancel'] = array('#markup' => l(t('Cancel'), BACKUP_MIGRATE_MENU_PATH . '/destination'));
     return $form;
   }
 

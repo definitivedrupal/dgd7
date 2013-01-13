@@ -1,9 +1,15 @@
 <?php
+
 /**
  * @file
- * Views' relationship handlers.
+ * Definition of views_handler_relationship_entity_reverse.
  */
 
+/**
+ * A relationship handlers which reverse entity references.
+ *
+ * @ingroup views_relationship_handlers
+ */
 class views_handler_relationship_entity_reverse extends views_handler_relationship  {
   function init(&$view, &$options) {
     parent::init($view, $options);
@@ -29,6 +35,10 @@ class views_handler_relationship_entity_reverse extends views_handler_relationsh
     );
     if (!empty($this->options['required'])) {
       $first['type'] = 'INNER';
+    }
+
+    if (!empty($this->definition['join_extra'])) {
+      $first['extra'] = $this->definition['join_extra'];
     }
 
     if (!empty($this->definition['join_handler']) && class_exists($this->definition['join_handler'])) {

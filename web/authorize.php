@@ -35,7 +35,7 @@ define('DRUPAL_ROOT', getcwd());
 define('MAINTENANCE_MODE', 'update');
 
 /**
- * Render a 403 access denied page for authorize.php
+ * Renders a 403 access denied page for authorize.php.
  */
 function authorize_access_denied_page() {
   drupal_add_http_header('Status', '403 Forbidden');
@@ -45,7 +45,7 @@ function authorize_access_denied_page() {
 }
 
 /**
- * Determine if the current user is allowed to run authorize.php.
+ * Determines if the current user is allowed to run authorize.php.
  *
  * The killswitch in settings.php overrides all else, otherwise, the user must
  * have access to the 'administer software updates' permission.
@@ -60,7 +60,6 @@ function authorize_access_allowed() {
 // *** Real work of the script begins here. ***
 
 require_once DRUPAL_ROOT . '/includes/bootstrap.inc';
-require_once DRUPAL_ROOT . '/includes/session.inc';
 require_once DRUPAL_ROOT . '/includes/common.inc';
 require_once DRUPAL_ROOT . '/includes/file.inc';
 require_once DRUPAL_ROOT . '/includes/module.inc';
@@ -74,7 +73,7 @@ drupal_bootstrap(DRUPAL_BOOTSTRAP_SESSION);
 global $conf;
 
 // We have to enable the user and system modules, even to check access and
-// display errors via the maintainence theme.
+// display errors via the maintenance theme.
 $module_list['system']['filename'] = 'modules/system/system.module';
 $module_list['user']['filename'] = 'modules/user/user.module';
 module_list(TRUE, FALSE, FALSE, $module_list);
@@ -145,7 +144,7 @@ if (authorize_access_allowed()) {
         l(t('Front page'), '<front>'),
       ));
     }
-	
+
     $output .= theme('item_list', array('items' => $links, 'title' => t('Next steps')));
   }
   // If a batch is running, let it run.
@@ -172,4 +171,3 @@ else {
 if (!empty($output)) {
   print theme('update_page', array('content' => $output, 'show_messages' => $show_messages));
 }
-

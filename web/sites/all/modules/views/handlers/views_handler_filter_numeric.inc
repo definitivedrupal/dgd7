@@ -1,7 +1,14 @@
 <?php
 
 /**
+ * @file
+ * Definition of views_handler_filter_numeric.
+ */
+
+/**
  * Simple filter to handle greater than/less than filters
+ *
+ * @ingroup views_filter_handlers
  */
 class views_handler_filter_numeric extends views_handler_filter {
   var $always_multiple = TRUE;
@@ -85,6 +92,18 @@ class views_handler_filter_numeric extends views_handler_filter {
           'method' => 'op_empty',
           'short' => t('not empty'),
           'values' => 0,
+        ),
+      );
+    }
+
+    // Add regexp support for MySQL.
+    if (Database::getConnection()->databaseType() == 'mysql') {
+      $operators += array(
+        'regular_expression' => array(
+          'title' => t('Regular expression'),
+          'short' => t('regex'),
+          'method' => 'op_regex',
+          'values' => 1,
         ),
       );
     }
@@ -238,7 +257,14 @@ class views_handler_filter_numeric extends views_handler_filter {
     $this->query->add_where($this->options['group'], $field, NULL, $operator);
   }
 
+  function op_regex($field) {
+    $this->query->add_where($this->options['group'], $field, $this->value, 'RLIKE');
+  }
+
   function admin_summary() {
+    if ($this->is_a_group()) {
+      return t('grouped');
+    }
     if (!empty($this->options['exposed'])) {
       return t('exposed');
     }

@@ -19,28 +19,25 @@ INSTALLATION
 
    Required:
 
-   a. Media (7.x-1.0-beta5)
+   a. Media (latest 1.x release, tested with 7.x-1.2)
       - Download from http://drupal.org/project/media and unpack it in your
         contributed modules directory (usually sites/all/modules).
-   b. Multiform (7.x-1.0-beta2)
+   b. Multiform (7.x-1.0)
       - Download from http://drupal.org/project/multiform and unpack it in your
         contributed modules directory (usually sites/all/modules).
-   c. Chaos tool suite (latest release, tested with 7.x-1.0-beta1)
-      - Download from http://drupal.org/project/ctools and unpack it in your
-        contributed modules directory (usually sites/all/modules).
-   d. ColorBox jQuery plugin (latest release, tested with 1.3.17)
+   c. ColorBox jQuery plugin (latest release, tested with 1.3.17)
       - Download from http://colorpowered.com/colorbox and unpack it in
         sites/all/libraries (if the directory doesn't exist, create it first).
 
    Recommended for the best experience:
 
-   e. Media Browser Plus (latest release, tested with 7.x-1.0-beta3)
+   a. Media Browser Plus (latest release, tested with 7.x-1.0-beta3)
       - Download from http://drupal.org/project/media_browser_plus and unpack
         it in your contributed modules directory (usually sites/all/modules).
-   f. Media YouTube (latest release, tested with 7.x-1.0-alpha5)
+   b. Media YouTube (latest release, tested with 7.x-1.0-beta3)
       - Download from http://drupal.org/project/media_youtube and unpack it in
         your contributed modules directory (usually sites/all/modules).
-   g. Plupload (latest release, tested with 7.x-1.0-beta3)
+   c. Plupload (latest release, tested with 7.x-1.0)
       - First, download the module from http://drupal.org/project/plupload and
         unpack it in your contributed modules directory (usually
         sites/all/modules).

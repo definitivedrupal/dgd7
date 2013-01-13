@@ -1,0 +1,424 @@
+<?php
+
+/**
+ * @file
+ * Provides Skinr integration with Context.
+ */
+
+/**
+ * Save a skin group object.
+ *
+ * @param $group
+ *   A skin settings group object.
+ *
+ * @return
+ *   TRUE on success, FALSE on failure.
+ */
+function skinr_context_group_save(&$group) {
+  // Load the stored skin settings group object, if any.
+  if (!empty($group->gid)) {
+    if (!isset($group->original)) {
+      // Load an uncached version of the skin settings object.
+      $group->original = skinr_context_group_load_unchanged($group->gid);
+    }
+  }
+
+  // Let modules modify the node before it is saved to the database.
+  module_invoke_all('skinr_context_group_presave', $group);
+
+  if (!empty($group->gid)) {
+    // Record exists, so let's update.
+    $status = drupal_write_record('skinr_groups', $group, 'gid');
+
+    // When status changes, update status of linked skin settings.
+    if ($group->status != $group->original->status) {
+      $params = array(
+        'gid' => $group->gid,
+      );
+      $sids = skinr_context_group_get_sids($params);
+      foreach ($sids as $sid) {
+      }
+      // @todo
+    }
+
+    module_invoke_all('skinr_context_group_update', $group);
+  }
+  else {
+    // Insert a new record.
+    $status = drupal_write_record('skinr_groups', $group);
+    module_invoke_all('skinr_context_group_insert', $group);
+  }
+
+  // Clear internal properties.
+  unset($group->original);
+  // Clear the static loading cache.
+  // @todo Once we have a more granular reset for skinr_skin_load_multiple(), we
+  //   need to use it here.
+  drupal_static_reset('skinr_context_group_load_multiple');
+  // Clear context's cache.
+  context_invalidate_cache();
+
+  return $status;
+}
+
+/**
+ * Delete a skin group object.
+ *
+ * @param $gid
+ *   The skin settings group ID.
+ */
+function skinr_context_group_delete($gid) {
+  skinr_context_group_delete_multiple(array($gid));
+}
+
+/**
+ * Delete multiple skin settings group objects.
+ *
+ * @param $gids
+ *   An array of skin settings group IDs.
+ */
+function skinr_context_group_delete_multiple($gids) {
+  $transaction = db_transaction();
+  if (!empty($gids)) {
+    $groups = skinr_context_group_load_multiple($gids);
+
+    try {
+      foreach ($groups as $gid => $group) {
+        module_invoke_all('skinr_context_group_delete', $group);
+
+        // Delete all skin settings associated with this group.
+        $params = array(
+          'gid' => $gid,
+        );
+        $sids = skinr_context_group_get_sids($params);
+        skinr_skin_delete_multiple($sids);
+      }
+
+      // Delete after calling hooks so that they can query node tables as needed.
+      db_delete('skinr_groups')
+        ->condition('gid', $gids, 'IN')
+        ->execute();
+    }
+    catch (Exception $e) {
+      $transaction->rollback();
+      watchdog_exception('skinr', $e);
+      throw $e;
+    }
+
+    // Clear the skinr_context_group_load_multiple cache.
+    drupal_static_reset('skinr_context_group_load_multiple');
+    // Clear context's cache.
+    context_invalidate_cache();
+  }
+}
+
+/**
+ * Load a skin settings group object from the database.
+ *
+ * @param $gid
+ *   The skin settings group ID.
+ *
+ * @return
+ *   A fully-populated skin settings group object.
+ */
+function skinr_context_group_load($gid = NULL) {
+  $gids = (isset($gid) ? array($gid) : array());
+  $group = skinr_context_group_load_multiple($gids);
+  return $group ? reset($group) : FALSE;
+}
+
+/**
+ * Load skin settings group objects from the database.
+ *
+ * This function should be used whenever you need to load more than one skin
+ * configuration group from the database. Skin settings groups are loaded
+ * into memory and will not require database access if loaded again during the
+ * same page request.
+ *
+ * @see skinr_context_group_get_gids()
+ *
+ * @param $gids
+ *   An array of skin settings group IDs.
+ *
+ * @return
+ *   An array of skin settings group objects indexed by gid.
+ */
+function skinr_context_group_load_multiple($gids = array()) {
+  // @todo Do we want to write a more granular cache reset?
+  $groups = &drupal_static(__FUNCTION__, array());
+
+  // Create a new variable which is either a prepared version of the $gids
+  // array for later comparison with cached skin group objects, or FALSE
+  // if no $gids were passed. The $gids array is reduced as items are loaded
+  // from cache, and we need to know if it's empty for this reason to avoid
+  // querying the database when all requested skin group objects are
+  // loaded from cache.
+  $passed_gids = !empty($gids) ? array_flip($gids) : FALSE;
+  if ($passed_gids) {
+    $gids = array_keys(array_diff_key($passed_gids, $groups));
+  }
+
+  // Load any remaining skin groups from the database. This is the
+  // case if $gids is set to FALSE (so we load all groups), or if there are any
+  // gids left to load.
+  if ($gids === FALSE || $gids) {
+    // Build the query.
+    $query = db_select('skinr_groups', 'g')
+      ->fields('g');
+    if ($gids !== FALSE) {
+      $query->condition('gid', $gids);
+    }
+    $queried_groups = $query->execute()
+      ->fetchAllAssoc('gid');
+
+    foreach ($queried_groups as $gid => $group) {
+      // Unserialize options array.
+      $queried_groups[$gid]->conditions = unserialize($group->conditions);
+
+      // Let modules modify the skin settings group.
+      module_invoke_all('skinr_context_group_load', $queried_groups[$gid]);
+    }
+    $groups += $queried_groups;
+  }
+
+  // Ensure that the returned array is ordered the same as the original
+  // $gids array if this was passed in and remove any invalid gids.
+  if ($passed_gids) {
+    // Remove any invalid gids from the array.
+    $passed_gids = array_intersect_key($passed_gids, $groups);
+    $return = array();
+    foreach ($passed_gids as $gid => $ignore) {
+      $return[$gid] = $groups[$gid];
+    }
+  }
+  else {
+    $return = $groups;
+  }
+
+  return $return;
+}
+
+/**
+ * Load an uncached version of a skin settings group object.
+ *
+ * @param $gid
+ *   The skin settings group ID.
+ *
+ * @return
+ *   A fully-populated skin settings group object.
+ */
+function skinr_context_group_load_unchanged($gid) {
+  // Load an uncached version of the skin settings object.
+  $group = db_query("SELECT * FROM {skinr_groups} WHERE gid = :gid", array(
+    ':gid' => $gid,
+  ))
+  ->fetchObject();
+
+  // Unserialize options array.
+  $group->conditions = unserialize($group->conditions);
+
+  // Let modules modify the skin settings group.
+  module_invoke_all('skinr_context_group_load', $group);
+
+  return $group;
+}
+
+/**
+ * Get skin settings group IDs.
+ *
+ * @param $filter_by
+ *   An associative array whose keys are:
+ *   - module: (optional) The module.
+ *   - element: (optional) The element ID.
+ *
+ * @return
+ *   An array of skin settings group IDs.
+ */
+function skinr_context_group_get_gids($filter_by = array()) {
+  $query = db_select('skinr_groups', 'g')
+      ->fields('g', array('gid'));
+  if (isset($filter_by['module'])) {
+    $query->condition('module', $filter_by['module']);
+  }
+  if (isset($filter_by['element'])) {
+    $query->condition('element', $filter_by['element']);
+  }
+
+  // Take weight into account.
+  $query->orderBy('weight');
+  $query->orderBy('gid');
+
+  return $query->execute()
+    ->fetchCol();
+}
+
+/**
+ * Get skin settings IDs for grouped skin settings.
+ *
+ * @param $filter_by
+ *   An associative array whose keys are:
+ *   - theme: (optional) The theme.
+ *   - module: (optional) The module.
+ *   - element: (optional) The element ID.
+ *   - gid: (optional) The group ID.
+ *   - skin: (optional) The skin name.
+ *   - status: (optional) Boolean indicating whether or not this skin
+ *     configuration is enabled.
+ *
+ * @return
+ *   An array of skin settings IDs.
+ */
+function skinr_context_group_get_sids($filter_by = array()) {
+  $query = db_select('skinr_skins', 's');
+  $query->join('skinr_group_skins', 'gs', 's.sid = gs.sid');
+  $query->fields('s', array('sid'));
+
+  if (isset($filter_by['theme'])) {
+    $query->condition('s.theme', $filter_by['theme']);
+  }
+  if (isset($filter_by['module'])) {
+    $query->condition('s.module', $filter_by['module']);
+  }
+  if (isset($filter_by['element'])) {
+    $query->condition('s.element', $filter_by['element']);
+  }
+  if (isset($filter_by['gid'])) {
+    $query->condition('gs.gid', $filter_by['gid']);
+  }
+  if (isset($filter_by['skin'])) {
+    $query->condition('s.skin', $filter_by['skin']);
+  }
+  if (isset($filter_by['status'])) {
+    $query->condition('s.status', $filter_by['status']);
+  }
+  return $query->execute()
+    ->fetchCol();
+}
+
+/**
+ * Helper function to create a context object from a skin settings group.
+ *
+ * @param $group
+ *   Skinr settings group object.
+ *
+ * @return
+ *   A context object.
+ */
+function skinr_context_group_to_context($group) {
+  $context = (object) array(
+    'name' => 'skinr_group__' . $group->gid,
+    'description' => !empty($group->description) ? t('@title: @description', array('@title' => $group->title, '@description' => $group->description)) : check_plain($group->title),
+    'tag' => 'Skinr',
+    'conditions' => $group->conditions,
+    'reactions' => array(),
+    'condition_mode' => $group->condition_mode,
+  );
+  return $context;
+}
+
+/**
+ * Implements hook_ctools_plugin_api().
+ */
+function skinr_context_ctools_plugin_api($module, $api) {
+  if ($module == "context" && $api == "context") {
+    return array("version" => 3);
+  }
+}
+
+/**
+ * Implements hook_context_default_contexts().
+ */
+function skinr_context_context_default_contexts() {
+  $contexts = array();
+  foreach (skinr_context_group_load_multiple(FALSE) as $group) {
+    $context = skinr_context_group_to_context($group);
+    $context->disabled = FALSE;
+    $context->api_version = 3;
+    $contexts[$context->name] = $context;
+  }
+  return $contexts;
+}
+
+/**
+ * Implements hook_skinr_skin_presave().
+ */
+function skinr_context_skinr_skin_presave($skin) {
+  if (!empty($skin->gid)) {
+    // Load group object.
+    if ($group = skinr_context_group_load($skin->gid)) {
+      if (!$group->status) {
+        // Disable skin status if group is disabled.
+        $skin->status = 0;
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_skinr_skin_insert().
+ */
+function skinr_context_skinr_skin_insert($skin) {
+  if (!empty($skin->gid)) {
+    $gs = (object) array(
+      'gid' => $skin->gid,
+      'sid' => $skin->sid,
+    );
+    drupal_write_record('skinr_group_skins', $gs);
+  }
+}
+
+/**
+ * Implements hook_skinr_skin_delete().
+ */
+function skinr_context_skinr_skin_delete($skin) {
+  if (!empty($skin->gid)) {
+    db_delete('skinr_group_skins')
+      ->condition('sid', $skin->sid)
+      ->execute();
+  }
+}
+
+/**
+ * Implements hook_skinr_skin_load().
+ */
+function skinr_context_skinr_skin_load($skin) {
+  $query = db_select('skinr_group_skins', 'gs');
+  $query->fields('gs', array('gid'));
+  $query->condition('sid', $skin->sid);
+
+  $skin->gid = $query->execute()->fetchField();
+}
+
+/**
+ * Function used by uasort to sort classes by weight.
+ *
+ * @see skinr_context_skinr_preprocess_alter()
+ */
+function skinr_context_sort_weight($a, $b) {
+  $a_weight = (is_object($a) && isset($a->weight)) ? $a->weight : 0;
+  $b_weight = (is_object($b) && isset($b->weight)) ? $b->weight : 0;
+  if ($a_weight == $b_weight) {
+    return 0;
+  }
+  return ($a_weight < $b_weight) ? -1 : 1;
+}
+
+/**
+ * Implements hook_skinr_preprocess_alter().
+ */
+function skinr_context_skinr_preprocess_alter(&$skins, $context) {
+  $contexts = context_active_contexts();
+  foreach ($skins as $key => $skin) {
+    if (!empty($skin->gid) && $group = skinr_context_group_load($skin->gid)) {
+      // Remove skins for groups that arent in the right context.
+      if (!isset($contexts['skinr_group__' . $skin->gid])) {
+        unset($skins[$key]);
+      }
+
+      // Set group based weight on skins.
+      $skin->weight = $group->weight;
+    }
+  }
+  // Reorder by weight.
+  uasort($skins, 'skinr_context_sort_weight');
+}

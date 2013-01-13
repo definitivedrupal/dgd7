@@ -7,11 +7,11 @@
 function media_browser($selected = NULL) {
   $output = array();
   $output['#attached']['library'][] = array('media', 'media_browser_page');
-  
+
   $params = drupal_get_query_parameters();
   array_walk_recursive($params, '_media_recursive_check_plain');
-  media_set_browser_params($params);
-  
+  $params = media_set_browser_params($params);
+
   // If one or more files have been selected, the browser interaction is now
   // complete. Return empty page content to the dialog which now needs to close,
   // but populate Drupal.settings with information about the selected files.
@@ -31,7 +31,7 @@ function media_browser($selected = NULL) {
 
   // Normal browser operation.
   foreach (module_implements('media_browser_plugin_info') as $module) {
-    foreach(module_invoke($module, 'media_browser_plugin_info') as $key => $plugin_data) {
+    foreach (module_invoke($module, 'media_browser_plugin_info') as $key => $plugin_data) {
       $plugins[$key] = $plugin_data + array(
         '#module' => $module,
         '#weight' => 0,
@@ -39,7 +39,7 @@ function media_browser($selected = NULL) {
       $plugins[$key]['#weight'] += count($plugins)/1000;
     }
   }
-  
+
   // Only the plugins in this array are loaded.
   if (!empty($params['enabledPlugins'])) {
     $plugins = array_intersect_key($plugins, array_fill_keys($params['enabledPlugins'], 1));
@@ -49,14 +49,21 @@ function media_browser($selected = NULL) {
   }
 
   foreach ($plugins as $key => &$plugin) {
-    $plugin += module_invoke($plugin['#module'], 'media_browser_plugin_view', $key, $params);
+    $plugin_output = module_invoke($plugin['#module'], 'media_browser_plugin_view', $key, $params);
+    if (!empty($plugin_output) && is_array($plugin_output)) {
+      $plugin += $plugin_output;
+    }
+    else {
+      unset($plugins[$key]);
+      continue;
+    }
   }
-  
+
   // Allow modules to change the tab names or whatever else they want to change
   // before we render.  Perhaps this should be an alter on the theming function
   // that we should write to be making the tabs.
   drupal_alter('media_browser_plugins', $plugins);
-  
+
   $tabs = array(); // List of tabs to render.
 
   $settings = array('media' => array('browser' => array()));
@@ -108,22 +115,26 @@ EOS;
  * It also offers a chance for some meddler to meddle with them.
  *
  * @param array $params
- *  An array of parameters provided when a media_browser is launched.
- *  See media_browser().
+ *   An array of parameters provided when a media_browser is launched.
+ *
+ * @see media_browser()
  */
-function media_set_browser_params(&$params = NULL) {
-  static $stored_params;
-  
-  if (!$params) {
-    return $stored_params;
+function media_set_browser_params(array $params = NULL) {
+  $stored_params = &drupal_static(__FUNCTION__, array());
+
+  if (isset($params)) {
+    $stored_params = $params;
+    // Allow modules to alter the parameters.
+    drupal_alter('media_browser_params', $stored_params);
   }
-  $stored_params = $params;
-  drupal_alter('media_browser_params', $stored_params);
+
+  return $stored_params;
 }
 
 /**
  * For sanity in grammar.
- * @see media_set_browser_params().
+ *
+ * @see media_set_browser_params()
  */
 function media_get_browser_params() {
   return media_set_browser_params();
@@ -137,135 +148,87 @@ function media_browser_list() {
   // How do we validate these?  I don't know.
   // I think PDO should protect them, but I'm not 100% certain.
   array_walk_recursive($params, '_media_recursive_check_plain');
-  
-  $types = isset($params['types']) ? $params['types'] : NULL;
-  $url_include_patterns = isset($params['url_include_patterns']) ? $params['url_include_patterns'] : NULL;
-  $url_exclude_patterns = isset($params['url_exclude_patterns']) ? $params['url_exclude_patterns'] : NULL;
+
+  $remote_types = !empty($params['types']) ? $params['types'] : NULL;
+  $url_include_patterns = !empty($params['url_include_patterns']) ? $params['url_include_patterns'] : NULL;
+  $url_exclude_patterns = !empty($params['url_exclude_patterns']) ? $params['url_exclude_patterns'] : NULL;
+  $allowed_schemes = !empty($params['schemes']) ? array_filter($params['schemes']) : array();
 
   $start = isset($params['start']) ? $params['start'] : 0;
   $limit = isset($params['limit']) ? $params['limit'] : media_variable_get('browser_pager_limit');
-  
-  $query = new EntityFieldQuery();
-  
-  $query->range($start, $limit);
-  $query->entityCondition('entity_type', 'file');
-  $query->entityOrderBy('entity_id', 'DESC');
 
-  if ($types) {
-    $query->entityCondition('bundle', $types, 'IN');
+  $query = db_select('file_managed', 'f');
+  $query->fields('f', array('fid'));
+  $query->range($start, $limit);
+  $query->orderBy('f.timestamp', 'DESC');
+
+  // Add conditions based on remote file type *or* local allowed extensions.
+  $or_condition = db_or();
+
+  // Include local files with the allowed extensions.
+  if (!empty($params['file_extensions'])) {
+    $extensions = array_filter(explode(' ', $params['file_extensions']));
+    $local_wrappers = array_intersect_key(media_get_local_stream_wrappers(), $allowed_schemes);
+    if (!empty($local_wrappers) && !empty($extensions)) {
+      $local_condition = db_or();
+      foreach (array_keys($local_wrappers) as $scheme) {
+        foreach ($extensions as $extension) {
+          $local_condition->condition('f.uri', db_like($scheme . '://') . '%' . db_like('.' . $extension), 'LIKE');
+        }
+      }
+      $or_condition->condition($local_condition);
+    }
+  }
+
+  // Include remote files with the allowed file types.
+  if (!empty($remote_types)) {
+    $remote_wrappers = array_intersect_key(media_get_remote_stream_wrappers(), $allowed_schemes);
+    if (!empty($remote_wrappers)) {
+      $remote_condition = db_and();
+      $wrapper_condition = db_or();
+      foreach (array_keys($remote_wrappers) as $scheme) {
+        $wrapper_condition->condition('f.uri', db_like($scheme . '://') . '%', 'LIKE');
+      }
+      $remote_condition->condition($wrapper_condition);
+      $remote_condition->condition('f.type', $remote_types, 'IN');
+      $or_condition->condition($remote_condition);
+    }
+  }
+
+  if ($or_condition->count()) {
+    $query->condition($or_condition);
   }
 
   if ($url_include_patterns) {
-    $query->propertyCondition('uri', $v, 'CONTAINS');
+    $query->condition('f.uri', '%' . db_like($url_include_patterns) . '%', 'LIKE');
     // Insert stream related restrictions here.
   }
   if ($url_exclude_patterns) {
-    $query->propertyCondition('uri', "%$v%", 'NOT LIKE');
+    $query->condition('f.uri', '%' . db_like($url_exclude_patterns) . '%', 'NOT LIKE');
   }
 
   // @todo Implement granular editorial access: http://drupal.org/node/696970.
   //   In the meantime, protect information about private files from being
   //   discovered by unprivileged users. See also media_view_page().
   if (!user_access('administer media')) {
-    $query->propertyCondition('uri', 'private://%', 'NOT LIKE');
+    $query->condition('f.uri', db_like('private://') . '%', 'NOT LIKE');
   }
 
-  $query->propertyCondition('status', FILE_STATUS_PERMANENT);
+  $query->condition('f.status', FILE_STATUS_PERMANENT);
 
-  $result = $query->execute();
-  $files = file_load_multiple(array_keys($result['file']));
+  foreach (array_keys(media_get_hidden_stream_wrappers()) as $name) {
+    $query->condition('f.uri', db_like($name . '://') . '%', 'NOT LIKE');
+  }
+
+  $fids = $query->execute()->fetchCol();
+  $files = file_load_multiple($fids);
   foreach ($files as $file) {
     media_browser_build_media_item($file);
   }
-  
+
   drupal_json_output(array('media' => array_values($files)));
   exit();
-
 }
-
-/**
- * Implements hook_media_browser_plugin_info().
- */
-function media_media_browser_plugin_info() {
-  $plugins = array();
-
-  // @TODO: Should we add a permission around this?
-  $plugins['library'] = array(
-    '#weight' => 10,
-  );
-
-  if (user_access('administer media') || user_access('edit media')) {
-    $plugins['upload'] = array(
-      '#weight' => -10,
-     );
-  }
-  return $plugins;
-}
-
-/**
- * Implementaion of hook_media_browser_plugin_view().
- */
-function media_media_browser_plugin_view($plugin_name, $params) {
-  $path = drupal_get_path('module', 'media');
-
-  module_load_include('inc', 'media', 'includes/media.admin');
-  module_load_include('inc', 'media', 'includes/media.pages');
-
-  $types = isset($params['types']) ? $params['types'] : array();
-
-  // The multiselect parameter is a string.  So we check to see if it is set and
-  // adjust the local variable accordingly.
-  $multiselect = FALSE;
-  if (isset($params['multiselect']) && $params['multiselect'] != 'false') {
-    $multiselect = TRUE;
-  }
-
-  $redirect = array('media/browser', array('query' => array('render' => 'media-popup')));
-  switch ($plugin_name) {
-    case 'upload':
-      $attached = array();
-      if ($multiselect && module_exists('plupload')) {
-        $upload_form_id = 'media_add_upload_multiple';
-        $attached['js'] = array($path . '/js/plugins/media.upload_multiple.js');
-      }
-      else {
-        $upload_form_id = 'media_add_upload';
-      }
-
-      $upload_form = drupal_get_form($upload_form_id, $types);
-      return array(
-        '#title' => t('Upload'),
-        'form' => array($upload_form),
-        '#attached' => $attached,
-      );
-      break;
-    case 'library':
-      return array(
-        '#title' => t('Library'),
-        '#attached' => array(
-          'js' => array(
-            $path . '/js/plugins/media.library.js',
-          ),
-          'css' => array(
-            //@todo: should move this.
-            $path . '/js/plugins/media.library.css',
-          ),
-        ),
-        '#settings' => array(
-          'viewMode' => 'thumbnails',
-          'getMediaUrl' => url('media/browser/list'),
-          'types' => $types,
-          'multiselect' => $multiselect,
-        // We should probably change this to load dynamically when requested
-        // via the JS file.
-        ),
-        '#markup' => '<div id="container"><div id="scrollbox"><ul id="media-browser-library-list" class="media-list-thumbnails"></ul><div id="status"></div></div></div>',
-      );
-    break;
-  }
-
-  return array();
- }
 
 /**
  * Silly function to recursively run check_plain on an array.
@@ -333,7 +296,7 @@ function media_browser_testbed($form) {
       ),
     )
   );
-  
+
   $launcher = '<a href="#" id="launcher"> Launch Media Browser</a>';
 
   $form['options'] = array(

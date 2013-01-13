@@ -23,6 +23,8 @@ Drupal.behaviors.experimentalMediaBrowser = {
 
     $('.media-browser-tab').each( Drupal.media.browser.validateButtons );
 
+    Drupal.media.browser.selectErrorTab();
+
   }
   // Wait for additional params to be passed in.
 };
@@ -56,16 +58,16 @@ Drupal.media.browser.validateButtons = function() {
   //
   // @todo An alternate, less hacky solution would be most welcome.
   if (!($('.form-submit', this).length > 0)) {
-    $('<a class="button fake-ok">Submit</a>').appendTo(this).bind('click', Drupal.media.browser.submit);
+    $('<a class="button button-yes fake-ok">' + Drupal.t('Submit') + '</a>').appendTo(this).bind('click', Drupal.media.browser.submit);
     if (!($('.fake-cancel', this).length > 0)) {
-      $('<a class="button fake-cancel">Cancel</a>').appendTo(this).bind('click', Drupal.media.browser.submit);
+      $('<a class="button button-no fake-cancel">' + Drupal.t('Cancel') + '</a>').appendTo(this).bind('click', Drupal.media.browser.submit);
     }
   } else if (!($('.fake-cancel', this).length > 0)) {
     var parent = $('.form-actions', this);
     if (!parent.length) {
       parent = $('form > div', this);
     }
-    $('<a class="button fake-cancel">Cancel</a>').appendTo(parent).bind('click', Drupal.media.browser.submit);
+    $('<a class="button button-no fake-cancel">' + Drupal.t('Cancel') + '</a>').appendTo(parent).bind('click', Drupal.media.browser.submit);
   }
 };
 
@@ -85,7 +87,7 @@ Drupal.media.browser.selectMedia = function (selectedMedia) {
 
 Drupal.media.browser.finalizeSelection = function () {
   if (!Drupal.media.browser.selectedMedia) {
-    throw new exception('Cannot continue, nothing selected');
+    throw new exception(Drupal.t('Cannot continue, nothing selected'));
   }
   else {
     Drupal.media.browser.selectionFinalized(Drupal.media.browser.selectedMedia);
@@ -96,5 +98,22 @@ Drupal.media.browser.resizeIframe = function (event) {
   var h = $('body').height();
   $(parent.window.document).find('#mediaBrowser').height(h);
 };
+
+Drupal.media.browser.selectErrorTab = function() {
+  //Find the ID of a tab with an error in it
+  var errorTabID = $('#media-browser-tabset')
+    .find('.error')
+    .parents('.media-browser-tab')
+    .attr('id');
+
+  if (errorTabID !== undefined) {
+    //Find the Tab Link with errorTabID
+    var tab = $('a[href="#' + errorTabID + '"]');
+    //Find the index of the tab
+    var index = $('#media-browser-tabset a').index(tab);
+    //Select the tab
+    $('#media-browser-tabset').tabs('select', index)
+  }
+}
 
 }(jQuery));

@@ -1,11 +1,19 @@
 <?php
+
 /**
- * Allow taxonomy term ID(s) as argument
+ * @file
+ * Definition of views_handler_argument_term_node_tid.
+ */
+
+/**
+ * Allow taxonomy term ID(s) as argument.
+ *
+ * @ingroup views_argument_handlers
  */
 class views_handler_argument_term_node_tid extends views_handler_argument_many_to_one {
   function option_definition() {
     $options = parent::option_definition();
-    $options['set_breadcrumb'] = array('default' => FALSE);
+    $options['set_breadcrumb'] = array('default' => FALSE, 'bool' => TRUE);
     return $options;
   }
 

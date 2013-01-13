@@ -6,9 +6,15 @@
  */
 
 /**
- * The base plugin to handle localization of Views strings.
+ * @defgroup views_localization_plugins Views localization plugins
+ * @{
+ * @todo.
  *
- * @ingroup views_localization_plugins
+ * @see hook_views_plugins()
+ */
+
+/**
+ * The base plugin to handle localization of Views strings.
  */
 class views_plugin_localization extends views_plugin {
   // Store for exported strings
@@ -139,7 +145,9 @@ class views_plugin_localization extends views_plugin {
         $translatable[] = array('value' => $display->display_title, 'keys' => array('display_title'));
       }
       // Unpack handlers.
-      $this->view->display[$display_id]->handler->unpack_translatables($translatable);
+      if (is_object($this->view->display[$display_id]->handler)) {
+        $this->view->display[$display_id]->handler->unpack_translatables($translatable);
+      }
       foreach ($translatable as $data) {
         $data['keys'] = array_merge(array($this->view->name, $display_id), $data['keys']);
         switch ($op) {
@@ -157,3 +165,7 @@ class views_plugin_localization extends views_plugin {
     }
   }
 }
+
+/**
+ * @}
+ */

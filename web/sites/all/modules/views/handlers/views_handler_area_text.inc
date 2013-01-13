@@ -1,21 +1,22 @@
 <?php
 
 /**
-* @file
-* Views area text handler.
-*/
+ * @file
+ * Definition of views_handler_area_text.
+ */
 
 /**
- * @ingroup views_area_handlers Views' area handlers
-*/
-
+ * Views area text handler.
+ *
+ * @ingroup views_area_handlers
+ */
 class views_handler_area_text extends views_handler_area {
 
   function option_definition() {
     $options = parent::option_definition();
     $options['content'] = array('default' => '', 'translatable' => TRUE, 'format_key' => 'format');
     $options['format'] = array('default' => NULL);
-    $options['tokenize'] = array('default' => FALSE);
+    $options['tokenize'] = array('default' => FALSE, 'bool' => TRUE);
     return $options;
   }
 
@@ -30,7 +31,7 @@ class views_handler_area_text extends views_handler_area {
       '#wysiwyg' => FALSE,
     );
 
-
+    // @TODO: Refactor token handling into a base class.
     $form['tokenize'] = array(
       '#type' => 'checkbox',
       '#title' => t('Use replacement tokens from the first row'),
@@ -50,7 +51,7 @@ class views_handler_area_text extends views_handler_area {
     }
 
     if (!empty($options)) {
-      $output = '<p>' . t('The following tokens are available. If you would like to have the characters %5B and %5D please use the html entity codes \'%5B\' or  \'%5D\' or they will get replaced with empty space.)' . '</p>');
+      $output = '<p>' . t('The following tokens are available. If you would like to have the characters \'[\' and \']\' please use the html entity codes \'%5B\' or  \'%5D\' or they will get replaced with empty space.' . '</p>');
       foreach (array_keys($options) as $type) {
         if (!empty($options[$type])) {
           $items = array();
@@ -100,10 +101,10 @@ class views_handler_area_text extends views_handler_area {
    */
   function render_textarea($value, $format) {
     if ($value) {
-      $value = $this->view->style_plugin->tokenize_value($value, 0);
+      if ($this->options['tokenize']) {
+        $value = $this->view->style_plugin->tokenize_value($value, 0);
+      }
       return check_markup($value, $format, '', FALSE);
     }
   }
-
 }
-

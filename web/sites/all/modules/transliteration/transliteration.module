@@ -1,5 +1,4 @@
 <?php
-// $Id: transliteration.module,v 1.11 2010/03/15 06:45:57 smk Exp $
 
 /**
  * @file
@@ -58,13 +57,33 @@ function transliteration_form_system_file_system_settings_alter(&$form, &$form_s
 }
 
 /**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Adds transliteration settings to the search settings form.
+ */
+function transliteration_form_search_admin_settings_alter(&$form, &$form_state) {
+  $form['transliteration'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Transliteration'),
+  );
+  $form['transliteration']['transliteration_search'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Transliterate search index and searched strings.'),
+    '#description' => t('Enable to allow searching and indexing using US-ASCII character set, i.e. to treat accented and unaccented letters the same.'),
+    '#default_value' => variable_get('transliteration_search', TRUE),
+  );
+}
+
+/**
  * Transliterates and sanitizes a file name.
  *
  * The resulting file name has white space replaced with underscores, consists
  * of only US-ASCII characters, and is converted to lowercase (if configured).
+ * If multiple files have been submitted as an array, the names will be
+ * processed recursively.
  *
  * @param $filename
- *   A file name.
+ *   A file name, or an array of file names.
  * @param $source_langcode
  *   Optional ISO 639 language code that denotes the language of the input and
  *   is used to apply language-specific variations. If the source language is
@@ -72,16 +91,24 @@ function transliteration_form_system_file_system_settings_alter(&$form, &$form_s
  *   argument to the site default language to produce consistent results.
  *   Otherwise the current display language will be used.
  * @return
- *   Sanitized file name.
+ *   Sanitized file name, or array of sanitized file names.
  *
  * @see language_default()
  */
 function transliteration_clean_filename($filename, $source_langcode = NULL) {
+  if (is_array($filename)) {
+    foreach ($filename as $key => $value) {
+      $filename[$key] = transliteration_clean_filename($value, $source_langcode);
+    }
+    return $filename;
+  }
   $filename = transliteration_get($filename, '', $source_langcode);
   // Replace whitespace.
   $filename = str_replace(' ', '_', $filename);
   // Remove remaining unsafe characters.
   $filename = preg_replace('![^0-9A-Za-z_.-]!', '', $filename);
+  // Remove multiple consecutive non-alphabetical characters.
+  $filename = preg_replace('/(_)_+|(\.)\.+|(-)-+/', '\\1\\2\\3', $filename);
   // Force lowercase to prevent issues on case-insensitive file systems.
   if (variable_get('transliteration_file_lowercase', TRUE)) {
     $filename = strtolower($filename);
@@ -113,12 +140,10 @@ function transliteration_clean_filename($filename, $source_langcode = NULL) {
  * @see language_default()
  */
 function transliteration_get($text, $unknown = '?', $source_langcode = NULL) {
-  static $loaded = FALSE;
-  if (!$loaded) {
+  if (!function_exists('_transliteration_process')) {
     module_load_include('inc', 'transliteration');
-    $loaded = TRUE;
   }
-  return transliteration_process($text, $unknown, $source_langcode);
+  return _transliteration_process($text, $unknown, $source_langcode);
 }
 
 /**
@@ -145,3 +170,64 @@ function transliteration_init() {
   }
 }
 
+/**
+ * Implements hook_search_preprocess().
+ *
+ * Transliterates text added to the search index and user submitted search
+ * keywords.
+ */
+function transliteration_search_preprocess($text) {
+  if (variable_get('transliteration_search', TRUE)) {
+    return transliteration_get($text, '', language_default('language'));
+  }
+  return $text;
+}
+
+/**
+ * Implements hook_filter_info().
+ */
+function transliteration_filter_info() {
+  return array(
+    'transliteration' => array(
+      'title' => t('Convert all characters to US-ASCII'),
+      'process callback' => '_transliteration_filter_process',
+      'settings callback' => '_transliteration_filter_settings',
+      'default settings' => array(
+        'no_known_transliteration' => '?'
+      ),
+      'tips callback' => '_transliteration_filter_tips',
+    ),
+  );
+}
+
+/**
+ * Process callback for the transliteration filter.
+ */
+function _transliteration_filter_process($text, $filter, $format, $langcode, $cache, $cache_id) {
+  return transliteration_get($text, $filter->settings['no_known_transliteration'], $langcode);
+}
+
+/**
+ * Settings callback for the transliteration filter.
+ */
+function _transliteration_filter_settings($form, &$form_state, $filter, $format, $defaults, $filters) {
+  $filter->settings += $defaults;
+
+  return array(
+    'no_known_transliteration' => array(
+      '#type' => 'textfield',
+      '#title' => t('Placeholder for characters with no known US-ASCII equivalent'),
+      '#size' => 2,
+      // The maximum length is 5 in order to accommodate unicode multibyte input.
+      '#maxlength' => 5,
+      '#default_value' => $filter->settings['no_known_transliteration'],
+    )
+  );
+}
+
+/**
+ * Filter tips callback for the transliteration filter.
+ */
+function _transliteration_filter_tips($filter, $format, $long) {
+  return t('Non-latin text (e.g., å, ö, 漢) will be converted to US-ASCII equivalents (a, o, ?).');
+}

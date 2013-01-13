@@ -90,6 +90,7 @@ function follow_uninstall() {
   variable_del('follow_user_block_title');
   variable_del('follow_site_block_title');
   variable_del('follow_site_block_user');
+  variable_del('follow_icon_style');
 }
 
 /**

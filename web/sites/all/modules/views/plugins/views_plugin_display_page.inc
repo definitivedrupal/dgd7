@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * Contains the page display plugin.
@@ -28,6 +29,7 @@ class views_plugin_display_page extends views_plugin_display {
         'description' => array('default' => '', 'translatable' => FALSE),
         'weight' => array('default' => 0),
         'name' => array('default' => variable_get('menu_default_node_menu', 'navigation')),
+        'context' => array('default' => ''),
        ),
     );
     $options['tab_options'] = array(
@@ -148,6 +150,12 @@ class views_plugin_display_page extends views_plugin_display {
           break;
       }
 
+      // Add context for contextual links.
+      // @see menu_contextual_links()
+      if (!empty($menu['context'])) {
+        $items[$path]['context'] = MENU_CONTEXT_INLINE;
+      }
+
       // If this is a 'default' tab, check to see if we have to create teh
       // parent menu item.
       if ($menu['type'] == 'default tab') {
@@ -167,7 +175,7 @@ class views_plugin_display_page extends views_plugin_display {
               'page arguments' => $page_arguments,
               // Default access check (per display)
               'access callback' => 'views_access',
-              'access arguments' => array($access_plugin->get_access_callback()),
+              'access arguments' => $access_arguments,
               // Identify URL embedded arguments and correlate them to a handler
               'load arguments'  => array($this->view->name, $this->display->id, '%index'),
               'title' => $tab_options['title'],
@@ -210,13 +218,20 @@ class views_plugin_display_page extends views_plugin_display {
       return drupal_not_found();
     }
 
+    if (!empty($this->view->build_info['denied'])) {
+      return drupal_access_denied();
+    }
+
     $this->view->get_breadcrumb(TRUE);
 
-    // And the title, which is much easier.
-    drupal_set_title(filter_xss_admin($this->view->get_title()), PASS_THROUGH);
 
     // And now render the view.
-    return $this->view->render();
+    $render = $this->view->render();
+
+    // First execute the view so it's possible to get tokens for the title.
+    // And the title, which is much easier.
+    drupal_set_title(filter_xss_admin($this->view->get_title()), PASS_THROUGH);
+    return $render;
   }
 
   /**
@@ -282,6 +297,7 @@ class views_plugin_display_page extends views_plugin_display {
    * Provide the default form for setting options.
    */
   function options_form(&$form, &$form_state) {
+    parent::options_form($form, $form_state);
     // It is very important to call the parent function here:
     parent::options_form($form, $form_state);
 
@@ -360,12 +376,19 @@ class views_plugin_display_page extends views_plugin_display {
           );
         }
         $form['menu']['weight'] = array(
-          '#suffix' => '</div>',
           '#title' => t('Weight'),
           '#type' => 'textfield',
           '#default_value' => isset($menu['weight']) ? $menu['weight'] : 0,
           '#description' => t('The lower the weight the higher/further left it will appear.'),
           '#dependency' => array('radio:menu[type]' => array('normal', 'tab', 'default tab')),
+        );
+        $form['menu']['context'] = array(
+          '#title' => t('Context'),
+          '#suffix' => '</div>',
+          '#type' => 'checkbox',
+          '#default_value' => !empty($menu['context']),
+          '#description' => t('Displays the link in contextual links'),
+          '#dependency' => array('radio:menu[type]' => array('tab')),
         );
         break;
       case 'tab_options':
@@ -453,9 +476,8 @@ class views_plugin_display_page extends views_plugin_display {
           form_error($form['path'], t('"%" may not be used for the first segment of a path.'));
         }
 
-        // automatically remove '/' from path.
-        $form_state['values']['path'] = trim($form_state['values']['path'], '/');
-
+        // automatically remove '/' and trailing whitespace from path.
+        $form_state['values']['path'] = trim($form_state['values']['path'], '/ ');
         break;
       case 'menu':
         $path = $this->get_option('path');

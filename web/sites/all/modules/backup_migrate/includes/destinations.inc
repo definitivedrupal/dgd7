@@ -257,6 +257,8 @@ function _backup_migrate_destination_get_file_links($destination_id, $file_id) {
  * List the backup files in the given destination.
  */
 function backup_migrate_ui_destination_display_files($destination_id = NULL) {
+  drupal_add_css(drupal_get_path('module', 'backup_migrate') .'/backup_migrate.css');
+
   $rows = $sort = array();
   if ($destination = backup_migrate_get_destination($destination_id)) {
     // Refresh the file listing cache if requested.
@@ -285,11 +287,17 @@ function backup_migrate_ui_destination_display_files($destination_id = NULL) {
       $info = $file->info();
       $operations = $destination->get_file_links($file->file_id());
 
+      $description = '';
+      // Add the description as a new row.
+      if (!empty($info['description'])) {
+        $description = ' <div title="'.check_plain($info['description']).'" class="backup-migrate-description">'. $info['description'] .'</div>';
+      }
+
       // Show only files that can be restored from.
       if ($file->is_recognized_type()) {
         $sort[] = $info[$sort_key];
         $rows[] = array_merge(array(
-          check_plain($info['filename']),
+          check_plain($info['filename']) . $description,
           format_date($info['filetime'], 'small'),
           format_interval(time() - $info['filetime'], 1),
           format_size($info['filesize']),
@@ -306,9 +314,7 @@ function backup_migrate_ui_destination_display_files($destination_id = NULL) {
     array_multisort($sort, $sort_dir, $rows);
 
     if ($rows) {
-      drupal_add_css(drupal_get_path('module', 'backup_migrate') .'/backup_migrate.css');
-      $out = '';
-      $out .= theme('table', array('header' => $headers, 'rows' => $rows));
+      $out = theme('table', array('header' => $headers, 'rows' => $rows));
     }
     else {
       $out = t('There are no backup files to display.');
@@ -546,6 +552,10 @@ class backup_migrate_destination extends backup_migrate_item {
     $this->type = $type;
   }
 
+  function set_location($location) {
+    $this->location = $location;
+  }
+
   function get_location() {
     return @$this->location;
   }
@@ -582,6 +592,9 @@ class backup_migrate_destination extends backup_migrate_item {
   function save_file($file, $settings) {
     // This must be overriden.
     $this->file_cache_clear();
+
+    // Save the file metadata if the destination supports it.
+    $this->save_file_info($file, $settings);
     return $this->_save_file($file, $settings);
   }
 
@@ -591,6 +604,15 @@ class backup_migrate_destination extends backup_migrate_item {
   function _save_file($file, $settings) {
     // This must be overriden.
     return $file;
+  }
+
+  /**
+   * Save the file metadata
+   */
+  function save_file_info($file, $settings) {
+    $info = $this->create_info_file($file);
+    // Save the info file and the actual file.
+    return $this->_save_file($info, $settings);
   }
 
   /**
@@ -620,6 +642,7 @@ class backup_migrate_destination extends backup_migrate_item {
     }
     if ($out === NULL) {
       $out = $this->_list_files();
+      $out = $this->load_files_info($out);
       if ($this->cache_files) {
         $this->file_cache_set($out);
       }
@@ -632,6 +655,31 @@ class backup_migrate_destination extends backup_migrate_item {
    */
   function _list_files() {
     return array();
+  }
+
+  /**
+   * Load up the file's metadata from the accompanying .info file if applicable.
+   */
+  function load_files_info($files) {
+    foreach ($files as $key => $file) {
+      if (isset($files[$key . '.info'])) {
+        // See if there is an info file with the same name as the backup.
+        $info = drupal_parse_info_file($files[$key . '.info']->filepath());
+        // Allow the stored metadata to override the detected metadata.
+        $file->file_info = $info + $file->file_info;
+        // Remove the metadata file from the list
+        unset($files[$key . '.info']);
+      }
+    }
+
+    return $files;
+  }
+
+  function create_info_file($file) {
+    $info = new backup_file(array('filename' => $file->filename() .'.info'));
+    $data = _backup_migrate_array_to_ini($file->file_info);
+    $info->put_contents($data);
+    return $info;
   }
 
   /**
@@ -748,10 +796,6 @@ class backup_migrate_destination extends backup_migrate_item {
    */  
   function get_list_row() {
     $out = parent::get_list_row();
-
-    $out['name'] = check_plain($out['name']);
-    $out['destination_type_name'] = check_plain($out['destination_type_name']);
-    $out['display_location'] = check_plain($out['display_location']);
 
     // Supress destinations with no actions as there's no value in showing them (and they may confuse new users).
     if (empty($out['actions'])) {

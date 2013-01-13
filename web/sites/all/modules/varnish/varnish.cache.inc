@@ -36,10 +36,10 @@ class VarnishCache implements DrupalCacheInterface {
     global $user;
     // Check that we really want to do a cache flush.
     if (!module_exists('varnish') ||
-      (variable_get('varnish_flush_cron', 0) && lock_may_be_available('cron'))) {
+      (variable_get('varnish_flush_cron', 0) && lock_may_be_available('cron')) && !variable_get('varnish_cache_clear', 1)) {
       return;
     }
-    if (empty($cid) && variable_get('varnish_cache_clear', VARNISH_DEFAULT_CLEAR) == VARNISH_DEFAULT_CLEAR) {
+    if (empty($cid) && variable_get('varnish_cache_clear', 1)) {
       if (variable_get('cache_lifetime', 0)) {
         // We store the time in the current user's $user->cache variable which
         // will be saved into the sessions bin by _drupal_session_write(). We then
@@ -73,7 +73,7 @@ class VarnishCache implements DrupalCacheInterface {
           $host = _varnish_get_host();
           $base = base_path();
           $purge = $cid . '(.*)';
-          _varnish_terminal_run(array('purge req.http.host ~ ' . $host . ' && req.url ~ "^' . $base . $purge . '$"'));
+          varnish_purge($host, '^' . $base . $purge . '$');
         }
       }
       elseif (is_array($cid)) {

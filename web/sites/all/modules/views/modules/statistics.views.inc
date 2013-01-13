@@ -1,18 +1,14 @@
 <?php
+
 /**
  * @file
- * Provide views data and handlers for statistics.module
- */
-
-/**
- * @defgroup views_statistics_module statistics.module handlers
+ * Provide views data and handlers for statistics.module.
  *
- * Includes the ability to create views of just the statistics table.
- * @{
+ * @ingroup views_module_handlers
  */
 
 /**
- * Implements hook_views_data()
+ * Implements hook_views_data().
  */
 function statistics_views_data() {
   // Basic table information.
@@ -101,6 +97,27 @@ function statistics_views_data() {
       'field' => 'uid',
       'left_field' => 'uid',
      ),
+  );
+
+  // accesslog.aid
+  $data['accesslog']['aid'] = array(
+    'title' => t('Aid'),
+    'help' => t('Unique access event ID.'),
+    'field' => array(
+      'handler' => 'views_handler_field_numeric',
+      'click sortable' => TRUE,
+    ),
+    'argument' => array(
+      'handler' => 'views_handler_argument_numeric',
+      'name field' => 'wid',
+      'numeric' => TRUE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_numeric',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
   );
 
   // session id
@@ -244,7 +261,3 @@ function statistics_views_data() {
 
   return $data;
 }
-
-/**
- * @}
- */

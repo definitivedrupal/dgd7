@@ -40,29 +40,8 @@ function user_reference_field_info() {
       'default_formatter' => 'user_reference_default',
       // Support hook_entity_property_info() from contrib "Entity API".
       'property_type' => 'user',
-    ),
-  );
-}
-
-/**
- * Implements hook_field_schema();
- */
-function user_reference_field_schema($field) {
-  $columns = array(
-    'uid' => array(
-      'type' => 'int',
-      'unsigned' => TRUE,
-      'not null' => FALSE,
-    ),
-  );
-  return array(
-    'columns' => $columns,
-    'indexes' => array('uid' => array('uid')),
-    'foreign keys' => array(
-      'uid' => array(
-        'table' => 'users',
-        'columns' => array('uid' => 'uid'),
-      ),
+      // Support default token formatter for field tokens.
+      'default_token_formatter' => 'user_reference_plain',
     ),
   );
 }
@@ -221,6 +200,56 @@ function user_reference_field_validate($entity_type, $entity, $field, $instance,
 }
 
 /**
+ * Implements hook_field_prepare_view().
+ */
+function user_reference_field_prepare_view($entity_type, $entities, $field, $instances, $langcode, &$items) {
+  $checked_ids = &drupal_static(__FUNCTION__, array());
+
+  // Set an 'access' property on each item (TRUE if the user exists).
+
+  // Extract ids to check.
+  $ids = array();
+  foreach ($items as $id => $entity_items) {
+    foreach ($entity_items as $delta => $item) {
+      if (is_array($item)) {
+        // Default to 'not accessible'.
+        $items[$id][$delta]['access'] = FALSE;
+        if (!empty($item['uid']) && is_numeric($item['uid'])) {
+          $ids[$item['uid']] = $item['uid'];
+        }
+      }
+    }
+  }
+
+  if ($ids) {
+    // Load information about ids that we haven't already loaded during this
+    // page request.
+    $ids_to_check = array_diff($ids, array_keys($checked_ids));
+    if (!empty($ids_to_check)) {
+      $query = db_select('users', 'u')
+        ->addMetaData('id', 'user_reference_field_prepare_view')
+        ->addMetaData('field', $field)
+        ->fields('u', array('uid'))
+        ->condition('u.uid', $ids_to_check, 'IN');
+      $accessible_ids = $query->execute()->fetchAllAssoc('uid');
+
+      // Populate our static list so that we do not query on those ids again.
+      foreach ($ids_to_check as $id) {
+        $checked_ids[$id] = isset($accessible_ids[$id]);
+      }
+    }
+
+    foreach ($items as $id => $entity_items) {
+      foreach ($entity_items as $delta => $item) {
+        if (is_array($item) && !empty($item['uid']) && !empty($checked_ids[$item['uid']])) {
+          $items[$id][$delta]['access'] = TRUE;
+        }
+      }
+    }
+  }
+}
+
+/**
  * Implements hook_field_is_empty().
  */
 function user_reference_field_is_empty($item, $field) {
@@ -242,13 +271,137 @@ function user_reference_field_formatter_info() {
       'description' => t('Display the name of the referenced user as plain text.'),
       'field types' => array('user_reference'),
     ),
+    'user_reference_user' => array(
+      'label'       => t('Rendered user'),
+      'description' => t('Display the referenced user in a specific view mode'),
+      'field types' => array('user_reference'),
+      'settings'    => array('user_reference_view_mode' => 'full'),
+    ),
+    'user_reference_uid' => array(
+      'label' => t('User ID'),
+      'description' => t('Display the referenced user ID'),
+      'field types' => array('user_reference'),
+    ),
+    'user_reference_path' => array(
+      'label' => t('URL as plain text'),
+      'description' => t('Display the URL of the referenced user'),
+      'field types' => array('user_reference'),
+      'settings' => array(
+        'alias' => TRUE,
+        'absolute' => FALSE
+      ),
+    ),
   );
+}
+
+/**
+ * Implements hook_field_formatter_settings_form().
+ */
+function user_reference_field_formatter_settings_form($field, $instance, $view_mode, $form, &$form_state) {
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+
+  $element = array();
+
+  switch ($display['type']) {
+    case 'user_reference_user':
+      $entity_info = entity_get_info('user');
+      $modes = $entity_info['view modes'];
+      $options = array();
+      foreach ($modes as $name => $mode) {
+        $options[$name] = $mode['label'];
+      }
+      $element['user_reference_view_mode'] = array(
+        '#title'   => t('View mode'),
+        '#type'    => 'select',
+        '#options' => $options,
+        '#default_value' => $settings['user_reference_view_mode'],
+        // Never empty, so no #empty_option
+      );
+      break;
+
+    case 'user_reference_path':
+      $element['alias'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Display the aliased path (if exists) instead of the system path'),
+        '#default_value' => $settings['alias'],
+      );
+      $element['absolute'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Display an absolute URL'),
+        '#default_value' => $settings['absolute'],
+      );
+      break;
+  }
+
+  return $element;
+}
+
+/**
+ * Implements hook_field_formatter_settings_summary().
+ */
+function user_reference_field_formatter_settings_summary($field, $instance, $view_mode) {
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+  $summary = array();
+
+  switch ($display['type']) {
+    case 'user_reference_user':
+      $entity_info = entity_get_info('user');
+      $modes = $entity_info['view modes'];
+      $mode = $modes[$settings['user_reference_view_mode']]['label'];
+      $summary[] = t('View mode: %mode', array('%mode' => $mode));
+      break;
+
+    case 'user_reference_path':
+      $summary[] = t('Aliased path: %yes_no', array('%yes_no' => $settings['alias'] ? t('Yes') : t('No')));
+      $summary[] = t('Absolute URL: %yes_no', array('%yes_no' => $settings['absolute'] ? t('Yes') : t('No')));
+      break;
+  }
+
+  return implode('<br />', $summary);
+}
+
+
+/**
+ * Implements hook_field_formatter_prepare_view().
+ *
+ * Preload all user referenced by items using 'full entity' formatters.
+ */
+function user_reference_field_formatter_prepare_view($entity_type, $entities, $field, $instances, $langcode, &$items, $displays) {
+  // Load the referenced users, except for the 'user_reference_uid' which does
+  // not need full objects.
+
+  // Collect ids to load.
+  $ids = array();
+  foreach ($displays as $id => $display) {
+    if ($display['type'] != 'user_reference_uid') {
+      foreach ($items[$id] as $delta => $item) {
+        if ($item['access']) {
+          $ids[$item['uid']] = $item['uid'];
+        }
+      }
+    }
+  }
+  $entities = user_load_multiple($ids);
+
+  // Add the loaded user objects to the items.
+  foreach ($displays as $id => $display) {
+    if ($display['type'] != 'user_reference_uid') {
+      foreach ($items[$id] as $delta => $item) {
+        if ($item['access']) {
+          $items[$id][$delta]['user'] = $entities[$item['uid']];
+        }
+      }
+    }
+  }
 }
 
 /**
  * Implements hook_field_formatter_view().
  */
 function user_reference_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $settings = $display['settings'];
   $result = array();
 
   // @todo Optimisation: use hook_field_formatter_prepare_view() to load
@@ -263,18 +416,115 @@ function user_reference_field_formatter_view($entity_type, $entity, $field, $ins
   switch ($display['type']) {
     case 'user_reference_default':
     case 'user_reference_plain':
-      $titles = _user_reference_get_user_names($uids);
       foreach ($items as $delta => $item) {
-        if ($display['type'] == 'user_reference_default') {
+        if ($item['access']) {
+          $user = $item['user'];
+          $label = entity_label('user', $user);
+          if ($display['type'] == 'user_reference_default') {
+            $uri = entity_uri('user', $user);
+            $result[$delta] = array(
+              '#type' => 'link',
+              '#title' => $label,
+              '#href' => $uri['path'],
+              '#options' => $uri['options'],
+            );
+          }
+          else {
+            $result[$delta] = array(
+              '#markup' => check_plain($label),
+            );
+          }
+        }
+      }
+      break;
+
+    case 'user_reference_user':
+      $view_mode = $display['settings']['user_reference_view_mode'];
+      // To prevent infinite recursion caused by reference cycles, we store
+      // diplayed accounts in a recursion queue.
+      $recursion_queue = &drupal_static(__FUNCTION__, array());
+
+      // If no 'referencing entity' is set, we are starting a new 'reference
+      // thread' and need to reset the queue.
+      // @todo Bug: $entity->referencing_entity on accounts referenced in a different
+      // thread on the page. E.g: 1 references 1+2 / 2 references 1+2 / visit homepage.
+      // We'd need a more accurate way...
+      if (!isset($entity->referencing_entity)) {
+        $recursion_queue = array();
+      }
+
+      // The recursion queue only needs to track nodes.
+      if ($entity_type == 'user') {
+        list($id) = entity_extract_ids($entity_type, $entity);
+        $recursion_queue[$id] = $id;
+      }
+
+      // Check the recursion queue to determine which accounts should be fully
+      // displayed, and which accounts will only be displayed as a username.
+      $users_display = array();
+      foreach ($items as $delta => $item) {
+        if ($item['access'] && !isset($recursion_queue[$item['uid']])) {
+          $users_display[$item['uid']] = $item['user'];
+        }
+      }
+
+      // Load and build the fully displayed nodes.
+      if ($users_display) {
+        $users_built = array('users' => array('#sorted' => TRUE));
+        foreach ($users_display as $uid => $account) {
+          $users_display[$uid]->referencing_entity = $entity;
+          $users_display[$uid]->referencing_field = $field['field_name'];
+          $users_built['users'][$account->uid] = user_view($account, $settings['user_reference_view_mode']);
+        }
+      }
+
+      // Assemble the render array.
+      foreach ($items as $delta => $item) {
+        if ($item['access']) {
+          if (isset($users_display[$item['uid']])) {
+            $result[$delta] = $users_built['users'][$item['uid']];
+          }
+          else {
+            $account = $item['user'];
+            $label = entity_label('user', $user);
+            $uri = entity_uri('user', $account);
+            $result[$delta] = array(
+              '#type' => 'link',
+              '#title' => $label,
+              '#href' => $uri['path'],
+              '#options' => $uri['options'],
+            );
+            if (!$account->status) {
+              $result[$delta]['#prefix'] = '<span class="user-unpublished">';
+              $result[$delta]['#suffix'] = '</span>';
+            }
+          }
+        }
+      }
+      break;
+
+    case 'user_reference_uid':
+      foreach ($items as $delta => $item) {
+        if ($item['access']) {
           $result[$delta] = array(
-            '#type' => 'link',
-            '#title' => $titles[$item['uid']],
-            '#href' => 'user/' . $item['uid'],
+            '#markup' => $item['uid'],
           );
         }
-        else {
+      }
+      break;
+
+    case 'user_reference_path':
+      foreach ($items as $delta => $item) {
+        if ($item['access']) {
+          $uri = entity_uri('user', $item['user']);
+          $options = array(
+            'absolute' => $settings['absolute'],
+            'alias' => !$settings['alias'],
+          );
+
+          $options += $uri['options'];
           $result[$delta] = array(
-            '#markup' => check_plain($titles[$item['uid']]),
+            '#markup' => url($uri['path'], $options),
           );
         }
       }
@@ -490,14 +740,24 @@ function user_reference_field_widget_error($element, $error, $form, &$form_state
  * @return
  *   An array of referenceable user names, keyed by user id.
  */
-function _user_reference_options($field) {
+function _user_reference_options($field, $flat = TRUE) {
   $references = user_reference_potential_references($field);
 
   $options = array();
   foreach ($references as $key => $value) {
-    // We use the richer 'rendered' value rather than the raw title, but we must
-    // take care of removing tags and leaving HTML entities unencoded.
-    $options[$key] = html_entity_decode(strip_tags($value['rendered']), ENT_QUOTES);;
+    // The label, displayed in selects and checkboxes/radios, should have HTML
+    // entities unencoded. The widgets (core's options.module) take care of
+    // applying the relevant filters (strip_tags() or filter_xss()).
+    $label = html_entity_decode($value['rendered'], ENT_QUOTES);
+    if (empty($value['group']) || $flat) {
+      $options[$key] = $label;
+    }
+    else {
+      // The group name, displayed in selects, cannot contain tags, and should
+      // have HTML entities unencoded.
+      $group = html_entity_decode(strip_tags($value['group']), ENT_QUOTES);
+      $options[$group][$key] = $label;
+    }
   }
 
   return $options;
@@ -590,10 +850,12 @@ function _user_reference_potential_references_standard($field, $options) {
   }
 
   $query = db_select('users', 'u')
-    ->addMetaData('id', ' _user_reference_potential_references_standard')
     // Select the whole record, so that format_username() has enough
     // information.
-    ->fields('u');
+    ->fields('u')
+    ->addMetaData('id', ' _user_reference_potential_references_standard')
+    ->addMetaData('field', $field)
+    ->addMetaData('options', $options);
 
   // Enable this filter only if any statuses checked (and not both).
   if (count($filter_status) == 1) {
@@ -675,7 +937,7 @@ function user_reference_autocomplete($entity_type, $bundle, $field_name, $string
  * Implements hook_options_list().
  */
 function user_reference_options_list($field) {
-  return _user_reference_options($field);
+  return _user_reference_options($field, FALSE);
 }
 
 /**
@@ -783,7 +1045,7 @@ function user_reference_content_migrate_field_alter(&$field_value, $instance_val
         'args' => $view_args,
       );
       if ($view_name) {
-        $field_value['messages'][] = t("The field uses the view @view_name to determine referenceable users. You will need to manually edit the view and add a display of type 'References'.");
+        $field_value['messages'][] = t("The field uses the view @view_name to determine referenceable users. You will need to manually edit the view and add a display of type 'References'.", array('@view_name' => $view_name));
       }
       unset($field_value['settings']['advanced_view']);
       unset($field_value['settings']['advanced_view_args']);
@@ -871,8 +1133,8 @@ function user_reference_field_views_data($field) {
       $data[$table][$id_column]['relationship'] = array(
         'handler' => 'references_handler_relationship',
         'base' => 'users',
-        'field' => 'uid',
         'base field' => 'uid',
+        'field' => $id_column,
         'label' => $field['field_name'],
         'field_name' => $field['field_name'],
       );
@@ -918,7 +1180,7 @@ function user_reference_field_views_data_views_data_alter(&$data, $field) {
 }
 
 /**
- * Helper callback for the views_handler_filter_in_operator filter.
+ * 'options callback' for the views_handler_filter_in_operator filter.
  *
  * @param $field_name
  *   The field name.
@@ -927,8 +1189,20 @@ function user_reference_field_views_data_views_data_alter(&$data, $field) {
  *   The array of allowed options for the filter.
  */
 function user_reference_views_filter_options($field_name) {
+  $options = array();
+
   if ($field = field_info_field($field_name)) {
-    return _user_reference_options($field);
+    $options = _user_reference_options($field, TRUE);
+
+    // The options are displayed in checkboxes within the filter admin form, and
+    // in a select within an exposed filter. Checkboxes accept HTML, other
+    // entities should be encoded; selects require the exact opposite: no HTML,
+    // no encoding. We go for a middle ground: strip tags, leave entities
+    // unencoded.
+    foreach ($options as $key => $value) {
+      $options[$key] = strip_tags($value);
+    }
   }
-  return array();
+
+  return $options;
 }

@@ -1,4 +1,3 @@
-$Id: UPGRADE.txt,v 1.1.2.1 2010/01/27 01:38:45 eaton Exp $
 
 This document is intended to be a guide for developers upgrading a VotingAPI-based module from one major version of VotingAPI or Drupal to the next.
 

@@ -1,5 +1,4 @@
 <?php
-// $Id: votingapi_views_handler_relationship.inc,v 1.1.2.5.2.3 2010/10/09 21:03:33 eaton Exp $
 
 /**
  * @file

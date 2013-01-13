@@ -31,7 +31,7 @@ function _mailchimp_cron_batch($temp_batchsize = NULL) {
     $stored_batchsize = variable_get('mailchimp_batch_limit', 100);
     variable_set('mailchimp_batch_limit', $temp_batchsize);
   }
-  mailchimp_cron();
+  mailchimp_lists_cron();
   if ( !is_null($batchsize) ) {
     variable_set('mailchimp_batch_limit', $stored_batchsize);
   }

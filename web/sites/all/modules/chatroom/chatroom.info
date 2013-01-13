@@ -1,15 +1,16 @@
 name = Chat Room
-description = Enables the creation of rooms that provide access to chats and chat archives.
+description = Allows the creation of chatrooms.
 package = Chat
 core = 7.x
 version = VERSION
 files[] = chatroom.module
-configure = admin/config/chatroom
+files[] = chatroom.chatroom.inc
+dependencies[] = nodejs
 
 
-; Information added by drupal.org packaging script on 2011-08-04
-version = "7.x-1.x-dev"
+; Information added by drupal.org packaging script on 2012-08-12
+version = "7.x-2.0"
 core = "7.x"
 project = "chatroom"
-datestamp = "1312459484"
+datestamp = "1344741727"
 

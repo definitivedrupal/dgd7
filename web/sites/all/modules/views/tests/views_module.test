@@ -1,6 +1,14 @@
 <?php
-module_load_include('test', 'views', 'tests/views_query');
-class viewsModuleTest extends ViewsSqlTest {
+
+/**
+ * @file
+ * Definition of ViewsModuleTest.
+ */
+
+/**
+ * Tests basic functions from the Views module.
+ */
+class ViewsModuleTest extends ViewsSqlTest {
   public static function getInfo() {
     return array(
       'name' => 'Tests views.module',
@@ -11,6 +19,7 @@ class viewsModuleTest extends ViewsSqlTest {
 
   public function setUp() {
     parent::setUp();
+    drupal_theme_rebuild();
   }
 
   public function viewsData() {
@@ -76,7 +85,7 @@ class viewsModuleTest extends ViewsSqlTest {
       $this->assertEqual($result_text, $expect[$key]);
     }
   }
-  
+
   /**
    * Tests the dynamic includes of templates via module feature.
    */
@@ -85,18 +94,22 @@ class viewsModuleTest extends ViewsSqlTest {
     $views_status['frontpage'] = FALSE; // false is enabled
     variable_set('views_defaults', $views_status);
 
-    $registry = theme_get_registry();
+    $existing = array();
+    $type = array();
+    $theme = array();
+    $path = array();
+    $registry = views_theme($existing, $type, $theme, $path);
     $this->assertTrue(isset($registry['views_view__frontpage']));
   }
 
   /**
-   * Test the views_get_handler method.
+   * Tests the views_get_handler method.
    */
   function testviews_get_handler() {
     $types = array('field', 'area', 'filter');
     foreach ($types as $type) {
       $handler = views_get_handler($this->randomName(), $this->randomName(), $type);
-      $this->assertEqual('views_handler_' . $type . '_broken', get_class($handler), t('Take sure that a broken handler of type: @type are created', array('@type' => $type)));
+      $this->assertEqual('views_handler_' . $type . '_broken', get_class($handler), t('Make sure that a broken handler of type: @type are created', array('@type' => $type)));
     }
 
     $views_data = $this->viewsData();

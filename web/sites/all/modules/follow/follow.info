@@ -2,9 +2,9 @@ name = Follow
 description = Add sitewide and per user links to social network profiles.
 core = 7.x
 
-; Information added by drupal.org packaging script on 2011-05-01
-version = "7.x-1.x-dev"
+; Information added by drupal.org packaging script on 2012-05-23
+version = "7.x-1.0-alpha1+18-dev"
 core = "7.x"
 project = "follow"
-datestamp = "1304208697"
+datestamp = "1337775440"
 

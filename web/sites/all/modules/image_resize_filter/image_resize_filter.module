@@ -1,5 +1,4 @@
 <?php
-// $Id: image_resize_filter.module,v 1.54 2011/01/28 02:59:34 quicksketch Exp $
 
 /**
  * @file image_resize_filter.module
@@ -288,11 +287,12 @@ function image_resize_filter_get_images($settings, $text) {
     }
 
     // Determine if this is a local or remote file.
+    $base_path = base_path();
     $location = 'unknown';
-    if (strpos($src, '/') === 0) {
+    if (strpos($src, $base_path) === 0) {
       $location = 'local';
     }
-    elseif (preg_match('/http[s]?:\/\/' . preg_quote($_SERVER['HTTP_HOST'], '/') . '/', $src)) {
+    elseif (preg_match('/http[s]?:\/\/' . preg_quote($_SERVER['HTTP_HOST'] . $base_path, '/') . '/', $src)) {
       $location = 'local';
     }
     elseif (strpos($src, 'http') === 0) {
@@ -466,7 +466,7 @@ function image_resize_filter_process_images($images, $text, $settings) {
 
   foreach ($images as $image) {
     // Copy remote images locally.
-    if ($image['location'] == 'remote') {;
+    if ($image['location'] == 'remote') {
       $local_file_path = 'resize/remote/' . md5(file_get_contents($image['local_path'])) . '-' . $image['expected_size']['width'] . 'x' . $image['expected_size']['height'] . '.'. $image['extension'];
       $image['destination'] = variable_get('file_default_scheme', 'public') . '://' . $local_file_path;
     }

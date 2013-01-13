@@ -13,8 +13,9 @@
  */
 class backup_migrate_destination_s3 extends backup_migrate_destination_remote {
   var $supported_ops = array('scheduled backup', 'manual backup', 'restore', 'list files', 'configure', 'delete');
-  var $s3 = NULL; 
+  var $s3 = NULL;
   var $cache_files = TRUE;
+
 
   /**
    * Save to to the s3 destination.
@@ -158,18 +159,26 @@ class backup_migrate_destination_s3 extends backup_migrate_destination_remote {
   }
 
   function s3_object() {
-    if (file_exists('./'. drupal_get_path('module', 'backup_migrate') .'/includes/S3.php')) {
-      require_once './'. drupal_get_path('module', 'backup_migrate') .'/includes/S3.php';
-      if (!$this->s3 && !empty($this->dest_url['user'])) {
-        $this->s3 = new S3($this->dest_url['user'], $this->dest_url['pass']);
-      }
-      return $this->s3;
+    // Try to use libraries module if available to find the path.
+    if (function_exists('libraries_get_path')) {
+      $library_paths[] = libraries_get_path('s3-php5-curl');
     }
     else {
-      drupal_set_message(t('Due to drupal.org code hosting policies, the S3 library needed to use an S3 destination is no longer distributed with this module. You must download the library from !link and place it in the includes directory in the Backup and Migrate module directory.', array('!link' => l('http://undesigned.org.za/2007/10/22/amazon-s3-php-class', 'http://undesigned.org.za/2007/10/22/amazon-s3-php-class'))), 'error', FALSE);
-      return NULL;
+      $library_paths[] = 'sites/all/libraries/s3-php5-curl';
     }
+    $library_paths[] = drupal_get_path('module', 'backup_migrate') . '/includes/s3-php5-curl';
+    $library_paths[] = drupal_get_path('module', 'backup_migrate') . '/includes';
+
+    foreach($library_paths as $path) {
+      if (file_exists($path . '/S3.php')) {
+        require_once $path . '/S3.php';
+        if (!$this->s3 && !empty($this->dest_url['user'])) {
+          $this->s3 = new S3($this->dest_url['user'], $this->dest_url['pass']);
+        }
+        return $this->s3;
+      }
+    }
+    drupal_set_message(t('Due to drupal.org code hosting policies, the S3 library needed to use an S3 destination is no longer distributed with this module. You must download the library from !link and place it in one of these locations: %locations.', array('%locations' => implode(', ', $library_paths), '!link' => l('http://undesigned.org.za/2007/10/22/amazon-s3-php-class', 'http://undesigned.org.za/2007/10/22/amazon-s3-php-class'))), 'error', FALSE);
+    return NULL;
   }
 }
-
-

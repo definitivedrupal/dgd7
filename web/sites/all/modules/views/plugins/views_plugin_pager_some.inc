@@ -1,6 +1,11 @@
 <?php
 
 /**
+ * @file
+ * Definition of views_plugin_pager_some.
+ */
+
+/**
  * Plugin for views without pagers.
  *
  * @ingroup views_pager_plugins
@@ -25,6 +30,7 @@ class views_plugin_pager_some extends views_plugin_pager {
    * Provide the default form for setting options.
    */
   function options_form(&$form, &$form_state) {
+    parent::options_form($form, $form_state);
     $pager_text = $this->display->handler->get_pager_text();
     $form['items_per_page'] = array(
       '#title' => $pager_text['items per page title'],

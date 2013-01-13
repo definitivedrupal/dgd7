@@ -1,6 +1,13 @@
 <?php
 
 /**
+ * @file
+ * Definition of ViewsHandlerTestXss.
+ */
+
+/**
+ * Tests the core views_handler_field_css handler.
+ *
  * @see CommonXssUnitTest
  */
 class ViewsHandlerTestXss extends ViewsSqlTest {
@@ -48,6 +55,6 @@ class ViewsHandlerTestXss extends ViewsSqlTest {
       $view->result[$counter]->views_test_name = $input;
       $this->assertEqual($view->field['name']->advanced_render($view->result[$counter]), $expected_result);
       $counter++;
-    } 
+    }
   }
 }

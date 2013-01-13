@@ -2,22 +2,21 @@ Drupal colorbox module:
 ------------------------
 Maintainers:
   Fredrik Jonsson (http://drupal.org/user/5546)
-  Joe Wheaton (http://drupal.org/user/298179)
 Requires - Drupal 7
 License - GPL (see LICENSE)
 
 
 Overview:
 --------
-Colorbox is a lightweight customizable lightbox plugin for jQuery
-1.3 and 1.4. This module allows for integration of Colorbox into Drupal.
+Colorbox is a light-weight, customizable lightbox plugin for jQuery 1.4.3+.
+This module allows for integration of Colorbox into Drupal.
 The jQuery library is a part of Drupal since version 5+.
 
 Images, forms, iframed or inline content etc. can be displayed in a
 overlay above the current page.
 
 * jQuery - http://jquery.com/
-* Colorbox - http://colorpowered.com/colorbox/
+* Colorbox - http://www.jacklmoore.com/colorbox/
 
 
 Features:
@@ -73,22 +72,37 @@ TODO
 
 Add a custom Colorbox style to your theme:
 ----------------------------------------
-The easiest is to start with either the default style or one of the
-example styles from the Colorbox plugin. Simply copy the whole
-style folder to the theme and rename it and the files to
-something logical.
+The easiest way is to start with either the default style or one of the
+example styles included in the Colorbox JS library download. Simply copy the entire
+style folder to your theme and rename it to something logical like "mycolorbox".
+Inside that folder are both a .css and .js file, rename both of those as well to match
+your folder name: i.e. "colorbox_mycolorbox.css" and "colorbox_mycolorbox.js"
 
-Add entries in the themes info file for the Colorbox CSS/JS files.
+Add entries in your theme's .info file for the Colorbox CSS/JS files:
 
-In the Colorbox settings select "None" as style. This will leave the
-styling of Colorbox up to your theme.
+stylesheets[all][] = mycolorbox/colorbox_mycolorbox.css
+scripts[] = mycolorbox/colorbox_mycolorbox.js
+
+Go to "Configuration" -> "Media" -> "Colorbox" and select "None" under
+"Styles and Options". This will leave the styling of Colorbox up to your theme.
+Make any CSS adjustments to your "colorbox_mycolorbox.css" file.
+
+
+Load images from custom links in a Colorbox:
+--------------------------------------------
+
+Add the class "colorbox" to the link and point the src to the image
+you want to display in the Colorbox.
 
 
 Load content in a Colorbox:
-----------------------------------
+---------------------------
 Check the "Enable Colorbox load" option in Colorbox settings.
 
-This enables custom links that can open content in a Colorbox. Add the class "colorbox-load" to the link and build the url like this "[path]?width=500&height=500&iframe=true" or "[path]?width=500&height=500" if you don't want an iframe.
+This enables custom links that can open content in a Colorbox.
+Add the class "colorbox-load" to the link and build the url like
+this "[path]?width=500&height=500&iframe=true"
+or "[path]?width=500&height=500" if you don't want an iframe.
 
 Other modules may activate this for easy Colorbox integration.
 
@@ -97,9 +111,12 @@ Load inline content in a Colorbox:
 ----------------------------------
 Check the "Enable Colorbox inline"  option in Colorbox settings.
 
-This enables custom links that can open inline content in a Colorbox. Inline in this context means some part/tag of the current page, e.g. a div. Replace "id-of-content" with the id of the tag you want to open.
+This enables custom links that can open inline content in a Colorbox.
+Inline in this context means some part/tag of the current page, e.g. a div.
+Replace "id-of-content" with the id of the tag you want to open.
 
-Add the class "colorbox-inline" to the link and build the url like this "?width=500&height=500&inline=true#id-of-content".
+Add the class "colorbox-inline" to the link and build the url like
+this "?width=500&height=500&inline=true#id-of-content".
 
 Other modules may activate this for easy Colorbox integration.
 
@@ -115,7 +132,8 @@ The following form_id can be used:
 * user_register
 * user_pass
 
-The links to open a form needs the class "colorbox-load". The URL should look like this.
+The links to open a form needs the class "colorbox-load". The URL should
+look like this.
 
 "/colorbox/form/[form_id]?destination=[path_to_send_user_to_after_submit]&width=[with_in_pixel]&height=[height_in_pixel]".
 
@@ -137,8 +155,25 @@ It is possible to add another path as an option to the command, but not
 recommended unless you know what you are doing.
 
 
+Image in Colorbox not displayed in Internet Explorer 8:
+-------------------------------------------------------
+
+If your theme has CSS like this (popular in responsive design):
+
+img {
+  max-width: 100%;
+}
+
+Internet Explorer 8 will have problems with showing images in the Colorbox.
+The fix is to add this to the theme CSS:
+
+#cboxLoadedContent img {
+  max-width: none;
+}
+
+
 Example styles borders do not display in Internet Explorer:
-----------------------------------------------------------
+-----------------------------------------------------------
 If you use one of the example styles and have problems with the border
 images not loading in Internet Explorer please read
 http://colorpowered.com/colorbox/#help_paths.
@@ -147,14 +182,10 @@ The default style in Colorbox module does not have this problem.
 
 
 Contributions:
--------------
+--------------
 * Porting all features from the Thickbox module,
   by Fredrik Jonsson (http://drupal.org/user/5546).
 * Image module integration improvements by recrit
   (http://drupal.org/user/452914).
 * Help with testing and many good suggestions by Shane
   (http://drupal.org/user/262473).
-
-
-Last updated:
-------------

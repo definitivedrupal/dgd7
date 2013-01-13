@@ -44,6 +44,6 @@ function mailchimp_admin_settings() {
     '#default_value' => variable_get('mailchimp_use_secure', TRUE),
     "#description" => t('Communicate with the MailChimp API over a secure connection.')
   );  
-  
+
   return system_settings_form($form);
 }

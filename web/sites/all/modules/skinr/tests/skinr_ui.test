@@ -143,7 +143,7 @@ class SkinrUIBasicTestCase extends SkinrUITestCase {
     // Verify that we end up on the expected URL to configure skins for the
     // user menu block.
     $front = variable_get('site_frontpage', 'node');
-    $this->assertUrl('admin/appearance/skinr/edit/nojs/block/system__user-menu/configure', array(
+    $this->assertUrl('admin/structure/skinr/edit/block/system__user-menu/configure', array(
       'query' => array('destination' => $front),
     ));
 
@@ -151,7 +151,7 @@ class SkinrUIBasicTestCase extends SkinrUITestCase {
     // available.
     // Verify that we can apply the skinr_ui_test_border skin to the block.
     $edit = array(
-      'skinr_settings[block_type][bartik][groups][general][skinr_ui_test_bgcolor]' => 'bgcolor_red',
+      'skinr_settings[bartik][groups][general][skinr_ui_test_bgcolor]' => 'bgcolor_red',
     );
     // NULL means that we want to post to the page that is still contained in
     // SimpleTest's internal browser; i.e., the page of the path above. Instead
@@ -176,9 +176,9 @@ class SkinrUIBasicTestCase extends SkinrUITestCase {
   function testSkinAdditionalEdit() {
     // Verify that we can apply additional CSS classes.
     $edit = array(
-      'skinr_settings[block_type][bartik][groups][_additional][_additional]' => 'additional',
+      'skinr_settings[bartik][groups][_additional][_additional]' => 'additional',
     );
-    $this->drupalPost('admin/appearance/skinr/edit/nojs/block/system__user-menu/configure', $edit, t('Save'));
+    $this->drupalPost('admin/structure/skinr/edit/block/system__user-menu/configure', $edit, t('Save'));
 
     // Verify that the skin has been applied.
     $this->drupalGet('');
@@ -189,8 +189,8 @@ class SkinrUIBasicTestCase extends SkinrUITestCase {
     $this->drupalLogin($user);
 
     // Verify that the additional CSS classes field is not enabled.
-    $this->drupalGet('admin/appearance/skinr/edit/nojs/block/system__user-menu/configure');
-    $this->assertNoFieldByName('skinr_settings[block_type][bartik][groups][_additional][_additional]', NULL, 'Additional CSS classes field is not enabled for this user.');
+    $this->drupalGet('admin/structure/skinr/edit/block/system__user-menu/configure');
+    $this->assertNoFieldByName('skinr_settings[bartik][groups][_additional][_additional]', NULL, 'Additional CSS classes field is not enabled for this user.');
 
     // Save form when additional CSS classes is not set.
     $edit = array();
@@ -206,12 +206,13 @@ class SkinrUIBasicTestCase extends SkinrUITestCase {
    */
   function testSkinEditWidgets() {
     // Go to the edit page for system__user_menu block.
-    $this->drupalGet('admin/appearance/skinr/skins');
-    $this->drupalGet('admin/appearance/skinr/edit/nojs/block/system__user-menu/configure');
+    $this->drupalGet('admin/structure/skinr/library');
+    $this->drupalGet('admin/structure/skinr/edit/block/system__user-menu/configure');
 
     // Check the widgets.
-    $this->assertFieldByName('skinr_settings[block_type][bartik][groups][general][skinr_ui_test_bgcolor]', NULL, 'Widget with valid type is displayed.');
-    $this->assertNoFieldByName('skinr_settings[block_type][bartik][groups][box][skinr_ui_test_border]', NULL, 'Widget with invalid type is not displayed.');
+    $this->assertFieldByName('skinr_settings[bartik][groups][general][skinr_ui_test_bgcolor]', NULL, 'Widget with valid type is displayed.');
+    $this->assertNoFieldByName('skinr_settings[bartik][groups][box][skinr_ui_test_border]', NULL, 'Widget with invalid type is not displayed.');
+    $this->assertFieldByName('skinr_settings[bartik][groups][general][skinr_ui_test_custom][custom]', NULL, 'Widget with form callback is displayed.');
 
     // Check for output from empty groups.
     $this->assertNoRaw('id="edit-skinr-settings-block-group-bartik-box"', 'Resulting empty group is not displayed.');
@@ -222,30 +223,30 @@ class SkinrUIBasicTestCase extends SkinrUITestCase {
    */
   function testSkinEditThemeHooks() {
     // Widget should appear for system blocks.
-    $this->drupalGet('admin/appearance/skinr/edit/nojs/block/system__user-menu/configure');
-    $this->assertField('edit-skinr-settings-block-type-bartik-groups-general-skinr-ui-test-color-color-white', 'The widget, which is limited to system blocks, appeared on the configuration form for system\'s user-menu block.');
+    $this->drupalGet('admin/structure/skinr/edit/block/system__user-menu/configure');
+    $this->assertField('edit-skinr-settings-bartik-groups-general-skinr-ui-test-color-color-white', 'The widget, which is limited to system blocks, appeared on the configuration form for system\'s user-menu block.');
 
     // Widget should not appear search blocks.
-    $this->drupalGet('admin/appearance/skinr/edit/nojs/block/search__form/configure');
-    $this->assertNoField('edit-skinr-settings-block-type-bartik-groups-general-skinr-ui-test-color-color-white', 'The widget, which is limited to system blocks, did not appear on the configuration form for search\'s form block.');
+    $this->drupalGet('admin/structure/skinr/edit/block/search__form/configure');
+    $this->assertNoField('edit-skinr-settings-bartik-groups-general-skinr-ui-test-color-color-white', 'The widget, which is limited to system blocks, did not appear on the configuration form for search\'s form block.');
 
 
     // Widget should appear for page node comments.
-    $this->drupalGet('admin/appearance/skinr/edit/nojs/comment/page/configure');
-    $this->assertField('edit-skinr-settings-comment-type-bartik-groups-general-skinr-ui-test-color-color-white', 'The widget, which is limited to page node comments, appeared on the configuration form for page node comments.');
+    $this->drupalGet('admin/structure/skinr/edit/comment/page/configure');
+    $this->assertField('edit-skinr-settings-bartik-groups-general-skinr-ui-test-color-color-white', 'The widget, which is limited to page node comments, appeared on the configuration form for page node comments.');
 
     // Widget should not appear for article node comments.
-    $this->drupalGet('admin/appearance/skinr/edit/nojs/comment/article/configure');
-    $this->assertNoField('edit-skinr-settings-comment-type-bartik-groups-general-skinr-ui-test-color-color-white', 'The widget, which is limited to page node comments, did not appear on the configuration form for article node comments.');
+    $this->drupalGet('admin/structure/skinr/edit/comment/article/configure');
+    $this->assertNoField('edit-skinr-settings-bartik-groups-general-skinr-ui-test-color-color-white', 'The widget, which is limited to page node comments, did not appear on the configuration form for article node comments.');
 
 
     // Widget should appear for page nodes.
-    $this->drupalGet('admin/appearance/skinr/edit/nojs/node/page/configure');
-    $this->assertField('edit-skinr-settings-node-type-bartik-groups-general-skinr-ui-test-color-color-white', 'The widget, which is limited to page node types, appeared on the configuration form for page node types.');
+    $this->drupalGet('admin/structure/skinr/edit/node/page/configure');
+    $this->assertField('edit-skinr-settings-bartik-groups-general-skinr-ui-test-color-color-white', 'The widget, which is limited to page node types, appeared on the configuration form for page node types.');
 
     // Widget should not appear for article nodes.
-    $this->drupalGet('admin/appearance/skinr/edit/nojs/node/article/configure');
-    $this->assertNoField('edit-skinr-settings-node-type-bartik-groups-general-skinr-ui-test-color-color-white', 'The widget, which is limited to page node types, did not appear on the configuration form for article node types.');
+    $this->drupalGet('admin/structure/skinr/edit/node/article/configure');
+    $this->assertNoField('edit-skinr-settings-bartik-groups-general-skinr-ui-test-color-color-white', 'The widget, which is limited to page node types, did not appear on the configuration form for article node types.');
   }
 }
 
@@ -286,22 +287,23 @@ class SkinrUIAdminTestCase extends SkinrUITestCase {
    * @todo Add assertions for 'default status' itself.
    */
   function testSkinDefaultStatus() {
-    // Verify that the skin appears on the skin overview page.
-    $this->drupalGet('admin/appearance/skinr/skins');
-    $this->assertLinkByHref('admin/appearance/skinr/skins/settings/skinr_test_basetheme');
-    $this->drupalGet('admin/appearance/skinr/skins/settings/skinr_test_basetheme');
+    // Verify that it is enabled for the skinr_test_subtheme.
+    $this->drupalGet('admin/structure/skinr/library/list/skinr_test_subtheme');
+    $this->assertFieldChecked('edit-skins-general-skinr-test-basetheme-enable', 'skinr_test_basetheme skin is enabled for skinr_test_subtheme.');
 
-    // Verify that it is enabled for the skinr_test_subtheme, and disabled for
-    // Bartik and Garland by default.
-    $this->assertFieldChecked('edit-status-skinr-test-subtheme', 'skinr_test_basetheme skin is enabled for skinr_test_subtheme.');
-    $this->assertNoFieldChecked('edit-status-bartik', 'skinr_test_basetheme skin is disabled for Bartik.');
-    $this->assertNoFieldChecked('edit-status-garland', 'skinr_test_basetheme skin is disabled for Garland.');
+    // Verify that it is disabled for Bartik by default.
+    $this->drupalGet('admin/structure/skinr/library/list/bartik');
+    $this->assertNoFieldChecked('edit-skins-general-skinr-test-basetheme-enable', 'skinr_test_basetheme skin is disabled for Bartik.');
+
+    // Verify that it is disabled for Garland by default.
+    $this->drupalGet('admin/structure/skinr/library/list/garland');
+    $this->assertNoFieldChecked('edit-skins-general-skinr-test-basetheme-enable', 'skinr_test_basetheme skin is disabled for Garland.');
 
     // Override the status for skinr_test_subtheme and Bartik, then verify them.
     $skin = (object) array(
       'theme' => 'skinr_test_subtheme',
       'module' => 'block',
-      'element' => 'system-user-menu',
+      'element' => 'system__user-menu',
       'skin' => 'skinr_test_subtheme',
       'options' => array('option1', 'option2'),
       'status' => 1,
@@ -311,16 +313,16 @@ class SkinrUIAdminTestCase extends SkinrUITestCase {
 
     // Override the default skin.
     $skin->element = 'system-main';
-    $this->drupalGet('admin/appearance/skinr');
+    $this->drupalGet('admin/structure/skinr');
     $this->clickLink(t('disable'), 0);
     // Unaltered skin configuration object should have been saved with only the status updated.
     // Load an uncached version of the skin configuration object.
     $skin = skinr_skin_load_unchanged($skin->sid);
     $this->assertFalse($skin->status, 'Status was disabled successfully.');
-    $this->assertEqual($skin->element, 'system-user-menu', 'Only status was updated, even though the object was modified before updating status.');
+    $this->assertEqual($skin->element, 'system__user-menu', 'Only status was updated, even though the object was modified before updating status.');
 
     // Enable the skin configuration.
-    $this->drupalGet('admin/appearance/skinr');
+    $this->drupalGet('admin/structure/skinr');
     $this->clickLink(t('enable'), 0);
     // Load an uncached version of the skin configuration object.
     $skin = skinr_skin_load_unchanged($skin->sid);
@@ -331,7 +333,7 @@ class SkinrUIAdminTestCase extends SkinrUITestCase {
    * Tests skin group functionality.
    */
   function testSkinGroups() {
-    $this->drupalGet('admin/appearance/skinr/skins');
+    $this->drupalGet('admin/structure/skinr/library');
 
     // Verify that the 'General' (default) group appears.
     $this->assertText(t('General'));
@@ -356,61 +358,10 @@ class SkinrUIAdminTestCase extends SkinrUITestCase {
     skinr_skin_save($skin);
 
     // Verify that the skin configuration appears on the skin configurations overview page.
-    $this->drupalGet('admin/appearance/skinr');
-    $this->assertLinkByHref('admin/appearance/skinr/delete/' . $skin->sid . '?destination=admin/appearance/skinr', 0, 'Skin configuration was found on overview page.');
+    $this->drupalGet('admin/structure/skinr');
+    $this->assertLinkByHref('admin/structure/skinr/skin/' . $skin->sid . '/delete', 0, 'Skin configuration was found on overview page.');
 
     // @todo Should we check the filtering and update options functionality?
-  }
-}
-
-/**
- * Tests rules administrative pages functionality.
- */
-class SkinrUIRulesTestCase extends SkinrUITestCase {
-  public static function getInfo() {
-    return array(
-      'name' => 'Rules UI',
-      'description' => 'Tests rules functionality for Skinr UI.',
-      'group' => 'Skinr',
-    );
-  }
-
-  /**
-   * Tests administrative interface for rules.
-   */
-  function testRules() {
-    // Test that there is a rules page.
-    $this->drupalGet('admin/appearance/skinr');
-    $this->assertLinkByHref('admin/appearance/skinr/rules');
-
-    // Test that there is a way to add rules.
-    $this->drupalGet('admin/appearance/skinr/rules');
-    $this->clickLink(t('Create a new rule'), 0);
-
-    // Verify that we end up on the expected URL.
-    $this->assertUrl('admin/appearance/skinr/rules/add');
-
-    // Verify that we can create the rule.
-    $edit = array(
-      'rule[title]' => 'Rule 1',
-      'rule[rule_type]' => 'page',
-    );
-    $this->drupalPost(NULL, $edit, t('Add'));
-
-    // After posting, we expect to be redirected to the rule edit page.
-    $this->assertUrl('admin/appearance/skinr/rules/edit/1');
-
-    // Save rule.
-    // @todo Add a skin and test whether it applies properly or not.
-    $edit = array(
-    );
-    $this->drupalPost(NULL, $edit, t('Save rule'));
-
-    // We should be returned back to the rules page.
-    $this->assertUrl('admin/appearance/skinr/rules');
-
-    // Make sure the new rule appears listed on this page.
-    $this->assertLinkByHref('admin/appearance/skinr/rules/edit/1');
   }
 }
 
@@ -427,7 +378,7 @@ class SkinrUIPluginTestCase extends DrupalWebTestCase {
   }
 
   function setUp() {
-    parent::setUp(array('block', 'comment', 'node', 'skinr_ui'));
+    parent::setUp(array('block', 'comment', 'node', 'skinr_ui', 'skinr_test'));
 
     $this->admin_user = $this->drupalCreateUser(array(
       'administer blocks',
@@ -443,6 +394,23 @@ class SkinrUIPluginTestCase extends DrupalWebTestCase {
       'bypass node access',
     ));
     $this->drupalLogin($this->admin_user);
+  }
+
+  /**
+   * Asserts that a select option in the current page exists.
+   *
+   * @param $name
+   *   Id of select field to assert.
+   * @param $option
+   *   Option to assert.
+   * @param $message
+   *   Message to display.
+   * @return
+   *   TRUE on pass, FALSE on fail.
+   */
+  protected function assertOptionExists($name, $option, $message = '') {
+    $elements = $this->xpath('//select[@name=:name]//option[@value=:option]', array(':name' => $name, ':option' => $option));
+    return $this->assertTrue(isset($elements[0]), $message ? $message : t('Option @option for field @name exists.', array('@option' => $option, '@name' => $name)), t('Browser'));
   }
 
   /**
@@ -469,13 +437,33 @@ class SkinrUIPluginTestCase extends DrupalWebTestCase {
     $this->drupalGet('');
 
     // Make sure our contextual link appears on the page.
-    $this->assertLinkByHref('admin/appearance/skinr/edit/nojs/block/system__user-menu/configure', 0, 'Contexual link to edit block\'s skin configuration was found.');
+    $this->assertLinkByHref('admin/structure/skinr/edit/block/system__user-menu/configure', 0, 'Contexual link to edit block\'s skin configuration was found.');
+
+    // Make sure this block's options are returned.
+    $this->drupalGet('admin/structure/skinr/add');
+    $this->assertOptionExists('element', 'system__user-menu', 'User menu block was returned by block_skinr_ui_element_options().');
+
+    // Test the returned element title.
+    $skin = (object) array(
+      'theme' => $default_theme,
+      'module' => 'block',
+      'element' => 'system__user-menu',
+      'skin' => 'skinr_ui_test_bgcolor',
+      'options' => array('bgcolor_red'),
+      'status' => 1,
+    );
+    skinr_skin_save($skin);
+
+    $title = reset(skinr_invoke_all('skinr_ui_element_title', $skin->module, $skin->element, $skin->theme));
+    $this->assertTrue($title == 'User menu', 'Block title was returned.');
   }
 
   /**
    * Tests comment plugin.
    */
   function testComment() {
+    $default_theme = variable_get('theme_default', 'bartik');
+
     // Create a node.
     $node1 = $this->drupalCreateNode(array('type' => 'article'));
 
@@ -491,13 +479,33 @@ class SkinrUIPluginTestCase extends DrupalWebTestCase {
     $this->drupalPost(NULL, $edit, t('Save'));
 
     // Make sure our contextual link appears on the page.
-    $this->assertLinkByHref('admin/appearance/skinr/edit/nojs/comment/article/configure', 0, 'Contexual link to edit comment\'s skin configuration was found.');
+    $this->assertLinkByHref('admin/structure/skinr/edit/comment/article/configure', 0, 'Contexual link to edit comment\'s skin configuration was found.');
+
+    // Make sure this block's options are returned.
+    $this->drupalGet('admin/structure/skinr/add');
+    $this->assertOptionExists('element', 'article', 'Node type was returned by node_skinr_ui_element_options().');
+
+    // Test the returned element title.
+    $skin = (object) array(
+      'theme' => $default_theme,
+      'module' => 'comment',
+      'element' => 'article',
+      'skin' => 'skinr_ui_test_bgcolor',
+      'options' => array('bgcolor_red'),
+      'status' => 1,
+    );
+    skinr_skin_save($skin);
+
+    $title = reset(skinr_invoke_all('skinr_ui_element_title', $skin->module, $skin->element, $skin->theme));
+    $this->assertEqual($title, 'Article', 'Node type title was returned.');
   }
 
   /**
    * Tests node plugin.
    */
   function testNode() {
+    $default_theme = variable_get('theme_default', 'bartik');
+
     // Create a node.
     $node = $this->drupalCreateNode(array('type' => 'article'));
 
@@ -506,7 +514,32 @@ class SkinrUIPluginTestCase extends DrupalWebTestCase {
     $this->drupalGet($uri['path']);
 
     // Make sure our contextual link appears on the page.
-    $this->assertLinkByHref('admin/appearance/skinr/edit/nojs/node/article/configure', 0, 'Contexual link to edit node\'s skin configuration was found.');
+    $this->assertLinkByHref('admin/structure/skinr/edit/node/article/configure', 0, 'Contexual link to edit node\'s skin configuration was found.');
+
+    // Make sure this block's options are returned.
+    $this->drupalGet('admin/structure/skinr/add');
+    $this->assertOptionExists('element', 'article', 'Node type was returned by node_skinr_ui_element_options().');
+
+    // Test the returned element title.
+    $skin = (object) array(
+      'theme' => $default_theme,
+      'module' => 'node',
+      'element' => 'article',
+      'skin' => 'skinr_ui_test_bgcolor',
+      'options' => array('bgcolor_red'),
+      'status' => 1,
+    );
+    skinr_skin_save($skin);
+
+    $title = reset(skinr_invoke_all('skinr_ui_element_title', $skin->module, $skin->element, $skin->theme));
+    $this->assertEqual($title, 'Article', 'Node type title was returned.');
+  }
+
+  /**
+   * Tests node plugin.
+   */
+  function testSystem() {
+    // @todo Add tests for html and region hooks.
   }
 }
 
@@ -542,13 +575,51 @@ class SkinrUIPluginViewsTestCase extends DrupalWebTestCase {
   }
 
   /**
+   * Asserts that a select option in the current page exists.
+   *
+   * @param $name
+   *   Id of select field to assert.
+   * @param $option
+   *   Option to assert.
+   * @param $message
+   *   Message to display.
+   * @return
+   *   TRUE on pass, FALSE on fail.
+   */
+  protected function assertOptionExists($name, $option, $message = '') {
+    $elements = $this->xpath('//select[@name=:name]//option[@value=:option]', array(':name' => $name, ':option' => $option));
+    return $this->assertTrue(isset($elements[0]), $message ? $message : t('Option @option for field @name exists.', array('@option' => $option, '@name' => $name)), t('Browser'));
+  }
+
+  /**
    * Tests views plugin.
    */
   function testViews() {
+    $default_theme = variable_get('theme_default', 'bartik');
+
     // Go to the view's page.
     $this->drupalGet('skinr-ui-test-view');
 
     // Make sure our contextual link appears on the page.
-    $this->assertLinkByHref('admin/appearance/skinr/edit/nojs/views/skinr_ui_test__page/configure', 0, "Contexual link to edit view's skin configuration was found.");
+    $this->assertLinkByHref('admin/structure/skinr/edit/views/skinr_ui_test__page/configure', 0, "Contexual link to edit view's skin configuration was found.");
+
+    // Make sure this view's options are returned.
+    $this->drupalGet('admin/structure/skinr/add');
+    $this->assertOptionExists('element', 'skinr_ui_test__default', 'Default display for our view was returned by views_skinr_ui_element_options().');
+    $this->assertOptionExists('element', 'skinr_ui_test__page', 'Page display for our view was returned by views_skinr_ui_element_options().');
+
+    // Test the returned element title.
+    $skin = (object) array(
+      'theme' => $default_theme,
+      'module' => 'views',
+      'element' => 'skinr_ui_test__page',
+      'skin' => 'skinr_ui_test_bgcolor',
+      'options' => array('bgcolor_red'),
+      'status' => 1,
+    );
+    skinr_skin_save($skin);
+
+    $title = reset(skinr_invoke_all('skinr_ui_element_title', $skin->module, $skin->element, $skin->theme));
+    $this->assertEqual($title, 'Skinr UI Test', 'View title was returned.');
   }
 }

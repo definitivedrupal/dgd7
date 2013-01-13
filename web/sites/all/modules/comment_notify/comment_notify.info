@@ -1,4 +1,4 @@
-name = Comment notify
+name = Comment Notify
 description = "Comment follow-up e-mail notification for anonymous as well as registered users."
 dependencies[] = comment
 dependencies[] = token
@@ -10,9 +10,9 @@ files[] = comment_notify.tokens.inc
 files[] = comment_notify.inc
 files[] = comment_notify.test
 
-; Information added by drupal.org packaging script on 2011-07-18
-version = "7.x-1.0-beta1"
+; Information added by drupal.org packaging script on 2012-06-12
+version = "7.x-1.1"
 core = "7.x"
 project = "comment_notify"
-datestamp = "1311007615"
+datestamp = "1339542979"
 

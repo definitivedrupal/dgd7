@@ -31,5 +31,5 @@
         $('.rb-slides', this).cycle(settings);
       });
     }
-  };  
+  };
 })(jQuery);

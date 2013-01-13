@@ -10,25 +10,25 @@
 #chatroom-user-options {
   font-size: 80%;
 }
-#chatroom-board,
-#chatroom-chat-form div.item-list,
-#chatroom-container-archive {
+.chatroom-board,
+.chatroom-chat-form div.item-list,
+.chatroom-container-archive {
   border: solid 1px #e0e0e0;
 }
-#chatroom-board,
-#chatroom-container-archive {
+.chatroom-board,
+.chatroom-container-archive {
   padding: 1px 1px 1px 1px;
   margin: 5px 0;
 }
-#chatroom-board p,
-#chatroom-container-archive p {
+.chatroom-board p,
+.chatroom-container-archive p {
   padding-top: 0;
 }
-#chatroom-board img,
-#chatroom-container-archive img {
+.chatroom-board img,
+.chatroom-container-archive img {
   vertical-align: top;
 }
-#chatroom-msg-alert {
+.chatroom-msg-alert {
   margin-left: 10px;
 }
 .clear-both {
@@ -58,8 +58,8 @@
 }
 .chatroom-textentry-options input,
 .chatroom-textentry-options table,
-#chatroom-board p,
-#chatroom-container-archive p {
+.chatroom-board p,
+.chatroom-container-archive p {
   margin:0;
 }
 .chatroom-textentry-options table {
@@ -91,6 +91,9 @@
 .chatroom-system-msg,
 .chatroom-msg {
   background-color: #f5f5f5;
+}
+.chatroom-username {
+  background-color: #DDD;
 }
 .chatroom-old-msg .header,
 .chatroom-msg .header {
@@ -134,8 +137,8 @@ div.ahah-response,
   display: none;
 }
 
-#chatroom-board,
-#chatroom-chat-form div.item-list {
+.chatroom-board,
+.chatroom-chat-form div.item-list {
   overflow: auto;
   height: 300px;
 }

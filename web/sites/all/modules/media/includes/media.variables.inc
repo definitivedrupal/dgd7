@@ -1,5 +1,9 @@
 <?php
 
+/**
+ * @file
+ * Contains the variables used by media and their defaults.
+ */
 
 /* ***************************************** */
 /* CONSTANTS                                 */
@@ -11,10 +15,6 @@
  */
 define('MEDIA_RESOURCE_URI_DEFAULT', 'public://');
 define('MEDIA_TYPES_DEFAULT', '*');
-
-/**
- * @file Contains the variables used by media and their defaults.
- */
 
 /**
  * Define constants.
@@ -114,22 +114,22 @@ function media_variable_default($name = NULL) {
 
   if (!isset($defaults)) {
     $defaults = array(
-      'wysiwyg_title' => 'Media browser',
-      'wysiwyg_icon_title' => 'Add media',
+      'wysiwyg_title' => t('Media browser'),
+      'wysiwyg_icon_title' => t('Add media'),
       //@todo: We should do this per type actually.  For "other" it should be a link.
       'wysiwyg_default_view_mode' => 'media_large',
       // Types which can be selected when embedding media vs wysiwyg.
-      'wysiwyg_allowed_types' => array('image', 'video'),
+      'wysiwyg_allowed_types' => array('audio', 'image', 'video'),
       // Attributes which can be modified via the wysiwyg and persist.
       'wysiwyg_allowed_attributes' => array('height', 'width', 'hspace', 'vspace', 'border', 'align', 'style', 'alt', 'title', 'class', 'id'),
 
-      'field_select_media_text' => 'Select media',
-      'field_remove_media_text' => 'Remove media',
+      'field_select_media_text' => t('Select media'),
+      'field_remove_media_text' => t('Remove media'),
 
       // Name of the theme to use in media popup dialogs, defaults to admin_theme
       'dialog_theme' => '',
       // @TODO: Make a configuration form with this.
-      'file_extensions' => 'jpg jpeg gif png txt doc xls pdf ppt pps odt ods odp mp3 mov m4v mp4 mpeg avi ogg wmv ico',
+      'file_extensions' => 'jpg jpeg gif png txt doc docx xls xlsx pdf ppt pptx pps ppsx odt ods odp mp3 mov m4v mp4 mpeg avi ogg oga ogv wmv ico',
       'max_filesize' => '',
       'debug' => FALSE,
 
@@ -141,17 +141,19 @@ function media_variable_default($name = NULL) {
       // Browser defaults in media.browser.inc.
       'browser_viewtype_default' => 'thumbnails',
       'browser_pager_limit' => 40,
-      'browser_library_empty_message' => 'There are currently no media in this library to select.',
 
       'import_batch_size' => 20,
       'fromurl_supported_schemes' => array('http', 'https', 'ftp', 'smb', 'ftps'),
       'type_icon_directory' => drupal_get_path('module', 'media') . '/images/types',
       'icon_base_directory' => drupal_get_path('module', 'media') . '/images/icons',
       'icon_set' => 'default',
-      
+
        // This is set in media_enable().  It will show a persistant dsm on every page
        // until the user runs the batch operation provided by media_admin_rebuild_types_form().
       'show_file_type_rebuild_nag' => FALSE,
+
+      // Deprecated variables no longer in use, but should still be uninstalled.
+      'browser_library_empty_message' => NULL,
     );
   }
 

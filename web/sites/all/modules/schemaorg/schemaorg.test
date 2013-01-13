@@ -50,7 +50,7 @@ class SchemaorgFieldUIManageFieldsTestCase extends FieldUITestCase {
   }
 
   function setUp() {
-    parent::setUp('schemaorg');
+    parent::setUp('schemaorg', 'schemaorg_ui');
 
     // Create random field name.
     $this->field_label = $this->randomName(8);
@@ -63,8 +63,8 @@ class SchemaorgFieldUIManageFieldsTestCase extends FieldUITestCase {
    */
   function testNodeTypeEditing() {
     $admin_path = 'admin/structure/types/manage/page';
-    $type_element_id = 'edit-schemaorg-type';
-    $type_element_name = 'schemaorg_type';
+    $type_element_id = 'edit-schemaorg-ui-type';
+    $type_element_name = 'schemaorg_ui_type';
 
     $this->drupalGet($admin_path);
     $this->assertFieldById($type_element_id, '', t('The schema.org type was empty.'));
@@ -80,21 +80,7 @@ class SchemaorgFieldUIManageFieldsTestCase extends FieldUITestCase {
       'schema:WebPage',
       'foaf:Document',
     );
-    $rdf_mapping_title_expected = array(
-      'predicates' => array(
-        'schema:name',
-        'dc:title',
-      ),
-    );
-    $rdf_mapping_url_expected = array(
-      'predicates' => array(
-        'schema:url',
-      ),
-      'type' => 'rel',
-    );
     $this->assertEqual($rdf_mapping['rdftype'], $rdf_mapping_type_expected, t('The schema.org type was correctly saved.'));
-    $this->assertEqual($rdf_mapping['title'], $rdf_mapping_title_expected, t('The schema.org title property was correctly saved.'));
-    $this->assertEqual($rdf_mapping['url'], $rdf_mapping_url_expected, t('The schema.org url property was correctly saved.'));
 
     // Check that the schema.org terms shows up in the form
     $this->drupalGet($admin_path);
@@ -110,14 +96,7 @@ class SchemaorgFieldUIManageFieldsTestCase extends FieldUITestCase {
     $rdf_mapping_type_expected = array(
       1 => 'foaf:Document',
     );
-    $rdf_mapping_title_expected = array(
-      'predicates' => array(
-        1 => 'dc:title',
-      ),
-    );
     $this->assertEqual($rdf_mapping['rdftype'], $rdf_mapping_type_expected, t('The schema.org type mapping was correctly saved.'));
-    $this->assertEqual($rdf_mapping['title'], $rdf_mapping_title_expected, t('The schema.org title mapping was correctly saved.'));
-    $this->assertTrue(!isset($rdf_mapping['url']), t('The schema.org url mapping was correctly saved.'));
   }
 
   /**
@@ -140,26 +119,39 @@ class SchemaorgFieldUIManageFieldsTestCase extends FieldUITestCase {
 
     $langcode = LANGUAGE_NONE;
     $admin_path = 'admin/structure/types/manage/' . $this->hyphen_type . '/fields/' . $field_name;
-    $element_id = 'edit-schemaorg-field-property';
-    $element_name = 'schemaorg_field_property';
+    $element_id = 'edit-schemaorg-ui-field-property';
+    $element_name = 'schemaorg_ui_field_property';
     $this->drupalGet($admin_path);
     $this->assertFieldById($element_id, '', t('The schema.org property was empty.'));
 
     // Check that the schema.org property is saved.
-    $edit = array($element_name => 'url');
+    $edit = array($element_name => 'telephone');
     $this->drupalPost($admin_path, $edit, t('Save settings'));
     $this->assertText("Saved $field_name configuration", t('The form was successfully submitted.'));
     $rdf_mapping = rdf_mapping_load('node', $this->type);
-    $rdf_mapping_field_expected = array(
+    $rdf_mapping_title_expected = array(
+      'predicates' => array(
+        'schema:name',
+      ),
+    );
+    $rdf_mapping_url_expected = array(
       'predicates' => array(
         'schema:url',
       ),
+      'type' => 'rel',
     );
+    $rdf_mapping_field_expected = array(
+      'predicates' => array(
+        'schema:telephone',
+      ),
+    );
+    $this->assertEqual($rdf_mapping['title'], $rdf_mapping_title_expected, t('The schema.org title property was correctly saved.'));
+    $this->assertEqual($rdf_mapping['url'], $rdf_mapping_url_expected, t('The schema.org url property was correctly saved.'));
     $this->assertEqual($rdf_mapping[$field_name], $rdf_mapping_field_expected, t('The schema.org property was correctly saved.'));
 
     // Check that the schema.org property shows up in the form
     $this->drupalGet($admin_path);
-    $this->assertFieldById($element_id, 'url', t('The schema.org property form element was displayed with the correct value.'));
+    $this->assertFieldById($element_id, 'telephone', t('The schema.org property form element was displayed with the correct value.'));
 
     // Check that the schema.org property can be emptied.
     $edit = array($element_name => '');
@@ -167,9 +159,14 @@ class SchemaorgFieldUIManageFieldsTestCase extends FieldUITestCase {
     $this->assertText("Saved $field_name configuration", t('The form was successfully submitted.'));
     entity_info_cache_clear();
     $rdf_mapping = rdf_mapping_load('node', $this->type);
+    $rdf_mapping_title_expected = array(
+      'predicates' => array(),
+    );
     $rdf_mapping_field_expected = array(
       'predicates' => array(),
     );
+    $this->assertEqual($rdf_mapping['title'], $rdf_mapping_title_expected, t('The schema.org title mapping was correctly saved.'));
+    $this->assertTrue(!isset($rdf_mapping['url']), t('The schema.org url mapping was correctly removed.'));
     $this->assertEqual($rdf_mapping[$field_name], $rdf_mapping_field_expected, t('The schema.org property was correctly saved.'));
   }
 
@@ -194,19 +191,19 @@ class SchemaorgFieldUIManageFieldsTestCase extends FieldUITestCase {
 
     $langcode = LANGUAGE_NONE;
     $admin_path = 'admin/structure/types/manage/' . $this->hyphen_type . '/fields/' . $field_name;
-    $element_id = 'edit-schemaorg-field-property';
-    $element_name = 'schemaorg_field_property';
+    $element_id = 'edit-schemaorg-ui-field-property';
+    $element_name = 'schemaorg_ui_field_property';
     $this->drupalGet($admin_path);
     $this->assertFieldById($element_id, '', t('The schema.org property was empty.'));
 
     // Check that the schema.org property is saved.
-    $edit = array($element_name => 'url');
+    $edit = array($element_name => 'telephone');
     $this->drupalPost($admin_path, $edit, t('Save settings'));
     $this->assertText("Saved $field_name configuration", t('The form was successfully submitted.'));
     $rdf_mapping = rdf_mapping_load('node', $this->type);
     $rdf_mapping_field_expected = array(
       'predicates' => array(
-        'schema:url',
+        'schema:telephone',
       ),
       'type' => 'rel',
     );
@@ -214,7 +211,7 @@ class SchemaorgFieldUIManageFieldsTestCase extends FieldUITestCase {
 
     // Check that the schema.org property shows up in the form
     $this->drupalGet($admin_path);
-    $this->assertFieldById($element_id, 'url', t('The schema.org property form element was displayed with the correct value.'));
+    $this->assertFieldById($element_id, 'telephone', t('The schema.org property form element was displayed with the correct value.'));
 
     // Check that the schema.org property can be emptied.
     $edit = array($element_name => '');

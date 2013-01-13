@@ -17,7 +17,7 @@ function follow_help($path, $arg) {
     case 'follow':
     case 'user/%/follow':
     case 'admin/config/services/follow':
-      return t('Please copy and paste the url for your public profile or page for each service you would like to display in the block. Links need to match the domain of the service in question.');
+      return t('Please copy and paste the url for your public profile or page for each service you would like to display in the block. Links need to match the domain of the service in question. If you want to hide the title of the links, enter "&lt;none&gt;" in the customized name.');
     case 'admin/settings/follow':
       return t('Here you can set what the default titles are for the "follow" blocks.  If you would like a custom title, edit the individual blocks <a href="!href">here</a>.', array('!href' => url('admin/build/block')));
   }
@@ -27,7 +27,10 @@ function follow_help($path, $arg) {
  * Implementation of hook_init().
  */
 function follow_init() {
-  drupal_add_css(drupal_get_path('module', 'follow') .'/follow.css');
+  // Switch the Follow icon style.
+  $style = variable_get('follow_icon_style', 'small');
+  $path = drupal_get_path('module', 'follow') . '/icons/';
+  drupal_add_css($path . $style . '.css');
 }
 
 /**
@@ -37,16 +40,16 @@ function follow_menu() {
   $items = array();
 
   $items['admin/config/services/follow'] = array(
-    'title' => 'Site follow links',
-    'description' => 'Add sitewide follow links',
+    'title' => 'Follow',
+    'description' => 'Configure the site-wide web service follow links.',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('follow_links_form'),
     'access arguments' => array('edit site follow links'),
   );
 
   $items['user/%/follow'] = array(
-    'title' => 'My follow links',
-    'description' => 'edit follow links',
+    'title' => 'Follow',
+    'description' => 'Update the associated web service follow links.',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('follow_links_form', 1),
     'access callback' => 'follow_links_user_access',
@@ -111,7 +114,7 @@ function follow_theme() {
     'render element' => 'form',
   );
   $items['follow_links'] = array(
-    'variables' => array('links' => array(), 'networks' => array()),
+    'variables' => array('links' => array(), 'networks' => array(), 'alignment' => array()),
   );
   $items['follow_link'] = array(
     'variables' => array('link' => NULL, 'title' => NULL),
@@ -129,6 +132,7 @@ function follow_preprocess_page(&$variables) {
     $args = array(
       'links' => $links,
       'networks' => follow_networks_load(),
+      'alignment' => variable_get('follow_alignment', 'vertical'),
     );
     $variables['follow_site'] = theme('follow_links', $args);
   }
@@ -281,8 +285,11 @@ function _follow_block_content($uid = 0) {
   $output = '';
 
   if ($links = follow_links_load($uid)) {
-    $output = theme('follow_links', array('links' => $links, 'networks' => follow_networks_load($uid)));
-    $output .= _follow_block_config_links($uid);
+    $output = theme('follow_links', array(
+      'links' => $links,
+      'networks' => follow_networks_load($uid),
+      'alignment' => variable_get('follow_alignment', 'vertical'),
+    ));
   }
 
   return $output;
@@ -295,17 +302,23 @@ function _follow_block_content($uid = 0) {
  *   An array of follow link objects.
  * @param $networks
  *   An array of network names, keys are machine names, values are visible titles.
+ * @param $alignment
+ *   A string depicting whether the icons should be displayed in a "horizontal"
+ *   or "vertical" list.
  *
  * @ingroup themeable
  */
 function theme_follow_links($variables) {
   $links = $variables['links'];
   $networks = $variables['networks'];
+  $wrapper = $variables['alignment'] == 'horizontal' ? 'span' : 'div';
   $output = '<div class="follow-links clearfix">';
 
   foreach($links as $link) {
     $title = !empty($link->title) ? $link->title : $networks[$link->name]['title'];
+    $output .= '<' . $wrapper . ' class="follow-link-wrapper follow-link-wrapper-' . $link->name . '">';
     $output .= theme('follow_link', array('link' => $link, 'title' => $title));
+    $output .= '</' . $wrapper . '>';
   }
 
   $output .= '</div>';
@@ -333,47 +346,52 @@ function theme_follow_link($variables) {
     'class' => $classes,
     'title' => follow_link_title($link->uid) .' '. $title,
   );
+  // Clean up the blank titles.
+  if ($title == '<none>') {
+    $title = '';
+  }
   $link->options['attributes'] = $attributes;
   return l($title, $link->path, $link->options) . "\n";
 }
 
 /**
- * Outputs a list of configuration links for users with appropriate permissions
+ * Implements hook_contextual_links_view_alter().
  *
- * @param $uid
- *   The uid of the user account.  Defaults to the site form, $uid = 0.
- * @return
- *   A string containing the links, output with theme_links().
+ * @param $element
+ *   A renderable array representing the contextual links.
+ * @param $items
+ *   An associative array containing the original contextual link items, as
+ *   generated by menu_contextual_links(), which were used to build
+ *   $element['#links'].
  */
-function _follow_block_config_links($uid) {
-  $links = array();
+function follow_contextual_links_view_alter(&$element, $items) {
+  // Add the Follow configuration links to both of the Follow blocks.
+  $block = isset($element['#element']['#block']) ? $element['#element']['#block'] : NULL;
+  if (is_object($block) && $block->module == 'follow') {
+    $uid = arg(1);
 
-  if ($uid == 0 && user_access('edit site follow links')) {
-    $links['follow_edit'] = array(
-      'title' => t('Edit'),
-      'href' => 'admin/config/services/follow',
-      'query' => drupal_get_destination(),
-    );
+    if ($block->delta == 'site' && user_access('edit site follow links')) {
+      $element['#links']['follow-edit'] = array(
+        'title' => t('Edit Follow links'),
+        'href' => 'admin/config/services/follow',
+        'query' => drupal_get_destination(),
+        'attributes' => array(
+          'title' => t('Configure the site-wide web service follow links.'),
+        ),
+      );
+    }
+    elseif ($block->delta == 'user' && follow_links_user_access($uid)) {
+      $element['#links']['follow-edit'] = array(
+        'title' => t('Edit Follow links'),
+        'href' => 'user/' . $uid . '/follow',
+        'query' => drupal_get_destination(),
+        'attributes' => array(
+          'title' => t('Update the associated web service follow links.'),
+        ),
+      );
+    }
   }
-  elseif (follow_links_user_access($uid)) {
-    $links['follow_edit'] = array(
-      'title' => t('Edit'),
-      'href' => 'user/'. $uid .'/follow',
-      'query' => drupal_get_destination(),
-    );
-  }
-
-  if (user_access('administer blocks')) {
-    $links['follow_configure'] = array(
-      'title' => t('Configure'),
-      'href' => $uid ? 'admin/structure/block/configure/follow/user' : 'admin/structure/block/configure/follow/site',
-      'query' => drupal_get_destination(),
-    );
-  }
-
-  return theme('links', $links, array('class' => array('links', 'inline')));
 }
-
 
 /**
  * The form for editing follow links.
@@ -391,6 +409,36 @@ function follow_links_form($form, &$form_state, $uid = 0) {
   $form['uid'] = array('#type' => 'hidden', '#value' => $uid);
   $form['follow_links']['#tree'] = TRUE;
 
+  // Allow changing which icon style to use on the global service links.
+  $form['follow_icon_style'] = array(
+    '#type' => 'select',
+    '#title' => t('Icon Style'),
+    '#options' => array(
+      'small' => t('Small'),
+      'large' => t('Large'),
+      'wpzoom26' => t('WPZOOM 26x'),
+      'wpzoom38' => t('WPZOOM 38x'),
+      'paulrobertlloyd32' => t('Paul Robert Lloyd 32x32'),
+    ),
+    '#description' => t('How the Follow icons should appear.'),
+    '#default_value' => variable_get('follow_icon_style', 'small'),
+    '#access' => $uid < 1, // Only show on the global Follow administration.
+  );
+
+  // Allow changing which icon style to use on the global service links.
+  $form['follow_alignment'] = array(
+    '#type' => 'select',
+    '#title' => t('Alignment'),
+    '#options' => array(
+      'vertical' => t('Vertical'),
+      'horizontal' => t('Horizontal'),
+    ),
+    '#description' => t('Whether the icons are to appear horizontally beside each other, or one after another in a list.'),
+    '#default_value' => variable_get('follow_alignment', 'vertical'),
+    '#access' => $uid < 1, // Only show on the global Follow administration.
+  );
+
+  // List all the available links.
   $links = follow_links_load($uid);
   $networks = follow_networks_load($uid, TRUE);
 
@@ -576,6 +624,18 @@ function follow_links_form_submit($form, &$form_state) {
       follow_link_save($link);
     }
   }
+
+  // Save the Follow icon style.
+  $icon_style = $values['follow_icon_style'];
+  if (in_array($icon_style, array('small', 'large', 'wpzoom26', 'wpzoom38', 'paulrobertlloyd32'))) {
+    variable_set('follow_icon_style', $icon_style);
+  }
+
+  // Save the Follow alignment.
+  $alignment = $values['follow_alignment'];
+  if (in_array($alignment, array('vertical', 'horizontal'))) {
+    variable_set('follow_alignment', $alignment);
+  }
 }
 
 /**
@@ -748,6 +808,10 @@ function follow_default_networks($uid) {
       'title' => t('Facebook'),
       'domain' => 'facebook.com',
     ),
+    'googleplus'    => array(
+      'title' => t('Google+'),
+      'domain' => 'plus.google.com',
+    ),
     'virb'      => array(
       'title' => t('Virb'),
       'domain' => 'virb.com',
@@ -796,12 +860,40 @@ function follow_default_networks($uid) {
       'title' => t('Tumblr'),
       'domain' => 'tumblr.com',
     ),
+    'viadeo'    => array(
+      'title' => t('Viadeo'),
+      'domain' => 'viadeo.com',
+    ),
+    'xing'    => array(
+      'title' => t('Xing'),
+      'domain' => 'xing.com',
+    ),
+    'spiceworks'    => array(
+      'title' => t('Spiceworks'),
+      'domain' => 'spiceworks.com',
+    ),
   );
   if ($uid == 0) {
     $networks['this-site'] = array(
       'title' => t('This site (RSS)'),
       'domain' => '',
     );
+    $networks['newsletter'] = array(
+      'title' => t('Newsletter'),
+      'domain' => '',
+    );
   }
   return $networks;
+}
+
+/**
+ * Implements hook_admin_paths().
+ *
+ * Have the Follow links for the user pop up in the Overlay.
+ */
+function follow_admin_paths() {
+  $paths = array(
+    'user/*/follow' => TRUE,
+  );
+  return $paths;
 }

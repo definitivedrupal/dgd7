@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * Provide node nid argument handler.
@@ -21,4 +22,3 @@ class views_handler_argument_node_nid extends views_handler_argument_numeric {
     return $titles;
   }
 }
-

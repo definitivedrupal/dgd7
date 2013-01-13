@@ -1,9 +1,8 @@
 <?php
+
 /**
- * @file cache.inc
- *
- * Functions to load Views' data so that it knows what is available to
- * build queries from.
+ * @file
+ * Load Views' data so that it knows what is available to build queries from.
  */
 
 /**
@@ -14,8 +13,8 @@
  *   One example is views_get_handler.
  */
 function _views_fetch_data($table = NULL, $move = TRUE, $reset = FALSE) {
-  static $cache = NULL;
-  static $recursion_protection = array();
+  $cache = &drupal_static(__FUNCTION__ . '_cache');
+  $recursion_protection = &drupal_static(__FUNCTION__ . '_recursion_protected');
   if (!isset($cache) || $reset) {
     $start = microtime(TRUE);
     // NOTE: This happens whether we retrieve them from cache or otherwise.
@@ -32,6 +31,7 @@ function _views_fetch_data($table = NULL, $move = TRUE, $reset = FALSE) {
         $function = $module . '_views_data_alter';
         $function($cache);
       }
+      _views_data_process_entity_types($cache);
 
       views_cache_set('views_data', $cache, TRUE);
     }
@@ -60,6 +60,27 @@ function _views_fetch_data($table = NULL, $move = TRUE, $reset = FALSE) {
 
   // Return an empty array if there is no match.
   return array();
+}
+
+/**
+ * Links tables having an 'entity type' specified to the respective generic entity-type tables.
+ */
+function _views_data_process_entity_types(&$data) {
+  foreach ($data as $table_name => $table_info) {
+    // Add in a join from the entity-table if an entity-type is given.
+    if (!empty($table_info['table']['entity type'])) {
+      $entity_table = 'views_entity_' . $table_info['table']['entity type'];
+
+      $data[$entity_table]['table']['join'][$table_name] = array(
+        'left_table' => $table_name,
+      );
+      $data[$entity_table]['table']['entity type'] = $table_info['table']['entity type'];
+      // Copy over the default table group if we have none yet.
+      if (!empty($table_info['table']['group']) && empty($data[$entity_table]['table']['group'])) {
+        $data[$entity_table]['table']['group'] = $table_info['table']['group'];
+      }
+    }
+  }
 }
 
 /**
@@ -124,16 +145,19 @@ function views_cache_set($cid, $data, $use_language = FALSE) {
  *
  * This is just a convenience wrapper around cache_get().
  *
- * @param $cid
+ * @param int $cid
  *   The cache ID of the data to retrieve.
- * @param $use_language
+ * @param bool $use_language
  *   If TRUE, the data will be requested specific to the currently active language.
+ *
+ * @return stdClass|bool
+ *   The cache or FALSE on failure.
  */
 function views_cache_get($cid, $use_language = FALSE) {
   global $language;
 
   if (variable_get('views_skip_cache', FALSE)) {
-    return 0;
+    return FALSE;
   }
   if ($use_language) {
     $cid .= ':' . $language->language;

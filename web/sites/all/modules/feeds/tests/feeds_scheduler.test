@@ -26,27 +26,25 @@ class FeedsSchedulerTestCase extends FeedsWebTestCase {
     $this->createImporterConfiguration();
     $this->addMappings('syndication',
       array(
-        array(
+        0 => array(
           'source' => 'title',
           'target' => 'title',
           'unique' => FALSE,
         ),
-        array(
+        1 => array(
           'source' => 'description',
           'target' => 'body',
-          'unique' => FALSE,
         ),
-        array(
+        2 => array(
           'source' => 'timestamp',
           'target' => 'created',
-          'unique' => FALSE,
         ),
-        array(
+        3 => array(
           'source' => 'url',
           'target' => 'url',
           'unique' => TRUE,
         ),
-        array(
+        4 => array(
           'source' => 'guid',
           'target' => 'guid',
           'unique' => TRUE,
@@ -58,7 +56,7 @@ class FeedsSchedulerTestCase extends FeedsWebTestCase {
     $edit = array(
       'import_on_create' => FALSE,
     );
-    $this->drupalPost('admin/structure/feeds/edit/syndication/settings', $edit, 'Save');
+    $this->drupalPost('admin/structure/feeds/syndication/settings', $edit, 'Save');
     $this->assertText('Do not import on submission');
 
     $nids = $this->createFeedNodes();
@@ -121,7 +119,7 @@ class FeedsSchedulerTestCase extends FeedsWebTestCase {
     $edit = array(
       'import_period' => 0,
     );
-    $this->drupalPost('admin/structure/feeds/edit/syndication/settings', $edit, 'Save');
+    $this->drupalPost('admin/structure/feeds/syndication/settings', $edit, 'Save');
     $this->assertText('Periodic import: as often as possible');
     $this->drupalLogout();
 
@@ -191,7 +189,7 @@ class FeedsSchedulerTestCase extends FeedsWebTestCase {
     $this->assertEqual(count($nids), db_query("SELECT COUNT(*) FROM {job_schedule} WHERE type = 'syndication' AND name = 'feeds_source_import'")->fetchField());
     $this->assertEqual(1, db_query("SELECT COUNT(*) FROM {job_schedule} WHERE type = 'syndication' AND name = 'feeds_importer_expire' AND id = 0")->fetchField());
 
-    $this->drupalPost('admin/structure/feeds/delete/syndication', array(), t('Delete'));
+    $this->drupalPost('admin/structure/feeds/syndication/delete', array(), t('Delete'));
     $this->assertEqual(0, db_query("SELECT COUNT(*) FROM {job_schedule} WHERE type = 'syndication' AND name = 'feeds_importer_expire' AND id = 0")->fetchField());
     $this->assertEqual(count($nids), db_query("SELECT COUNT(*) FROM {job_schedule} WHERE type = 'syndication' AND name = 'feeds_source_import'")->fetchField());
   }
@@ -206,11 +204,11 @@ class FeedsSchedulerTestCase extends FeedsWebTestCase {
     $edit = array(
       'content_type' => '',
     );
-    $this->drupalPost('admin/structure/feeds/edit/node/settings', $edit, 'Save');
+    $this->drupalPost('admin/structure/feeds/node/settings', $edit, 'Save');
     $this->setPlugin('node', 'FeedsFileFetcher');
     $this->setPlugin('node', 'FeedsCSVParser');
     $mappings = array(
-      '0' => array(
+      0 => array(
         'source' => 'title',
         'target' => 'title',
       ),

@@ -6,34 +6,22 @@
  */
 
 /**
- * Implement hook_install().
+ * Implements hook_uninstall().
  */
-function entity_test_install() {
-  // Auto-create a field for the full name.
-  $field = array(
-    'field_name' => 'entity_test_fullname',
-    'type' => 'text',
-    'cardinality' => 1,
-    'translatable' => FALSE,
-  );
-  field_create_field($field);
+function entity_test_uninstall() {
+  // Bypass entity_load() as we cannot use it here.
+  $types = db_select('entity_test_type', 'et')
+    ->fields('et')
+    ->execute()
+    ->fetchAllAssoc('name');
 
-  $instance = array(
-    'entity_type' => 'entity_test',
-    'field_name' => 'entity_test_fullname',
-    'bundle' => 'main',
-    'label' => 'Full name',
-    'description' => 'Specify your first and last name.',
-    'widget' => array(
-      'type' => 'text_textfield',
-      'weight' => 0,
-    ),
-  );
-  field_create_instance($instance);
+  foreach ($types as $name => $type) {
+    field_attach_delete_bundle('entity_test', $name);
+  }
 }
 
 /**
- * Implement hook_schema().
+ * Implements hook_schema().
  */
 function entity_test_schema() {
   $schema['entity_test'] = array(
@@ -133,5 +121,44 @@ function entity_test_schema() {
       'name' => array('name'),
     ),
   );
+
+  // Add schema for the revision-test-entity.
+  $schema['entity_test2'] = $schema['entity_test'];
+  $schema['entity_test2']['fields']['revision_id'] = array(
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => FALSE,
+    'default' => NULL,
+    'description' => 'The ID of the entity\'s default revision.',
+  );
+  $schema['entity_test2']['fields']['title'] = array(
+    'type' => 'varchar',
+    'length' => 255,
+    'not null' => TRUE,
+    'default' => '',
+  );
+
+  $schema['entity_test2_revision'] = $schema['entity_test'];
+  $schema['entity_test2_revision']['fields']['revision_id'] = array(
+    'type' => 'serial',
+    'not null' => TRUE,
+    'description' => 'Primary Key: Unique revision ID.',
+  );
+  $schema['entity_test2_revision']['fields']['pid'] = array(
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => FALSE,
+    'default' => NULL,
+    'description' => 'The ID of the attached entity.',
+  );
+  $schema['entity_test2_revision']['fields']['title'] = array(
+    'type' => 'varchar',
+    'length' => 255,
+    'not null' => TRUE,
+    'default' => '',
+  );
+  $schema['entity_test2_revision']['primary key'] = array('revision_id');
+
   return $schema;
 }
+

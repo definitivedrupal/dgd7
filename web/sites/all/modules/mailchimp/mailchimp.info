@@ -3,16 +3,15 @@ description = MailChimp email service integration.
 package = MailChimp
 core = 7.x
 
-files[] = MCAPI.class.php
-files[] = mailchimp.drush.inc
-files[] = mailchimp.admin.inc
-files[] = mailchimp.install
-files[] = mailchimp.module
+files[] = includes/mailchimp.inc
+
+dependencies[] = libraries (>=2)
 
 configure = admin/config/services/mailchimp
-; Information added by drupal.org packaging script on 2011-07-28
-version = "7.x-2.0"
+
+; Information added by drupal.org packaging script on 2013-01-11
+version = "7.x-2.9"
 core = "7.x"
 project = "mailchimp"
-datestamp = "1311891719"
+datestamp = "1357927633"
 

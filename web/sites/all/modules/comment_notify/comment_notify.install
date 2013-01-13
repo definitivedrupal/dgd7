@@ -15,11 +15,13 @@ function comment_notify_install() {
   $comments_select->join('users', 'u', 'c.uid = u.uid');
   $comments_select->addField('c', 'cid');
   $comments_select->addExpression('0', 'notify');
+  // Mix in a random string to all values.
+  $salt = uniqid(mt_rand(), TRUE);
   if (db_driver() == 'pgsql') {
-    $comments_select->addExpression('md5(c.mail || coalesce(u.mail, u.init) || c.uid || c.name || c.nid)', 'notify_hash');
+    $comments_select->addExpression("MD5(:salt || c.mail || COALESCE(u.mail, u.init) || c.uid || c.name || c.nid || c.hostname || c.cid)", 'notify_hash', array(':salt' => $salt));
   }
   else {
-    $comments_select->addExpression('md5(concat(c.mail, ifnull(u.mail, u.init), c.uid, c.name, c.nid))', 'notify_hash');
+    $comments_select->addExpression("MD5(CONCAT(:salt, c.mail, COALESCE(u.mail, u.init), c.uid, c.name, c.nid, c.hostname, c.cid))", 'notify_hash', array(':salt' => $salt));
   }
 
   // Set module weight low so that other modules act on the comment first.
@@ -55,7 +57,7 @@ function comment_notify_schema() {
         'disp-width' => '11'),
       'notify' => array(
         'type' => 'int',
-        'description' => 'A boolean indicator for whether or not they subscribed: 1 means subscribed, 0 means not subscribed.',
+        'description' => 'An integer indicating the type of subscription: 0 means not subscribed, 1 means subscribed to all comments, and 2 means only subscribed to replies of this comment.',
         'size' => 'tiny',
         'not null' => TRUE,
         'disp-width' => '11'),
@@ -87,12 +89,14 @@ function comment_notify_schema() {
           'disp-width' => '11'),
         'node_notify' => array(
           'type' => 'int',
+          'description' => 'An integer indicating the default type of subscription: 0 means not subscribed, 1 means subscribed to all comments, and 2 means only subscribed to replies of this comment.',
           'size' => 'tiny',
           'not null' => TRUE,
           'default' => 0,
           'disp-width' => '11'),
         'comment_notify' => array(
           'type' => 'int',
+          'description' => 'An integer indicating the default type of subscription: 0 means not subscribed, 1 means subscribed to all comments, and 2 means only subscribed to replies of this comment.',
           'size' => 'tiny',
           'not null' => TRUE,
           'default' => 0,
@@ -153,5 +157,28 @@ function comment_notify_update_7003() {
       variable_set($variable, $text);
     }
   }
-  return 'Comment notify token strings updated.';
+  return 'Comment Notify token strings updated.';
+}
+
+/**
+ * Fix a missing default causes warnings for Postgresql and some MySQL.
+ */
+function comment_notify_update_7004() {
+  db_change_field('comment_notify', 'notified', 'notified',  array('type' => 'int', 'size' => 'small', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0));
+}
+
+/**
+ * Fix minor schema inconsistencies caused by the last update.
+ */
+function comment_notify_update_7005() {
+  // Previous update altered size and unsigned unnecessarily.
+  $notified_field = array(
+    'type' => 'int',
+    'description' => 'A boolean indicator for whether or not a notification for the comment has been sent: 1 means yes, 0 means no.',
+    'size' => 'tiny',
+    'not null' => TRUE,
+    'default' => 0,
+    'disp-width' => '11',
+  );
+  db_change_field('comment_notify', 'notified', 'notified', $notified_field);
 }

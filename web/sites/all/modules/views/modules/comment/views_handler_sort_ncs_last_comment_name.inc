@@ -1,7 +1,15 @@
 <?php
+
+/**
+ * @file
+ * Definition of views_handler_sort_ncs_last_comment_name.
+ */
+
 /**
  * Sort handler to sort by last comment name which might be in 2 different
- * fields
+ * fields.
+ *
+ * @ingroup views_sort_handlers
  */
 class views_handler_sort_ncs_last_comment_name extends views_handler_sort {
   function query() {

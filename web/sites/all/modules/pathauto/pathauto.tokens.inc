@@ -1,12 +1,19 @@
 <?php
 
 /**
+ * @file
+ * Token integration for the Pathauto module.
+ */
+
+/**
  * Implements hook_token_info().
  */
 function pathauto_token_info() {
-  $info['tokens']['array']['pathauto'] = array(
-    'name' => t('Fake path'),
-    'description' => t(''),
+  $info = array();
+
+  $info['tokens']['array']['join-path'] = array(
+    'name' => t('Joined path'),
+    'description' => t('The array values each cleaned by Pathauto and then joined with the slash into a string that resembles an URL.'),
   );
 
   return $info;
@@ -17,20 +24,19 @@ function pathauto_token_info() {
  */
 function pathauto_tokens($type, $tokens, array $data = array(), array $options = array()) {
   $replacements = array();
-  $sanitize = !empty($options['sanitize']);
 
-  // Array tokens.
-  if ($type == 'array' && !empty($data['array']) && is_array($data['array'])) {
+  if ($type == 'array' && !empty($data['array'])) {
     $array = $data['array'];
 
     foreach ($tokens as $name => $original) {
       switch ($name) {
-        case 'pathauto':
+        case 'join-path':
           module_load_include('inc', 'pathauto');
           $values = array();
-          foreach ($array as $index => $value) {
-            $values[$index] = token_render_array_value($value, $options);
-            $values[$index] = pathauto_cleanstring($values[$index]);
+          foreach (element_children($array) as $key) {
+            $value = is_array($array[$key]) ? render($array[$key]) : (string) $array[$key];
+            $value = pathauto_cleanstring($value);
+            $values[] = $value;
           }
           $replacements[$original] = implode('/', $values);
           break;

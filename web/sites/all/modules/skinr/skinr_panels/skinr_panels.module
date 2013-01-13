@@ -48,61 +48,127 @@ function skinr_panels_theme_registry_alter(&$theme_registry) {
 }
 
 /**
- * Implements hook_preprocess().
+ * Implements hook_module_implements_alter().
  */
-function skinr_panels_preprocess(&$variables, $hook) {
-  if ($hook == 'panels_pane' && user_access('edit skin settings')) {
+function skinr_panels_module_implements_alter(&$implementations, $hook) {
+  if ($hook == 'skinr_preprocess_alter') {
+    // Make our version of hook_skinr_preprocess_alter() happen before that of
+    // skinr_context.
+    $group = $implementations['skinr_panels'];
+    unset($implementations['skinr_panels']);
 
-    // Get contextual links.
-    $contextual_links = array();
-    $counter = 0;
-    $array_elements = skinr_invoke_all('skinr_elements', $variables, $hook, 'contextual_links');
-    $module = 'panels';
-    $elements = $array_elements[$module];
-
-    foreach ($elements as $element) {
-      $contextual_links['skinr-' .  $module . '-' . $counter++] = array(
-        'admin/appearance/skinr/edit/nojs', array($module, $element),
-      );
-    }
-    if (!empty($contextual_links)) {
-      // Need to set contextual links through  Skinr API so we have a valid, and
-      // consistent, link title. It's also used in our hook_preprocess_links()
-      // hack.
-      _skinr_ui_set_contextual_links($hook, $contextual_links);
-
-      // Render links.
-      $element = array(
-        '#type' => 'contextual_links',
-        '#contextual_links' => $contextual_links,
-      );
-      $element = contextual_pre_render_links($element);
-
-      // Add in the Skinr links.
-      $variables['content']->admin_links += $element['#links'];
-    }
+    $implementations = array_reverse($implementations, TRUE);
+    $implementations['skinr_panels'] = $group;
+    $implementations = array_reverse($implementations, TRUE);
   }
 }
 
 /**
- * Implements hook_preprocess_links().
- *
- * This hack is panels on panel pages only.
+ * Implements hook_page_build().
  */
-function skinr_panels_preprocess_links(&$variables, $hook) {
-  if (isset($variables['links'][0]['title']) && $variables['links'][0]['title'] == t('Edit @type', array('@type' => 'Panel')) && user_access('edit skin settings')) {
-    // Get contextual links.
-    $contextual_links = skinr_ui_get_contextual_links();
-    $contextual_links = $contextual_links['panels_pane'];
+function skinr_panels_page_build(&$page) {
+  // Any blocks added before this hook is called are in panels.
+  _skinr_panels_is_panel(FALSE);
+}
 
-    // Render links.
-    $element = array(
-      '#type' => 'contextual_links',
-      '#contextual_links' => $contextual_links,
-    );
-    $element = contextual_pre_render_links($element);
+/**
+ * Helper function to determine wether or not a panel is being rendered.
+ */
+function _skinr_panels_is_panel($page_build = NULL) {
+  static $is_panel = TRUE;
+  if (!is_null($page_build)) {
+    $is_panel = FALSE;
+  }
+  return $is_panel;
+}
 
-    // Hack in the Skinr links.
-    $variables['links'] += $element['#links'];
+/**
+ * Implements hook_skinr_preprocess_alter().
+ */
+function skinr_panels_skinr_preprocess_alter(&$skins, $context) {
+  if (module_exists('skinr_context') && ($context['hook'] == 'panels_pane' || (_skinr_panels_is_panel() && $context['hook'] == 'block'))) {
+    foreach ($skins as $key => $skin) {
+      if (!empty($skin->gid) && $group = skinr_context_group_load($skin->gid)) {
+        // Set group based weight on skins.
+        $skin->weight = $group->weight;
+      }
+    }
+    // Reorder by weight.
+    uasort($skins, 'skinr_context_sort_weight');
+
+    // Set placeholders.
+    foreach ($skins as $skin) {
+      $placeholder = skinr_panels_set_skin_options($skin);
+      $context['variables']['classes_array'][] = $placeholder;
+    }
+    // Don't pass along any skins. We'll process them later.
+    $skins = array();
+  }
+}
+
+/**
+ * Helper function to retrieve stored skin options.
+ */
+function skinr_panels_get_skin_options() {
+  return skinr_panels_set_skin_options();
+}
+
+/**
+ * Helper function to store skin options for later retrieval.
+ */
+function skinr_panels_set_skin_options($skin = NULL, $reset = FALSE) {
+  static $counter = 0;
+  static $cache = array();
+
+  if ($reset) {
+    $cache = array();
+  }
+
+  if (!is_null($skin)) {
+    $placeholder = 'skinr_placeholder_' . $counter++;
+    $cache[$placeholder] = clone($skin);
+    return $placeholder;
+  }
+
+  return $cache;
+}
+
+/**
+ * Implements hook_preprocess_page().
+ */
+function skinr_panels_preprocess_page(&$variables) {
+  if (module_exists('skinr_context')) {
+    $is_node = isset($variables['node']) && $variables['node']->type == 'panel' && module_exists('panels_node');
+    $is_page = in_array('page__panel', $variables['theme_hook_suggestions']);
+    if ($is_node || $is_page) {
+      $contexts = context_active_contexts();
+      $skins = skinr_panels_get_skin_options(NULL, TRUE);
+
+      $search = array_keys($skins);
+      $replace = array();
+
+      foreach ($skins as $placeholder => $skin) {
+        if (!empty($skin->gid) && $group = skinr_context_group_load($skin->gid)) {
+          // Remove skins for groups that arent in the right context.
+          if (!isset($contexts['skinr_group__' . $skin->gid])) {
+            $replace[] = '';
+          }
+          else {
+            $classes_array = skinr_flatten_skins_array(array($skin->skin => $skin->options));
+            $replace[] = implode(' ', $classes_array);
+          }
+        }
+      }
+
+      if ($is_node) {
+        // Panel node page.
+        $panel = &$variables['page']['content']['system_main']['nodes'][$variables['node']->nid]['body']['#markup'];
+      }
+      elseif ($is_page) {
+        // Panel page.
+        $panel = &$variables['page']['content']['system_main']['content']['#markup'];
+      }
+      $panel = str_replace($search, $replace, $panel);
+    }
   }
 }

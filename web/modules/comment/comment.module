@@ -76,7 +76,7 @@ function comment_help($path, $arg) {
   switch ($path) {
     case 'admin/help#comment':
       $output = '<h3>' . t('About') . '</h3>';
-      $output .= '<p>' . t('The Comment module allows users to comment on site content, set commenting defaults and permissions, and moderate comments. For more information, see the online handbook entry for <a href="@comment">Comment module</a>.', array('@comment' => 'http://drupal.org/handbook/modules/comment/')) . '</p>';
+      $output .= '<p>' . t('The Comment module allows users to comment on site content, set commenting defaults and permissions, and moderate comments. For more information, see the online handbook entry for <a href="@comment">Comment module</a>.', array('@comment' => 'http://drupal.org/documentation/modules/comment/')) . '</p>';
       $output .= '<h3>' . t('Uses') . '</h3>';
       $output .= '<dl>';
       $output .= '<dt>' . t('Default and custom settings') . '</dt>';
@@ -92,7 +92,7 @@ function comment_help($path, $arg) {
  * Implements hook_entity_info().
  */
 function comment_entity_info() {
-  $return =  array(
+  $return = array(
     'comment' => array(
       'label' => t('Comment'),
       'base table' => 'comment',
@@ -103,6 +103,7 @@ function comment_entity_info() {
         'id' => 'cid',
         'bundle' => 'node_type',
         'label' => 'subject',
+        'language' => 'language',
       ),
       'bundles' => array(),
       'view modes' => array(
@@ -118,6 +119,9 @@ function comment_entity_info() {
   foreach (node_type_get_names() as $type => $name) {
     $return['comment']['bundles']['comment_node_' . $type] = array(
       'label' => t('@node_type comment', array('@node_type' => $name)),
+      // Provide the node type/bundle name for other modules, so it does not
+      // have to be extracted manually from the bundle name.
+      'node bundle' => $type,
       'admin' => array(
         // Place the Field UI paths for comments one level below the
         // corresponding paths for nodes, so that they appear in the same set
@@ -148,7 +152,7 @@ function comment_node_type_load($name) {
 }
 
 /**
- * Entity uri callback.
+ * Entity URI callback.
  */
 function comment_uri($comment) {
   return array(
@@ -542,7 +546,7 @@ function comment_new_page_count($num_comments, $new_replies, $node) {
   elseif ($flat) {
     // Flat comments.
     $count = $num_comments - $new_replies;
-    $pageno =  $count / $comments_per_page;
+    $pageno = $count / $comments_per_page;
   }
   else {
     // Threaded comments: we build a query with a subquery to find the first
@@ -575,7 +579,7 @@ function comment_new_page_count($num_comments, $new_replies, $node) {
       ':thread' => $first_thread,
     ))->fetchField();
 
-    $pageno =  $count / $comments_per_page;
+    $pageno = $count / $comments_per_page;
   }
 
   if ($pageno >= 1) {
@@ -988,6 +992,14 @@ function comment_build_content($comment, $node, $view_mode = 'full', $langcode =
   // Remove previously built content, if exists.
   $comment->content = array();
 
+  // Allow modules to change the view mode.
+  $context = array(
+    'entity_type' => 'comment',
+    'entity' => $comment,
+    'langcode' => $langcode,
+  );
+  drupal_alter('entity_view_mode', $view_mode, $context);
+
   // Build fields content.
   field_attach_prepare_view('comment', array($comment->cid => $comment), $view_mode, $langcode);
   entity_prepare_view('comment', array($comment->cid => $comment), $langcode);
@@ -1009,6 +1021,10 @@ function comment_build_content($comment, $node, $view_mode = 'full', $langcode =
   // Allow modules to make their own additions to the comment.
   module_invoke_all('comment_view', $comment, $view_mode, $langcode);
   module_invoke_all('entity_view', $comment, 'comment', $view_mode, $langcode);
+
+  // Make sure the current view mode is stored if no module has already
+  // populated the related key.
+  $comment->content += array('#view_mode' => $view_mode);
 }
 
 /**
@@ -1229,8 +1245,8 @@ function comment_form_node_form_alter(&$form, $form_state) {
   // If the node doesn't have any comments, the "hidden" option makes no
   // sense, so don't even bother presenting it to the user.
   if (empty($comment_count)) {
-    unset($form['comment_settings']['comment']['#options'][COMMENT_NODE_HIDDEN]);
-    unset($form['comment_settings']['comment'][COMMENT_NODE_HIDDEN]);
+    $form['comment_settings']['comment'][COMMENT_NODE_HIDDEN]['#access'] = FALSE;
+    // Also adjust the description of the "closed" option.
     $form['comment_settings']['comment'][COMMENT_NODE_CLOSED]['#description'] = t('Users cannot post comments.');
   }
 }
@@ -1439,7 +1455,7 @@ function comment_save($comment) {
 
   $transaction = db_transaction();
   try {
-    $defaults =  array(
+    $defaults = array(
       'mail' => '',
       'homepage' => '',
       'name' => '',
@@ -1496,8 +1512,11 @@ function comment_save($comment) {
         $max = db_query('SELECT MAX(thread) FROM {comment} WHERE nid = :nid', array(':nid' => $comment->nid))->fetchField();
         // Strip the "/" from the end of the thread.
         $max = rtrim($max, '/');
+        // We need to get the value at the correct depth.
+        $parts = explode('.', $max);
+        $firstsegment = $parts[0];
         // Finally, build the thread field for this new comment.
-        $thread = int2vancode(vancode2int($max) + 1) . '/';
+        $thread = int2vancode(vancode2int($firstsegment) + 1) . '/';
       }
       else {
         // This is a comment with a parent comment, so increase the part of the
@@ -1633,6 +1652,9 @@ function comment_delete_multiple($cids) {
  *   values those fields must have. Instead, it is preferable to use
  *   EntityFieldQuery to retrieve a list of entity IDs loadable by
  *   this function.
+ * @param $reset
+ *   Whether to reset the internal static entity cache. Note that the static
+ *   cache is disabled in comment_entity_info() by default.
  *
  * @return
  *   An array of comment objects, indexed by comment ID.
@@ -1642,8 +1664,8 @@ function comment_delete_multiple($cids) {
  *
  * @todo Remove $conditions in Drupal 8.
  */
-function comment_load_multiple($cids = array(), $conditions = array()) {
-  return entity_load('comment', $cids, $conditions);
+function comment_load_multiple($cids = array(), $conditions = array(), $reset = FALSE) {
+  return entity_load('comment', $cids, $conditions, $reset);
 }
 
 /**
@@ -1651,11 +1673,15 @@ function comment_load_multiple($cids = array(), $conditions = array()) {
  *
  * @param $cid
  *   The identifying comment id.
+ * @param $reset
+ *   Whether to reset the internal static entity cache. Note that the static
+ *   cache is disabled in comment_entity_info() by default.
+ *
  * @return
  *   The comment object.
  */
-function comment_load($cid) {
-  $comment = comment_load_multiple(array($cid));
+function comment_load($cid, $reset = FALSE) {
+  $comment = comment_load_multiple(array($cid), array(), $reset);
   return $comment ? $comment[$cid] : FALSE;
 }
 
@@ -1711,7 +1737,7 @@ function comment_num_new($nid, $timestamp = 0) {
     $timestamp = ($timestamp > NODE_NEW_LIMIT ? $timestamp : NODE_NEW_LIMIT);
 
     // Use the timestamp to retrieve the number of new comments.
-    return db_query('SELECT COUNT(cid) FROM {comment} WHERE nid = :nid  AND created > :timestamp AND status = :status', array(
+    return db_query('SELECT COUNT(cid) FROM {comment} WHERE nid = :nid AND created > :timestamp AND status = :status', array(
       ':nid' => $nid,
       ':timestamp' => $timestamp,
       ':status' => COMMENT_PUBLISHED,
@@ -2052,6 +2078,9 @@ function comment_preview($comment) {
     if (!empty($account->uid)) {
       $comment->uid = $account->uid;
       $comment->name = check_plain($account->name);
+      $comment->signature = $account->signature;
+      $comment->signature_format = $account->signature_format;
+      $comment->picture = $account->picture;
     }
     elseif (empty($comment->name)) {
       $comment->name = variable_get('anonymous', t('Anonymous'));
@@ -2279,28 +2308,30 @@ function template_preprocess_comment(&$variables) {
 
   // Set status to a string representation of comment->status.
   if (isset($comment->in_preview)) {
-    $variables['status']  = 'comment-preview';
+    $variables['status'] = 'comment-preview';
   }
   else {
-    $variables['status']  = ($comment->status == COMMENT_NOT_PUBLISHED) ? 'comment-unpublished' : 'comment-published';
+    $variables['status'] = ($comment->status == COMMENT_NOT_PUBLISHED) ? 'comment-unpublished' : 'comment-published';
   }
+
   // Gather comment classes.
-  if ($comment->uid === 0) {
+  // 'comment-published' class is not needed, it is either 'comment-preview' or
+  // 'comment-unpublished'.
+  if ($variables['status'] != 'comment-published') {
+    $variables['classes_array'][] = $variables['status'];
+  }
+  if ($variables['new']) {
+    $variables['classes_array'][] = 'comment-new';
+  }
+  if (!$comment->uid) {
     $variables['classes_array'][] = 'comment-by-anonymous';
   }
   else {
-    // Published class is not needed. It is either 'comment-preview' or 'comment-unpublished'.
-    if ($variables['status'] != 'comment-published') {
-      $variables['classes_array'][] = $variables['status'];
-    }
-    if ($comment->uid === $variables['node']->uid) {
+    if ($comment->uid == $variables['node']->uid) {
       $variables['classes_array'][] = 'comment-by-node-author';
     }
-    if ($comment->uid === $variables['user']->uid) {
+    if ($comment->uid == $variables['user']->uid) {
       $variables['classes_array'][] = 'comment-by-viewer';
-    }
-    if ($variables['new']) {
-      $variables['classes_array'][] = 'comment-new';
     }
   }
 }
@@ -2356,7 +2387,6 @@ function theme_comment_post_forbidden($variables) {
  * Process variables for comment-wrapper.tpl.php.
  *
  * @see comment-wrapper.tpl.php
- * @see theme_comment_wrapper()
  */
 function template_preprocess_comment_wrapper(&$variables) {
   // Provide contextual information.

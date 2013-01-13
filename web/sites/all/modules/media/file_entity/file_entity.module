@@ -12,6 +12,10 @@
  */
 require_once dirname(__FILE__) . '/file_entity.file_api.inc';
 
+// @todo Remove when http://drupal.org/node/977052 is fixed.
+require_once dirname(__FILE__) . '/file_entity.field.inc';
+
+
 /**
  * Implements hook_help().
  */
@@ -31,18 +35,12 @@ function file_entity_menu() {
     'title' => 'File types',
     'description' => 'Manage files used on your site.',
     'page callback' => 'file_entity_list_types_page',
-    'page arguments' => array(NULL),
     'access arguments' => array('administer site configuration'),
     'file' => 'file_entity.admin.inc',
   );
   $items['admin/config/media/file-types/manage/%'] = array(
-    'title' => 'Configure file type',
-    'title callback' => 'file_entity_type_page_title',
-    'title arguments' => array(5),
-    'page callback' => 'file_entity_list_types_page',
-    'page arguments' => array(5),
-    'access arguments' => array('administer site configuration'),
-    'file' => 'file_entity.admin.inc',
+    'title' => 'Manage file types',
+    'description' => 'Manage files used on your site.',
   );
 
   // Attach a "Manage file display" tab to each file type in the same way that
@@ -123,13 +121,14 @@ function file_entity_theme() {
 function file_entity_entity_info_alter(&$entity_info) {
   $entity_info['file']['fieldable'] = TRUE;
   $entity_info['file']['entity keys']['bundle'] = 'type';
+  $entity_info['file']['bundle keys']['bundle'] = 'type';
   $entity_info['file']['bundles'] = array();
   foreach (file_info_file_types() as $type => $info) {
     $info += array(
       // Provide a default administration path for Field UI, but not if 'admin'
       // has been explicitly set to NULL.
       'admin' => array(
-        'path' => 'admin/config/media/file-types/manage/%',
+        'path' => 'admin/config/media/file-types/manage/%file_type',
         'real path' => 'admin/config/media/file-types/manage/' . $type,
         'bundle argument' => 5,
       ),
@@ -177,11 +176,11 @@ function file_entity_file_presave($file) {
   // ensures that it isn't NULL after a file_load(). However, file_save() can be
   // called on a new file object, so we apply the default here as well.
   if (!isset($file->type)) {
-    $file->type = '';
+    $file->type = FILE_TYPE_NONE;
   }
 
   // If the file doesn't already have a real type, attempt to assign it one.
-  if ($file->type === '' && ($type = file_get_type($file))) {
+  if ($file->type == FILE_TYPE_NONE && ($type = file_get_type($file))) {
     $file->type = $type;
   }
 
@@ -245,6 +244,30 @@ function file_entity_file_formatter_info() {
   }
 
   return $formatters;
+}
+/**
+ * Return the label for a specific file entity view mode.
+ */
+function file_entity_view_mode_label($view_mode, $default = FALSE) {
+  $labels = file_entity_view_mode_labels();
+  return isset($labels[$view_mode]) ? $labels[$view_mode] : $default;
+}
+
+/**
+ * Return an array of available view modes for file entities.
+ */
+function file_entity_view_mode_labels() {
+  $labels = &drupal_static(__FUNCTION__);
+
+  if (!isset($options)) {
+    $entity_info = entity_get_info('file');
+    $labels = array('default' => t('Default'));
+    foreach ($entity_info['view modes'] as $machine_name => $mode) {
+      $labels[$machine_name] = $mode['label'];
+    }
+  }
+
+  return $labels;
 }
 
 /**
@@ -330,20 +353,33 @@ function file_entity_file_formatter_file_field_settings($form, &$form_state, $se
  * file_view_file() can try another formatter.
  */
 function file_entity_file_formatter_file_image_view($file, $display, $langcode) {
-  $scheme = file_uri_scheme($file->uri);
-  $local_wrappers = file_get_stream_wrappers(STREAM_WRAPPERS_LOCAL);
-  if (isset($local_wrappers[$scheme]) && strpos($file->filemime, 'image/') === 0) {
+  // Prevent PHP notices when trying to read empty files.
+  // @see http://drupal.org/node/681042
+  if (!$file->filesize) {
+    return;
+  }
+
+  // Do not bother proceeding if this file does not have an image mime type.
+  if (strpos($file->filemime, 'image/') !== 0) {
+    return;
+  }
+
+  if (file_entity_file_is_local($file) && $image = image_load($file->uri)) {
     if (!empty($display['settings']['image_style'])) {
       $element = array(
         '#theme' => 'image_style',
         '#style_name' => $display['settings']['image_style'],
         '#path' => $file->uri,
+        '#width' => $image->info['width'],
+        '#height' => $image->info['height'],
       );
     }
     else {
       $element = array(
         '#theme' => 'image',
         '#path' => $file->uri,
+        '#width' => $image->info['width'],
+        '#height' => $image->info['height'],
       );
     }
     return $element;
@@ -368,22 +404,15 @@ function file_entity_file_formatter_file_image_settings($form, &$form_state, $se
 }
 
 /**
- * Title callback for a file type.
- */
-function file_entity_type_page_title($type) {
-  $info = file_info_file_types($type);
-  return $info['label'];
-}
-
-/**
  * Menu access callback for the 'view mode file display settings' pages.
  *
  * Based on _field_ui_view_mode_menu_access(), but the Field UI module might not
  * be enabled.
  */
-function _file_entity_view_mode_menu_access($file_type, $view_mode, $access_callback) {
+function _file_entity_view_mode_menu_access($bundle, $view_mode, $access_callback) {
   // Deny access if the view mode isn't configured to use custom display
   // settings.
+  $file_type = field_extract_bundle('file', $bundle);
   $view_mode_settings = field_view_mode_settings('file', $file_type);
   $visibility = ($view_mode == 'default') || !empty($view_mode_settings[$view_mode]['custom_settings']);
   if (!$visibility) {
@@ -413,4 +442,54 @@ function file_entity_modules_enabled($modules) {
  */
 function file_entity_modules_disabled($modules) {
   file_info_cache_clear();
+}
+
+/**
+ * Implements hook_file_mimetype_mapping_alter().
+ */
+function file_entity_file_mimetype_mapping_alter(&$mapping) {
+  // Fix the mime type mapping for ogg.
+  // @todo Remove when http://drupal.org/node/1239376 is fixed in core.
+  $new_mappings['ogg'] = 'audio/ogg';
+
+  // Add support for m4v.
+  // @todo Remove when http://drupal.org/node/1290486 is fixed in core.
+  $new_mappings['m4v'] = 'video/x-m4v';
+
+  // Add support for mka and mkv.
+  // @todo Remove when http://drupal.org/node/1293140 is fixed in core.
+  $new_mappings['mka'] = 'audio/x-matroska';
+  $new_mappings['mkv'] = 'video/x-matroska';
+
+  // Add support for weba, webm, and webp.
+  // @todo Remove when http://drupal.org/node/1347624 is fixed in core.
+  $new_mappings['weba'] = 'audio/webm';
+  $new_mappings['webm'] = 'video/webm';
+  $new_mappings['webp'] = 'image/webp';
+
+  foreach ($new_mappings as $extension => $mime_type) {
+    if (!in_array($mime_type, $mapping['mimetypes'])) {
+      // If the mime type does not already exist, add it.
+      $mapping['mimetypes'][] = $mime_type;
+    }
+
+    // Get the index of the mime type and assign the extension to that key.
+    $index = array_search($mime_type, $mapping['mimetypes']);
+    $mapping['extensions'][$extension] = $index;
+  }
+}
+
+/**
+ * Check if a file entity is considered local or not.
+ *
+ * @param object $file
+ *   A file entity object from file_load().
+ *
+ * @return
+ *   TRUE if the file is using a local stream wrapper, or FALSE otherwise.
+ */
+function file_entity_file_is_local($file) {
+  $scheme = file_uri_scheme($file->uri);
+  $wrappers = file_get_stream_wrappers(STREAM_WRAPPERS_LOCAL);
+  return !empty($wrappers[$scheme]) && empty($wrappers[$scheme]['remote']);
 }

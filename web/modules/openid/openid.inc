@@ -89,7 +89,7 @@ function openid_redirect_http($url, $message) {
  */
 function openid_redirect($url, $message) {
   global $language;
-  
+
   $output = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">' . "\n";
   $output .= '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="' . $language->language . '" lang="' . $language->language . '">' . "\n";
   $output .= "<head>\n";
@@ -138,8 +138,28 @@ function openid_redirect_form($form, &$form_state, $url, $message) {
  */
 function _openid_xrds_parse($raw_xml) {
   $services = array();
-  try {
-    $xml = @new SimpleXMLElement($raw_xml);
+
+  // For PHP version >= 5.2.11, we can use this function to protect against
+  // malicious doctype declarations and other unexpected entity loading.
+  // However, we will not rely on it, and reject any XML with a DOCTYPE.
+  $disable_entity_loader = function_exists('libxml_disable_entity_loader');
+  if ($disable_entity_loader) {
+    $load_entities = libxml_disable_entity_loader(TRUE);
+  }
+
+  // Load the XML into a DOM document.
+  $dom = new DOMDocument();
+  @$dom->loadXML($raw_xml);
+
+  // Since DOCTYPE declarations from an untrusted source could be malicious, we
+  // stop parsing here and treat the XML as invalid since XRDS documents do not
+  // require, and are not expected to have, a DOCTYPE.
+  if (isset($dom->doctype)) {
+    return array();
+  }
+
+  // Parse the DOM document for the information we need.
+  if ($xml = simplexml_import_dom($dom)) {
     foreach ($xml->children(OPENID_NS_XRD)->XRD as $xrd) {
       foreach ($xrd->children(OPENID_NS_XRD)->Service as $service_element) {
         $service = array(
@@ -165,9 +185,12 @@ function _openid_xrds_parse($raw_xml) {
       }
     }
   }
-  catch (Exception $e) {
-    // Invalid XML.
+
+  // Return the LIBXML options to the previous state before returning.
+  if ($disable_entity_loader) {
+    libxml_disable_entity_loader($load_entities);
   }
+
   return $services;
 }
 
@@ -617,18 +640,31 @@ function _openid_get_params($str) {
  * @param $fallback_prefix
  *   An optional prefix that will be used in case no prefix is found for the
  *   target extension namespace.
+ * @param $only_signed
+ *   Return only keys that are included in the message signature in openid.sig.
+ *   Unsigned fields may have been modified or added by other parties than the
+ *   OpenID Provider.
+ *
  * @return
  *   An associative array containing all the parameters in the response message
  *   that belong to the extension. The keys are stripped from their namespace
  *   prefix.
+ *
  * @see http://openid.net/specs/openid-authentication-2_0.html#extensions
  */
-function openid_extract_namespace($response, $extension_namespace, $fallback_prefix = NULL) {
+function openid_extract_namespace($response, $extension_namespace, $fallback_prefix = NULL, $only_signed = FALSE) {
+  $signed_keys = explode(',', $response['openid.signed']);
+
   // Find the namespace prefix.
   $prefix = $fallback_prefix;
   foreach ($response as $key => $value) {
     if ($value == $extension_namespace && preg_match('/^openid\.ns\.([^.]+)$/', $key, $matches)) {
       $prefix = $matches[1];
+      if ($only_signed && !in_array('ns.' . $matches[1], $signed_keys)) {
+        // The namespace was defined but was not signed as required. In this
+        // case we do not fall back to $fallback_prefix.
+        $prefix = NULL;
+      }
       break;
     }
   }
@@ -641,7 +677,9 @@ function openid_extract_namespace($response, $extension_namespace, $fallback_pre
   foreach ($response as $key => $value) {
     if (preg_match('/^openid\.' . $prefix . '\.(.+)$/', $key, $matches)) {
       $local_key = $matches[1];
-      $output[$local_key] = $value;
+      if (!$only_signed || in_array($prefix . '.' . $local_key, $signed_keys)) {
+        $output[$local_key] = $value;
+      }
     }
   }
 
@@ -792,4 +830,78 @@ function _openid_math_powmod($x, $y, $z) {
     case 'bcmath':
       return bcpowmod($x, $y, $z);
   }
+}
+
+/**
+ * Provides transition for accounts with possibly invalid OpenID identifiers in authmap.
+ *
+ * This function provides a less safe but more unobtrusive procedure for users
+ * who cannot login with their OpenID identifiers. OpenID identifiers in the
+ * authmap could be incomplete due to invalid OpenID implementation in previous
+ * versions of Drupal (e.g. fragment part of the identifier could be missing).
+ * For more information see http://drupal.org/node/1120290.
+ *
+ * @param string $identity
+ *   The user's claimed OpenID identifier.
+ *
+ * @return
+ *   A fully-loaded user object if the user is found or FALSE if not found.
+ */
+function _openid_invalid_openid_transition($identity, $response) {
+  $account = FALSE;
+  $fallback_account = NULL;
+  $fallback_identity = $identity;
+
+  // Try to strip the fragment if it is present.
+  if (strpos($fallback_identity, '#') !== FALSE) {
+    $fallback_identity = preg_replace('/#.*/', '', $fallback_identity);
+    $fallback_account = user_external_load($fallback_identity);
+  }
+
+  // Try to replace HTTPS with HTTP. OpenID providers often redirect
+  // from http to https, but Drupal didn't follow the redirect.
+  if (!$fallback_account && strpos($fallback_identity, 'https://') !== FALSE) {
+    $fallback_identity = str_replace('https://', 'http://', $fallback_identity);
+    $fallback_account = user_external_load($fallback_identity);
+  }
+
+  // Try to use original identifier.
+  if (!$fallback_account && isset($_SESSION['openid']['user_login_values']['openid_identifier'])) {
+    $fallback_identity = openid_normalize($_SESSION['openid']['user_login_values']['openid_identifier']);
+    $fallback_account = user_external_load($fallback_identity);
+  }
+
+  if ($fallback_account) {
+    // Try to extract e-mail address from Simple Registration (SREG) or
+    // Attribute Exchanges (AX) keys.
+    $email = '';
+    $sreg_values = openid_extract_namespace($response, OPENID_NS_SREG, 'sreg', TRUE);
+    $ax_values = openid_extract_namespace($response, OPENID_NS_AX, 'ax', TRUE);
+    if (!empty($sreg_values['email']) && valid_email_address($sreg_values['email'])) {
+      $email = $sreg_values['email'];
+    }
+    elseif ($ax_mail_values = openid_extract_ax_values($ax_values, array('http://axschema.org/contact/email', 'http://schema.openid.net/contact/email'))) {
+      $email = current($ax_mail_values);
+    }
+
+    // If this e-mail address is the same as the e-mail address found in user
+    // account, login the user and update the claimed identifier.
+    if ($email && ($email == $fallback_account->mail || $email == $fallback_account->init)) {
+      $query = db_insert('authmap')
+        ->fields(array(
+          'authname' => $identity,
+          'uid' => $fallback_account->uid,
+          'module' => 'openid',
+        ))
+        ->execute();
+      drupal_set_message(t('New OpenID identifier %identity was added as a replacement for invalid identifier %invalid_identity. To finish the invalid OpenID transition process, please go to your <a href="@openid_url">OpenID identities page</a> and remove the old identifier %invalid_identity.', array('%invalid_identity' => $fallback_identity, '%identity' => $identity, '@openid_url' => 'user/' . $fallback_account->uid . '/openid')));
+      // Set the account to the found one.
+      $account = $fallback_account;
+    }
+    else {
+      drupal_set_message(t('There is already an existing account associated with the OpenID identifier that you have provided. However, due to a bug in the previous version of the authentication system, we can\'t be sure that this account belongs to you. If you are new on this site, please continue registering the new user account. If you already have a registered account on this site associated with the provided OpenID identifier, please try to <a href="@url_password">reset the password</a> or contact the site administrator.', array('@url_password' => 'user/password')), 'warning');
+    }
+  }
+
+  return $account;
 }

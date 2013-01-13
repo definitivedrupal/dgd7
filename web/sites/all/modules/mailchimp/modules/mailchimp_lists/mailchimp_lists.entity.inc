@@ -6,20 +6,21 @@ function mailchimp_lists_entity_info() {
   $return = array(
     'mailchimp_list' => array(
       'label' => t('MailChimp List'),
-      'controller class' => 'EntityAPIController',
+      'plural label' => t('MailChimp Lists'),
+      'controller class' => 'EntityAPIControllerExportable',
       'base table' => 'mailchimp_lists',
       'uri callback' => 'mailchimp_list_uri',
       'fieldable' => FALSE,
+      'exportable' => TRUE,
+      'label callback' => 'mailchimp_lists_label',
+      'module' => 'mailchimp_lists',
       'entity keys' => array(
         'id' => 'id',
-        'label' => 'label',
-      ),
-      'bundle keys' => array(
-        'bundle' => 'type',
+        'name' => 'name',
       ),
       'bundles' => array(
-        'mailchimp_list'=> array(
-          'label' => 'MailChimp List',
+        'mailchimp_list' => array(
+          'label' => t('MailChimp List'),
         ),
       ),
       'view modes' => array(
@@ -33,7 +34,6 @@ function mailchimp_lists_entity_info() {
 
   return $return;
 }
-
 
 /**
  * Loads a list by ID.
@@ -67,6 +67,20 @@ function mailchimp_lists_load_multiple($list_ids = array(), $conditions = array(
 }
 
 /**
+ * Gets an array of all lists, keyed by the list name.
+ *
+ * @param $name
+ *   If set, the list with the given name is returned.
+ *
+ * @return MailchimpList[]
+ *   Depending whether $name isset, an array of lists or a single one.
+ */
+function mailchimp_lists_load_multiple_by_name($name = NULL) {
+  $lists = entity_load_multiple_by_name('mailchimp_list', isset($name) ? array($name) : FALSE);
+  return isset($name) ? reset($lists) : $lists;
+}
+
+/**
  * Deletes multiple lists by ID.
  *
  * @param $list_ids
@@ -95,4 +109,8 @@ function mailchimp_lists_save($list) {
     $list->created = REQUEST_TIME;
   }
   return entity_get_controller('mailchimp_list')->save($list);
+}
+
+function mailchimp_lists_label($list) {
+  return $list->label;
 }

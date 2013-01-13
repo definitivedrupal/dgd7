@@ -238,15 +238,8 @@ function rotating_banner_block_configure($delta) {
   $rb_form['slides']['slide_table']['weight'] = array('#tree' => TRUE);
   
   foreach ($slides as $slide) {
-    if (module_exists('file_entity')) {
-      $loaded_file = file_load($slide->fid);
-      $preview = file_view_file($loaded_file, 'media_preview');
-    }
-    else {
-      $media = media_load($slide->fid);
-      $preview = field_view_field('media', $media, 'file', 'media_preview');
-    }
-    $preview['#theme_wrappers'][] = 'media_thumbnail';
+    $media = file_load($slide->fid);
+    $preview = file_view_file($media, 'media_preview');
 
     $i++;
     $rb_form['slides']['slide_table']['weight'][$slide->sid] = array(

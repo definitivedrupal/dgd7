@@ -1,11 +1,24 @@
 <?php
 
 /**
+ * @file
+ * Definition of views_plugin_pager_none.
+ */
+
+/**
  * Plugin for views without pagers.
  *
  * @ingroup views_pager_plugins
  */
 class views_plugin_pager_none extends views_plugin_pager {
+
+  function init(&$view, &$display, $options = array()) {
+    parent::init($view, $display, $options);
+
+    // If the pager is set to none, then it should show all items.
+    $this->set_items_per_page(0);
+  }
+
   function summary_title() {
     if (!empty($this->options['offset'])) {
       return t('All items, skip @skip', array('@skip' => $this->options['offset']));
@@ -24,6 +37,7 @@ class views_plugin_pager_none extends views_plugin_pager {
    * Provide the default form for setting options.
    */
   function options_form(&$form, &$form_state) {
+    parent::options_form($form, $form_state);
     $form['offset'] = array(
       '#type' => 'textfield',
       '#title' => t('Offset'),

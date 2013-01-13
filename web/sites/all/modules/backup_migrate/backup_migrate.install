@@ -37,7 +37,7 @@ function backup_migrate_schema() {
       'filename' => array(
         'description' => 'The name of the profile.',
         'type' => 'varchar',
-        'length' => 50,
+        'length' => 255,
         'not null' => TRUE
       ),
       'append_timestamp' => array(
@@ -148,12 +148,6 @@ function backup_migrate_schema() {
         'default' => 0,
         'description' => 'The number of seconds between backups.',
       ),
-      'last_run' => array(
-        'type' => 'int',
-        'not null' => TRUE,
-        'default' => 0,
-        'description' => 'The last time the backup was run.',
-      ),
       'enabled' => array(
         'description' => 'Whether the schedule is enabled.',
         'type' => 'int',
@@ -185,8 +179,7 @@ function backup_migrate_install() {
 }
 
 function _backup_migrate_setup_database_defaults() {
-  backup_migrate_include('crud');
-
+  require_once DRUPAL_ROOT . '/'. drupal_get_path('module', 'backup_migrate') .'/includes/crud.inc';
   require_once DRUPAL_ROOT . '/'. drupal_get_path('module', 'backup_migrate') .'/backup_migrate.module';
   require_once DRUPAL_ROOT . '/'. drupal_get_path('module', 'backup_migrate') .'/includes/profiles.inc';
   require_once DRUPAL_ROOT . '/'. drupal_get_path('module', 'backup_migrate') .'/includes/db.inc';
@@ -381,11 +374,37 @@ function backup_migrate_update_2005() {
  * Move the backup and migrate directory to the private directory.
  */
 function backup_migrate_update_7200() {
-  $form = 'public://backup_migrate';
+  $from = 'public://backup_migrate';
   $to   = 'private://backup_migrate';
   if (drupal_realpath($from) && !drupal_realpath($to)) {
     if (!rename($from, $to)) {
       drupal_set_message(t('Unable to move the backups directory to your private folder, please check file permissions and move the directory %from to %to', array('%from' => drupal_realpath($from), '%to' => drupal_realpath($to))), 'warning');
     }
+  }
+}
+
+
+/**
+ * Change the filename field to support 255 characters.
+ */
+function backup_migrate_update_7202() {
+  $ret = array();
+  db_change_field('backup_migrate_profiles', 'filename', 'filename', array('type' => 'varchar', 'length' => 255, 'not null' => TRUE));
+  return $ret;
+}
+
+
+/**
+ * Update the schedule last run times to use variables instead of saving with the schedule.
+ */
+function backup_migrate_update_7203() {
+  $result = db_query('SELECT * FROM {backup_migrate_schedules}', array(), array('fetch' => PDO::FETCH_ASSOC));
+  foreach ($result as $item) {
+    if (isset($item['last_run'])) {
+      variable_set('backup_migrate_schedule_last_run_' . $item['schedule_id'], $item['last_run']);
+    }
+  }
+  if (db_field_exists('backup_migrate_schedules', 'last_run')) {
+    db_drop_field('backup_migrate_schedules', 'last_run');
   }
 }

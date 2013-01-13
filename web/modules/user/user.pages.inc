@@ -76,9 +76,11 @@ function user_pass_submit($form, &$form_state) {
 
   $account = $form_state['values']['account'];
   // Mail one time login URL and instructions using current language.
-  _user_mail_notify('password_reset', $account, $language);
-  watchdog('user', 'Password reset instructions mailed to %name at %email.', array('%name' => $account->name, '%email' => $account->mail));
-  drupal_set_message(t('Further instructions have been sent to your e-mail address.'));
+  $mail = _user_mail_notify('password_reset', $account, $language);
+  if (!empty($mail)) {
+    watchdog('user', 'Password reset instructions mailed to %name at %email.', array('%name' => $account->name, '%email' => $account->mail));
+    drupal_set_message(t('Further instructions have been sent to your e-mail address.'));
+  }
 
   $form_state['redirect'] = 'user';
   return;
@@ -111,8 +113,9 @@ function user_pass_reset($form, &$form_state, $uid, $timestamp, $hashed_pass, $a
     drupal_goto();
   }
   else {
-    // Time out, in seconds, until login URL expires. 24 hours = 86400 seconds.
-    $timeout = 86400;
+    // Time out, in seconds, until login URL expires. Defaults to 24 hours =
+    // 86400 seconds.
+    $timeout = variable_get('user_password_reset_timeout', 86400);
     $current = REQUEST_TIME;
     // Some redundant checks for extra security ?
     $users = user_load_multiple(array($uid), array('status' => '1'));
@@ -260,7 +263,8 @@ function user_profile_form($form, &$form_state, $account, $category = 'account')
   if ($category == 'account') {
     user_account_form($form, $form_state);
     // Attach field widgets.
-    field_attach_form('user', $account, $form, $form_state);
+    $langcode = entity_language('user', $account);
+    field_attach_form('user', $account, $form, $form_state, $langcode);
   }
 
   $form['actions'] = array('#type' => 'actions');

@@ -1,18 +1,26 @@
 <?php
+
+/**
+ * @file
+ * Definition of views_handler_argument_term_node_tid_depth.
+ */
+
 /**
  * Argument handler for taxonomy terms with depth.
  *
  * This handler is actually part of the node table and has some restrictions,
- * because it uses a subquery to find nodes with
+ * because it uses a subquery to find nodes with.
+ *
+ * @ingroup views_argument_handlers
  */
 class views_handler_argument_term_node_tid_depth extends views_handler_argument {
   function option_definition() {
     $options = parent::option_definition();
 
     $options['depth'] = array('default' => 0);
-    $options['break_phrase'] = array('default' => FALSE);
-    $options['set_breadcrumb'] = array('default' => FALSE);
-    $options['use_taxonomy_term_path'] = array('default' => FALSE);
+    $options['break_phrase'] = array('default' => FALSE, 'bool' => TRUE);
+    $options['set_breadcrumb'] = array('default' => FALSE, 'bool' => TRUE);
+    $options['use_taxonomy_term_path'] = array('default' => FALSE, 'bool' => TRUE);
 
     return $options;
   }
@@ -44,7 +52,6 @@ class views_handler_argument_term_node_tid_depth extends views_handler_argument 
       '#title' => t("Use Drupal's taxonomy term path to create breadcrumb links"),
       '#description' => t('If selected, the links in the breadcrumb trail will be created using the standard drupal method instead of the custom views method. This is useful if you are using modules like taxonomy redirect to modify your taxonomy term links.'),
       '#default_value' => !empty($this->options['use_taxonomy_term_path']),
-      '#process' => array('form_process_checkbox', 'ctools_dependent_process'),
       '#dependency' => array('edit-options-set-breadcrumb' => array(TRUE)),
     );
     parent::options_form($form, $form_state);
@@ -83,7 +90,7 @@ class views_handler_argument_term_node_tid_depth extends views_handler_argument 
       $tids = new stdClass();
       $tids->value = $this->argument;
       $tids = views_break_phrase($this->argument, $tids);
-      if ($tids->value == -1) {
+      if ($tids->value == array(-1)) {
         return FALSE;
       }
 

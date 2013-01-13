@@ -1,6 +1,5 @@
 /**
- * @file base.js
- *
+ * @file
  * Some basic behaviors and utility functions for Views.
  */
 (function ($) {
@@ -25,8 +24,8 @@ Drupal.behaviors.viewsTabs = {
       event.preventDefault();
    });
   /**
-    * Here is to handle display deletion 
-    * (checking in the hidden checkbox and hiding out the row) 
+    * Here is to handle display deletion
+    * (checking in the hidden checkbox and hiding out the row)
     */
   $('a.display-remove-link')
     .addClass('display-processed')

@@ -1,5 +1,4 @@
 <?php
-// $Id: transliteration.admin.inc,v 1.10 2010/07/16 13:08:13 smk Exp $
 
 /**
  * @file
@@ -35,7 +34,7 @@ function transliteration_retroactive() {
     t('Original file name'),
     t('Transliterated file name')
   );
-  foreach($query->range(0, 10)->execute() as $file) {
+  foreach ($query->range(0, 10)->execute() as $file) {
     $filename = basename($file->uri);
     $rows[] = array(l($filename, file_create_url($file->uri)), transliteration_clean_filename($filename));
   }
@@ -45,7 +44,7 @@ function transliteration_retroactive() {
   if ($count > 10) {
     $description .= '<p>' . t('Note: table shows only the first 10 entries.') . '</p>';
   }
-  $description .= '<p>' . t('<strong>WARNING:</strong> if you have manually entered image or file paths in text fields (for example, text areas or WYSIWYG editors), renaming the files will break these references. Since there is currently no automated way to also fix referenced files in textual contents, it is a very good idea to backup the database and %files directory beforehand. Modules accessing files using their internal system ids are not affected.', array('%files' => file_directory_path())) . '</p>';
+  $description .= '<p>' . t('<strong>WARNING:</strong> if you have manually entered image or file paths in text fields (for example, text areas or WYSIWYG editors), renaming the files will break these references. Since there is currently no automated way to also fix referenced files in textual contents, it is a very good idea to backup the database and %files directory beforehand. Modules accessing files using their internal system ids are not affected.', array('%files' => drupal_realpath(file_default_scheme() . '://'))) . '</p>';
   $description .= '<p style="color: red; font-weight: bold; font-size: 18px;">' . t('This action cannot be undone.') . '</p>';
 
   return confirm_form($form, $question, 'admin/config/media/file-system/settings', $description, t('Transliterate'));
@@ -63,17 +62,22 @@ function transliteration_retroactive_submit($form, &$form_state) {
 
   while ($file = $result->fetchObject()) {
     $wrapper = file_stream_wrapper_get_instance_by_uri($file->uri);
+    $scheme = file_uri_scheme($file->uri);
+
+    // Missing implementation.
     if (!$wrapper) {
-      // Missing implementation.
       $errors[] = file_uri_target($file->uri);
       continue;
     }
-    if (!in_array('DrupalLocalStreamWrapper', class_parents($wrapper))) {
-      // Skip non-local files.
+
+    // Skip non-writable stream wrappers.
+    $writeable_stream_wrappers = file_get_stream_wrappers(STREAM_WRAPPERS_WRITE);
+    if (!isset($writeable_stream_wrappers[$scheme])) {
       continue;
     }
+
+    // Missing file.
     if (!file_exists($wrapper->realpath())) {
-      // Missing file.
       $errors[] = file_uri_target($file->uri);
       continue;
     }
@@ -86,6 +90,16 @@ function transliteration_retroactive_submit($form, &$form_state) {
 
     // Rename and update the file record accordingly.
     if ($wrapper->rename($file->uri, $destination)) {
+      // If possible, add a url redirect to handle old URL references.
+      if (module_exists('redirect')) {
+        $redirect = new stdClass();
+        redirect_object_prepare($redirect, array(
+          'source' => $wrapper->getDirectoryPath() . '/' . file_uri_target($file->uri),
+          'redirect' => $wrapper->getDirectoryPath() . '/' . file_uri_target($destination),
+          'status_code' => 301)
+        );
+        redirect_save($redirect);
+      }
       $file->uri = $destination;
       // Don't use file_save() as it modifies the timestamp.
       drupal_write_record('file_managed', $file, 'fid');
@@ -124,6 +138,9 @@ function transliteration_file_query() {
     case 'mysql':
     case 'mysqli':
       $operator = 'NOT REGEXP';
+      if (variable_get('transliteration_file_lowercase', TRUE)) {
+        $operator .= ' BINARY';
+      }
       $regex = '/[a-z0-9_.-]+$';
       break;
 
@@ -140,4 +157,3 @@ function transliteration_file_query() {
     ->fields('file_managed')
     ->condition('uri', $regex, $operator);
 }
-

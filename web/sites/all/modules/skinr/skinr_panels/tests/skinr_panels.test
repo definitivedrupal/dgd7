@@ -19,7 +19,7 @@ class SkinrPanelsTestCase extends DrupalWebTestCase {
   }
 
   function setUp() {
-    parent::setUp(array('block', 'page_manager', 'panels_node', 'panels_mini', 'skinr_panels_test'));
+    parent::setUp(array('block', 'page_manager', 'panels_node', 'panels_mini', 'skinr_panels_test', 'skinr_ui_test'));
 
     $this->admin_user = $this->drupalCreateUser(array(
       'administer blocks',
@@ -40,6 +40,23 @@ class SkinrPanelsTestCase extends DrupalWebTestCase {
   }
 
   /**
+   * Asserts that a select option in the current page exists.
+   *
+   * @param $name
+   *   Id of select field to assert.
+   * @param $option
+   *   Option to assert.
+   * @param $message
+   *   Message to display.
+   * @return
+   *   TRUE on pass, FALSE on fail.
+   */
+  protected function assertOptionExists($name, $option, $message = '') {
+    $elements = $this->xpath('//select[@name=:name]//option[@value=:option]', array(':name' => $name, ':option' => $option));
+    return $this->assertTrue(isset($elements[0]), $message ? $message : t('Option @option for field @name exists.', array('@option' => $option, '@name' => $name)), t('Browser'));
+  }
+
+  /**
    * Tests panels plugin.
    *
    * @todo The below test doesn't work due to CTools/Panels not passing along
@@ -52,7 +69,7 @@ class SkinrPanelsTestCase extends DrupalWebTestCase {
     $this->drupalGet('skinr-panels-test-panel');
 
     // Make sure our contextual link appears on the page.
-    $this->assertLinkByHref('admin/appearance/skinr/edit/nojs/panels/pane__1__1/configure', 0, "Contexual link to edit pane's skin configuration on panel page (stored in code) was found.");
+    $this->assertLinkByHref('admin/structure/skinr/edit/panels/pane__1__1/configure', 0, "Contexual link to edit pane's skin configuration on panel page (stored in code) was found.");
 
 
     $this->drupalGet('admin/structure/mini-panels');
@@ -78,7 +95,11 @@ class SkinrPanelsTestCase extends DrupalWebTestCase {
 
     // Make sure our contextual link appears on the page.
     // @todo Is there a better way to determine did and pid used for this panel?
-    $this->assertLinkByHref('admin/appearance/skinr/edit/nojs/panels/pane__2__2/configure', 0, 'Contexual link to edit pane\'s skin configuration on mini panel (stored in code) was found.');
+    $this->assertLinkByHref('admin/structure/skinr/edit/panels/pane__2__2/configure', 0, 'Contexual link to edit pane\'s skin configuration on mini panel (stored in code) was found.');
+
+    // Make sure this panel's options are returned.
+    $this->drupalGet('admin/structure/skinr/add');
+    $this->assertOptionExists('element', 'pane__1__1', 'Panel pane was returned by panels_skinr_ui_element_options().');
   }
 
   /**
@@ -107,7 +128,7 @@ class SkinrPanelsTestCase extends DrupalWebTestCase {
 
     // Make sure our contextual link appears on the page.
     // @todo Is there a better way to determine did and pid used for this panel?
-    $this->assertLinkByHref('admin/appearance/skinr/edit/nojs/panels/pane__1__1/configure', 0, 'Contexual link to edit pane\'s skin configuration on panel node was found.');
+    $this->assertLinkByHref('admin/structure/skinr/edit/panels/pane__1__1/configure', 0, 'Contexual link to edit pane\'s skin configuration on panel node was found.');
 
 
     // Test panels pages.
@@ -120,7 +141,7 @@ class SkinrPanelsTestCase extends DrupalWebTestCase {
     $this->drupalGet('skinr-panels-test-panel');
 
     // Make sure our contextual link appears on the page.
-    $this->assertLinkByHref('admin/appearance/skinr/edit/nojs/panels/pane__2__2/configure', 0, "Contexual link to edit pane's skin configuration on panel page (stored in DB) was found.");
+    $this->assertLinkByHref('admin/structure/skinr/edit/panels/pane__2__2/configure', 0, "Contexual link to edit pane's skin configuration on panel page (stored in DB) was found.");
 
 
     // Test mini panels.
@@ -148,6 +169,25 @@ class SkinrPanelsTestCase extends DrupalWebTestCase {
 
     // Make sure our contextual link appears on the page.
     // @todo Is there a better way to determine did and pid used for this panel?
-    $this->assertLinkByHref('admin/appearance/skinr/edit/nojs/panels/pane__3__3/configure', 0, 'Contexual link to edit pane\'s skin configuration on mini panel (stored in DB) was found.');
+    $this->assertLinkByHref('admin/structure/skinr/edit/panels/pane__3__3/configure', 0, 'Contexual link to edit pane\'s skin configuration on mini panel (stored in DB) was found.');
+
+    // Make sure this panel's options are returned.
+    $this->drupalGet('admin/structure/skinr/add');
+    $this->assertOptionExists('element', 'pane__1__1', 'Panel pane was returned by panels_skinr_ui_element_options().');
+
+    // Test the returned element title.
+    $skin = (object) array(
+      'theme' => $default_theme,
+      'module' => 'panels',
+      'element' => 'pane__2__2',
+      'skin' => 'skinr_ui_test_bgcolor',
+      'options' => array('bgcolor_red'),
+      'status' => 1,
+    );
+    skinr_skin_save($skin);
+
+    $title = reset(skinr_invoke_all('skinr_ui_element_title', $skin->module, $skin->element, $skin->theme));
+    $this->verbose($title);
+    $this->assertEqual($title, 'Pane <em class="placeholder">2</em> on <em class="placeholder">Panels test page</em>', 'Panel title was returned.');
   }
 }

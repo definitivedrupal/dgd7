@@ -1,11 +1,12 @@
 <?php
+
 /**
  * @file
  * Views' relationship handlers.
  */
 
 /**
- * @defgroup views_relationship_handlers Views' relationship handlers
+ * @defgroup views_relationship_handlers Views relationship handlers
  * @{
  * Handlers to tell Views how to create alternate relationships.
  */
@@ -31,6 +32,8 @@
  * - label: The default label to provide for this relationship, which is
  *   shown in parentheses next to any field/sort/filter/argument that uses
  *   the relationship.
+ *
+ * @ingroup views_relationship_handlers
  */
 class views_handler_relationship extends views_handler {
   /**
@@ -43,7 +46,9 @@ class views_handler_relationship extends views_handler {
       $this->table = $this->definition['relationship table'];
     }
     if (isset($this->definition['relationship field'])) {
-      $this->field = $this->definition['relationship field'];
+      // Set both real_field and field so custom handler
+      // can rely on the old field value.
+      $this->real_field = $this->field = $this->definition['relationship field'];
     }
   }
 
@@ -60,9 +65,17 @@ class views_handler_relationship extends views_handler {
   function option_definition() {
     $options = parent::option_definition();
 
-    $label = !empty($this->definition['label']) ? $this->definition['label'] : $this->definition['field'];
+
+    // Relationships definitions should define a default label, but if they aren't get another default value.
+    if (!empty($this->definition['label'])) {
+      $label = $this->definition['label'];
+    }
+    else {
+      $label = !empty($this->definition['field']) ? $this->definition['field'] : $this->definition['base field'];
+    }
+
     $options['label'] = array('default' => $label, 'translatable' => TRUE);
-    $options['required'] = array('default' => FALSE);
+    $options['required'] = array('default' => FALSE, 'bool' => TRUE);
 
     return $options;
   }
@@ -77,7 +90,8 @@ class views_handler_relationship extends views_handler {
       '#type' => 'textfield',
       '#title' => t('Identifier'),
       '#default_value' => isset($this->options['label']) ? $this->options['label'] : '',
-      '#description' => t('Edit the administrative label displayed when referencing this relationship form filters, etc.'),
+      '#description' => t('Edit the administrative label displayed when referencing this relationship from filters, etc.'),
+      '#required' => TRUE,
     );
 
     $form['required'] = array(
@@ -102,9 +116,13 @@ class views_handler_relationship extends views_handler {
     $def['table'] = $this->definition['base'];
     $def['field'] = $base_field;
     $def['left_table'] = $this->table_alias;
-    $def['left_field'] = $this->field;
+    $def['left_field'] = $this->real_field;
     if (!empty($this->options['required'])) {
       $def['type'] = 'INNER';
+    }
+
+    if (!empty($this->definition['extra'])) {
+      $def['extra'] = $this->definition['extra'];
     }
 
     if (!empty($def['join_handler']) && class_exists($def['join_handler'])) {
@@ -123,6 +141,12 @@ class views_handler_relationship extends views_handler {
     $alias = $def['table'] . '_' . $this->table;
 
     $this->alias = $this->query->add_relationship($alias, $join, $this->definition['base'], $this->relationship);
+
+    // Add access tags if the base table provide it.
+    if (empty($this->query->options['disable_sql_rewrite']) && isset($table_data['table']['base']['access query tag'])) {
+      $access_tag = $table_data['table']['base']['access query tag'];
+      $this->query->add_tag($access_tag);
+    }
   }
 
   /**
@@ -135,6 +159,8 @@ class views_handler_relationship extends views_handler {
 
 /**
  * A special handler to take the place of missing or broken handlers.
+ *
+ * @ingroup views_relationship_handlers
  */
 class views_handler_relationship_broken extends views_handler_relationship {
   function ui_name($short = FALSE) {

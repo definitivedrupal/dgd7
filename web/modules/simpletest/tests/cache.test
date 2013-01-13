@@ -151,13 +151,21 @@ class CacheSavingCase extends CacheTestCase {
     $this->assertTrue(isset($cache->data) && $cache->data == $test_object, t('Object is saved and restored properly.'));
   }
 
-  /*
+  /**
    * Check or a variable is stored and restored properly.
-   **/
+   */
   function checkVariable($var) {
     cache_set('test_var', $var, 'cache');
     $cache = cache_get('test_var', 'cache');
     $this->assertTrue(isset($cache->data) && $cache->data === $var, t('@type is saved and restored properly.', array('@type' => ucfirst(gettype($var)))));
+  }
+
+  /**
+   * Test no empty cids are written in cache table.
+   */
+  function testNoEmptyCids() {
+    $this->drupalGet('user/register');
+    $this->assertFalse(cache_get(''), t('No cache entry is written with an empty cid.'));
   }
 }
 
@@ -309,6 +317,61 @@ class CacheClearCase extends CacheTestCase {
                        || $this->checkCacheExists('test_cid_clear2', $this->default_value)
                        || $this->checkCacheExists('test_cid_clear3', $this->default_value),
                        t('All cache entries removed when the array exceeded the cache clear threshold.'));
+  }
+
+  /**
+   * Test drupal_flush_all_caches().
+   */
+  function testFlushAllCaches() {
+    // Create cache entries for each flushed cache bin.
+    $bins = array('cache', 'cache_filter', 'cache_page', 'cache_boostrap', 'cache_path');
+    $bins = array_merge(module_invoke_all('flush_caches'), $bins);
+    foreach ($bins as $id => $bin) {
+      $id = 'test_cid_clear' . $id;
+      cache_set($id, $this->default_value, $bin);
+    }
+
+    // Remove all caches then make sure that they are cleared.
+    drupal_flush_all_caches();
+
+    foreach ($bins as $id => $bin) {
+      $id = 'test_cid_clear' . $id;
+      $this->assertFalse($this->checkCacheExists($id, $this->default_value, $bin), t('All cache entries removed from @bin.', array('@bin' => $bin)));
+    }
+  }
+
+  /**
+   * Test minimum cache lifetime.
+   */
+  function testMinimumCacheLifetime() {
+    // Set a minimum/maximum cache lifetime.
+    $this->setupLifetime(300);
+    // Login as a newly-created user.
+    $account = $this->drupalCreateUser(array());
+    $this->drupalLogin($account);
+
+    // Set two cache objects in different bins.
+    $data = $this->randomName(100);
+    cache_set($data, $data, 'cache', CACHE_TEMPORARY);
+    $cached = cache_get($data);
+    $this->assertTrue(isset($cached->data) && $cached->data === $data, 'Cached item retrieved.');
+    cache_set($data, $data, 'cache_page', CACHE_TEMPORARY);
+
+    // Expire temporary items in the 'page' bin.
+    cache_clear_all(NULL, 'cache_page');
+
+    // Since the database cache uses REQUEST_TIME, set the $_SESSION variable
+    // manually to force it to the current time.
+    $_SESSION['cache_expiration']['cache_page'] = time();
+
+    // Items in the default cache bin should not be expired.
+    $cached = cache_get($data);
+    $this->assertTrue(isset($cached->data) && $cached->data == $data, 'Cached item retrieved');
+
+    // Despite the minimum cache lifetime, the item in the 'page' bin should
+    // be invalidated for the current user.
+    $cached = cache_get($data, 'cache_page');
+    $this->assertFalse($cached, 'Cached item was invalidated');
   }
 }
 

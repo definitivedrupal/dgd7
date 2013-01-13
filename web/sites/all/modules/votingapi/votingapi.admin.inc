@@ -1,5 +1,4 @@
 <?php
-// $Id: votingapi.admin.inc,v 1.1.2.3.2.3 2010/01/27 01:30:52 eaton Exp $
 
 /**
  * @file

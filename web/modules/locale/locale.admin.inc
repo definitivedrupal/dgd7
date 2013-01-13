@@ -275,8 +275,7 @@ function _locale_languages_common_controls(&$form, $language = NULL) {
   else {
     $form['langcode'] = array('#type' => 'textfield',
       '#title' => t('Language code'),
-      '#size' => 12,
-      '#maxlength' => 60,
+      '#maxlength' => 12,
       '#required' => TRUE,
       '#default_value' => @$language->language,
       '#disabled' => (isset($language->language)),
@@ -307,7 +306,7 @@ function _locale_languages_common_controls(&$form, $language = NULL) {
     '#title' => t('Language domain'),
     '#maxlength' => 128,
     '#default_value' => @$language->domain,
-    '#description' => t('URL <strong>including protocol</strong> to use for this language, if your <em>Detection and selection</em> settings use URL domains. For the default language, this value may be left blank. <strong>Modifying this value may break existing URLs. Use with caution in a production environment.</strong> Example: Specifying "http://example.de" or "http://de.example.com" as language domains for German results in URLs like "http://example.de/contact" and "http://de.example.com/contact", respectively.'),
+    '#description' => t('The domain name to use for this language if URL domains are used for <em>Detection and selection</em>. Leave blank for the default language. <strong>Changing this value may break existing URLs.</strong> Example: Specifying "de.example.com" as language domain for German will result in an URL like "http://de.example.com/contact".'),
   );
   $form['direction'] = array('#type' => 'radios',
     '#title' => t('Direction'),

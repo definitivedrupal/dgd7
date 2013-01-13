@@ -1,0 +1,90 @@
+
+a.follow-link {
+	height: 44px;
+	display: block;
+	line-height: 40px;
+	padding-left: 41px;
+	background-position: 0 0;
+	background-repeat: no-repeat;
+	padding-right: 5px;
+}
+
+span.follow-link-wrapper a {
+	float: left;
+}
+
+a.follow-link-facebook {
+	background-image: url(wpzoom38/_0048_Facebook.png);
+}
+
+a.follow-link-googleplus {
+  background-image: url(wpzoom38/_0029_Google.png);
+}
+
+a.follow-link-myspace {
+	background-image: url(wpzoom38/_0020_MySpace.png);
+}
+
+a.follow-link-virb {
+	background-image: url(large/icon-virb.png);
+}
+
+a.follow-link-bliptv {
+	background-image: url(large/icon-bliptv.png);
+}
+
+a.follow-link-lastfm {
+	background-image: url(wpzoom38/_0038_Last.FM.png);
+}
+
+a.follow-link-youtube {
+	background-image: url(wpzoom38/_0016_Youtube.png);
+}
+
+a.follow-link-twitter {
+	background-image: url(wpzoom38/_0046_Twitter.png);
+}
+
+a.follow-link-picasa {
+	background-image: url(wpzoom38/_0001_Picasa.png);
+}
+
+a.follow-link-flickr {
+	background-image: url(wpzoom38/_0000_Flickr.png);
+}
+
+a.follow-link-vimeo {
+	background-image: url(wpzoom38/_0023_Vimeo.png);
+}
+
+a.follow-link-linkedin {
+	background-image: url(wpzoom38/_0018_Linkedin.png);
+}
+
+a.follow-link-delicious {
+	background-image: url(wpzoom38/_0034_Delicious.png);
+}
+
+a.follow-link-tumblr {
+	background-image: url(wpzoom38/_0019_Tumblr.png);
+}
+
+a.follow-link-this-site {
+	background-image: url(wpzoom38/_0044_RSS.png);
+}
+
+a.follow-link-viadeo {
+  background-image: url(large/icon-viadeo.png);
+}
+
+a.follow-link-xing {
+	background-image: url(large/icon-xing.png);
+}
+
+a.follow-link-spiceworks {
+	background-image: url(wpzoom38/spiceworks-38x38.png);
+}
+
+a.follow-link-newsletter {
+	background-image: url(large/icon-newsletter.png);
+}
