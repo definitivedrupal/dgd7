@@ -23,7 +23,7 @@
  */
 ?>
 <?php print $doctype; ?>
-<html lang="<?php print $language->language; ?>" dir="<?php print $language->dir; ?>"<?php print $rdf_version . $rdf_namespaces; ?>>
+<html lang="<?php print $language->language; ?>" dir="<?php print $language->dir; ?>"<?php print $rdf_namespaces; ?>>
   <head<?php print $rdf_profile; ?>>
   <?php print $head; ?>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
