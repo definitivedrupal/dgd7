@@ -1,5 +1,12 @@
 <?php
+/**
+ * @file
+ *  Adds a new 3 column layout.
+ */
 
+/**
+ * Implements hook_context_layouts().
+ */
 function context_layouts_extra_context_layouts() {
   $info['columns']['name'] = "3 columns";
   $info['columns']['description'] = "Three column page.";
@@ -11,5 +18,3 @@ function context_layouts_extra_context_layouts() {
   $info['columns']['regions'][] = "footer";
   return $info;
 }
-
-

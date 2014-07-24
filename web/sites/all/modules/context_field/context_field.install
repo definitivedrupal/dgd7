@@ -1,18 +1,23 @@
 <?php
 
 /**
- * Implementation of hook_field_schema()
+ * @file
+ * Context Field install functionality.
  */
-function context_field_field_schema($field) {
-    $columns = array(
-      'context' => array(
-        'type' => 'varchar', 
-        'size' => 'normal', 
-        'length' => 128,
-        'not null' => FALSE,
-      ),
-    );
-    return array(
-      'columns' => $columns,
-    );
+
+/**
+ * Implements hook_field_schema().
+ */
+function context_field_field_schema() {
+  $columns = array(
+    'context' => array(
+      'type' => 'varchar',
+      'size' => 'normal',
+      'length' => 128,
+      'not null' => FALSE,
+    ),
+  );
+  return array(
+    'columns' => $columns,
+  );
 }

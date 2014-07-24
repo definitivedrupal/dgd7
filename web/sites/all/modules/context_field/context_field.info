@@ -1,14 +1,14 @@
 name = Context Field
 description = "Provides a Field which manages a Context per entity"
+package = Context
 core = 7.x
 dependencies[] = "context"
 dependencies[] = "context_ui"
-dependencies[] = "boxes"
 file[] = "plugins/context_field_context_condition.inc"
 
-; Information added by drupal.org packaging script on 2012-09-11
-version = "7.x-1.0-beta4"
+; Information added by Drupal.org packaging script on 2014-06-30
+version = "7.x-1.0"
 core = "7.x"
 project = "context_field"
-datestamp = "1347392535"
+datestamp = "1404154441"
 
