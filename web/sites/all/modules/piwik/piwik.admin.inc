@@ -21,7 +21,7 @@ function piwik_admin_settings_form($form_state) {
     '#size' => 15,
     '#maxlength' => 20,
     '#required' => TRUE,
-    '#description' => t('The user account number is unique to the websites domain. Click the <strong>Settings</strong> link in your Piwik account, then the <strong>Sites</strong> tab and enter the <strong>ID</strong> into this field.'),
+    '#description' => t('The user account number is unique to the websites domain. Click the <strong>Settings</strong> link in your Piwik account, then the <strong>Websites</strong> tab and enter the appropriate site <strong>ID</strong> into this field.'),
   );
   $form['account']['piwik_url_http'] = array(
     '#type' => 'textfield',
@@ -83,7 +83,7 @@ function piwik_admin_settings_form($form_state) {
   // Page specific visibility configurations.
   $php_access = user_access('use PHP for tracking visibility');
   $visibility = variable_get('piwik_visibility_pages', 0);
-  $pages = variable_get('piwik_pages', '');
+  $pages = variable_get('piwik_pages', PIWIK_PAGES);
 
   $form['tracking']['page_vis_settings'] = array(
     '#type' => 'fieldset',
@@ -175,6 +175,11 @@ function piwik_admin_settings_form($form_state) {
     '#type' => 'fieldset',
     '#title' => t('Links and downloads'),
   );
+  $form['tracking']['linktracking']['piwik_trackmailto'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Track clicks on mailto links'),
+    '#default_value' => variable_get('piwik_trackmailto', 1),
+  );
   $form['tracking']['linktracking']['piwik_track'] = array(
     '#type' => 'checkbox',
     '#title' => t('Track clicks on outbound links and downloads (clicks on file links) for the following extensions'),
@@ -184,9 +189,35 @@ function piwik_admin_settings_form($form_state) {
     '#title' => t('List of download file extensions'),
     '#title_display' => 'invisible',
     '#type' => 'textfield',
-    '#default_value' => variable_get('piwik_trackfiles_extensions', PK_TRACKFILES_EXTENSIONS),
-    '#description' => t('A file extension list separated by the | character that will be tracked when clicked. Regular expressions are supported. For example: !extensions', array('!extensions' => PK_TRACKFILES_EXTENSIONS)),
+    '#default_value' => variable_get('piwik_trackfiles_extensions', PIWIK_TRACKFILES_EXTENSIONS),
+    '#description' => t('A file extension list separated by the | character that will be tracked when clicked. Regular expressions are supported. For example: !extensions', array('!extensions' => PIWIK_TRACKFILES_EXTENSIONS)),
     '#maxlength' => 255,
+    '#states' => array(
+      'enabled' => array(
+        ':input[name="piwik_track"]' => array('checked' => TRUE),
+      ),
+      # Note: Form required marker is not visible as title is invisible.
+      'required' => array(
+        ':input[name="piwik_track"]' => array('checked' => TRUE),
+      ),
+    ),
+  );
+
+  // Message specific configurations.
+  $form['tracking']['messagetracking'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Messages'),
+  );
+  $form['tracking']['messagetracking']['piwik_trackmessages'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t('Track messages of type'),
+    '#default_value' => variable_get('piwik_trackmessages', array()),
+    '#description' => t('This will track the selected message types shown to users. Tracking of form validation errors may help you identifying usability issues in your site. Every message is tracked as one individual event. Messages from excluded pages cannot tracked.'),
+    '#options' => array(
+      'status' => t('Status message'),
+      'warning' => t('Warning message'),
+      'error' => t('Error message'),
+    ),
   );
 
   $form['tracking']['search'] = array(
@@ -194,14 +225,14 @@ function piwik_admin_settings_form($form_state) {
     '#title' => t('Search'),
   );
 
-  $site_search_dependencies = '<div class="admin-dependencies">';
-  $site_search_dependencies .= t('Depends on: !dependencies', array('!dependencies' => (module_exists('search') ? t('@module (<span class="admin-enabled">enabled</span>)', array('@module' => 'Search')) : t('@module (<span class="admin-disabled">disabled</span>)', array('@module' => 'Search')))));
+  $site_search_dependencies = '<div class="admin-requirements">';
+  $site_search_dependencies .= t('Requires: !module-list', array('!module-list' => (module_exists('search') ? t('@module (<span class="admin-enabled">enabled</span>)', array('@module' => 'Search')) : t('@module (<span class="admin-disabled">disabled</span>)', array('@module' => 'Search')))));
   $site_search_dependencies .= '</div>';
 
   $form['tracking']['search']['piwik_site_search'] = array(
     '#type' => 'checkbox',
     '#title' => t('Track internal search'),
-    '#description' => t('If checked, internal search keywords are tracked. You must manually install and configure the SiteSearch plugin for your sites. For the setting <em>Search URL</em> use a value of <strong>/search</strong> and for <em>Search Parameter</em> use a value of <strong>query</strong>. For more information see <a href="@url">SiteSearch plugin for piwik</a>.', array('@url' => 'http://github.com/BeezyT/piwik-sitesearch/wiki')) . $site_search_dependencies,
+    '#description' => t('If checked, internal search keywords are tracked.') . $site_search_dependencies,
     '#default_value' => variable_get('piwik_site_search', FALSE),
     '#disabled' => (module_exists('search') ? FALSE : TRUE),
   );
@@ -242,7 +273,7 @@ function piwik_admin_settings_form($form_state) {
   $form['piwik_custom_var'] = array(
     '#collapsible' => TRUE,
   	'#collapsed' => TRUE,
-    '#description' => t('You can add Piwiks <a href="!custom_var_documentation">Custom Variables</a> here. These will be added to every page that Piwik tracking code appears on. Custom variables names and values are limited to 100 characters in length each. Keep the names and values as short as possible and expect long values to get trimmed. You may use tokens in custom variable values. Global and user tokens are always available; on node pages, node tokens are also available.', array('!custom_var_documentation' => 'http://piwik.org/docs/custom-variables/')),
+    '#description' => t('You can add Piwiks <a href="!custom_var_documentation">Custom Variables</a> here. These will be added to every page that Piwik tracking code appears on. Custom variable names and values are limited to 200 characters in length. Keep the names and values as short as possible and expect long values to get trimmed. You may use tokens in custom variable names and values. Global and user tokens are always available; on node pages, node tokens are also available.', array('!custom_var_documentation' => 'http://piwik.org/docs/custom-variables/')),
     '#theme' => 'piwik_admin_custom_var_table',
     '#title' => t('Custom variables'),
     '#tree' => TRUE,
@@ -273,7 +304,7 @@ function piwik_admin_settings_form($form_state) {
     );
     $form['piwik_custom_var']['slots'][$i]['value'] = array(
       '#default_value' => !empty($piwik_custom_vars['slots'][$i]['value']) ? $piwik_custom_vars['slots'][$i]['value'] : '',
-      '#description' => t('The custom variable value. You may use tokens in this field.'),
+      '#description' => t('The custom variable value.'),
       '#maxlength' => 255,
       '#title' => t('Custom variable value #@slot', array('@slot' => $i)),
       '#title_display' => 'invisible',
@@ -304,6 +335,7 @@ function piwik_admin_settings_form($form_state) {
   $form['piwik_custom_var']['piwik_custom_var_token_tree'] = array(
     '#theme' => 'token_tree',
     '#token_types' => array('node'),
+    '#dialog' => TRUE,
   );
 
   // Advanced feature configurations.
@@ -357,12 +389,12 @@ function piwik_admin_settings_form($form_state) {
   $form['advanced']['piwik_js_scope'] = array(
     '#type' => 'select',
     '#title' => t('JavaScript scope'),
-    '#description' => t("<strong>Warning:</strong> Adding the external JavaScript files to the footer region is recommended for performance reasons."),
+    '#description' => t("Piwik recommends adding the tracking code to the header for performance reasons."),
     '#options' => array(
       'footer' => t('Footer'),
       'header' => t('Header'),
     ),
-    '#default_value' => variable_get('piwik_js_scope', 'footer'),
+    '#default_value' => variable_get('piwik_js_scope', 'header'),
   );
 
   return system_settings_form($form);
@@ -371,16 +403,20 @@ function piwik_admin_settings_form($form_state) {
 function piwik_admin_settings_form_validate($form, &$form_state) {
   // Custom variables validation.
   foreach ($form_state['values']['piwik_custom_var']['slots'] as $custom_var) {
+    $form_state['values']['piwik_custom_var']['slots'][$custom_var['slot']]['name'] = trim($custom_var['name']);
+    $form_state['values']['piwik_custom_var']['slots'][$custom_var['slot']]['value'] = trim($custom_var['value']);
+
     // Validate empty names/values.
     if (empty($custom_var['name']) && !empty($custom_var['value'])) {
-      form_set_error("piwik_custom_var][slots][" . $custom_var['slot'] . "][name", t('The custom variable @slot-number requires a <em>Value</em> if a <em>Name</em> has been provided.', array('@slot-number' =>  $custom_var['slot'])));
+      form_set_error("piwik_custom_var][slots][" . $custom_var['slot'] . "][name", t('The custom variable @slot-number requires a <em>Name</em> if a <em>Value</em> has been provided.', array('@slot-number' => $custom_var['slot'])));
     }
     elseif (!empty($custom_var['name']) && empty($custom_var['value'])) {
-      form_set_error("piwik_custom_var][slots][" . $custom_var['slot'] . "][value", t('The custom variable @slot-number requires a <em>Name</em> if a <em>Value</em> has been provided.', array('@slot-number' =>  $custom_var['slot'])));
+      form_set_error("piwik_custom_var][slots][" . $custom_var['slot'] . "][value", t('The custom variable @slot-number requires a <em>Value</em> if a <em>Name</em> has been provided.', array('@slot-number' => $custom_var['slot'])));
     }
   }
 
   // Trim some text area values.
+  $form_state['values']['piwik_site_id'] = trim($form_state['values']['piwik_site_id']);
   $form_state['values']['piwik_pages'] = trim($form_state['values']['piwik_pages']);
   $form_state['values']['piwik_codesnippet_before'] = trim($form_state['values']['piwik_codesnippet_before']);
   $form_state['values']['piwik_codesnippet_after'] = trim($form_state['values']['piwik_codesnippet_after']);
@@ -519,6 +555,8 @@ function _piwik_contains_forbidden_token($token_string) {
     ':author:edit-url]',
     ':author:url]',
     ':author:path]',
+    ':current-user]',
+    ':current-user:original]',
     ':fid]',
     ':mail]',
     ':name]',
@@ -533,6 +571,18 @@ function _piwik_contains_forbidden_token($token_string) {
     'user:edit-url]',
     'user:url]',
     'user:path]',
+    'user:picture]',
+    // addressfield_tokens.module
+    ':first-name]',
+    ':last-name]',
+    ':name-line]',
+    ':mc-address]',
+    ':thoroughfare]',
+    ':premise]',
+    // realname.module
+    ':name-raw]',
+    // token.module
+    ':ip-address]',
   );
 
   return preg_match('/' . implode('|', array_map('preg_quote', $token_blacklist)) . '/i', $token_string);

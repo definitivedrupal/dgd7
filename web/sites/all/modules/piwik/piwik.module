@@ -3,13 +3,23 @@
 /**
  * @file
  * Drupal Module: Piwik
- * Adds the required Javascript to the bottom of all your Drupal pages
- * to allow tracking by the Piwik statistics package.
+ *
+ * Adds the required Javascript to all your Drupal pages to allow tracking by
+ * the Piwik statistics package.
  *
  * @author: Alexander Hass <http://drupal.org/user/85918>
  */
 
-define('PK_TRACKFILES_EXTENSIONS', '7z|aac|arc|arj|asf|asx|avi|bin|csv|doc|exe|flv|gif|gz|gzip|hqx|jar|jpe?g|js|mp(2|3|4|e?g)|mov(ie)?|msi|msp|pdf|phps|png|ppt|qtm?|ra(m|r)?|sea|sit|tar|tgz|torrent|txt|wav|wma|wmv|wpd|xls|xml|z|zip');
+/**
+ * Define the default file extension list that should be tracked as download.
+ */
+define('PIWIK_TRACKFILES_EXTENSIONS', '7z|aac|arc|arj|asf|asx|avi|bin|csv|doc|exe|flv|gif|gz|gzip|hqx|jar|jpe?g|js|mp(2|3|4|e?g)|mov(ie)?|msi|msp|pdf|phps|png|ppt|qtm?|ra(m|r)?|sea|sit|tar|tgz|torrent|txt|wav|wma|wmv|wpd|xls|xml|z|zip');
+
+/**
+ * Define default path exclusion list to remove tracking from admin pages,
+ * see http://drupal.org/node/34970 for more information.
+ */
+define('PIWIK_PAGES', "admin\nadmin/*\nbatch\nnode/add*\nnode/*/*\nuser/*/*");
 
 /**
  * Implements hook_help().
@@ -47,7 +57,8 @@ function piwik_permission() {
     ),
     'use PHP for tracking visibility' => array(
       'title' => t('Use PHP for tracking visibility'),
-      'description' => t('Enter PHP code in the field for tracking visibility settings. %warning', array('%warning' => t('Warning: Give to trusted roles only; this permission has security implications.'))),
+      'description' => t('Enter PHP code in the field for tracking visibility settings.'),
+      'restrict access' => TRUE,
     ),
   );
 }
@@ -87,15 +98,22 @@ function piwik_page_alter(&$page) {
   // 1. Check if the piwik account number has a value.
   // 2. Track page views based on visibility value.
   // 3. Check if we should track the currently active user's role.
-  if (!empty($id) && (_piwik_visibility_pages() || in_array($status, $trackable_status_codes)) && _piwik_visibility_user($user)) {
+  if (preg_match('/^\d{1,}$/', $id) && (_piwik_visibility_pages() || in_array($status, $trackable_status_codes)) && _piwik_visibility_user($user)) {
 
     $url_http = variable_get('piwik_url_http', '');
     $url_https = variable_get('piwik_url_https', '');
-    $scope = variable_get('piwik_js_scope', 'footer');
+    $scope = variable_get('piwik_js_scope', 'header');
 
     $set_custom_url = '';
     $set_document_title = '';
     $set_custom_data = array();
+
+    // Add link tracking.
+    $link_settings = array();
+    $link_settings['trackMailto'] = variable_get('piwik_trackmailto', 1);
+
+    drupal_add_js(array('piwik' => $link_settings), 'setting');
+    drupal_add_js(drupal_get_path('module', 'piwik') . '/piwik.js');
 
     // Piwik can show a tree view of page titles that represents the site structure
     // if setDocumentTitle() provides the page titles as a "/" delimited list.
@@ -109,6 +127,9 @@ function piwik_page_alter(&$page) {
         array_shift($titles);
       }
 
+      // Remove all empty titles.
+      $titles = array_filter($titles);
+
       if (!empty($titles)) {
         // Encode title, at least to keep "/" intact.
         $titles = array_map('urlencode', $titles);
@@ -117,10 +138,24 @@ function piwik_page_alter(&$page) {
       }
     }
 
-    // Site search tracking support.
-    if (module_exists('search') && variable_get('piwik_site_search', FALSE) && arg(0) == 'search' && $keys = piwik_search_get_keys()) {
-      $set_custom_url = drupal_json_encode(url('search', array('query' => array('query' => $keys), 'absolute' => TRUE)));
-      $set_custom_data[] = '{SiteSearch_Results: (window.piwik_search_results) ? window.piwik_search_results : 0 }';
+    // Add messages tracking.
+    $message_events = '';
+    if ($message_types = variable_get('piwik_trackmessages', array())) {
+      $message_types = array_values(array_filter($message_types));
+      $status_heading = array(
+        'status' => t('Status message'),
+        'warning' => t('Warning message'),
+        'error' => t('Error message'),
+      );
+
+      foreach (drupal_get_messages(NULL, FALSE) as $type => $messages) {
+        // Track only the selected message types.
+        if (in_array($type, $message_types)) {
+          foreach ($messages as $message) {
+            $message_events .= '_paq.push(["trackEvent", ' . drupal_json_encode(t('Messages')) . ', ' . drupal_json_encode($status_heading[$type]) . ', ' . drupal_json_encode(strip_tags($message)) . ']);';
+          }
+        }
+      }
     }
 
     // If this node is a translation of another node, pass the original
@@ -138,10 +173,10 @@ function piwik_page_alter(&$page) {
 
     // Track access denied (403) and file not found (404) pages.
     if ($status == '403 Forbidden') {
-      $set_document_title = '"403/URL = " + String(document.location.pathname + document.location.search).replace(/\//g,"%2f") + "/From = " + String(document.referrer).replace(/\//g,"%2f")';
+      $set_document_title = '"403/URL = " + encodeURIComponent(document.location.pathname+document.location.search) + "/From = " + encodeURIComponent(document.referrer)';
     }
     elseif ($status == '404 Not Found') {
-      $set_document_title = '"404/URL = " + String(document.location.pathname + document.location.search).replace(/\//g,"%2f") + "/From = " + String(document.referrer).replace(/\//g,"%2f")';
+      $set_document_title = '"404/URL = " + encodeURIComponent(document.location.pathname+document.location.search) + "/From = " + encodeURIComponent(document.referrer)';
     }
 
     // Add custom variables.
@@ -158,19 +193,20 @@ function piwik_page_alter(&$page) {
         if (is_object($node)) {
           $types += array('node' => $node);
         }
+        $custom_var_name = token_replace($custom_var_name, $types, array('clear' => TRUE));
         $custom_var_value = token_replace($custom_var_value, $types, array('clear' => TRUE));
 
-        // Suppress empty custom variables.
-        if (!is_numeric($custom_var_value) && empty($custom_var_value)) {
+        // Suppress empty custom names and/or variables.
+        if (!drupal_strlen(trim($custom_var_name)) || !drupal_strlen(trim($custom_var_value))) {
           continue;
         }
 
-        // Custom variables names and values are limited to 100 characters in
-        // length each. It is recommended to store values that are as small as
+        // Custom variables names and values are limited to 200 characters in
+        // length. It is recommended to store values that are as small as
         // possible to ensure that the Piwik Tracking request URL doesn't go
         // over the URL limit for the webserver or browser.
-        $custom_var_name = rtrim(substr($custom_var_name, 0, 100));
-        $custom_var_value = rtrim(substr($custom_var_value, 0, 100));
+        $custom_var_name = rtrim(substr($custom_var_name, 0, 200));
+        $custom_var_value = rtrim(substr($custom_var_value, 0, 200));
 
         $custom_var_name = drupal_json_encode($custom_var_name);
         $custom_var_value = drupal_json_encode($custom_var_value);
@@ -206,8 +242,8 @@ function piwik_page_alter(&$page) {
     }
 
     // Custom file download extensions.
-    if ((variable_get('piwik_track', 1)) && !(variable_get('piwik_trackfiles_extensions', PK_TRACKFILES_EXTENSIONS) == PK_TRACKFILES_EXTENSIONS)) {
-      $script .= '_paq.push(["setDownloadExtensions", ' . drupal_json_encode(variable_get('piwik_trackfiles_extensions', PK_TRACKFILES_EXTENSIONS)) . ']);';
+    if ((variable_get('piwik_track', 1)) && !(variable_get('piwik_trackfiles_extensions', PIWIK_TRACKFILES_EXTENSIONS) == PIWIK_TRACKFILES_EXTENSIONS)) {
+      $script .= '_paq.push(["setDownloadExtensions", ' . drupal_json_encode(variable_get('piwik_trackfiles_extensions', PIWIK_TRACKFILES_EXTENSIONS)) . ']);';
     }
 
     // Disable tracking for visitors who have opted out from tracking via DNT (Do-Not-Track) header.
@@ -234,11 +270,42 @@ function piwik_page_alter(&$page) {
       $script .= $codesnippet_before;
     }
 
-    $script .= '_paq.push(["trackPageView"]);';
+    // Site search tracking support.
+    // NOTE: It's recommended not to call trackPageView() on the Site Search Result page.
+    if (module_exists('search') && variable_get('piwik_site_search', FALSE) && arg(0) == 'search' && $keys = piwik_search_get_keys()) {
+      // Parameters:
+      // 1. Search keyword searched for. Example: "Banana"
+      // 2. Search category selected in your search engine. If you do not need
+      //    this, set to false. Example: "Organic Food"
+      // 3. Number of results on the Search results page. Zero indicates a
+      //    'No Result Search Keyword'. Set to false if you don't know.
+      //
+      // hook_preprocess_search_results() is not executed if search result is
+      // empty. Make sure the counter is set to 0 if there are no results.
+      $script .= '_paq.push(["trackSiteSearch", ' . drupal_json_encode($keys) . ', false, (window.piwik_search_results) ? window.piwik_search_results : 0]);';
+    }
+    else {
+      $script .= '_paq.push(["trackPageView"]);';
+    }
 
     // Add link tracking.
     if (variable_get('piwik_track', 1)) {
+      // Disable tracking of links with ".no-tracking" and ".colorbox" classes.
+      $ignore_classes = array(
+        'no-tracking',
+        'colorbox',
+      );
+      // Disable the download & outlink tracking for specific CSS classes.
+      // Custom code snippets with 'setIgnoreClasses' will override the value.
+      // http://developer.piwik.org/api-reference/tracking-javascript#disable-the-download-amp-outlink-tracking-for-specific-css-classes
+      $script .= '_paq.push(["setIgnoreClasses", ' . drupal_json_encode($ignore_classes) . ']);';
+
+      // Enable download & outlink link tracking.
       $script .= '_paq.push(["enableLinkTracking"]);';
+    }
+
+    if (!empty($message_events)) {
+      $script .= $message_events;
     }
     if (!empty($codesnippet_after)) {
       $script .= $codesnippet_after;
@@ -271,6 +338,19 @@ function piwik_page_alter(&$page) {
     // Add tracker code to scope.
     drupal_add_js($script, array('scope' => $scope, 'type' => 'inline'));
   }
+}
+
+/**
+ * Implements hook_field_extra_fields().
+ */
+function piwik_field_extra_fields() {
+  $extra['user']['user']['form']['piwik'] = array(
+    'label' => t('Piwik configuration'),
+    'description' => t('Piwik module form element.'),
+    'weight' => 3,
+  );
+
+  return $extra;
 }
 
 /**
@@ -504,7 +584,7 @@ function _piwik_visibility_pages() {
   if (!isset($page_match)) {
 
     $visibility = variable_get('piwik_visibility_pages', 0);
-    $setting_pages = variable_get('piwik_pages', '');
+    $setting_pages = variable_get('piwik_pages', PIWIK_PAGES);
 
     // Match path if necessary.
     if (!empty($setting_pages)) {
