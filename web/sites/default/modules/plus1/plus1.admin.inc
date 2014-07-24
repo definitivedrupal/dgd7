@@ -48,17 +48,15 @@ function plus1_settings() {
     '#default_value' => variable_get('plus1_node_types', array('story')),
   );
 
-  $form['plus1_node_widget_settings']['plus1_node_in_teaser'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Add a Plus 1 voting widget to the node in teaser view.'),
-    '#default_value' => variable_get('plus1_node_in_teaser', 0),
-  );
-
-  $form['plus1_node_widget_settings']['plus1_node_in_full_view'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Add a Plus 1 voting widget to the node in full view.'),
-    '#default_value' => variable_get('plus1_node_in_full_view', 1),
-  );
+  $entity_info = entity_get_info('node');
+  foreach ($entity_info['view modes'] as $vmid => $view_mode) {
+    $is_enabled = ('full' == $vmid)? 1 : 0;
+    $form['plus1_node_widget_settings']['plus1_node_in_' . $vmid . '_view'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Add a Plus 1 voting widget to the node in ' . $view_mode['label'] . ' view.'),
+      '#default_value' => variable_get('plus1_node_in_' . $vmid . '_view', $is_enabled),
+    );
+  }
 
   $form['plus1_node_widget_settings']['plus1_node_vote_text'] = array(
     '#type' => 'textfield',

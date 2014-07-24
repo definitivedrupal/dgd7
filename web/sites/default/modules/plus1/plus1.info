@@ -1,13 +1,15 @@
 name = Plus 1
 description = "A +1 voting widget for nodes and comments."
-package = Other
+package = Voting
 dependencies[] = votingapi
 dependencies[] = ctools
+dependencies[] = taxonomy
 core = 7.x
+configure = admin/config/user-interface/plus1
 
-; Information added by drupal.org packaging script on 2012-09-28
-version = "7.x-1.0-alpha1"
+; Information added by Drupal.org packaging script on 2014-02-20
+version = "7.x-1.0-alpha2"
 core = "7.x"
 project = "plus1"
-datestamp = "1348837267"
+datestamp = "1392859410"
 

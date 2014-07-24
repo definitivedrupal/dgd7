@@ -59,7 +59,7 @@ function plus1_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('plus1_settings'),
     'access callback' => 'plus1_user_access',
-    'access arguments' => array('administer the voting widget'),
+    'access arguments' => array('administer the plus1 voting widget'),
     'file' => 'plus1.admin.inc',
   );
 
@@ -129,11 +129,15 @@ function plus1_theme() {
  */
 function plus1_vote($entity_type, $entity_id, $tag = 'plus1_node_vote') {
   global $user;
-  if (!drupal_valid_token($_GET['token'], $entity_id)) {
+  if (!drupal_valid_token($_GET['token'], $entity_id, true)) {
     watchdog('plus1', 'Voting form error: Invalid token.');
     return drupal_access_denied();
   }
   $voted = plus1_get_votes($entity_type, $entity_id, $user->uid, $tag);
+  
+  $vote_source = $user->uid ? $user->uid : ip_address();
+  drupal_alter('plus1_source', $vote_source);
+  
   // If the voter has not already voted.
   if (!$voted) {
     $votes[] = array(
@@ -142,7 +146,7 @@ function plus1_vote($entity_type, $entity_id, $tag = 'plus1_node_vote') {
       'value_type' => 'points',
       'value' => 1,
       'tag' => $tag ? $tag : 'plus1_' . $entity_type . '_vote',
-      'vote_source' => $user->uid ? $user->uid : ip_address(),
+      'vote_source' => $vote_source,
     );
     votingapi_set_votes($votes);
     $criteria = array(
@@ -169,7 +173,7 @@ function plus1_vote($entity_type, $entity_id, $tag = 'plus1_node_vote') {
 
 function plus1_undo_vote($entity_type, $entity_id, $tag = 'plus1_node_vote') {
   global $user;
-  if (!drupal_valid_token($_GET['token'], $entity_id)) {
+  if (!drupal_valid_token($_GET['token'], $entity_id, true)) {
     watchdog('plus1', 'Voting form error: Invalid token.');
     return drupal_access_denied();
   }
@@ -186,6 +190,10 @@ function plus1_undo_vote($entity_type, $entity_id, $tag = 'plus1_node_vote') {
     else {
       $criteria['uid'] = $user->uid;
     }
+    
+    //Allow vote source to be altered by other modules
+    drupal_alter('plus1_source', $criteria['vote_source']);
+    
     if (isset($tag) && $tag != "") {
       $criteria['tag'] = $tag;
     }
@@ -240,6 +248,10 @@ function plus1_get_votes($entity_type, $entity_id, $uid, $tag = 'plus1_node_vote
   if (isset($tag) && $tag != "") {
     $criteria['tag'] = $tag;
   }
+  
+  //Allow vote source to be altered by other modules
+  drupal_alter('plus1_source', $criteria['vote_source']);
+  
   $results = votingapi_select_votes($criteria);
   return count($results);
 }
@@ -394,8 +406,9 @@ function plus1_build_taxonomy_term_jquery_widget($entity_id, $tag = 'plus1_taxon
  */
 function plus1_node_view($node, $view_mode) {
   // Only show the voting widget in allowed content types.
-  if (in_array($node->type, variable_get('plus1_node_types', array()))) {
-    if (($view_mode == 'teaser' && variable_get('plus1_node_in_teaser', 0)) || ($view_mode == 'full' && variable_get('plus1_node_in_full_view', 1))) {
+  if ($node->nid && in_array($node->type, variable_get('plus1_node_types', array()))) {
+    $is_enabled = ('full' == $view_mode)? 1 : 0;
+    if (variable_get('plus1_node_in_' . $view_mode . '_view', $is_enabled)) {
       $node->content['plus1_widget'] = plus1_build_node_jquery_widget($node->nid);
     }
   }

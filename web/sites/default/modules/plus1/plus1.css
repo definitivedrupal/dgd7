@@ -19,6 +19,13 @@ div.plus1-widget .plus1-vote {
   background: url(images/up.png) no-repeat center bottom;
   text-indent: -999em;
 }
+div.plus1-widget .plus1-vote a {
+	min-height:15px;
+}
+div.plus1-widget .plus1-vote-text {
+  background: none;
+  text-indent: 0;
+}
 div.plus1-widget .plus1-undo-vote {
   background: url(images/down.png) no-repeat center top;
   text-indent: -999em;

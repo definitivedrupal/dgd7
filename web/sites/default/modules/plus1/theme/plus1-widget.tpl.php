@@ -8,11 +8,11 @@
   <?php if (!isset($use_arrow_down)) : ?>
     <div class="plus1-msg">
       <?php if($can_vote) : ?>
-        <div class="<?php if (!$voted) print 'plus1-vote';?>">
+        <div class="<?php if (!$voted) print 'plus1-vote';?> <?php if(!empty($vote_text)) print 'plus1-vote-text';?>">
           <?php print $widget_message; ?>
         </div>
       <?php else: ?>
-        <small><?php print $widget_message; ?></small>
+        <small><?php if(isset($widget_message)) print $widget_message; ?></small>
       <?php endif; ?>
     </div>
   <?php endif;?>

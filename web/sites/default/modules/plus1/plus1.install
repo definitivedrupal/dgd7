@@ -12,8 +12,12 @@ function plus1_uninstall() {
   variable_del('plus1_add_js');
   variable_del('plus1_add_css');
   variable_del('plus1_node_types');
-  variable_del('plus1_node_in_teaser');
-  variable_del('plus1_node_in_full_view');
+
+  $entity_info = entity_get_info('node');
+  foreach ($entity_info['view modes'] as $vmid => $view_mode) {
+    variable_del('plus1_node_in_' . $vmid . '_view');
+  }
+
   variable_del('plus1_node_vote_text');
   variable_del('plus1_node_voted_text');
   variable_del('plus1_node_undo_vote');
