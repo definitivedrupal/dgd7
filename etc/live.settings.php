@@ -383,14 +383,8 @@ $conf['reverse_proxy'] = TRUE;
  */
 # $conf['omit_vary_cookie'] = TRUE;
 
-if (!class_exists('DrupalFakeCache')) {
-  $conf['cache_backends'][] = 'includes/cache-install.inc';
-}
-// Rely on the external cache for page caching.
+$conf['cache_backends'][] = 'includes/cache-install.inc';
 $conf['cache_class_cache_page'] = 'DrupalFakeCache';
-$conf['cache'] = TRUE;
-$conf['page_cache_maximum_age'] = 600;
-$conf['page_cache_invoke_hooks'] = FALSE;
 
 /**
  * CSS/JS aggregated file gzip compression:
