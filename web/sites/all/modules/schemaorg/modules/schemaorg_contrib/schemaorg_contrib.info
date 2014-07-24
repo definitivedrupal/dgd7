@@ -1,10 +1,9 @@
-name = Schema.org UI
-description = User interface for setting the schema.org module mappings.
+name = Schema.org support for contributed modules
+description = Add support for fields from contributed modules such as addressfield and fivestar.
 package = "Schema.org"
-dependencies[] = rdf
 dependencies[] = schemaorg
 core = 7.x
-files[] = schemaorg.test
+files[] = schemaorg_contrib.test
 
 ; Information added by  packaging script on 2013-11-19
 version = "7.x-1.0-beta4"

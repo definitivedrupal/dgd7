@@ -153,8 +153,10 @@ function schemaorg_ui_field_ui_field_edit_form_submit($form, &$form_state) {
     }
     // Sets the mapping for the url of the entity. This mapping is always set
     // to schema:url and is not exposed in the UI.
-    $mapping['url']['predicates'] = array('schema:url');
-    $mapping['url']['type'] = 'rel';
+    if ($entity_type != 'profile2') {
+      $mapping['url']['predicates'] = array('schema:url');
+      $mapping['url']['type'] = 'rel';
+    }
     // Add schema:Person type to user mapping.
     if ($entity_type == 'user' && $bundle == 'user' ) {
       $mapping['rdftype'] = schemaorg_ui_terms_merge('Person', $mapping['rdftype']);
@@ -184,6 +186,24 @@ function schemaorg_ui_field_ui_field_edit_form_submit($form, &$form_state) {
     'mapping' => $mapping,
     )
   );
+
+  // Handle profile2 and schema.org mappings by setting the right type and
+  // properties for the user entity type. The profile should not be seen as a
+  // separate resource in the RDFa, but instead it should be part of the user.
+  if (module_exists('profile2')) {
+    $user_mapping = rdf_mapping_load('user', 'user');
+    $user_mapping['rdftype'] = schemaorg_ui_terms_merge('Person', isset($user_mapping['rdftype']) ? $user_mapping['rdftype'] : array());
+    $user_mapping['name']['predicates'] = array('schema:name');
+    $user_mapping['url']['predicates'] = array('schema:url');
+    $user_mapping['url']['type'] = 'rel';
+
+    rdf_mapping_save(array(
+      'type' => 'user',
+      'bundle' => 'user',
+      'mapping' => $user_mapping,
+      )
+    );
+  }
 }
 
 /**

@@ -3,7 +3,7 @@
 /**
  * @file
  * Enables administrators to annotate their structured content with vocabularies
- * from schema.org
+ * from schema.org.
  */
 
 /**
@@ -64,7 +64,7 @@ function schemaorg_rdf_namespaces() {
 }
 
 /**
- * Implementation of hook_features_api().
+ * Implements hook_features_api().
  */
 function schemaorg_features_api() {
   return array(

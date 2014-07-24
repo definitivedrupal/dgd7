@@ -16,7 +16,7 @@ function schemaorg_features_export($data, &$export, $module_name = '') {
     $bundle_name = $parts[1];
 
     if ($rdf_mapping = rdf_mapping_load($entity_type, $bundle_name)) {
-      $export['features']['schemaorg'][$entity_type . '-' . $bundle_name] = $rdf_mapping;
+      $export['features']['schemaorg'][$entity_type . '-' . $bundle_name] = $entity_type . '-' . $bundle_name;
     }
   }
 
