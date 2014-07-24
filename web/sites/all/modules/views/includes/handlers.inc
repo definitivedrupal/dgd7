@@ -751,6 +751,13 @@ class views_handler extends views_object {
  *
  */
 class views_many_to_one_helper {
+  /**
+   * Contains possible existing placeholders used by the query.
+   *
+   * @var array
+   */
+  public $placeholders = array();
+
   function views_many_to_one_helper(&$handler) {
     $this->handler = &$handler;
   }
@@ -1423,7 +1430,7 @@ function views_date_sql_extract($extract_type, $field, $field_type = 'int', $set
  *   // PHP 4 doesn't call constructors of the base class automatically from a
  *   // constructor of a derived class. It is your responsibility to propagate
  *   // the call to constructors upstream where appropriate.
- *   function construct($table, $left_table, $left_field, $field, $extra = array(), $type = 'LEFT') {
+ *   function construct($table = NULL, $left_table = NULL, $left_field = NULL, $field = NULL, $extra = array(), $type = 'LEFT') {
  *     parent::construct($table, $left_table, $left_field, $field, $extra, $type);
  *   }
  *
@@ -1574,7 +1581,7 @@ class views_join {
             // With an array of values, we need multiple placeholders and the
             // 'IN' operator is implicit.
             foreach ($info['value'] as $value) {
-              $placeholder_i = ':views_join_condition_' . $select_query->nextPlaceholder();
+              $placeholder_i = $view_query->placeholder('views_join_condition_');
               $arguments[$placeholder_i] = $value;
             }
 
@@ -1584,10 +1591,9 @@ class views_join {
           else {
             // With a single value, the '=' operator is implicit.
             $operator = !empty($info['operator']) ? $info['operator'] : '=';
-            $placeholder = ':views_join_condition_' . $select_query->nextPlaceholder();
+            $placeholder = $view_query->placeholder('views_join_condition_');
             $arguments[$placeholder] = $info['value'];
           }
-
           $extras[] = "$join_table$info[field] $operator $placeholder";
         }
 

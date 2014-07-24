@@ -66,10 +66,15 @@ Drupal.views.ajaxView = function(settings) {
     // to a given element.
     .filter(jQuery.proxy(this.filterNestedViews, this))
     .once(jQuery.proxy(this.attachPagerAjax, this));
+
+  // Add a trigger to update this view specifically.
+  var self_settings = this.element_settings;
+  self_settings.event = 'RefreshView';
+  this.refreshViewAjax = new Drupal.ajax(this.selector, this.$view, self_settings);
 };
 
 Drupal.views.ajaxView.prototype.attachExposedFormAjax = function() {
-  var button = $('input[type=submit], input[type=image]', this.$exposed_form);
+  var button = $('input[type=submit], button[type=submit], input[type=image]', this.$exposed_form);
   button = button[0];
 
   this.exposedFormAjax = new Drupal.ajax($(button).attr('id'), button, this.element_settings);

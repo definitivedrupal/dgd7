@@ -482,13 +482,15 @@ function hook_views_data_alter(&$data) {
   $data['users']['example_field'] = array(
     'title' => t('Example field'),
     'help' => t('Some example content that references a user'),
-    'handler' => 'hook_handlers_field_example_field',
+    'field' => array(
+      'handler' => 'modulename_handler_field_example_field',
+    ),
   );
 
   // This example changes the handler of the node title field.
   // In this handler you could do stuff, like preview of the node when clicking
   // the node title.
-  $data['node']['title']['handler'] = 'modulename_handlers_field_node_title';
+  $data['node']['title']['field']['handler'] = 'modulename_handler_field_node_title';
 
   // This example adds a relationship to table {foo}, so that 'foo' views can
   // add this table using a relationship. Because we don't want to write over
@@ -511,6 +513,80 @@ function hook_views_data_alter(&$data) {
   // Note that the $data array is not returned – it is modified by reference.
 }
 
+/**
+ * Override the default data for a Field API field.
+ *
+ * Field module's implementation of hook_views_data() invokes this for each
+ * field in the module that defines the field type (as declared in the field
+ * array). It is not invoked in other modules.
+ *
+ * If no hook implementation exists, hook_views_data() falls back to
+ * field_views_field_default_views_data().
+ *
+ * @see field_views_data()
+ * @see hook_field_views_data_alter()
+ * @see hook_field_views_data_views_data_alter()
+ *
+ * @param $field
+ *  A field definition array, as returned by field_info_fields().
+ *
+ * @return
+ *  An array of views data, in the same format as the return value of
+ *  hook_views_data().
+ */
+function hook_field_views_data($field) {
+
+}
+
+/**
+ * Alter the views data for a single Field API field.
+ *
+ * This is called even if there is no hook_field_views_data() implementation for
+ * the field, and therefore may be used to alter the default data that
+ * field_views_field_default_views_data() supplies for the field.
+ *
+ * @param $result
+ *  An array of views table data provided for a single field. This has the same
+ *  format as the return value of hook_views_data().
+ * @param $field
+ *  A field definition array, as returned by field_info_fields().
+ * @param $module
+ *  The module that defines the field type.
+ *
+ * @see field_views_data()
+ * @see hook_field_views_data()
+ * @see hook_field_views_data_views_data_alter()
+ */
+function hook_field_views_data_alter(&$result, $field, $module) {
+
+}
+
+/**
+ * Alter the views data on a per field basis.
+ *
+ * Field module's implementation of hook_views_data_alter() invokes this for
+ * each field in the module that defines the field type (as declared in the
+ * field array). It is not invoked in other modules.
+ *
+ * Unlike hook_field_views_data_alter(), this operates on the whole of the views
+ * data. This allows a field module to add data that concerns its fields to
+ * other tables, which would not yet be defined at the point when
+ * hook_field_views_data() and hook_field_views_data_alter() are invoked. For
+ * example, entityreference adds reverse relationships on the tables for the
+ * entities which are referenced by entityreference fields.
+ *
+ * (Note: this is weirdly named so as not to conflict with
+ * hook_field_views_data_alter().)
+ *
+ * @see hook_field_views_data()
+ * @see hook_field_views_data_alter()
+ * @see field_views_data_alter()
+ */
+function hook_field_views_data_views_data_alter(&$data, $field) {
+  $field_name = $field['field_name'];
+  $data_key = 'field_data_' . $field_name;
+  // Views data for this field is in $data[$data_key]
+}
 
 /**
  * Describes plugins defined by the module.
@@ -663,10 +739,10 @@ function hook_views_api() {
  * This hook allows modules to provide their own views which can either be used
  * as-is or as a "starter" for users to build from.
  *
- * This hook should be placed in MODULENAME.views.inc and it will be
- * auto-loaded. MODULENAME.views.inc must be in the directory specified by the
- * 'path' key returned by MODULENAME_views_api(), or the same directory as the
- * .module file, if 'path' is unspecified.
+ * This hook should be placed in MODULENAME.views_default.inc and it will be
+ * auto-loaded. MODULENAME.views_default.inc must be in the directory specified
+ * by the 'path' key returned by MODULENAME_views_api(), or the same directory
+ * as the .module file, if 'path' is unspecified.
  *
  * The $view->disabled boolean flag indicates whether the View should be
  * enabled (FALSE) or disabled (TRUE) by default.
