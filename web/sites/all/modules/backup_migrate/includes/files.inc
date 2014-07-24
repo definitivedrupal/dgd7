@@ -79,7 +79,9 @@ function _backup_migrate_filename_append_prepare($filename, $append_str) {
  * Construct a filename using token and some cleaning.
  */
 function _backup_migrate_construct_filename($filename, $timestamp='') {
-  $filename = token_replace($filename);
+  if (module_exists('token')) {
+    $filename = token_replace($filename);
+  }
   $filename = preg_replace("/[^a-zA-Z0-9\.\-_]/", "", $filename);
   $filename = _backup_migrate_filename_append_prepare($filename, $timestamp);
   $filename .= '-' . $timestamp;
@@ -96,7 +98,13 @@ function _backup_migrate_construct_filename($filename, $timestamp='') {
  * Construct a default filename using the site's name.
  */
 function _backup_migrate_default_filename() {
-  return '[site:name]';
+  if (module_exists('token')) {
+    return '[site:name]';
+  }
+  else {
+    // Cleaning the string isn't strictly necessary but it looks better in the settings field.
+    return variable_get('site_name', 'backup_migrate');
+  }
 }
 
 /**
@@ -166,7 +174,7 @@ class backup_file {
     );
     if (file_exists($path)) {
       $params['filesize'] = filesize($path);
-      $params['filetime'] = filectime($path);
+      $params['filetime'] = filemtime($path);
     }
     $this->set_file_info($params);
   }
@@ -312,6 +320,11 @@ class backup_file {
       array('key' => 'Content-Type', 'value' => $this->mimetype()),
       array('key' => 'Content-Disposition', 'value' => 'attachment; filename="'. $this->filename() .'"'),
     );
+    // In some circumstances, web-servers will double compress gzipped files.
+    // This may help aleviate that issue by disabling mod-deflate.
+    if ($this->mimetype() == 'application/x-gzip') {
+      $headers[] = 'Content-Encoding: gzip';
+    }
     if ($size = $this->info('filesize')) {
       $headers[] = array('key' => 'Content-Length', 'value' => $size);
     }
