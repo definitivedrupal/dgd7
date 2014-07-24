@@ -9,7 +9,7 @@
  * The default path to the Colorbox directory.
  */
 define('COLORBOX_PATH', 'sites/all/libraries/colorbox');
-define('COLORBOX_MIN_PLUGIN_VERSION', '1.3.16');
+define('COLORBOX_MIN_PLUGIN_VERSION', '1.3.18');
 
 
 /**
@@ -267,7 +267,7 @@ function _colorbox_doheader() {
  */
 function colorbox_get_version($colorbox_js = NULL) {
   $version = 0;
-  $pattern = '#ColorBox v([0-9\.a-z]+)#';
+  $pattern = '@(?i:Colorbox) v([0-9\.a-z]+)@';
 
   // No file is passed in so use the default location.
   if (is_null($colorbox_js)) {
@@ -276,12 +276,11 @@ function colorbox_get_version($colorbox_js = NULL) {
 
   // Return the version of Colorbox plugin, it it exists.
   if (file_exists($colorbox_js)) {
-    $colorbox_plugin = file_get_contents($colorbox_js, NULL, NULL, 0, 32);
+    $colorbox_plugin = file_get_contents($colorbox_js, NULL, NULL, 0, 64);
     if (preg_match($pattern, $colorbox_plugin, $matches)) {
       $version = $matches[1];
     }
   }
-
   return $version;
 }
 
@@ -294,10 +293,15 @@ function colorbox_get_version($colorbox_js = NULL) {
 function colorbox_get_js() {
   $library_path = colorbox_get_path();
 
-  if (file_exists($library_path . '/colorbox/jquery.colorbox.js') && file_exists($library_path . '/colorbox/jquery.colorbox-min.js')) {
+  // Support for older version of the Colorbox plugin, pre 1.3.21.1.
+  if (is_dir($library_path . '/colorbox')) {
+    $library_path = $library_path . '/colorbox';
+  }
+
+  if (file_exists($library_path . '/jquery.colorbox.js') && file_exists($library_path . '/jquery.colorbox-min.js')) {
     $colorbox_js_map = array('none' => 'jquery.colorbox.js', 'min' => 'jquery.colorbox-min.js');
     $colorbox_js = $colorbox_js_map[variable_get('colorbox_compression_type', 'min')];
-    return $library_path . '/colorbox/' . $colorbox_js;
+    return $library_path . '/' . $colorbox_js;
   }
 //   else {
 //     drupal_set_message(t('You need to download the !colorbox and extract the entire contents of the archive into the %path folder of your server.', array('!colorbox' => l(t('Colorbox plugin'), 'http://colorpowered.com/colorbox/'), '%path' => $library_path)), 'error', FALSE);
@@ -504,6 +508,7 @@ function colorbox_field_formatter_settings_form($field, $instance, $view_mode, $
       '#theme' => 'token_tree',
       '#token_types' => array($instance['entity_type'], 'file'),
       '#recursion_limit' => $recursion_limit,
+      '#dialog' => TRUE,
       '#states' => array(
         'visible' => array(
           ':input[name$="[settings_edit_form][settings][colorbox_caption]"]' => array('value' => 'custom'),

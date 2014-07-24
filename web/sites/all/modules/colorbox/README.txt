@@ -49,7 +49,9 @@ The Colorbox plugin:
 Installation:
 ------------
 1. Download and unpack the Colorbox plugin in "sites/all/libraries".
-   Link: http://colorpowered.com/colorbox/colorbox.zip
+    Make sure the path to the plugin file becomes:
+    "sites/all/libraries/colorbox/jquery.colorbox-min.js"
+   Link: https://github.com/jackmoore/colorbox/archive/1.x.zip
    Drush users can use the command "drush colorbox-plugin".
 2. Download and unpack the Colorbox module directory in your modules folder
    (this will usually be "sites/all/modules/").
@@ -118,6 +120,14 @@ Replace "id-of-content" with the id of the tag you want to open.
 Add the class "colorbox-inline" to the link and build the url like
 this "?width=500&height=500&inline=true#id-of-content".
 
+It could e.g. look like this.
+
+<a class="colorbox-inline" href="?width=500&height=500&inline=true#id-of-content">Link to click</a>
+
+<div style="display: none;">
+<div id="id-of-content">What ever content you want to display in a Colorbox.</div>
+</div>
+
 Other modules may activate this for easy Colorbox integration.
 
 
@@ -171,21 +181,3 @@ The fix is to add this to the theme CSS:
   max-width: none;
 }
 
-
-Example styles borders do not display in Internet Explorer:
------------------------------------------------------------
-If you use one of the example styles and have problems with the border
-images not loading in Internet Explorer please read
-http://colorpowered.com/colorbox/#help_paths.
-
-The default style in Colorbox module does not have this problem.
-
-
-Contributions:
---------------
-* Porting all features from the Thickbox module,
-  by Fredrik Jonsson (http://drupal.org/user/5546).
-* Image module integration improvements by recrit
-  (http://drupal.org/user/452914).
-* Help with testing and many good suggestions by Shane
-  (http://drupal.org/user/262473).

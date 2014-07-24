@@ -49,6 +49,7 @@
   border: 0;
 }
 #colorbox, #cboxContent, #cboxLoadedContent {
+  -moz-box-sizing: content-box;
   box-sizing: content-box;
 }
 
@@ -132,7 +133,7 @@
         height: 25px;
         text-indent: -9999px;
       }
-      .cboxSlideshow_on #cboxSlideshow.hover {
+      .cboxSlideshow_on #cboxSlideshow:hover {
         background-position: -101px -50px;
       }
       .cboxSlideshow_off #cboxSlideshow {
@@ -144,7 +145,7 @@
         height: 25px;
         text-indent: -9999px;
       }
-      .cboxSlideshow_off #cboxSlideshow.hover {
+      .cboxSlideshow_off #cboxSlideshow:hover {
         background-position: -25px -50px;
       }
       #cboxPrevious {
@@ -156,7 +157,7 @@
         height: 25px;
         text-indent: -9999px;
       }
-      #cboxPrevious.hover {
+      #cboxPrevious:hover {
         background-position: -75px -25px;
       }
       #cboxNext {
@@ -168,7 +169,7 @@
         height: 25px;
         text-indent: -9999px;
       }
-      #cboxNext.hover {
+      #cboxNext:hover {
         background-position: -50px -25px;
       }
       #cboxLoadingOverlay {
@@ -186,7 +187,7 @@
         height: 25px;
         text-indent: -9999px;
       }
-      #cboxClose.hover {
+      #cboxClose:hover {
         background-position: -25px -25px;
       }
 
