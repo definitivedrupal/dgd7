@@ -5,3 +5,8 @@ drupal/sites/all/modules/devel
 drupal/sites/default/files
 db
 drupal/test.php
+.sass-cache/
+.vagrant/
+build/
+web/sites/default/settings.php
+web/sites/default/files/
