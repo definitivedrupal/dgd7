@@ -4,14 +4,15 @@ package = MailChimp
 core = 7.x
 
 files[] = includes/mailchimp.inc
+files[] = tests/mailchimp_tests.inc
 
 dependencies[] = libraries (>=2)
 
 configure = admin/config/services/mailchimp
 
-; Information added by drupal.org packaging script on 2013-01-11
-version = "7.x-2.9"
+; Information added by drupal.org packaging script on 2013-07-25
+version = "7.x-2.12"
 core = "7.x"
 project = "mailchimp"
-datestamp = "1357927633"
+datestamp = "1374771079"
 

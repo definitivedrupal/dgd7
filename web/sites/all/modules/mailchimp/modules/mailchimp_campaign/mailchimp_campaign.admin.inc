@@ -26,7 +26,7 @@ function mailchimp_campaign_campaign_form($form, &$form_state, MailChimpCampaign
     '#type' => 'select',
     '#title' => t('List'),
     '#description' => t('Select the list this campaign should be sent to.'),
-    '#options' => _mailchimp_campaign_options_list(mailchimp_get_lists()),
+    '#options' => _mailchimp_campaign_build_option_list(mailchimp_get_lists()),
     '#default_value' => ($campaign) ? $campaign->mc_data['list_id'] : -1,
     '#required' => TRUE
   );
@@ -51,14 +51,13 @@ function mailchimp_campaign_campaign_form($form, &$form_state, MailChimpCampaign
     '#type' => 'select',
     '#title' => t('Template'),
     '#description' => t('Select a MailChimp user template to use. Due to a limitation in the API, only templates that do not contain repeating sections are available. If empty, the default template will be applied.'),
-    '#options' => _mailchimp_campaign_options_list(mailchimp_campaign_get_templates()),
+    '#options' => _mailchimp_campaign_build_option_list(mailchimp_campaign_get_templates()),
     '#default_value' => ($campaign) ? $campaign->mc_data['template_id'] : -1,
     '#ajax' => array(
       'callback' => 'mailchimp_campaign_template_callback',
       'wrapper' => 'content-sections'
     )
   );
-
   $form['content'] = array(
     '#id' => 'content-sections',
     '#type' => 'fieldset',
@@ -204,7 +203,7 @@ function mailchimp_campaign_campaign_form_submit($form, &$form_state) {
 /**
  * Returns an options list for a given array of items.
  */
-function _mailchimp_campaign_options_list($list) {
+function _mailchimp_campaign_build_option_list($list) {
   $options = array('' => t('-- Select --'));
   foreach ($list as $item) {
     $options[$item['id']] = $item['name'];

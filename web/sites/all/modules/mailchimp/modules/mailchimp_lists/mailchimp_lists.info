@@ -8,12 +8,12 @@ dependencies[] = entity_token
 
 configure = admin/config/services/mailchimp/lists
 
-files[] = mailchimp_lists.entity.inc
-files[] = mailchimp_lists.admin.inc
+files[] = lib/mailchimp_lists.entity.inc
+files[] = tests/mailchimp_lists.test
 
-; Information added by drupal.org packaging script on 2013-01-11
-version = "7.x-2.9"
+; Information added by drupal.org packaging script on 2013-07-25
+version = "7.x-2.12"
 core = "7.x"
 project = "mailchimp"
-datestamp = "1357927633"
+datestamp = "1374771079"
 

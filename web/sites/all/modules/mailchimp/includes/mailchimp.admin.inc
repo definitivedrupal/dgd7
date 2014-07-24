@@ -10,11 +10,11 @@
  */
 function mailchimp_admin_settings() {
   $form['mailchimp_api_key'] = array(
-      '#type' => 'textfield',
-      '#title' => t('Mailchimp API Key'),
-      '#required' => TRUE,
-      '#default_value' => variable_get('mailchimp_api_key', ''),
-      '#description' => t('The API key for your MailChimp account. Get or generate a valid API key at your !apilink.', array('!apilink' => l(t('MailChimp API Dashboard'), 'http://admin.mailchimp.com/account/api')))
+    '#type' => 'textfield',
+    '#title' => t('Mailchimp API Key'),
+    '#required' => TRUE,
+    '#default_value' => variable_get('mailchimp_api_key', ''),
+    '#description' => t('The API key for your MailChimp account. Get or generate a valid API key at your !apilink.', array('!apilink' => l(t('MailChimp API Dashboard'), 'http://admin.mailchimp.com/account/api'))),
   );
   $form['mailchimp_batch_limit'] = array(
     '#type' => 'select',
@@ -42,8 +42,8 @@ function mailchimp_admin_settings() {
     '#type' => 'checkbox',
     '#title' => t('Use Secure Connection'),
     '#default_value' => variable_get('mailchimp_use_secure', TRUE),
-    "#description" => t('Communicate with the MailChimp API over a secure connection.')
-  );  
+    "#description" => t('Communicate with the MailChimp API over a secure connection.'),
+  );
 
   return system_settings_form($form);
 }

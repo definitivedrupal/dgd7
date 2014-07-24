@@ -21,10 +21,24 @@ function mailchimp_schema() {
  */
 function mailchimp_requirements($phase) {
   $requirements = array();
-  // Ensure translations don't break at install time
+  // Ensure translations don't break at install time:
   $t = get_t();
 
-  // Report Drupal version
+  if ($phase == 'update') {
+    $path = drupal_get_path('module', 'libraries') . '/libraries.info';
+    $info = drupal_parse_info_file($path);
+    if (version_compare($info['version'], '7.x-2.0', '<')) {
+      $requirements['mailchimp'] = array(
+        'title' => $t('Mailchimp'),
+        'value' => '7.x-2.x',
+        'description' => $t('libraries 2.x is required for MailChimp 7.x-2.8 or higher.'),
+        'severity' => REQUIREMENT_ERROR,
+      );
+      return $requirements;
+    }
+  }
+
+  // Report Drupal version:
   if (in_array($phase, array('runtime', 'update'))) {
     $library = libraries_detect('mailchimp');
     $requirements['mailchimp'] = array(
@@ -42,7 +56,7 @@ function mailchimp_requirements($phase) {
       $requirements['mailchimp'] += array(
         'value' => $library['error'],
         'description' => $library['error message'],
-        'severity' => REQUIREMENT_ERROR
+        'severity' => REQUIREMENT_ERROR,
       );
     }
   }
@@ -56,7 +70,7 @@ function mailchimp_requirements($phase) {
 function mailchimp_uninstall() {
   variable_del('mailchimp_api_key');
   variable_del('mailchimp_batch_limit');
-  variable_del('mailchimp_use_secure');  
+  variable_del('mailchimp_use_secure');
 }
 
 /**

@@ -49,11 +49,12 @@ function mailchimp_activity_menu() {
   $items = array();
   $mailchimp_activity_entities = mailchimp_activity_load_entities();
   foreach ($mailchimp_activity_entities as $mailchimp_activity_entity) {
-    $items[$mailchimp_activity_entity->entity_type . '/%entity_object/mailchimp_activity'] = array(
+    $arg = substr_count($mailchimp_activity_entity->entity_path, '/');
+    $items[$mailchimp_activity_entity->entity_path . '%entity_object/mailchimp_activity'] = array(
       'title' => 'MailChimp Activity',
       'load arguments' => array($mailchimp_activity_entity->entity_type),
       'page callback' => 'mailchimp_activity_page',
-      'page arguments' => array(1, $mailchimp_activity_entity),
+      'page arguments' => array($arg, $mailchimp_activity_entity),
       'access callback' => 'mailchimp_activity_access',
       'access arguments' => array($mailchimp_activity_entity),
       'type' => MENU_LOCAL_TASK,
@@ -140,18 +141,26 @@ function mailchimp_activity_get_member_activity($list_id, $email, $reset = FALSE
  * @return array (renderable)
  */
 function mailchimp_activity_page($entity, MailchimpActivityEntity $mailchimp_activity_entity) {
-  $wrapper = entity_metadata_wrapper($mailchimp_activity_entity->entity_type, $entity);
-  $email = $wrapper->{$mailchimp_activity_entity->email_property}->value();
-  //If the email property is a multiple-value field, loop into it until we
-  //find a non-array value-- presumably an email address
-  while (is_array($email)) {
-    $email = $email[0];
+  $entity_wrapper = entity_metadata_wrapper($mailchimp_activity_entity->entity_type, $entity);
+  $email_property = $mailchimp_activity_entity->email_property;
+  $email_property_array = explode(':', $email_property);
+  $parent = $entity_wrapper;
+  foreach ($email_property_array as $drupal_field) {
+    if ($parent instanceof EntityListWrapper) {
+      $child_wrapper = $parent->get(0)->{$drupal_field};
+    }
+    else {
+      $child_wrapper = $parent->{$drupal_field};
+    }
+    $parent = $child_wrapper;
   }
+  $email = $parent->value();
   // Validate email address.
   if (!valid_email_address($email)) {
-    return array('error_notice' => array(
-        '#markup' => t('%email is not a valid email address. Unable to lookup MailChimp activity history without a valid email.',
-          array('%email' => $email)
+    return array(
+      'error_notice' => array(
+        '#markup' => t('%email does not contain a valid email address. Unable to lookup MailChimp activity history without a valid email.',
+          array('%email' => $email_property)
         ),
       ),
     );

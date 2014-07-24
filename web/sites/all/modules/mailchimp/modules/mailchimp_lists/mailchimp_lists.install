@@ -6,6 +6,11 @@
  *
  */
 
+// These are deprecated globals, but we need them here for update functions.
+define('MAILCHIMP_LISTTYPE_REQUIRED', 'required');
+define('MAILCHIMP_LISTTYPE_OPTIONAL', 'optional');
+define('MAILCHIMP_LISTTYPE_FREEFORM', 'freeform');
+
 /**
  * Implements hook_schema().
  */
@@ -43,13 +48,6 @@ function mailchimp_lists_schema() {
         'not null' => FALSE,
         'default' => '',
       ),
-      'list_type' => array(
-        'type' => 'varchar',
-        'length' => 32,
-        'description' => 'The {mailchimp_lists}.type of this mailchimp_list.',
-        'not null' => TRUE,
-        'default' => '',
-      ),
       'settings' => array(
         'type' => 'blob',
         'not null' => FALSE,
@@ -72,21 +70,9 @@ function mailchimp_lists_schema() {
         'length' => 255,
         'not null' => FALSE,
       ),
-      'created' => array(
-        'description' => 'The Unix timestamp when the mailchimp_list was created.',
-        'type' => 'int',
-        'not null' => TRUE,
-        'default' => 0,
-      ),
-      'updated' => array(
-        'description' => 'The Unix timestamp when the mailchimp_list was most recently saved.',
-        'type' => 'int',
-        'not null' => TRUE,
-        'default' => 0,
-      ),
     ),
     'primary key' => array('id'),
-    'unique key' => array('name')
+    'unique key' => array('name'),
   );
 
   return $schema;
@@ -96,7 +82,7 @@ function mailchimp_lists_schema() {
  * Implements hook_install().
  */
 function mailchimp_lists_install() {
-  // convert old lists if they exist
+  // Convert old lists if they exist:
   $old_lists = variable_get('mailchimp_lists', array());
   if (!empty($old_lists)) {
     $cron = variable_get('mailchimp_cron', FALSE);
@@ -120,19 +106,19 @@ function mailchimp_lists_install() {
         'cron' => $cron,
         'webhooks' => FALSE,
       );
-
+      $t = get_t();
       if ($ret = mailchimp_lists_save($list)) {
-        drupal_set_message(t('List @name has been converted.',
+        drupal_set_message($t('List @name has been converted.',
           array('@name' => $list->label)));
       }
       else {
-        drupal_set_message(t('There has been an error converting list @name.',
+        drupal_set_message($t('There has been an error converting list @name.',
           array('@name' => $list->label)), 'error');
       }
     }
   }
 
-  // now delete old variables
+  // Now delete old variables:
   variable_del('mailchimp_cron');
   variable_del('mailchimp_interest_groups_user_forms');
   variable_del('mailchimp_lists');
@@ -226,7 +212,7 @@ function mailchimp_lists_update_7201() {
 function mailchimp_lists_update_7202() {
   $num_updated = 0;
   $num_deleted = 0;
-  
+
   $query = db_select('block', 'b')
     ->fields('b', array('bid', 'delta', 'module', 'theme'))
     ->condition('module', 'mailchimp_lists', '=')
@@ -242,22 +228,22 @@ function mailchimp_lists_update_7202() {
         ->execute();
 
       $list_results = $list_query->fetchAll();
-      
+
       if ($list_results) {
         $list_machine_name = $list_results[0]->name;
-        
-        // Check to see if a machine name delta already exists
+
+        // Check to see if a machine name delta already exists:
         $check_query = db_select('block', 'b')
           ->fields('b', array('bid', 'delta'))
           ->condition('delta', $list_machine_name, '=')
           ->condition('module', $result->module, '=')
           ->condition('theme', $result->theme, '=')
           ->execute();
-  
+
         $check_results = $check_query->fetchAll();
-        
+
         if (count($check_results)) {
-          // Delete the numeric fields
+          // Delete the numeric fields:
           $num_deleted += db_delete('block')
             ->condition('bid', $result->bid, '=')
             ->execute();
@@ -273,12 +259,14 @@ function mailchimp_lists_update_7202() {
       }
     }
   }
-  
+
   if ($num_deleted > 0) {
     return t('Deleted !num duplicate block(s).', array('!num' => $num_deleted));
-  } elseif ($num_updated > 0) {
+  }
+  elseif ($num_updated > 0) {
     return t('Updated !num block(s).', array('!num' => $num_updated));
-  } else {
+  }
+  else {
     return TRUE;
   }
 }
@@ -310,7 +298,13 @@ function mailchimp_lists_update_7203() {
       }
 
       // Now add the new one.
-      $ret = $mcapi->listWebhookAdd($list->mc_list_id, mailchimp_webhook_url(), array('unsubscribe', 'profile', 'cleaned', 'upemail'));
+      $ret = $mcapi->listWebhookAdd($list->mc_list_id, mailchimp_webhook_url(),
+        array('unsubscribe',
+          'profile',
+          'cleaned',
+          'upemail',
+        )
+      );
       if (!$ret) {
         return t('Failed to create new web hook for @list', array('@list' => $list->label));
       }
@@ -318,4 +312,115 @@ function mailchimp_lists_update_7203() {
   }
 
   return t('MailChimp list webhooks have been updated with the new, more secure endpoint URL.');
+}
+
+/**
+ * Update list->settings with ['form_label'] index.
+ */
+function mailchimp_lists_update_7204() {
+  $lists = db_select('mailchimp_lists', 'm')
+    ->fields('m', array('id', 'label', 'settings'))
+    ->execute()
+    ->fetchAll();
+
+  if (empty($lists)) {
+    return t('There are no lists to update.');
+  }
+  $success = TRUE;
+  foreach ($lists as $list) {
+    $result = TRUE;
+    $settings = unserialize($list->settings);
+    if (!array_key_exists('form_label', $settings)) {
+      $settings['form_label'] = $list->label;
+      $settings = serialize($settings);
+      $result = db_update('mailchimp_lists')
+        ->fields(array('settings' => $settings))
+        ->condition('id', $list->id)
+        ->execute();
+    }
+    $success = $result && $success;
+  }
+  $t = get_t();
+  if ($success) {
+    return $t('MailChimp lists have been given a default Form Label field value.');
+  }
+  else {
+    throw new DrupalUpdateException('There was a problem updating your Mailchimp Lists configuration. Either roll back your database or go to the Mailchimp Lists configuration page and re-configure each list individually.');
+  }
+}
+
+/**
+ * Update list->settings with new values, remove list_type data and rebuild the registry.
+ */
+function mailchimp_lists_update_7205() {
+  // Rebuild the registry to reflect the updated module structure.
+  registry_rebuild();
+
+  $lists = db_select('mailchimp_lists', 'm')
+    ->fields('m', array('id', 'list_type', 'settings'))
+    ->execute()
+    ->fetchAll();
+
+  if (empty($lists)) {
+    return t('There are no lists to update.');
+  }
+  $success = TRUE;
+  foreach ($lists as $list) {
+    $settings = unserialize($list->settings);
+    $result = TRUE;
+    if (isset($list->list_type)) {
+      switch ($list->list_type) {
+        case (MAILCHIMP_LISTTYPE_FREEFORM):
+          $settings['required'] = FALSE;
+          $settings['allow_anonymous'] = TRUE;
+          $settings['roles'][DRUPAL_ANONYMOUS_RID] = TRUE;
+          if (isset($settings['mergefields'])) {
+            $settings['mergefields_display'] = array();
+            foreach ($settings['mergefields'] as $id => $field) {
+              $settings['mergefields_display'][$id] = 'TRUE';
+            }
+          }
+          break;
+
+        case (MAILCHIMP_LISTTYPE_OPTIONAL):
+          $settings['required'] = FALSE;
+          $settings['allow_anonymous'] = FALSE;
+          break;
+
+        case (MAILCHIMP_LISTTYPE_REQUIRED):
+          $settings['required'] = TRUE;
+          $settings['allow_anonymous'] = FALSE;
+          break;
+
+      }
+      // This is where we would delete the list_type variable if we deemed it a
+      // good idea. It is minimal cruft, however, and allows for back-revving
+      // one's Mailchimp install more easily.
+      $settings = serialize($settings);
+      $result = db_update('mailchimp_lists')
+        ->fields(array('settings' => $settings))
+        ->condition('id', $list->id)
+        ->execute();
+    }
+    $success = $result && $success;
+  }
+  unset($lists);
+  if ($success) {
+    db_drop_field('mailchimp_lists', 'list_type');
+    drupal_get_schema('mailchimp_lists', TRUE);
+    $t = get_t();
+    return $t('MailChimp lists have been updated with new settings.');
+  }
+  else {
+    throw new DrupalUpdateException('There was a problem updating your Mailchimp Lists configuration. Either roll back your database or go to the Mailchimp Lists configuration page and re-configure each list individually.');
+  }
+}
+
+/**
+ * Drop the created and updated fields from the {mailchimp_lists} schema.
+ */
+function mailchimp_lists_update_7206() {
+  db_drop_field('mailchimp_lists', 'created');
+  db_drop_field('mailchimp_lists', 'updated');
+  drupal_get_schema('mailchimp_lists', TRUE);
 }

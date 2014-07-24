@@ -1,6 +1,7 @@
 <?php
 /**
- * @file Rules integration for the mailchimp module.
+ * @file
+ * Rules integration for the mailchimp module.
  */
 
 /**
@@ -12,7 +13,7 @@ function mailchimp_lists_rules_condition_info() {
     'label' => t('E-Mail is subscribed to a mailchimp list'),
     'parameter' => array(
       'mail' => array(
-        'type' => 'mail',
+        'type' => '*',
         'label' => t('E-Mail address'),
         'description' => t('The e-mail address for which to check whether it is subscribed to a list.'),
         'default mode' => 'selector',

@@ -234,8 +234,8 @@ function mailchimp_campaign_save_campaign($template, $options, $campaign_id = NU
     _mailchimp_campaign_mcapi_error_message($mcapi, $message);
   }
   else {
-    drupal_set_message(t('Campaign %cid was successfully saved.',
-      array('%cid' => $campaign_id)));
+    drupal_set_message(t('Campaign %name (%cid) was successfully saved.',
+      array('%name' => $options['title'], '%cid' => $campaign_id)));
 
     // save the campaign entity
     $campaign = entity_create('mailchimp_campaign', array(
