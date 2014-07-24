@@ -1,12 +1,17 @@
 <?php
-/*
- * Implementation of hook_context_plugins().
+/**
+ * @file
+ * Define plugin and activate.
+ */
+
+/**
+ * Implements hook_context_plugins().
  */
 function context_no_title_context_plugins() {
   $plugins = array();
   $plugins['context_no_title_reaction'] = array(
     'handler' => array(
-      'path' => drupal_get_path('module', 'context_no_title') .'/plugins',
+      'path' => drupal_get_path('module', 'context_no_title') . '/plugins',
       'file' => 'context_no_title_reaction.inc',
       'class' => 'context_no_title_reaction',
       'parent' => 'context_reaction',
@@ -16,29 +21,29 @@ function context_no_title_context_plugins() {
 }
 
 
-/*
- * Implementation of hook_context_registry().
+/**
+ * Implements hook_context_registry().
  */
 function context_no_title_context_registry() {
   return array(
     'reactions' => array(
       'no_title' => array(
         'title' => t('No Title in Page'),
-        'description' => 'Remove the title from the page template',
+        'description' => t('Remove the title from the page template'),
         'plugin' => 'context_no_title_reaction',
       ),
     ),
   );
 }
 
-/*
- * Implementation of hook_process_page().
+/**
+ * Implements hook_process_page().
  */
 function context_no_title_process_page(&$vars) {
-  if(module_exists('context')) {
+  if (module_exists('context')) {
     if ($plugin = context_get_plugin('reaction', 'no_title')) {
       $plugin->execute($vars);
-    } 
+    }
   }
 }
 

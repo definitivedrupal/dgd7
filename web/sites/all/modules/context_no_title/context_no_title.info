@@ -4,9 +4,9 @@ name = "Context No Title"
 dependencies[] = context
 package = "Context"
 
-; Information added by drupal.org packaging script on 2012-02-29
-version = "7.x-1.0-beta3"
+; Information added by Drupal.org packaging script on 2014-06-27
+version = "7.x-1.0"
 core = "7.x"
 project = "context_no_title"
-datestamp = "1330539041"
+datestamp = "1403906628"
 
