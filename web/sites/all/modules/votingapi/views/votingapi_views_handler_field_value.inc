@@ -45,7 +45,7 @@ class votingapi_views_handler_field_value extends views_handler_field_numeric {
   function click_sort($order) {
     $this->query->add_orderby(NULL, "COALESCE($this->table_alias.$this->field, 0)", $order, $this->table_alias . '_' . $this->field . '_coalesced');
   }
-  
+
   function render($values) {
     $value = $values->{$this->field_alias};
     $function = $this->options['appearance'];

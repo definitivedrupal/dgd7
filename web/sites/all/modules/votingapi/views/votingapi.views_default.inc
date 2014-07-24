@@ -7,7 +7,7 @@
 
 function votingapi_views_default_views() {
   $views = array();
-    
+
   $view = new view;
   $view->name = 'top_content';
   $view->description = 'Top rated content';

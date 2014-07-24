@@ -7,7 +7,7 @@
  */
 
 /**
- * Implementation of hook_drush_help().
+ * Implements of hook_drush_help().
  */
 function votingapi_drush_help($section) {
   switch ($section) {
@@ -21,7 +21,7 @@ function votingapi_drush_help($section) {
 }
 
 /**
- * Implementation of hook_drush_command().
+ * Implements of hook_drush_command().
  */
 function votingapi_drush_command() {
   $items['generate-votes'] = array(
@@ -80,7 +80,7 @@ function votingapi_generate_votes($entity_type = 'node', $vote_type = 'percent',
   module_load_include('inc', 'devel_generate');
   $options += array(
     'age' => 36000,
-    'types' => $roles = drush_get_option('types') ? explode(',', drush_get_option('types')) : array(),
+    'types' => array(),
     'kill' => FALSE,
   );
 
@@ -100,7 +100,7 @@ function votingapi_generate_votes($entity_type = 'node', $vote_type = 'percent',
 
   $query = db_select($entity_type, 'e')->fields('e', array($entity_id_column));
   if ($entity_type == 'node' && !empty($options['types'])) {
-    $query->condition('e.type', $node_types, 'IN');
+    $query->condition('e.type', $options['types'], 'IN');
   }
   $results = $query->execute()->fetchAll(PDO::FETCH_ASSOC);
 
@@ -126,7 +126,7 @@ function _votingapi_cast_votes($etype, $eid, $timestamp = 0, $uids = array(), $s
           'entity_type' => $etype,
           'entity_id' => $eid,
           'value_type' => 'percent',
-          'timestamp' => REQUEST_TIME - rand(0, REQUEST_TIME - $timestamp),
+          'timestamp' => REQUEST_TIME - mt_rand(0, $timestamp),
           'value' => mt_rand(1, 5) * 20,
           'tag' => $tags[mt_rand(0, 30)],
         );
@@ -138,7 +138,7 @@ function _votingapi_cast_votes($etype, $eid, $timestamp = 0, $uids = array(), $s
             'entity_type' => $etype,
             'entity_id' => $eid,
             'value_type' => 'points',
-            'timestamp' => REQUEST_TIME - rand(0, REQUEST_TIME - $timestamp),
+            'timestamp' => REQUEST_TIME - mt_rand(0, $timestamp),
             'value' => rand(0, 1) ? 1 : -1,
           );
         }

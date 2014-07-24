@@ -99,11 +99,42 @@ function votingapi_update_7202() {
  * Reduces confusion about 'content types' versus 'node types'.
  */
 function votingapi_update_7201() {
-  db_change_field('votingapi_vote', 'content_type', 'entity_type', array('type' => 'varchar', 'length' => 64));
-  db_change_field('votingapi_vote', 'content_id', 'entity_id', array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0));
+  $index['votingapi_vote'] = array(
+    'content_uid'       => array('entity_type', 'entity_id', 'uid'),
+    'content_uid_2'     => array('entity_type', 'uid'),
+    'content_source'    => array('entity_type', 'entity_id', 'vote_source'),
+    'content_value_tag' => array('entity_type', 'entity_id', 'value_type', 'tag'),
+  );
+  $index['votingapi_cache'] = array(
+    'content'                => array('entity_type', 'entity_id'),
+    'content_function'       => array('entity_type', 'entity_id', 'function'),
+    'content_tag_func'       => array('entity_type', 'entity_id', 'tag', 'function'),
+    'content_vtype_tag'      => array('entity_type', 'entity_id', 'value_type', 'tag'),
+    'content_vtype_tag_func' => array('entity_type', 'entity_id', 'value_type', 'tag', 'function'),
+  );
+  // Remove all existing indexes.
+  foreach ($index as $table => $data) {
+    foreach ($data as $index_name => $columns) {
+      if (db_index_exists($table, $index_name)) {
+        db_drop_index($table, $index_name);
+      }
+    }
+  }
 
-  db_change_field('votingapi_cache', 'content_type', 'entity_type', array('type' => 'varchar', 'length' => 64));
-  db_change_field('votingapi_cache', 'content_id', 'entity_id', array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0));
+  // Change fields
+  foreach (array('votingapi_vote', 'votingapi_cache') as $table) {
+    db_change_field($table, 'content_type', 'entity_type', array('type' => 'varchar', 'length' => 64, 'not null' => TRUE, 'default' => 'node'));
+    db_change_field($table, 'content_id', 'entity_id', array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0));
+    db_change_field($table, 'value_type', 'value_type', array('type' => 'varchar', 'length' => 64, 'not null' => TRUE, 'default' => 'percent'));
+    db_change_field($table, 'tag', 'tag', array('type' => 'varchar', 'length' => 64, 'not null' => TRUE, 'default' => 'vote'));
+  }
+
+  // Recreate the indexes.
+  foreach ($index as $table => $data) {
+    foreach ($data as $index_name => $columns) {
+      db_add_index($table, $index_name, $columns);
+    }
+  }
 
   return t('Updated VotingAPI table structure.');
 }
@@ -117,6 +148,7 @@ function votingapi_uninstall() {
   $variables = array(
     'votingapi_last_cron',
     'votingapi_anonymous_window',
+    'votingapi_user_window',
     'votingapi_calculation_schedule',
   );
   foreach ($variables as $variable) {

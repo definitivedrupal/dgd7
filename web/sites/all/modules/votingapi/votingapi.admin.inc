@@ -19,6 +19,14 @@ function votingapi_settings_form($form_state) {
     '#options' => $period
   );
 
+  $form['votingapi_user_window'] = array(
+    '#type' => 'select',
+    '#title' => t('Registered user vote rollover'),
+    '#description' => t('The amount of time that must pass before two registered user votes from the same user ID are considered unique. Setting this to \'never\' will eliminate most double-voting for registered users.'),
+    '#default_value' => variable_get('votingapi_user_window', -1),
+    '#options' => $period
+  );
+
   $form['votingapi_calculation_schedule'] = array(
     '#type' => 'radios',
     '#title' => t('Vote tallying'),
