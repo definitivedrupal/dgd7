@@ -35,7 +35,7 @@ class views_boxes_handler_filter_sort extends views_handler_filter_in_operator {
 
     // Run though each value and grab the sort handler that we already have
     // then reset the sort array on the view
-    // note this method lets us also change the order of the sort if 
+    // note this method lets us also change the order of the sort if
     // it is set correctly on the way in.
     if (!empty($this->value)) {
       $pre_sort = array();

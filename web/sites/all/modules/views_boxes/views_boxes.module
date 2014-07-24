@@ -42,7 +42,7 @@ function views_boxes_view_settings_callback($form, $form_state) {
     'reload' => array(
     '#markup' => t('Please save and edit again to select settings'),
     ),
-  ); 
+  );
   $return['settings'] = $form['options']['settings'];
   return $return;
 }

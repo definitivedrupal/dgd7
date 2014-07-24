@@ -12,7 +12,7 @@ class views_boxes_handler_argument_limit extends views_handler_argument {
 
   /**
    * Override options_form()
-   * 
+   *
    * We are just adding markup to warn that a pager acts after we do.
    */
   function options_form(&$form, &$form_state) {
@@ -46,7 +46,7 @@ class views_boxes_handler_argument_limit extends views_handler_argument {
    */
   function query( $group_by = FALSE ) {
   }
-  
+
   /**
    * Override pre_query()
    *

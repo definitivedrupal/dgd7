@@ -5,7 +5,7 @@
 
 /**
  * Implements hook_views_data().
- * 
+ *
  * Describes the two custom handlers to Views.
  */
 function views_boxes_views_data() {
@@ -27,6 +27,6 @@ function views_boxes_views_data() {
       'handler' => 'views_boxes_handler_filter_sort',
     ),
   );
-  
+
   return $data;
 }

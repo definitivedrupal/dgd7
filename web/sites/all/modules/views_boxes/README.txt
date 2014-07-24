@@ -1,4 +1,4 @@
-Using Views Boxes 
+Using Views Boxes
 --------------------------------------
 
 I. Basic use:
@@ -28,7 +28,7 @@ I. Basic use:
 
 II. Exposed and contextual filters:
 --------------------------------------
-Views Boxes ships with some filters that are particularly useful for 
+Views Boxes ships with some filters that are particularly useful for
 allowing extra levels of control over your view while still storing
 the configuration data in the box itself. We're going to cover the ability
 to curate this list_articles so that we can manually sort the article nodes
@@ -44,7 +44,7 @@ module as it provides some filters that we'll need.
   is that we'll be selecting (Article nodes) to the admin when using the box,
   and to limit the autocomplete fields we'll have to specific entities and
   bundles. By default the autocomplete field will display all nodes, but if
-  we want to restrict it to articles, we'd enter: 
+  we want to restrict it to articles, we'd enter:
   Article nodes [node] {bundles:article} here
 
   [ENTITY_TYPE] will tell the autocomplete which entity type to look up
