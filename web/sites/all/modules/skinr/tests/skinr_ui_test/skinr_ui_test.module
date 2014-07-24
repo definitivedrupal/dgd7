@@ -6,7 +6,7 @@
  */
 
 /**
- * Implementation of hook_views_api().
+ * Implements hook_views_api().
  */
 function skinr_ui_test_views_api() {
   return array('api' => 3);

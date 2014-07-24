@@ -13,12 +13,77 @@
  * Implements hook_menu().
  */
 function skinr_test_menu() {
+  $items['skinr-test/current-theme-default'] = array(
+    'title' => 'Test skinr_current_theme()',
+    'page callback' => 'skinr_test_skinr_current_theme',
+    'access arguments' => array('access content'),
+  );
+  $items['skinr-test/current-theme-callback'] = array(
+    'title' => 'Test skinr_current_theme() with \'theme callback\'',
+    'page callback' => 'skinr_test_skinr_current_theme',
+    'access arguments' => array('access content'),
+    'theme callback' => 'skinr_test_skinr_current_theme_callback',
+  );
+  $items['skinr-test/current-theme-hook-custom-theme'] = array(
+    'title' => 'Test skinr_current_theme() with hook_custom_theme()',
+    'page callback' => 'skinr_test_skinr_current_theme',
+    'access arguments' => array('access content'),
+  );
+  $items['admin/skinr-test/current-theme-admin'] = array(
+    'title' => 'Test skinr_current_theme() for admin theme',
+    'page callback' => 'skinr_test_skinr_current_theme',
+    'access arguments' => array('access content'),
+  );
+  $items['admin/skinr-test/current-theme-admin-exclude'] = array(
+    'title' => 'Test skinr_current_theme() excluding admin theme',
+    'page callback' => 'skinr_test_skinr_current_theme_admin_exclude',
+    'access arguments' => array('access content'),
+  );
   $items['skinr-test/hook-dynamic-loading'] = array(
     'title' => 'Test hook dynamic loading (skinr_hook)',
     'page callback' => 'skinr_test_hook_dynamic_loading',
     'access arguments' => array('access content'),
   );
+  $items['skinr-test/skinr-implements-api'] = array(
+    'title' => 'Test skinr_implements_api()',
+    'page callback' => 'skinr_test_skinr_implements_api',
+    'access arguments' => array('access content'),
+  );
   return $items;
+}
+
+/**
+ * Page callback for default 'skinr_current_theme' test.
+ *
+ * Displays the current theme.
+ */
+function skinr_test_skinr_current_theme() {
+  return 'Current theme is ' . skinr_current_theme() . '.';
+}
+
+/**
+ * Theme callback for skinr-test/current-theme-hook-custom-theme.
+ */
+function skinr_test_skinr_current_theme_callback() {
+  return 'garland';
+}
+
+/**
+ * Implements hook_custom_theme().
+ */
+function skinr_test_custom_theme() {
+  if (current_path() == 'skinr-test/current-theme-hook-custom-theme') {
+    return 'garland';
+  }
+}
+
+/**
+ * Page callback for 'skinr_current_theme' test.
+ *
+ * Displays the current theme.
+ */
+function skinr_test_skinr_current_theme_admin_exclude() {
+  return 'Current theme is ' . skinr_current_theme(TRUE) . '.';
 }
 
 /**
@@ -32,6 +97,21 @@ function skinr_test_hook_dynamic_loading() {
     return 'success!';
   }
   return 'failed!';
+}
+
+/**
+ * Page callback for 'skinr_implements_api' test.
+ *
+ * If the hook is dynamically loaded correctly, the menu callback should
+ * return a list of extensions.
+ */
+function skinr_test_skinr_implements_api() {
+  $extensions = skinr_implements_api();
+  $output = '';
+  foreach ($extensions as $extension_name => $extension) {
+    $output .= $extension_name . '<br />';
+  }
+  return $output;
 }
 
 /**

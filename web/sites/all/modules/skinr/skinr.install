@@ -13,10 +13,16 @@ function skinr_schema() {
     'description' => 'Stores skinr data.',
     'fields' => array(
       'sid' => array(
-        'description' => 'The primary identifier for a skin configuration.',
+        'description' => 'The primary identifier for this skin configuration.',
         'type' => 'serial',
         'unsigned' => TRUE,
         'not null' => TRUE,
+      ),
+      'uuid' => array(
+        'description' => 'Unique Key: Universally unique identifier for this skin configuration.',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => FALSE,
       ),
       'theme' => array(
         'description' => 'The theme this configuration applies to.',
@@ -62,6 +68,9 @@ function skinr_schema() {
       ),
     ),
     'primary key' => array('sid'),
+    'unique keys' => array(
+      'uuid' => array('uuid'),
+    ),
     'indexes' => array(
       'theme' => array('theme'),
       'module' => array('theme', 'module'),
@@ -461,4 +470,39 @@ function _skinr_element_name($module, $element) {
   }
 
   return $element;
+}
+
+/**
+ * Add UUIDs.
+ */
+function skinr_update_7201() {
+  $spec = array(
+    'description' => 'Unique Key: Universally unique identifier for this skin configuration.',
+    'type' => 'varchar',
+    'length' => 128,
+    'not null' => FALSE,
+  );
+  $keys = array(
+    'unique keys' => array(
+      'uuid' => array('uuid'),
+    ),
+  );
+  db_add_field('skinr_skins', 'uuid', $spec, $keys);
+
+  // Include UUID functionality.
+  if (!module_exists('uuid')) {
+    module_load_include('inc', 'skinr', 'skinr.uuid');
+  }
+
+  // Add a UUID to all existing skins.
+  $result = db_query("SELECT sid FROM {skinr_skins}");
+  foreach ($result as $skin) {
+    db_update('skinr_skins')
+      ->fields(array(
+        'uuid' => uuid_generate(),
+      ))
+      ->condition('sid', $skin->sid)
+      ->isNull('uuid')
+      ->execute();
+  }
 }

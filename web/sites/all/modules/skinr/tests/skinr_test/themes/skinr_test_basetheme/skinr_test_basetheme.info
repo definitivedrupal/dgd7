@@ -5,9 +5,9 @@ hidden = TRUE
 
 skinr[api] = 2
 
-; Information added by drupal.org packaging script on 2012-08-24
-version = "7.x-2.0-beta1+4-dev"
+; Information added by Drupal.org packaging script on 2014-07-14
+version = "7.x-2.0"
 core = "7.x"
 project = "skinr"
-datestamp = "1345769543"
+datestamp = "1405335528"
 

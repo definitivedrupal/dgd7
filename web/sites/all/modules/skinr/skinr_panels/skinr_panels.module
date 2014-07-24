@@ -138,11 +138,8 @@ function skinr_panels_set_skin_options($skin = NULL, $reset = FALSE) {
  */
 function skinr_panels_preprocess_page(&$variables) {
   if (module_exists('skinr_context')) {
-    $is_node = isset($variables['node']) && $variables['node']->type == 'panel' && module_exists('panels_node');
-    $is_page = in_array('page__panel', $variables['theme_hook_suggestions']);
-    if ($is_node || $is_page) {
+    if ($skins = skinr_panels_get_skin_options()) {
       $contexts = context_active_contexts();
-      $skins = skinr_panels_get_skin_options(NULL, TRUE);
 
       $search = array_keys($skins);
       $replace = array();
@@ -160,6 +157,8 @@ function skinr_panels_preprocess_page(&$variables) {
         }
       }
 
+      $is_node = isset($variables['node']) && $variables['node']->type == 'panel' && module_exists('panels_node');
+      $is_page = isset($variables['page']);
       if ($is_node) {
         // Panel node page.
         $panel = &$variables['page']['content']['system_main']['nodes'][$variables['node']->nid]['body']['#markup'];

@@ -1,10 +1,59 @@
 Skinr 7.x-2.x, xxxx-xx-xx
 -------------------------
-Issue #1588158 by JurriaanRoelofs: Added CSS so that body element is position: static even when
-  contextual links are used on body element.
+Issue #2007416 by moonray: Improved skinr_preprocess() performance.
+Issue #1311046 by moonray: Fixed custom theme detection for
+    skinr_current_theme().
+Issue #2059029 by moonray | uncommented: Fixed Skinr skins defined in theme
+  disappear after update script is run.
+Issue #2006370 by moonray: Fixed no group assigned to new skins on import after
+  skinr_contextual is already enabled.
+Issue #1330306 by moonray | mrfelton: Updated skinr_panels to use UUIDs. This
+  should fix any previous issues with panels in code as well.
+Issue #2204221 by fubhy | kendouglass: Fixed class is not an array.
+Issue #2253493 by moonray: Fixed Ctools update 7.x-1.4 breaks tests.
+Issue #2175389 by moonray, kendouglass: Fixed passed by reference PHP warnings.
+Issue #1069960 by Grayside, moonray: Use of @mainpage conflicts with API module.
+Issue #2013553 by zipme_hkt, mariomc: Skinr UI add Skin form disabled select box.
+Issue #2006462 by moonray: Add group listing admin page.
+Issue #2006176 by moonray: Break out functions from skinr_ui() and
+  skinr_context_ui() to additional includes for better performance.
+Issue #1653564 by stewart.adam, moonray: Fixed PHP warning "Only variables
+  should be passed by reference".
+Issue #1554044 by mrfelton, moonray: Ensure hook_skinr_preprocess_alter() is
+  always called to allow injecting skin configurations.
+by moonray: Fixed strict warning about passing by reference.
+Issue #984402 by moonray: Re-design Skinr admin UI.
+Issue #744706 by Scott Reynolds, ericduran, moonray: Added features support.
+Issue #1299162 by rooby, moonray: Fixed default value not being passed to custom
+  skin widget form.
+Issue #1209938 by moonray | Hari: Skinr allows CSS classes defined as string
+  rather than array in a skin.
+Issue #943782 by moonray: Updated detection of maintenance mode in
+  skinr_preprocess.
+Issue #1717340 by moonray: Fixed CSS and JS files not included when 'Aggregate
+  and compress CSS files' is enabled.
+Issue #1916534 by kbahey, moonray: Added performance improvements for
+  skinr_preprocess().
+Issue #1980882 by moonray: Fixed skin with custom 'form callback' won't load on
+  form when in $module.skinr.inc.
+Issue #1753486 by JurriaanRoelofs, moonray: Fixed Skinr indiscriminately adds
+  contextual-links class to skinr theme_hook() elements even when no skins are
+  available.
+Issue #1945480 by rooby: Split the getting of the skinr ui edit form defaults
+  out into their own function.
+Issue #1160924 by mrfelton: Changed panels warning to use watchdog instead of
+  drupal_set_message.
+Issue #1783412 by varshith: Fixed Undefined variable theme_hooks() warning
+  message when adding a skin for a region(under skin type system).
+Issue #1588158 by JurriaanRoelofs: Added CSS so that body element is
+  position: static even when contextual links are used on body element.
 Issue #1547250 by moonray: Fixed skins on Panels never appear when Skinr Context
   module is enabled.
 Issue #1549536 by moonray: Fixed "require all conditions" option not being saved.
+
+
+Skinr 7.x-2.0-beta1, 2010-04-20
+-------------------------------
 Issue #954710 by arosboro, moonray | Anticosti: Added a more descriptive title
   for each setting on admin/structure/skinr.
 #1342698 by moonray: Fixed notice in _skinr_add_path_to_files when attached CSS

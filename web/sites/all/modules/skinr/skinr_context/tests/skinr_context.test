@@ -13,7 +13,7 @@ class SkinrContextApiTestCase extends SkinrWebTestCase {
 
   public static function getInfo() {
     return array(
-      'name' => 'Context',
+      'name' => 'Context - API',
       'description' => 'Tests Skinr Context API functionality.',
       'dependencies' => array('ctools', 'context'),
       'group' => 'Skinr',
@@ -25,82 +25,11 @@ class SkinrContextApiTestCase extends SkinrWebTestCase {
   }
 
   /**
-   * Test skinr_skin_save() against invalid entries.
-   */
-  public function testSkinrContextGroupLoadSave() {
-    // @todo Validation for groups.
-
-    // Only save valid groups.
-    $group = (object) array(
-      'module' => 'block',
-      'element' => 'system__user-menu',
-      'title' => 'Default',
-      'description' => '',
-      'conditions' => array('sitewide' => array('values' => array(1 => 1))),
-      'condition_mode' => CONTEXT_CONDITION_MODE_OR,
-      'weight' => 0,
-      'status' => 1,
-    );
-    $this->assertTrue(skinr_context_group_save($group), 'Skin settings group object saved.');
-    $this->assertTrue(isset($group->gid), 'Gid was added to skin settings group object.');
-
-    // Test loading a group.
-    $loaded_group = skinr_context_group_load($group->gid);
-    $this->assertTrue(is_array($loaded_group->conditions), 'Conditions for skin settings group object unserialized.');
-
-    $this->assertTrue($loaded_group->module == $group->module && $loaded_group->element == $group->element && $loaded_group->title == $group->title && $loaded_group->description == $group->description && $loaded_group->condition_mode == $group->condition_mode && $loaded_group->weight == $group->weight && $loaded_group->status == $group->status && isset($loaded_group->conditions['sitewide']) && isset($loaded_group->conditions['sitewide']['values']) && $loaded_group->conditions['sitewide']['values'][1] == $group->conditions['sitewide']['values'][1], 'Skin settings group object loaded properly.');
-
-    // Save a second group.
-    $second_group = (object) array(
-      'module' => 'block',
-      'element' => 'system__main-menu',
-      'title' => 'Default',
-      'description' => '',
-      'conditions' => array('sitewide' => array('values' => array(1 => 1))),
-      'condition_mode' => CONTEXT_CONDITION_MODE_OR,
-      'weight' => 0,
-      'status' => 1,
-    );
-    skinr_context_group_save($second_group);
-
-    // Test loading multiple groups.
-    $groups = skinr_context_group_load_multiple(array($group->gid, $second_group->gid));
-    $this->assertTrue(count($groups) == 2 && isset($groups[$group->gid]->gid) && isset($groups[$second_group->gid]->gid), 'Successfully loaded multiple skin settings groups.');
-
-    // Test loading all skin settings.
-    drupal_static_reset('skinr_context_group_load_multiple');
-    $groups = skinr_context_group_load_multiple(FALSE);
-    $this->assertTrue(count($groups) == 2 && isset($groups[$group->gid]->gid) && isset($groups[$second_group->gid]->gid), 'Successfully loaded all skin settings groups.');
-
-    // Test deleting groups.
-    $third_group = (object) array(
-      'module' => 'block',
-      'element' => 'system__main-menu',
-      'title' => 'Alternate',
-      'description' => '',
-      'conditions' => array('sitewide' => array('values' => array(1 => 1))),
-      'condition_mode' => CONTEXT_CONDITION_MODE_OR,
-      'weight' => 0,
-      'status' => 1,
-    );
-    $this->assertTrue(skinr_context_group_save($third_group), 'Skin settings group object saved.');
-
-    // Delete a single group.
-    $gid = $third_group->gid;
-    skinr_context_group_delete($gid);
-    $this->assertFalse(skinr_context_group_load($gid), 'Successfully deleted a skin settings group.');
-
-    // Delete multiple groups.
-    skinr_context_group_delete_multiple(array($group->gid, $second_group->gid));
-    $groups = skinr_context_group_load_multiple(FALSE);
-    $this->assertTrue(count($groups) == 0, 'Successfully deleted multiple skin settings groups.');
-  }
-
-  /**
    * Test hook invocations for CRUD operations on skin settings groups.
    */
   public function testSkinrContextGroupHooks() {
     $group = (object) array(
+      'gid' => 'block:system__user-menu:default',
       'module' => 'block',
       'element' => 'system__user-menu',
       'title' => 'Default',
@@ -140,6 +69,199 @@ class SkinrContextApiTestCase extends SkinrWebTestCase {
 
     $this->assertHookMessage('skinr_context_test_skinr_context_group_delete called');
   }
+
+  /**
+   * Test skinr_skin_save() against invalid entries.
+   */
+  public function testSkinrContextGroupLoadSave() {
+    // @todo Validation for groups.
+
+    // Only save valid groups.
+    $group = (object) array(
+      'gid' => 'block:system__user-menu:default',
+      'module' => 'block',
+      'element' => 'system__user-menu',
+      'title' => 'Default',
+      'description' => '',
+      'conditions' => array('sitewide' => array('values' => array(1 => 1))),
+      'condition_mode' => CONTEXT_CONDITION_MODE_OR,
+      'weight' => 0,
+      'status' => 1,
+    );
+    $this->assertTrue(skinr_context_group_save($group), 'Skin settings group object saved.');
+    $this->assertTrue(isset($group->gid), 'Gid added to skin settings group object.');
+
+    // Test loading a group.
+    $loaded_group = skinr_context_group_load($group->gid);
+    $this->assertTrue(is_array($loaded_group->conditions), 'Conditions for skin settings group object unserialized.');
+
+    $this->assertTrue($loaded_group->gid == $group->gid && $loaded_group->module == $group->module && $loaded_group->element == $group->element && $loaded_group->title == $group->title && $loaded_group->description == $group->description && $loaded_group->condition_mode == $group->condition_mode && $loaded_group->weight == $group->weight && $loaded_group->status == $group->status && isset($loaded_group->conditions['sitewide']) && isset($loaded_group->conditions['sitewide']['values']) && $loaded_group->conditions['sitewide']['values'][1] == $group->conditions['sitewide']['values'][1], 'Skin settings group object loaded properly.');
+
+    // Save a second group.
+    $second_group = (object) array(
+      'gid' => 'block:system__main-menu:default',
+      'module' => 'block',
+      'element' => 'system__main-menu',
+      'title' => 'Default',
+      'description' => '',
+      'conditions' => array('sitewide' => array('values' => array(1 => 1))),
+      'condition_mode' => CONTEXT_CONDITION_MODE_OR,
+      'weight' => 0,
+      'status' => 1,
+    );
+    skinr_context_group_save($second_group);
+
+    // Test loading multiple groups.
+    $groups = skinr_context_group_load_multiple(array($group->gid, $second_group->gid));
+    $this->assertTrue(count($groups) == 2 && isset($groups[$group->gid]->gid) && isset($groups[$second_group->gid]->gid), 'Successfully loaded multiple skin settings groups.');
+
+    // Test loading all skin settings groups.
+    drupal_static_reset('skinr_context_group_load_multiple');
+    $groups = skinr_context_group_load_multiple(FALSE);
+    $this->assertTrue(count($groups) == 2 && isset($groups[$group->gid]->gid) && isset($groups[$second_group->gid]->gid), 'Successfully loaded all skin settings groups.');
+
+    // Test deleting groups.
+    $third_group = (object) array(
+      'gid' => 'block:system__main-menu:alternate',
+      'module' => 'block',
+      'element' => 'system__main-menu',
+      'title' => 'Alternate',
+      'description' => '',
+      'conditions' => array('sitewide' => array('values' => array(1 => 1))),
+      'condition_mode' => CONTEXT_CONDITION_MODE_OR,
+      'weight' => 0,
+      'status' => 1,
+    );
+    $this->assertTrue(skinr_context_group_save($third_group), 'Skin settings group object saved.');
+
+    // Delete a single group.
+    $gid = $third_group->gid;
+    skinr_context_group_delete($gid);
+    $this->assertFalse(skinr_context_group_load($gid), 'Successfully deleted a skin settings group.');
+
+    // Delete multiple groups.
+    skinr_context_group_delete_multiple(array($group->gid, $second_group->gid));
+    $groups = skinr_context_group_load_multiple(FALSE);
+    $this->assertTrue(count($groups) == 0, 'Successfully deleted multiple skin settings groups.');
+  }
+
+  /**
+   * Test default skin configurations (in code) with duplicates.
+   */
+  public function testSkinrContextGroupDefaultsDuplicates() {
+    $gid = 'block:system__user-menu:default';
+
+    module_enable(array('skinr_context_test_default'));
+    $default_groups = _skinr_context_group_get_defaults();
+    $this->verbose(highlight_string('<?php ' . print_r($default_groups, TRUE), TRUE));
+
+    // Clear caches.
+    drupal_static_reset('_skinr_context_group_get_defaults');
+
+    module_enable(array('skinr_context_test_default_duplicate'));
+    $default_groups = _skinr_context_group_get_defaults();
+    $this->verbose(highlight_string('<?php ' . print_r($default_groups, TRUE), TRUE));
+
+    $this->assertFalse(is_array($default_groups[$gid]), 'Default skin configuration group replaced its duplicate.');
+
+    // Clean up.
+    module_disable(array('skinr_context_test_default_duplicate'));
+    drupal_static_reset('_skinr_context_group_get_defaults');
+  }
+
+  /**
+   * Test default skin settings groups (in code).
+   */
+  public function testSkinrContextGroupDefaults() {
+    $gid = 'block:system__user-menu:default';
+    $uuid = '501ff0c3-db03-0944-9910-3a788f38097a';
+
+    // Default skin configuration object should not exist yet.
+    $this->assertFalse(skinr_context_group_load($gid), 'Default skin settings group does not exist.');
+
+    module_enable(array('skinr_context_test_default'));
+
+    // Test loading raw defaults.
+    $default_groups = _skinr_context_group_get_defaults();
+
+    // Skin configuration object provided via hook_skinr_context_group_defaults()
+    // in skinr_context_test_default.skinr_default.inc.
+    $this->assertTrue(isset($default_groups[$gid]), 'Skin settings group in skinr_context_test_default.skinr_default.inc found.');
+    unset($default_groups[$gid]);
+
+    // After asserting all expected, the list of default skins should be empty.
+    $this->assertTrue(empty($default_groups), t('No unexpected settings groups found: <pre>@data</pre>', array(
+      '@data' => var_export($default_groups, TRUE),
+    )));
+
+    // Load a default skin settings group object.
+    $group = skinr_context_group_load($gid);
+    $this->assertTrue($group && $group->gid == $gid, 'Successfully loaded default skin settings group.');
+
+    // Test storage indicator.
+    $this->assertTrue(skinr_context_group_storage($group) == SKINR_STORAGE_IN_CODE, 'Storage indicator indicates stored in code.');
+
+    // Test that skin configuration has valid gid. If load order is wrong, it
+    // will be missing.
+    $default_skin = skinr_skin_load_by_uuid('501ff0c3-db03-0944-9910-3a788f38097a');
+    $this->verbose(highlight_string(print_r($default_skin, TRUE), TRUE));
+    $this->assertTrue($default_skin->gid == $group->gid, 'Valid GID found for default skin configuration.');
+
+    // Overridden status should not change storage indicator.
+    $group->status = 0;
+    skinr_context_group_save($group);
+    $this->assertTrue(skinr_context_group_storage($group) == SKINR_STORAGE_IN_CODE, 'Storage indicator indicates stored in code.');
+
+    // Override a default skin configuration object.
+    $group->status = 1;
+    $group->conditions['sitewide']['values'] = array(0 => 0);
+    skinr_context_group_save($group);
+
+    // Test storage indicator.
+    $this->assertTrue(skinr_context_group_storage($group) == SKINR_STORAGE_IN_CODE_OVERRIDDEN, 'Storage indicator indicates stored in code, but overridden in database.');
+
+    // Revert a default skin settings group object.
+    $this->assertTrue(skinr_context_group_revert($group->gid), 'Successfully reverted skin settings group to default.');
+    // Refresh skin settings group data.
+    $group = skinr_context_group_load($gid);
+
+    // Test storage indicator.
+    $this->assertTrue(skinr_context_group_storage($group) == SKINR_STORAGE_IN_CODE, 'Storage indicator indicates stored in code.');
+
+    // Test re-enabling module containing defaults; re-importing an existing
+    // skin configuration.
+
+    // Override default skin settings group.
+    $group->conditions['sitewide']['values'] = array(0 => 0);
+    skinr_context_group_save($group);
+
+    // Disable, then re-enable module containing defaults.
+    module_disable(array('skinr_context_test_default'));
+    module_enable(array('skinr_context_test_default'));
+
+    // Refresh skin settings group data.
+    $group = skinr_context_group_load($gid);
+
+    // Test storage indicator.
+    $this->assertTrue(skinr_context_group_storage($group) == SKINR_STORAGE_IN_CODE_OVERRIDDEN, 'After enabling module containing already existing default skin configuration, storage indicator indicates stored in code, but overridden in database.');
+
+    // Now test forced import.
+    $default_groups = _skinr_context_group_get_defaults();
+    $default_group = $default_groups[$gid];
+    $this->assertTrue(skinr_context_group_import($default_group, TRUE), 'Successfully forced import of existing skin settings group.');
+
+    // Refresh skin settings group data.
+    $group = skinr_context_group_load($gid);
+
+    // Test storage indicator.
+    $this->assertTrue(skinr_context_group_storage($group) == SKINR_STORAGE_IN_CODE, 'After forcing import of existing default skin settings group, storage indicator indicates stored in code again.');
+
+    // Test creation of default skin settings group when a default skin doesn't
+    // include one.
+    $groupless_skin = skinr_skin_load_by_uuid('20cc8380-d1d5-11e3-9c1a-0800200c9a66');
+    $this->verbose(highlight_string(print_r($groupless_skin, TRUE), TRUE));
+    $this->assertTrue($groupless_skin->gid == 'block:system__help:default', 'Valid GID found for default skin configuration without gid.');
+  }
 }
 
 /**
@@ -152,7 +274,7 @@ class SkinrContextDisplayTestCase extends SkinrWebTestCase {
 
   public static function getInfo() {
     return array(
-      'name' => 'Context Display',
+      'name' => 'Context - Display',
       'description' => 'Tests if applied skins appear on the front-end.',
       'dependencies' => array('ctools', 'context'),
       'group' => 'Skinr',
@@ -203,6 +325,7 @@ class SkinrContextDisplayTestCase extends SkinrWebTestCase {
   public function testSkinrContextDisplayed() {
     // Save a group.
     $group = (object) array(
+      'gid' => 'block:system__main:default',
       'module' => 'block',
       'element' => 'system__main',
       'title' => 'Default',

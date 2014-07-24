@@ -1,6 +1,6 @@
 <?php
 
-$page = new stdClass;
+$page = new stdClass();
 $page->disabled = FALSE; /* Edit this to true to make a default page disabled initially */
 $page->api_version = 1;
 $page->name = 'skinr_panels_test';
@@ -15,7 +15,7 @@ $page->conf = array(
   'admin_paths' => FALSE,
 );
 $page->default_handlers = array();
-$handler = new stdClass;
+$handler = new stdClass();
 $handler->disabled = FALSE; /* Edit this to true to make a default handler disabled initially */
 $handler->api_version = 1;
 $handler->name = 'page_skinr_panels_test_panel_context';
@@ -32,7 +32,7 @@ $handler->conf = array(
   'contexts' => array(),
   'relationships' => array(),
 );
-$display = new panels_display;
+$display = new panels_display();
 $display->layout = 'onecol';
 $display->layout_settings = array();
 $display->panel_settings = array(
@@ -43,10 +43,11 @@ $display->panel_settings = array(
 );
 $display->cache = array();
 $display->title = 'Panels test page';
+$display->uuid = 'f07983c9-bab9-4cac-9a6e-b1001c5566fe';
 $display->content = array();
 $display->panels = array();
-  $pane = new stdClass;
-  $pane->pid = 'new-1';
+  $pane = new stdClass();
+  $pane->pid = 'new-295dc791-d2a3-4f67-82e4-77c0b5ad671f';
   $pane->panel = 'middle';
   $pane->type = 'block';
   $pane->subtype = 'system-user-menu';
@@ -63,9 +64,11 @@ $display->panels = array();
   $pane->css = array();
   $pane->extras = array();
   $pane->position = 0;
-  $display->content['new-1'] = $pane;
-  $display->panels['middle'][0] = 'new-1';
+  $pane->locks = '';
+  $pane->uuid = '295dc791-d2a3-4f67-82e4-77c0b5ad671f';
+  $display->content['new-295dc791-d2a3-4f67-82e4-77c0b5ad671f'] = $pane;
+  $display->panels['middle'][0] = 'new-295dc791-d2a3-4f67-82e4-77c0b5ad671f';
 $display->hide_title = PANELS_TITLE_FIXED;
-$display->title_pane = 'new-1';
+$display->title_pane = 'new-295dc791-d2a3-4f67-82e4-77c0b5ad671f';
 $handler->conf['display'] = $display;
 $page->default_handlers[$handler->name] = $handler;

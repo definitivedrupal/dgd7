@@ -47,5 +47,18 @@ function skinr_test_skinr_skin_info() {
       ),
     ),
   );
+  $skins['skinr_test_invalid_class'] = array(
+    'title' => t('Invalid'),
+    'type' => 'checkboxes',
+    'group' => 'general',
+    'theme hooks' => array('block'),
+    'default status' => 1,
+    'options' => array(
+      'invalid_class' => array(
+        'title' => 'Nothing',
+        'class' => 'invalid-class',
+      ),
+    ),
+  );
   return $skins;
 }

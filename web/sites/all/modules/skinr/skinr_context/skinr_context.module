@@ -1,9 +1,56 @@
 <?php
 
 /**
+ * Implements hook_hook_info().
+ */
+function skinr_context_hook_info() {
+  $hooks['skinr_context_group_defaults'] = array(
+    'group' => 'skinr_default',
+  );
+  return $hooks;
+}
+
+/**
+ * Implements hook_module_implements_alter().
+ */
+function skinr_context_module_implements_alter(&$implementations, $hook) {
+  if ($hook == 'modules_enabled') {
+    // Make our version of hook_modules_enabled() happen before that of
+    // skinr core. This way skin settings groups are imported before skin
+    // configurations.
+    $group = $implementations['skinr_context'];
+    unset($implementations['skinr_context']);
+
+    $implementations = array_reverse($implementations, TRUE);
+    $implementations['skinr_context'] = $group;
+    $implementations = array_reverse($implementations, TRUE);
+  }
+}
+
+/**
  * @file
  * Provides Skinr integration with Context.
  */
+
+/**
+ * Validate a skin group object.
+ *
+ * @param $group
+ *   A skin group object.
+ *
+ * @return
+ *   TRUE on success, FALSE on failure.
+ */
+function skinr_context_group_validate(&$group) {
+  if (empty($group->gid) || empty($group->module) || empty($group->element) || empty($group->title)) {
+    return FALSE;
+  }
+  if (!isset($group->conditions) || !is_array($group->conditions)) {
+    return FALSE;
+  }
+
+  return TRUE;
+}
 
 /**
  * Save a skin group object.
@@ -15,18 +62,32 @@
  *   TRUE on success, FALSE on failure.
  */
 function skinr_context_group_save(&$group) {
+  // Make sure we're getting valid data.
+  if (!skinr_context_group_validate($group)) {
+    return FALSE;
+  }
+
   // Load the stored skin settings group object, if any.
-  if (!empty($group->gid)) {
-    if (!isset($group->original)) {
-      // Load an uncached version of the skin settings object.
-      $group->original = skinr_context_group_load_unchanged($group->gid);
+  if (!isset($group->original)) {
+    // Load an uncached version of the skin settings object.
+    if (!$group->original = skinr_context_group_load_unchanged($group->gid)) {
+      unset($group->original);
     }
   }
 
   // Let modules modify the node before it is saved to the database.
   module_invoke_all('skinr_context_group_presave', $group);
 
-  if (!empty($group->gid)) {
+  // Clear the static loading cache. We do it ahead of saving to ensure
+  // skinr_context_skinr_skin_presave(), invoked through skinr_skin_save(),
+  // loads an updated $group.
+  // @todo Once we have a more granular reset for skinr_skin_load_multiple(), we
+  //   need to use it here.
+  drupal_static_reset('skinr_context_group_load_multiple');
+  // Clear context's cache.
+  context_invalidate_cache();
+
+  if (!empty($group->original)) {
     // Record exists, so let's update.
     $status = drupal_write_record('skinr_groups', $group, 'gid');
 
@@ -34,11 +95,16 @@ function skinr_context_group_save(&$group) {
     if ($group->status != $group->original->status) {
       $params = array(
         'gid' => $group->gid,
+        'status' => $group->status ? 0 : 1,
       );
+      // Update status of linked skin configurations.
       $sids = skinr_context_group_get_sids($params);
       foreach ($sids as $sid) {
+        $skin = skinr_skin_load_unchanged($sid);
+        $skin->original = clone($skin);
+        $skin->status = $group->status;
+        skinr_skin_save($skin);
       }
-      // @todo
     }
 
     module_invoke_all('skinr_context_group_update', $group);
@@ -51,12 +117,6 @@ function skinr_context_group_save(&$group) {
 
   // Clear internal properties.
   unset($group->original);
-  // Clear the static loading cache.
-  // @todo Once we have a more granular reset for skinr_skin_load_multiple(), we
-  //   need to use it here.
-  drupal_static_reset('skinr_context_group_load_multiple');
-  // Clear context's cache.
-  context_invalidate_cache();
 
   return $status;
 }
@@ -164,7 +224,8 @@ function skinr_context_group_load_multiple($gids = array()) {
   if ($gids === FALSE || $gids) {
     // Build the query.
     $query = db_select('skinr_groups', 'g')
-      ->fields('g');
+      // Specify order to ensure consistent import/export.
+      ->fields('g', array('gid', 'module', 'element', 'title', 'description', 'conditions', 'condition_mode', 'weight', 'status'));
     if ($gids !== FALSE) {
       $query->condition('gid', $gids);
     }
@@ -208,19 +269,213 @@ function skinr_context_group_load_multiple($gids = array()) {
  *   A fully-populated skin settings group object.
  */
 function skinr_context_group_load_unchanged($gid) {
-  // Load an uncached version of the skin settings object.
-  $group = db_query("SELECT * FROM {skinr_groups} WHERE gid = :gid", array(
+  // Load an uncached version of the skin settings object. Specify order to
+  // ensure consistent import/export.
+  $group = db_query("SELECT gid, module, element, title, description, conditions, condition_mode, weight, status FROM {skinr_groups} WHERE gid = :gid", array(
     ':gid' => $gid,
   ))
   ->fetchObject();
 
   // Unserialize options array.
-  $group->conditions = unserialize($group->conditions);
+  if ($group) {
+    $group->conditions = unserialize($group->conditions);
 
-  // Let modules modify the skin settings group.
-  module_invoke_all('skinr_context_group_load', $group);
+    // Let modules modify the skin settings group.
+    module_invoke_all('skinr_context_group_load', $group);
+  }
 
   return $group;
+}
+
+/**
+ * Returns all default skin settings group objects.
+ */
+function _skinr_context_group_get_defaults() {
+  $default_groups = &drupal_static(__FUNCTION__);
+
+  if (!isset($default_groups)) {
+    if ($cached = cache_get('skinr_context_group_defaults')) {
+      $default_skins = $cached->data;
+      return $default_skins;
+    }
+
+    // Don't use module_invoke_all() to prevent oddly merged defaults.
+    $default_groups = array();
+    foreach (module_implements('skinr_context_group_defaults') as $module) {
+      $function = $module . '_skinr_context_group_defaults';
+      if (function_exists($function)) {
+        $result = call_user_func_array($function, array());
+        if (isset($result) && is_array($result)) {
+          $default_groups = array_merge($default_groups, $result);
+        }
+        elseif (isset($result)) {
+          $default_groups[] = $result;
+        }
+      }
+    }
+
+    // Let modules modify the skin settings group.
+    drupal_alter('skinr_context_group_defaults', $default_groups);
+
+    cache_set('skinr_context_group_defaults', $default_groups);
+  }
+
+  return $default_groups;
+}
+
+/**
+ * Imports default skin settings group objects from code into database.
+ *
+ * @param $module_name
+ *   Limit importing of defaults to a single module.
+ * @param $force
+ *   If FALSE (default) the default skin settings group will only be imported if
+ *   it doesn't exist, or if storage is default in code. If TRUE, the skin
+ *   settings group in code will always be overwritten.
+ *
+ * @return
+ *  If an import failed, returns FALSE. If all imports succeeded, returns TRUE.
+ */
+function skinr_context_group_defaults_import($module_name = NULL, $force = FALSE) {
+  if (isset($module_name)) {
+    if (!$default_groups = module_invoke($module_name, 'skinr_context_group_defaults')) {
+      $default_groups = array();
+    }
+    drupal_alter('skinr_context_group_defaults', $default_groups);
+  }
+  else {
+    $default_groups = _skinr_context_group_get_defaults();
+  }
+
+  $status = TRUE;
+  foreach ($default_groups as $group) {
+    $status = skinr_context_group_import($group, $force) && $status;
+  }
+
+  return $status;
+}
+
+/**
+ * Revert a skin settings group object that's stored in code to its default state.
+ *
+ * @param $gid
+ *   The skin settings group ID.
+ */
+function skinr_context_group_revert($gid) {
+  $default_groups = _skinr_context_group_get_defaults();
+  if (!isset($default_groups[$gid])) {
+    return FALSE;
+  }
+
+  return skinr_context_group_import($default_groups[$gid], TRUE);
+}
+
+/**
+ * Import a skin settigns group object as defined in skinr_context_group_defaults().
+ *
+ * @param $default_group
+ *   A skin settings group object.
+ * @param $force
+ *   If FALSE (default) the default skin settings group will only be imported if
+ *   it doesn't exist, or if storage is default in code. If TRUE, the skin
+ *   settings group in code will always be overwritten.
+ *
+ * @return
+ *  If import failed, returns FALSE. If it succeeded, returns TRUE.
+ */
+function skinr_context_group_import($default_group, $force = FALSE) {
+  // Make sure we don't modify the cached default group array.
+  $group = clone($default_group);
+
+  // Functionality is abstracted for use in skinr_context_group_storage().
+  _skinr_context_group_import($group);
+
+  if (!$force) {
+    // Load existing skin configuration from DB.
+    if ($db_group = skinr_context_group_load_unchanged($group->gid)) {
+      // Sync status.
+      $group->status = $db_group->status;
+
+      if ($group != $db_group) {
+        // Group exists and is overridden, so cancel import.
+        watchdog('skinr', 'Canceled import of group with ID %gid. It is overridden.', array('%gid' => $group->gid), WATCHDOG_WARNING);
+        return FALSE;
+      }
+    }
+  }
+
+  if ($status = skinr_context_group_save($group)) {
+    watchdog('skinr', 'Imported group with ID %gid.', array('%gid' => $group->gid), WATCHDOG_NOTICE);
+  }
+  else {
+    watchdog('skinr', 'Failed to import group with ID %gid.', array('%gid' => $group->gid), WATCHDOG_WARNING);
+  }
+  return $status;
+}
+
+function _skinr_context_group_import(&$group) {
+  // Let modules modify the skin settings group.
+  drupal_alter('skinr_context_group_import', $group);
+}
+
+/**
+ * Output a settings group object as code suitable for skinr_context_group_defaults().
+ *
+ * @param $group
+ *   A skin settings group object.
+ * @param $prefix
+ *   A string to prefix the code with, used to indent the resulting code.
+ *
+ * @return
+ *   A string.
+ */
+function skinr_context_group_export($group, $prefix = '') {
+  // Make sure we don't modify the cached group object.
+  $group = clone($group);
+
+  // Let modules modify the skin settings group.
+  drupal_alter('skinr_context_group_export', $group, $prefix);
+
+  $output = skinr_object_export($group, 'group', $prefix);
+  $output .= $prefix . "\$groups['{$group->gid}'] = \$group;\n";
+
+  return $output;
+}
+
+/**
+ * Returns a skin settings group's storage method.
+ *
+ * @param $skin
+ *   A skin settings group.
+ *
+ * @return
+ *   SKINR_STORAGE_IN_DATABASE if stored in the database,
+ *   SKINR_STORAGE_IN_CODE if stored in code,
+ *   SKINR_STORAGE_IN_CODE_OVERRIDDEN if stored in code and overridden in db.
+ */
+function skinr_context_group_storage($group) {
+  $default_groups = _skinr_context_group_get_defaults();
+
+  $storage = SKINR_STORAGE_IN_DATABASE;
+  if (isset($default_groups[$group->gid])) {
+    $default_group = clone($default_groups[$group->gid]);
+
+    // Make sure group has same processing as import.
+    _skinr_context_group_import($default_group);
+
+    // API version is only used for export.
+    unset($default_group->api_version);
+
+    // Status shouldn't influence overridden.
+    $default_group->status = $group->status;
+
+    $storage = SKINR_STORAGE_IN_CODE;
+    if ($default_group != $group) {
+      // Default was overridden.
+      $storage = SKINR_STORAGE_IN_CODE_OVERRIDDEN;
+    }
+  }
+  return $storage;
 }
 
 /**
@@ -390,6 +645,50 @@ function skinr_context_skinr_skin_load($skin) {
 }
 
 /**
+ * Implements hook_skinr_skin_defaults_alter().
+ */
+function skinr_context_skinr_skin_defaults_alter(&$default_skins) {
+  foreach ($default_skins as &$skin) {
+    if (!isset($skin->gid)) {
+      _skinr_context_add_default_group($skin);
+    }
+  }
+}
+
+/**
+ * Helper function to add a new default group to a skin configuration.
+ */
+function _skinr_context_add_default_group(&$skin) {
+  // Lookup existing group. Grab the one with the lowest weight for this set.
+  $params = array(
+    'module' => $skin->module,
+    'element' => $skin->element,
+  );
+  $gids = skinr_context_group_get_gids($params);
+  $gid = reset($gids);
+  if (!$gid) {
+    // Create a group.
+    $title = t('Default');
+    $group = (object) array(
+      'gid' => $skin->module . ':' . $skin->element . ':' . strtolower($title),
+      'module' => $skin->module,
+      'element' => $skin->element,
+      'title' => $title,
+      'description' => '',
+      'conditions' => array('sitewide' => array('values' => array(1 => 1))),
+      'condition_mode' => CONTEXT_CONDITION_MODE_OR,
+      'weight' => 0,
+      'status' => 1,
+    );
+    skinr_context_group_save($group);
+    $gid = $group->gid;
+  }
+  $skin->gid = $gid;
+  // Simulate insert to ensure group is linked.
+  //skinr_context_skinr_skin_insert($skin);
+}
+
+/**
  * Function used by uasort to sort classes by weight.
  *
  * @see skinr_context_skinr_preprocess_alter()
@@ -421,4 +720,13 @@ function skinr_context_skinr_preprocess_alter(&$skins, $context) {
   }
   // Reorder by weight.
   uasort($skins, 'skinr_context_sort_weight');
+}
+
+/**
+ * Implements hook_modules_enabled().
+ */
+function skinr_context_modules_enabled($modules) {
+  foreach ($modules as $module) {
+    skinr_context_group_defaults_import($module);
+  }
 }

@@ -1,0 +1,69 @@
+<?php
+
+/**
+ * @file
+ * Contains install, update, and uninstall functions for Skinr Panels.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function skinr_panels_install() {
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function skinr_panels_uninstall() {
+}
+
+/**
+ * Updates Skinr elements for Panels to use UUID.
+ */
+function skinr_panels_update_7200() {
+  if (!db_field_exists('panels_pane', 'uuid')) {
+    throw new DrupalUpdateException(t("Panels module doesn't support UUID. You must update to a more recent version of the panels module."));
+  }
+
+  $table = 'skinr_skins';
+  $result = db_query("SELECT * FROM {" . $table . "} WHERE module = 'panels'");
+  foreach ($result as $skin) {
+    list($hook, $did, $pid) = array_pad(explode('__', $skin->element), 3, NULL);
+    if ($hook == 'pane' && !is_null($pid)) {
+      $uuid = db_query("SELECT uuid FROM {panels_pane} WHERE did = :did AND pid = :pid", array(
+        ':did' => $did,
+        ':pid' => $pid,
+      ))->fetchField();
+      if ($uuid) {
+        db_update($table)
+          ->fields(array(
+            'element' => 'pane__' . $uuid,
+          ))
+          ->condition('sid', $skin->sid)
+          ->execute();
+      }
+    }
+  }
+
+  $table = 'skinr_groups';
+  if (db_table_exists($table)) {
+    $result = db_query("SELECT * FROM {" . $table . "} WHERE module = 'panels'");
+    foreach ($result as $group) {
+      list($hook, $did, $pid) = array_pad(explode('__', $group->element), 3, NULL);
+      if ($hook == 'pane' && !is_null($pid)) {
+        $uuid = db_query("SELECT uuid FROM {panels_pane} WHERE did = :did AND pid = :pid", array(
+          ':did' => $did,
+          ':pid' => $pid,
+        ))->fetchField();
+        if ($uuid) {
+          db_update($table)
+            ->fields(array(
+              'element' => 'pane__' . $uuid,
+            ))
+            ->condition('gid', $group->gid)
+            ->execute();
+        }
+      }
+    }
+  }
+}

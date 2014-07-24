@@ -11,6 +11,13 @@
 define('SKINR_VERSION', 2);
 
 /**
+ * A flag used to let us know if an object is in the database.
+ */
+define('SKINR_STORAGE_IN_DATABASE', 0);
+define('SKINR_STORAGE_IN_CODE', 1);
+define('SKINR_STORAGE_IN_CODE_OVERRIDDEN', 2);
+
+/**
  * Implements hook_help().
  */
 function skinr_help($path, $arg) {
@@ -43,6 +50,10 @@ function skinr_hook_info() {
   $hooks = array_fill_keys($hooks, array(
     'group' => 'skinr',
   ));
+
+  $hooks['skinr_skin_defaults'] = array(
+    'group' => 'skinr_default',
+  );
   return $hooks;
 }
 
@@ -62,54 +73,83 @@ function skinr_cache_reset() {
  */
 function skinr_preprocess(&$variables, $hook) {
   // Fix for update script.
-  if ($hook == 'maintenance_page') {
+  if (defined('MAINTENANCE_MODE')) {
     return;
   }
 
-  $current_theme = skinr_current_theme();
-  $skin_info = skinr_get_skin_info();
+  $data = &drupal_static(__FUNCTION__);
 
-  $theme_registry = theme_get_registry();
-  $original_hook = (isset($theme_registry[$hook]['original hook']) ? $theme_registry[$hook]['original hook'] : $hook);
+  // Caching the data returned from the following functions is reported to
+  // improve performance.
+  if (!isset($data)) {
+    $data['current_theme'] = skinr_current_theme();
+    $data['skin_info'] = skinr_get_skin_info();
+    $data['theme_registry'] = theme_get_registry();
+    $data['skip_cache'] = FALSE;
+
+    $implementations = module_implements('skinr_preprocess_alter');
+    // skinr_panels is special case that only runs when skinr_context is enabled.
+    if (count($implementations) > 0 && $implementations[0] !== 'skinr_panels') {
+      // Skip caching whenever a module implements skinr_preprocess_alter.
+      $data['skip_cache'] = TRUE;
+    }
+  }
+
+  $original_hook = (isset($data['theme_registry'][$hook]['original hook']) ? $data['theme_registry'][$hook]['original hook'] : $hook);
 
   // An array of $elements based on $module and $original_hook, derived from $variables.
   $array_elements = skinr_invoke_all('skinr_elements', $variables, $original_hook, 'preprocess');
+
+  $timeit = FALSE;
+  if (is_array($array_elements) && isset($array_elements[$original_hook]) && in_array('system__navigation', $array_elements[$original_hook])) {
+    $timeit = TRUE;
+  }
+  if ($timeit) {
+    timer_start(__FUNCTION__ . '__loop');
+  }
   foreach ($array_elements as $module => $elements) {
-    if (empty($elements)) {
-      // We can receive empty arrays; if that happens, there's no point
-      // in continuing.
-      continue;
-    }
-
-    // Get a list of skin configuration IDs to pass to
-    // skinr_skin_load_multiple().
-    $params = array(
-      'theme' => $current_theme,
-      'module' => $module,
-      'element' => $elements,
-      'status' => 1,
-    );
-    $sids = skinr_skin_get_sids($params);
-    if (empty($sids)) {
-      // Noting to apply.
-      continue;
-    }
-
     $applied_skins = array();
-    $skins = skinr_skin_load_multiple($sids);
+    foreach ($elements as $element) {
+      if ($timeit) {
+        timer_start(__FUNCTION__ . '__cache');
+      }
+      $cid = 'skinr_preprocess:' . $module . ':' . $element . ':' . $data['current_theme'];
+      if (!$data['skip_cache'] && ($cached = cache_get($cid))) {
+        // This type of caching is incompatible with skinr_context.
+        $applied_skins = $cached->data;
+      }
+      else {
+        // Get a list of skin configuration IDs to pass to
+        // skinr_skin_load_multiple().
+        $params = array(
+          'theme' => $data['current_theme'],
+          'module' => $module,
+          'element' => $element,
+          'status' => 1,
+        );
+        $sids = skinr_skin_get_sids($params);
+        $skins = !empty($sids) ? skinr_skin_load_multiple($sids) : array();
 
-    // Invoke hook_skinr_preprocess_alter() in all modules.
-    $context = array(
-      'hook' => $hook,
-      'variables' => &$variables,
-      'theme' => $current_theme,
-      'module' => $module,
-      'elements' => $elements,
-    );
-    drupal_alter('skinr_preprocess', $skins, $context);
+        // Invoke hook_skinr_preprocess_alter() in all modules.
+        $context = array(
+          'hook' => $hook,
+          'variables' => &$variables,
+          'theme' => $data['current_theme'],
+          'module' => $module,
+          'elements' => $elements,
+        );
+        drupal_alter('skinr_preprocess', $skins, $context);
 
-    foreach ($skins as $skin) {
-      $applied_skins = array($skin->skin => $skin->options) + $applied_skins;
+        $applied_skins = array();
+        foreach ($skins as $skin) {
+          $applied_skins = array($skin->skin => $skin->options) + $applied_skins;
+        }
+
+        // Cache data.
+        if (!$data['skip_cache']) {
+          cache_set($cid, $applied_skins);
+        }
+      }
     }
 
     // Use drupal_process_attached() to add attachements such as JS and CSS.
@@ -122,8 +162,10 @@ function skinr_preprocess(&$variables, $hook) {
         }
 
         // Make sure this skin is enabled for the current theme.
-        if (isset($skin_info[$skin_name]['attached'])) {
-          $elements['#attached'] = $skin_info[$skin_name]['attached'];
+        if (isset($data['skin_info'][$skin_name]['attached'])) {
+          $elements = array(
+            '#attached' => $data['skin_info'][$skin_name]['attached'],
+          );
           drupal_process_attached($elements);
         }
 
@@ -131,8 +173,10 @@ function skinr_preprocess(&$variables, $hook) {
           $skin_options = array($skin_options);
         }
         foreach ($skin_options as $skin_option) {
-          if (isset($skin_info[$skin_name]['options'][$skin_option]['attached'])) {
-            $elements['#attached'] = $skin_info[$skin_name]['options'][$skin_option]['attached'];
+          if (isset($data['skin_info'][$skin_name]['options'][$skin_option]['attached'])) {
+            $elements = array(
+              '#attached' => $data['skin_info'][$skin_name]['options'][$skin_option]['attached'],
+            );
             drupal_process_attached($elements);
           }
         }
@@ -186,6 +230,12 @@ function skinr_flatten_skins_array($skin_options) {
  *   - ...: Any other properties defined by the module or theme.
  */
 function skinr_implements_api() {
+  // All themes are disabled while running update script so theme skins are not
+  // cached. Don't cache to prevent this.
+  if (defined('MAINTENANCE_MODE')) {
+    return array();
+  }
+
   $cache = &drupal_static(__FUNCTION__);
 
   if (!isset($cache)) {
@@ -217,6 +267,16 @@ function skinr_implements_api() {
       // auto-loads $module.skinr.inc in a module's root folder.
       if (isset($cache[$module]['path'])) {
         $file = $cache[$module]['path'] . '/' . $module . '.skinr.inc';
+        if (file_exists(DRUPAL_ROOT . '/' . $file)) {
+          $cache[$module]['include file'] = $file;
+        }
+      }
+      else {
+        // If there is a $module.skinr.inc in the module's root, it gets
+        // auto-loaded for any hooks. But if a skin defined thering contains a
+        // custom 'form callback' function, we'll need to load it manually. So
+        // store the file's info.
+        $file = drupal_get_path('module', $module) . '/' . $module . '.skinr.inc';
         if (file_exists(DRUPAL_ROOT . '/' . $file)) {
           $cache[$module]['include file'] = $file;
         }
@@ -593,6 +653,14 @@ function skinr_skin_save(&$skin) {
     module_invoke_all('skinr_skin_update', $skin);
   }
   else {
+    // Assign it a UUID if none is set.
+    if (empty($skin->uuid)) {
+      if (!module_exists('uuid')) {
+        module_load_include('inc', 'skinr', 'skinr.uuid');
+      }
+      $skin->uuid = uuid_generate();
+    }
+
     // Insert a new record.
     $status = drupal_write_record('skinr_skins', $skin);
     module_invoke_all('skinr_skin_insert', $skin);
@@ -604,6 +672,8 @@ function skinr_skin_save(&$skin) {
   // @todo Once we have a more granular reset for skinr_skin_load_multiple(), we
   //   need to use it here.
   drupal_static_reset('skinr_skin_load_multiple');
+  // Clear preprocess cache.
+  cache_clear_all('skinr_preprocess:' . $skin->module . ':' . $skin->element . ':', 'cache', TRUE);
 
   return $status;
 }
@@ -666,6 +736,56 @@ function skinr_skin_load($sid = NULL) {
 }
 
 /**
+ * Get skin configuration IDs.
+ */
+function skinr_skin_uuid_to_sid($uuid) {
+  $sids = &drupal_static(__FUNCTION__, array());
+
+  if (!isset($sids[$uuid])) {
+    $sids[$uuid] = db_query("SELECT sid FROM {skinr_skins} WHERE uuid = :uuid", array(
+      ':uuid' => $uuid,
+    ))->fetchField();
+  }
+
+  return $sids[$uuid];
+}
+
+/**
+ * Get skin configuration IDs.
+ */
+function skinr_skin_sid_to_uuid($sid) {
+  $uuids = &drupal_static(__FUNCTION__, array());
+
+  if (!isset($uuids[$sid])) {
+    $uuids[$sid] = db_query("SELECT uuid FROM {skinr_skins} WHERE sid = :sid", array(
+      ':sid' => $sid,
+    ))->fetchField();
+  }
+
+  return $uuids[$sid];
+}
+
+/**
+ * Load a skin configuration object from the database using UUID.
+ *
+ * @param $uuid
+ *   The UUID of the skin configuration to load.
+ *
+ * @return
+ *   A fully-populated skin configuration object.
+ */
+function skinr_skin_load_by_uuid($uuid) {
+  if (!$sid = skinr_skin_uuid_to_sid($uuid)) {
+    return FALSE;
+  }
+
+  // Run this through skinr_skin_load_multiple() to preserve caching.
+  $skin = skinr_skin_load_multiple(array($sid));
+
+  return $skin ? reset($skin) : FALSE;
+}
+
+/**
  * Load skin configuration objects from the database.
  *
  * This function should be used whenever you need to load more than one skin
@@ -702,7 +822,8 @@ function skinr_skin_load_multiple($sids = array()) {
   if ($sids === FALSE || $sids) {
     // Build the query.
     $query = db_select('skinr_skins', 's')
-      ->fields('s');
+      // Specify order to ensure consistent import/export.
+      ->fields('s', array('sid', 'uuid', 'theme', 'module', 'element', 'skin', 'options', 'status'));
     if ($sids !== FALSE) {
       $query->condition('sid', $sids);
     }
@@ -746,8 +867,9 @@ function skinr_skin_load_multiple($sids = array()) {
  *   A fully-populated skin configuration object.
  */
 function skinr_skin_load_unchanged($sid) {
-  // Load an uncached version of the skin configuration object.
-  $skin = db_query("SELECT * FROM {skinr_skins} WHERE sid = :sid", array(
+  // Load an uncached version of the skin configuration object. Specify order to
+  // ensure consistent import/export.
+  $skin = db_query("SELECT sid, uuid, theme, module, element, skin, options, status FROM {skinr_skins} WHERE sid = :sid", array(
     ':sid' => $sid,
   ))
   ->fetchObject();
@@ -759,6 +881,298 @@ function skinr_skin_load_unchanged($sid) {
   module_invoke_all('skinr_skin_load', $skin);
 
   return $skin;
+}
+
+/**
+ * Returns all default skin configuration objects.
+ */
+function _skinr_skin_get_defaults() {
+  $default_skins = &drupal_static(__FUNCTION__);
+
+  if (!isset($default_skins)) {
+    if ($cached = cache_get('skinr_skin_defaults')) {
+      $default_skins = $cached->data;
+      return $default_skins;
+    }
+
+    // Don't use module_invoke_all() to prevent oddly merged defaults.
+    $default_skins = array();
+    foreach (module_implements('skinr_skin_defaults') as $module) {
+      $function = $module . '_skinr_skin_defaults';
+      if (function_exists($function)) {
+        $result = call_user_func_array($function, array());
+        if (isset($result) && is_array($result)) {
+          $default_skins = array_merge($default_skins, $result);
+        }
+        elseif (isset($result)) {
+          $default_skins[] = $result;
+        }
+      }
+    }
+
+    // Let modules modify the skin configuration.
+    drupal_alter('skinr_skin_defaults', $default_skins);
+
+    cache_set('skinr_skin_defaults', $default_skins);
+  }
+
+  return $default_skins;
+}
+
+/**
+ * Imports default skin confiuration objects from code into database.
+ *
+ * @param $module_name
+ *   Limit importing of defaults to a single module.
+ * @param $force
+ *   If FALSE (default) the default skin will only be imported if the skin
+ *   configuration doesn't exist, or if storage is default in code. If TRUE, the
+ *   skin configuration in code will always be overwritten.
+ *
+ * @return
+ *  If an import failed, returns FALSE. If all imports succeeded, returns TRUE.
+ */
+function skinr_skin_defaults_import($module_name = NULL, $force = FALSE) {
+  if (isset($module_name)) {
+    if (!$default_skins = module_invoke($module_name, 'skinr_skin_defaults')) {
+      $default_skins = array();
+    }
+    drupal_alter('skinr_skin_defaults', $default_skins);
+  }
+  else {
+    $default_skins = _skinr_skin_get_defaults();
+  }
+
+  $status = TRUE;
+  foreach ($default_skins as $skin) {
+    $status = skinr_skin_import($skin, $force) && $status;
+  }
+
+  return $status;
+}
+
+/**
+ * Revert a skin configuration object that's stored in code to its default state.
+ *
+ * @param $sid
+ *   A skin configuration ID.
+ *
+ * @return
+ *  If revert failed, returns FALSE. If it succeeded, returns TRUE.
+ */
+function skinr_skin_revert($sid) {
+  if (!$uuid = skinr_skin_sid_to_uuid($sid)) {
+    return FALSE;
+  }
+
+  $default_skins = _skinr_skin_get_defaults();
+  if (!isset($default_skins[$uuid])) {
+    return FALSE;
+  }
+
+  if ($status = skinr_skin_import($default_skins[$uuid], TRUE)) {
+    drupal_static_reset('skinr_skin_uuid_to_sid');
+    drupal_static_reset('skinr_skin_sid_to_uuid');
+  }
+
+  return $status;
+}
+
+/**
+ * Import a skin configuration object as defined in skinr_skin_defaults().
+ *
+ * @param $default_skin
+ *   A skin configuration object.
+ * @param $force
+ *   If FALSE (default) the default skin will only be imported if the skin
+ *   configuration doesn't exist, or if storage is default in code. If TRUE, the
+ *   skin configuration in code will always be overwritten.
+ *
+ * @return
+ *  If import failed, returns FALSE. If it succeeded, returns TRUE.
+ */
+function skinr_skin_import($default_skin, $force = FALSE) {
+  // Make sure we don't modify the cached default skin array.
+  $skin = clone($default_skin);
+
+  // Functionality is abstracted for use in skinr_skin_storage().
+  _skinr_skin_import($skin);
+
+  if (!$force && !empty($skin->sid)) {
+    // Load existing skin configuration from DB.
+    $db_skin = skinr_skin_load_unchanged($skin->sid);
+
+    // Sync status.
+    $skin->status = $db_skin->status;
+
+    if ($skin != $db_skin) {
+      // Skin exists and is overridden, so cancel import.
+      watchdog('skinr', 'Canceled import of skin with UUID %uuid and SID %sid. It is overridden.', array('%uuid' => $skin->uuid, '%sid' => $skin->sid), WATCHDOG_WARNING);
+      return FALSE;
+    }
+  }
+
+  if ($status = skinr_skin_save($skin)) {
+    drupal_static_reset('skinr_skin_uuid_to_sid');
+    drupal_static_reset('skinr_skin_sid_to_uuid');
+
+    watchdog('skinr', 'Imported skin with UUID %uuid and SID %sid.', array('%uuid' => $skin->uuid, '%sid' => $skin->sid), WATCHDOG_NOTICE);
+  }
+  else {
+    watchdog('skinr', 'Failed to import skin with UUID %uuid and SID %sid.', array('%uuid' => $skin->uuid, '%sid' => isset($skin->sid) ? $skin->sid : t('unknown')), WATCHDOG_WARNING);
+  }
+  return $status;
+}
+
+function _skinr_skin_import(&$skin) {
+  if ($sid = skinr_skin_uuid_to_sid($skin->uuid)) {
+    $skin->sid = $sid;
+  }
+
+  // Let modules modify the skin configuration.
+  drupal_alter('skinr_skin_import', $skin);
+}
+
+/**
+ * Export var function.
+ *
+ * @see features_var_export()
+ */
+function skinr_var_export($var, $prefix = '', $init = TRUE) {
+  if (is_object($var)) {
+    $output = method_exists($var, 'export') ? $var->export() : skinr_var_export((array) $var, '', FALSE);
+  }
+  else if (is_array($var)) {
+    if (empty($var)) {
+      $output = 'array()';
+    }
+    else {
+      $output = "array(\n";
+      foreach ($var as $key => $value) {
+        // Using normal var_export on the key to ensure correct quoting.
+        $output .= "  " . var_export($key, TRUE) . " => " . skinr_var_export($value, '  ', FALSE) . ",\n";
+      }
+      $output .= ')';
+    }
+  }
+  else if (is_bool($var)) {
+    $output = $var ? 'TRUE' : 'FALSE';
+  }
+  else if (is_int($var)) {
+    $output = intval($var);
+  }
+  else if (is_numeric($var)) {
+    $output = floatval($var);
+  }
+  else if (is_string($var) && strpos($var, "\n") !== FALSE) {
+    // Replace line breaks in strings with a token for replacement
+    // at the very end. This protects whitespace in strings from
+    // unintentional indentation.
+    $var = str_replace("\n", "***BREAK***", $var);
+    $output = var_export($var, TRUE);
+  }
+  else {
+    $output = var_export($var, TRUE);
+  }
+
+  if ($prefix) {
+    $output = str_replace("\n", "\n$prefix", $output);
+  }
+
+  if ($init) {
+    $output = str_replace("***BREAK***", "\n", $output);
+  }
+
+  return $output;
+}
+
+/**
+ * Export object function.
+ *
+ * @see ctools_object_export()
+ */
+function skinr_object_export($object, $identifier, $prefix = '') {
+  $output  = $prefix . '$' . $identifier . ' = new ' . get_class($object) . "();\n";
+  $output .= $prefix . '$' . $identifier . '->status = ';
+  if ($object->status) {
+    $output .= 'TRUE; /* Edit this to false to make a default ' . $identifier . ' disabled initially */' . "\n";
+  }
+  else {
+    $output .= 'FALSE; /* Edit this to true to make a default ' . $identifier . ' enabled initially */' . "\n";
+  }
+  $output .= $prefix . '$' . $identifier . '->api_version = ' . SKINR_VERSION . ";\n";
+
+  foreach ($object as $field => $value) {
+    if ($field == 'status') {
+      continue;
+    }
+    $output .= $prefix . '$' . $identifier . '->' . $field . ' = ' . skinr_var_export($value, $prefix) . ";\n";
+  }
+
+  return $output;
+}
+
+/**
+ * Output a skin configuration object as code suitable for skinr_skin_defaults().
+ *
+ * @param $skin
+ *   A skin configuration object.
+ * @param $prefix
+ *   A string to prefix the code with, used to indent the resulting code.
+ *
+ * @return
+ *   A string.
+ */
+function skinr_skin_export($skin, $prefix = '') {
+  // Make sure we don't modify the cached skin object.
+  $skin = clone($skin);
+
+  // Let modules modify the skin configuration.
+  drupal_alter('skinr_skin_export', $skin, $prefix);
+
+  // Remove site specific $sid.
+  unset($skin->sid);
+
+  $output = skinr_object_export($skin, 'skin', $prefix);
+  $output .= $prefix . "\$skins['{$skin->uuid}'] = \$skin;\n";
+
+  return $output;
+}
+
+/**
+ * Returns a skin configuration object's storage method.
+ *
+ * @param $skin
+ *   A skin configuration object.
+ *
+ * @return
+ *   SKINR_STORAGE_IN_DATABASE if stored in the database,
+ *   SKINR_STORAGE_IN_CODE if stored in code,
+ *   SKINR_STORAGE_IN_CODE_OVERRIDDEN if stored in code and overridden in db.
+ */
+function skinr_skin_storage($skin) {
+  $default_skins = _skinr_skin_get_defaults();
+
+  $storage = SKINR_STORAGE_IN_DATABASE;
+  if (isset($default_skins[$skin->uuid])) {
+    $default_skin = clone($default_skins[$skin->uuid]);
+
+    // Make sure skin has same processing as import.
+    _skinr_skin_import($default_skin);
+
+    // API version is only used for export.
+    unset($default_skin->api_version);
+
+    // Status shouldn't influence overridden.
+    $default_skin->status = $skin->status;
+
+    $storage = SKINR_STORAGE_IN_CODE;
+    if ($default_skin != $skin) {
+      // Default was overridden.
+      $storage = SKINR_STORAGE_IN_CODE_OVERRIDDEN;
+    }
+  }
+  return $storage;
 }
 
 /**
@@ -823,28 +1237,34 @@ function _skinr_array_strip_empty($array) {
 /**
  * Helper function to retrieve the current theme.
  *
- * The global variable $theme_key doesn't work for our purposes when an admin
- * theme is enabled.
- *
  * @param $exclude_admin_theme
  *   Optional. Set to TRUE to exclude the admin theme from possible themes to
  *   return.
  *
  * @return
  *   The current theme name.
+ *
+ * @see drupal_theme_initialize()
  */
 function skinr_current_theme($exclude_admin_theme = FALSE) {
-  global $user, $custom_theme;
+  global $user, $theme;
 
-  if (!empty($user->theme) && drupal_theme_access($user->theme)) {
-    $current_theme = $user->theme;
-  }
-  elseif (!empty($custom_theme) && drupal_theme_access($custom_theme) && !($exclude_admin_theme && $custom_theme == variable_get('admin_theme', '0'))) {
-    // Don't return the admin theme if we're editing skinr settings.
-    $current_theme = $custom_theme;
-  }
-  else {
-    $current_theme = variable_get('theme_default', 'bartik');
+  // Drupal core, and modules such as themkey and og_theme, set the theme
+  // through hook_custom_theme() or hook_menu() using 'theme callback', which
+  // are all picked up by menu_get_custom_theme().
+
+  $current_theme = $theme;
+  if ($exclude_admin_theme) {
+    // Only select the user selected theme if it is available in the
+    // list of themes that can be accessed.
+    $current_theme = !empty($user->theme) && drupal_theme_access($user->theme) ? $user->theme : variable_get('theme_default', 'bartik');
+
+    // Allow modules to override the theme. Validation has already been performed
+    // inside menu_get_custom_theme(), so we do not need to check it again here.
+    $custom_theme = menu_get_custom_theme();
+    if ($custom_theme != variable_get('admin_theme', '0')) {
+      $current_theme = !empty($custom_theme) ? $custom_theme : $current_theme;
+    }
   }
   return $current_theme;
 }
@@ -918,48 +1338,6 @@ function skinr_skin_info_status_set($skin_info, $status) {
 }
 
 /**
- * Helper function to prepend a path to an array of stylesheet or script filenames.
- *
- * If the url is absolute (e.g. the url start with 'http://' or 'https://')
- * or relative to the site's root (e.g. the url starts with '/') the path does
- * not get prepended.
- *
- * @param $files
- *   A an array of filenames that need the path prepended.
- *   @todo Adjust docs to account for arrays instead of filenames.
- * @param $path
- *   The path to prepend.
- */
-function _skinr_add_path_to_files(&$files, $path) {
-  $newfiles = array();
-  foreach ($files as $data => $options) {
-    if (!is_array($options)) {
-      // $options is not an array, it's a filename and passed as first
-      // (and only) argument.
-      if (_skinr_is_local_file($path . '/' . $options)) {
-        $options = $path . '/' . $options;
-      }
-      $newfiles[] = $options;
-    }
-    elseif (is_numeric($data)) {
-      // If $options is an array, but $data is not a filename, find $data in the
-      // $options array.
-      if (_skinr_is_local_file($path . '/' . $options['data'])) {
-        $options['data'] = $path . '/' . $options['data'];
-      }
-      $newfiles[] = $options;
-    }
-    else {
-      if (_skinr_is_local_file($path . '/' . $data)) {
-        $data = $path . '/' . $data;
-      }
-      $newfiles[$data] = $options;
-    }
-  }
-  $files = $newfiles;
-}
-
-/**
  * Helper function to determine whether or not a given file is local or not.
  */
 function _skinr_is_local_file($file) {
@@ -970,6 +1348,55 @@ function _skinr_is_local_file($file) {
     return FALSE;
   }
   return TRUE;
+}
+
+function _skinr_preprocess_attached(&$attached, $source) {
+  foreach (array('css', 'js') as $type) {
+    if (isset($attached[$type])) {
+      $keys = array_keys($attached[$type]);
+      foreach ($keys as $pos => $key) {
+        $options = $attached[$type][$key];
+
+        // If the value is not an array, it's a filename and passed as first
+        // (and only) argument. Turn it into an array so we can insert our defaults.
+        if (!is_array($options)) {
+          $key = $options;
+          $options = array();
+          $attached[$type][$key] = $options;
+          _skinr_array_splice($attached[$type], $pos, 1, array($key => $options));
+        }
+
+        // Add path to relative stylesheet and script paths. If the url is
+        // absolute (e.g. the url start with 'http://' or 'https://') or
+        // relative to the site's root (e.g. the url starts with '/') the path
+        // does not get prepended.
+        if (is_numeric($key)) {
+          // If $options is an array, but $key is not a filename, find $key in
+          // the $options array.
+          if (_skinr_is_local_file($source['path'] . '/' . $options['data'])) {
+            $attached[$type][$key]['data'] = $source['path'] . '/' . $options['data'];
+          }
+        }
+        elseif (_skinr_is_local_file($source['path'] . '/' . $key)) {
+          $key = $source['path'] . '/' . $key;
+          _skinr_array_splice($attached[$type], $pos, 1, array($key => $options));
+        }
+
+        // Add in defaults.
+        $attached[$type][$key] += array('preprocess' => FALSE);
+      }
+    }
+  }
+}
+
+/**
+ * Helper function to remove a portion of an array and replace it with something else.
+ */
+function _skinr_array_splice(array &$array, $offset, $length = 0, array $replacement = NULL) {
+  if (is_null($replacement)) {
+    $replacement = array();
+  }
+  $array = array_slice($array, 0, $offset, true) + $replacement + array_slice($array, $offset + $length, NULL, true);
 }
 
 /**
@@ -1012,28 +1439,19 @@ function skinr_skin_info_process(&$skin_infos, $source) {
     // Merge in default status for all themes.
     $skin_infos[$skin_name]['status'] = skinr_skin_info_status_default($skin_infos[$skin_name]);
 
-    // Add path to stylesheets.
-    if (isset($skin_infos[$skin_name]['attached']['css'])) {
-      _skinr_add_path_to_files($skin_infos[$skin_name]['attached']['css'], $source['path']);
-    }
-    // Add path to scripts.
-    if (isset($skin_infos[$skin_name]['attached']['js'])) {
-      _skinr_add_path_to_files($skin_infos[$skin_name]['attached']['js'], $source['path']);
-    }
+    _skinr_preprocess_attached($skin_infos[$skin_name]['attached'], $source);
 
     foreach ($skin_infos[$skin_name]['options'] as $option_name => $option) {
-      // Add path to stylesheets.
-      if (isset($option['attached']['css'])) {
-        _skinr_add_path_to_files($skin_infos[$skin_name]['options'][$option_name]['attached']['css'], $source['path']);
-      }
-      // Add path to scripts.
-      if (isset($option['attached']['js'])) {
-        _skinr_add_path_to_files($skin_infos[$skin_name]['options'][$option_name]['attached']['js'], $source['path']);
+      if (isset($option['attached'])) {
+        _skinr_preprocess_attached($skin_infos[$skin_name]['options'][$option_name]['attached'], $source);
       }
 
       // Validate class by running it through drupal_html_class().
       if (!is_array($skin_infos[$skin_name]['options'][$option_name]['class'])) {
-        $skin_infos[$skin_name]['options'][$option_name]['class'] = array($skin_infos[$skin_name]['options'][$option_name]['class']);
+        // Raise an error.
+        watchdog('skinr', 'The class for option %option in skin %skin needs to be an array.', array('%option' => $option_name, '%skin' => $skin_name), WATCHDOG_WARNING);
+        // Reset to array to prevent errors.
+        $skin_infos[$skin_name]['options'][$option_name]['class'] = array();
       }
       foreach ($skin_infos[$skin_name]['options'][$option_name]['class'] as $key => $class) {
         $skin_infos[$skin_name]['options'][$option_name]['class'][$key] = drupal_html_class($class);
@@ -1070,10 +1488,11 @@ function skinr_get_skin_info() {
         // The base path for plugins is the directory defined by the extension.
         $dir = $extension['path'] . '/' . $extension['directory'];
         foreach ($files as $plugin => $file) {
+          $path = $dir . '/' . basename(dirname($file->uri));
           $hooks["{$name}_skinr_skin_{$plugin}_info"] = array(
             // The source path for a plugin is the plugin directory.
-            'path' => $dir . '/' . basename(dirname($file->uri)),
-            'filename' => $file->filename,
+            'path' => $path,
+            'include file' => $path . '/' . $file->filename,
           ) + $extension;
         }
       }
@@ -1127,10 +1546,11 @@ function skinr_get_group_info() {
         // The base path for plugins is the directory defined by the extension.
         $dir = $extension['path'] . '/' . $extension['directory'];
         foreach ($files as $plugin => $file) {
+          $path = $dir . '/' . basename(dirname($file->uri));
           $hooks["{$name}_skinr_group_{$plugin}_info"] = array(
             // The source path for a plugin is the plugin directory.
-            'path' => $dir . '/' . basename(dirname($file->uri)),
-            'filename' => $file->filename,
+            'path' => $path,
+            'include file' => $path . '/' . $file->filename,
           ) + $extension;
         }
       }
@@ -1212,8 +1632,11 @@ function skinr_theme_hooks($module, $element) {
 /**
  * Implements hook_modules_enabled().
  */
-function skinr_modules_enabled() {
+function skinr_modules_enabled($modules) {
   skinr_cache_reset();
+  foreach ($modules as $module) {
+    skinr_skin_defaults_import($module);
+  }
 }
 
 /**

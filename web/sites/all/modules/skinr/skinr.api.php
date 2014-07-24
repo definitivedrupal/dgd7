@@ -6,7 +6,7 @@
  */
 
 /**
- * @mainpage Skinr API Manual
+ * @defgroup skinr Skinr API Manual
  *
  * Topics:
  * - @ref skinr_hooks
@@ -76,7 +76,7 @@ function hook_skinr_theme_hooks_alter(&$theme_hooks, $module, $element) {
 /**
  * Return an array of element ids.
  *
- * @todo Needs a better description.
+ * An element is a block, node, region, etc.
  *
  * @param $variables
  *   The variables array from skinr_preprocess().
@@ -285,6 +285,35 @@ function hook_skinr_skin_info() {
       'mybasetheme' => 1,
     ),
   );
+  $skins['skinr_custom'] = array(
+    'title' => t('Custom'),
+    // Use a custom form callback function. This function should return a drupal
+    // form array(). Example:
+    // function skinr_skinr_custom_form($form, $form_state, $context) {
+    //   $theme = $context['theme'];
+    //   $skin_name = $context['skin_name'];
+    //   $skin_info = $context['skin_info'];
+    //   $value = $context['value'];
+    //
+    //   $form = array(
+    //     '#type' => 'checkboxes',
+    //     '#title' => t('Custom'),
+    //     '#options' => array(
+    //       'custom' => t('Custom'),
+    //     ),
+    //     '#default_value' => $value,
+    //   );
+    //   return $form;
+    // }
+    'form callback' => 'skinr_skinr_custom_form',
+    'group' => 'general',
+    'theme hooks' => array('block__system', 'comment_wrapper__page', 'node__page'),
+    'options' => array(
+      'custom' => array(
+        'class' => array('custom'),
+      ),
+    ),
+  );
   return $skins;
 }
 
@@ -392,7 +421,7 @@ function hook_skinr_group_info() {
  * be: extension_skinr_group_example_info().
  */
 function hook_skinr_group_PLUGIN_info() {
-  $group['extension_example_menus'] = array(
+  $groups['extension_example_menus'] = array(
     'title' => t('Menus'),
     'description' => t('Menu and navigation styles.'),
   );
@@ -409,6 +438,89 @@ function hook_skinr_group_PLUGIN_info() {
 function hook_skinr_group_info_alter(&$groups) {
   // Show this tab group at the top of the Skinr settings form.
   $groups['skinr_menus']['weight'] = -1;
+}
+
+/**
+ * Perform alterations on skin configuration objects before they are applied.
+ *
+ * @param $skins
+ *   An array of skin configuration objects.
+ * @param $context
+ *   An array containing the current context. It has the following keys:
+ *   - hook: The name of the theme hook.
+ *   - variables: The variables array from hook_preprocess() (modify in place).
+ *   - theme: The current theme.
+ *   - module: The module implementing the elements.
+ *   - elements: An array of element IDs.
+ */
+function hook_skinr_preprocess_alter(&$skins, $context) {
+  if ($context['theme'] == 'bartik') {
+    foreach ($skins as $key => $skin) {
+      if ($skin->module == 'block' && $skin->element == 'system_navigation') {
+        unset($skins[$key]);
+      }
+    }
+  }
+}
+
+/**
+ * Alter the registry of modules implementing a skinr hook.
+ *
+ * @param $implementations
+ *   An array keyed by the module's name. The value of each item corresponds
+ *   to a $group, which is usually FALSE, unless the implementation is in a file
+ *   named $module.$group.inc.
+ * @param $hook
+ *   The name of the module hook being implemented.
+ */
+function hook_skinr_implements_alter(&$implementations, $hook) {
+  if ($hook == 'skinr_elements') {
+    // Move my_module_skinr_elements() to the end of the list. skinr_implements()
+    // iterates through $implementations with a foreach loop which PHP iterates
+    // in the order that the items were added, so to move an item to the end of
+    // the array, we remove it and then add it.
+    $group = $implementations['my_module'];
+    unset($implementations['my_module']);
+    $implementations['my_module'] = $group;
+  }
+}
+
+/**
+ * Alter the default skin configuration objects.
+ *
+ * @param $default_skins
+ *   An array of skin configuration objects from code.
+ */
+function hook_skinr_skin_defaults_alter(&$default_skins) {
+  // Exclude a specific skin fromt he site.
+  unset($default_skins['501ff0e3-dc03-0944-9910-3a788f38097b']);
+
+  // Disable another.
+  $default_skins['7cb51cbf-436d-b1d4-3105-f3cd4db28955']['status'] = 0;
+}
+
+/**
+ * Alter the skin configuration object before it is imported from code.
+ *
+ * @param $skin
+ *   A skin configuration object.
+ */
+function hook_skinr_skin_import_alter(&$skin) {
+  // Add in custom variable.
+  $skin->custom = 'Something special';
+}
+
+/**
+ * Alter the skin configuration object before it is output as exported code.
+ *
+ * @param $skin
+ *   A skin configuration object.
+ * @param $prefix
+ *   A string to prefix the code with, used to indent the resulting code.
+ */
+function hook_skinr_skin_export_alter(&$skin, &$prefix) {
+  // Remove custom variable.
+  unset($skin->custom);
 }
 
 /**

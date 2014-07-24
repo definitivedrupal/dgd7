@@ -1,0 +1,13 @@
+name = Skinr Default Testing
+description = A test module used for testing skin configuration defined in code for Skinr.
+package = Testing
+core = 7.x
+hidden = TRUE
+dependencies[] = skinr_test
+
+; Information added by Drupal.org packaging script on 2014-07-14
+version = "7.x-2.0"
+core = "7.x"
+project = "skinr"
+datestamp = "1405335528"
+

@@ -79,7 +79,12 @@ jQuery.fn.skinrUIPopulateOptions = function (options, selected) {
       }
     });
 
-    $(this).html(html).attr('disabled', disabled ? 'disabled' : '');
+    if (disabled) {
+      $(this).html(html).attr('disabled', 'disabled');
+    }
+    else {
+      $(this).html(html).removeAttr('disabled');
+    }
   });
 };
 

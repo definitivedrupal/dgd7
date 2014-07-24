@@ -6,7 +6,7 @@
  */
 
 /**
- * @mainpage Skinr UI API Manual
+ * @defgroup skinr_ui Skinr UI API Manual
  *
  * Topics:
  * - @ref skinr_ui_hooks
@@ -65,6 +65,34 @@ function hook_skinr_ui_element_title($module, $element, $theme_name) {
     $type = node_type_get_type($element);
     return $type->name;
   }
+}
+
+/**
+ * Alter the list of theme_hooks that are compatible with active skins.
+ *
+ * @param $skinable_hooks
+ *   An array where keys are identical to their value. The value is a theme hook.
+ */
+function hook_skinr_skinable_hooks_alter(&$skinable_hooks) {
+  $skinable_hooks['block__custom'] = 'block__custom';
+}
+
+/**
+ * Alter skinr administration filters that can be applied to skin configuration objects.
+ *
+ * @param $filters
+ *   An associative array of filters.
+ */
+function hook_skinr_ui_filters_alter(&$filters) {
+  // Status filter.
+  $filters['status'] = array(
+    'title' => t('status'),
+    'options' => array(
+      '[any]' => t('any'),
+      '1' => t('enabled'),
+      '0' => t('disabled'),
+    ),
+  );
 }
 
 /**

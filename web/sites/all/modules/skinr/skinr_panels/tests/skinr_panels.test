@@ -63,13 +63,13 @@ class SkinrPanelsTestCase extends DrupalWebTestCase {
    *   enough data to create unique element ids when panels are in code. Skinr
    *   currently doesn't support panels in code.
    */
-  function xtestPanelsDefault() {
+  function testPanelsDefault() {
     // Test panels pages.
     // Go to panel page.
     $this->drupalGet('skinr-panels-test-panel');
 
     // Make sure our contextual link appears on the page.
-    $this->assertLinkByHref('admin/structure/skinr/edit/panels/pane__1__1/configure', 0, "Contexual link to edit pane's skin configuration on panel page (stored in code) was found.");
+    $this->assertLinkByHref('admin/structure/skinr/edit/panels/pane__295dc791-d2a3-4f67-82e4-77c0b5ad671f/configure', 0, "Contexual link to edit pane's skin configuration on panel page (stored in code) was found.");
 
 
     $this->drupalGet('admin/structure/mini-panels');
@@ -94,12 +94,11 @@ class SkinrPanelsTestCase extends DrupalWebTestCase {
     $this->drupalGet('');
 
     // Make sure our contextual link appears on the page.
-    // @todo Is there a better way to determine did and pid used for this panel?
-    $this->assertLinkByHref('admin/structure/skinr/edit/panels/pane__2__2/configure', 0, 'Contexual link to edit pane\'s skin configuration on mini panel (stored in code) was found.');
+    $this->assertLinkByHref('admin/structure/skinr/edit/panels/pane__c9bf0f8f-e48a-42d7-9a38-7a6760791765/configure', 0, 'Contexual link to edit pane\'s skin configuration on mini panel (stored in code) was found.');
 
     // Make sure this panel's options are returned.
     $this->drupalGet('admin/structure/skinr/add');
-    $this->assertOptionExists('element', 'pane__1__1', 'Panel pane was returned by panels_skinr_ui_element_options().');
+    $this->assertOptionExists('element', 'pane__295dc791-d2a3-4f67-82e4-77c0b5ad671f', 'Panel pane was returned by panels_skinr_ui_element_options().');
   }
 
   /**
@@ -127,8 +126,7 @@ class SkinrPanelsTestCase extends DrupalWebTestCase {
     $this->drupalGet($uri['path']);
 
     // Make sure our contextual link appears on the page.
-    // @todo Is there a better way to determine did and pid used for this panel?
-    $this->assertLinkByHref('admin/structure/skinr/edit/panels/pane__1__1/configure', 0, 'Contexual link to edit pane\'s skin configuration on panel node was found.');
+    $this->assertLinkByHref('admin/structure/skinr/edit/panels/pane__' . $pane->uuid . '/configure', 0, 'Contexual link to edit pane\'s skin configuration on panel node was found.');
 
 
     // Test panels pages.
@@ -141,7 +139,7 @@ class SkinrPanelsTestCase extends DrupalWebTestCase {
     $this->drupalGet('skinr-panels-test-panel');
 
     // Make sure our contextual link appears on the page.
-    $this->assertLinkByHref('admin/structure/skinr/edit/panels/pane__2__2/configure', 0, "Contexual link to edit pane's skin configuration on panel page (stored in DB) was found.");
+    $this->assertLinkByHref('admin/structure/skinr/edit/panels/pane__295dc791-d2a3-4f67-82e4-77c0b5ad671f/configure', 0, "Contexual link to edit pane's skin configuration on panel page (stored in DB) was found.");
 
 
     // Test mini panels.
@@ -168,26 +166,26 @@ class SkinrPanelsTestCase extends DrupalWebTestCase {
     $this->drupalGet('');
 
     // Make sure our contextual link appears on the page.
-    // @todo Is there a better way to determine did and pid used for this panel?
-    $this->assertLinkByHref('admin/structure/skinr/edit/panels/pane__3__3/configure', 0, 'Contexual link to edit pane\'s skin configuration on mini panel (stored in DB) was found.');
+    $this->assertLinkByHref('admin/structure/skinr/edit/panels/pane__c9bf0f8f-e48a-42d7-9a38-7a6760791765/configure', 0, 'Contexual link to edit pane\'s skin configuration on mini panel (stored in DB) was found.');
 
     // Make sure this panel's options are returned.
     $this->drupalGet('admin/structure/skinr/add');
-    $this->assertOptionExists('element', 'pane__1__1', 'Panel pane was returned by panels_skinr_ui_element_options().');
+    $this->assertOptionExists('element', 'pane__' . $pane->uuid, 'Panel pane was returned by panels_skinr_ui_element_options().');
 
     // Test the returned element title.
     $skin = (object) array(
       'theme' => $default_theme,
       'module' => 'panels',
-      'element' => 'pane__2__2',
+      'element' => 'pane__295dc791-d2a3-4f67-82e4-77c0b5ad671f',
       'skin' => 'skinr_ui_test_bgcolor',
       'options' => array('bgcolor_red'),
       'status' => 1,
     );
     skinr_skin_save($skin);
 
-    $title = reset(skinr_invoke_all('skinr_ui_element_title', $skin->module, $skin->element, $skin->theme));
+    $title = skinr_invoke_all('skinr_ui_element_title', $skin->module, $skin->element, $skin->theme);
+    $title = reset($title);
     $this->verbose($title);
-    $this->assertEqual($title, 'Pane <em class="placeholder">2</em> on <em class="placeholder">Panels test page</em>', 'Panel title was returned.');
+    $this->assertEqual($title, 'Pane <em class="placeholder">295dc791-d2a3-4f67-82e4-77c0b5ad671f</em> on <em class="placeholder">Panels test page</em>', 'Panel title was returned.');
   }
 }

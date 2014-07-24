@@ -6,13 +6,17 @@
  */
 
 /**
- * Base class for Skinr UI tests.
+ * Base class for Skinr Context UI tests.
  */
 class SkinrContextUITestCase extends SkinrUITestCase {
   protected $profile = 'testing';
 
   function setUp() {
-    parent::setUp(array('skinr_context', 'skinr_context_ui'));
+    $modules = func_get_args();
+    if (isset($modules[0]) && is_array($modules[0])) {
+      $modules = $modules[0];
+    }
+    parent::setUp(array_merge(array('skinr_context', 'skinr_context_ui'), $modules));
   }
 }
 
@@ -23,10 +27,14 @@ class SkinrContextUIBasicTestCase extends SkinrContextUITestCase {
   public static function getInfo() {
     return array(
       'name' => 'Context UI',
-      'description' => 'Tests basic Skinr Context UI functionality.',
+      'description' => 'Tests administrative Skinr Context UI functionality.',
       'dependencies' => array('ctools', 'context', 'context_ui'),
       'group' => 'Skinr',
     );
+  }
+
+  function setUp() {
+    parent::setUp(array('skinr_test', 'skinr_context_test_default'));
   }
 
   /**
@@ -35,6 +43,7 @@ class SkinrContextUIBasicTestCase extends SkinrContextUITestCase {
   function testGroupList() {
     // Add a group.
     $group = (object) array(
+      'gid' => 'block:system__user-menu:default',
       'module' => 'block',
       'element' => 'system__user-menu',
       'title' => 'Default',
@@ -64,7 +73,7 @@ class SkinrContextUIBasicTestCase extends SkinrContextUITestCase {
     // skin settings page.
     $this->clickLink(t('edit'), 0);
     // Verify that we end up on the expected URL to configure skins for our group.
-    $this->assertUrl('admin/structure/skinr/edit/block/system__user-menu/1', array(
+    $this->assertUrl('admin/structure/skinr/edit/block/system__user-menu/' . $group->gid, array(
       'query' => array('destination' => 'admin/structure/skinr/edit/block/system__user-menu/configure?destination=' . $front),
     ));
 
@@ -127,6 +136,7 @@ class SkinrContextUIBasicTestCase extends SkinrContextUITestCase {
     // Post the form.
     $edit = array(
       'title' => 'SkinrContextGroupTest',
+      'gid' => 'skinrcontextgrouptest',
     );
     $this->drupalPost(NULL, $edit, t('Add group'));
 
@@ -138,12 +148,31 @@ class SkinrContextUIBasicTestCase extends SkinrContextUITestCase {
     // Verify that the new group is added.
     $this->assertText('SkinrContextGroupTest', 'Successfully added a skin settings group.');
   }
+}
+
+/**
+ * Tests UI functionality.
+ */
+class SkinrContextUIAdminTestCase extends SkinrContextUITestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Context UI - Administration',
+      'description' => 'Tests administrative Skinr Context UI functionality.',
+      'dependencies' => array('ctools', 'context', 'context_ui'),
+      'group' => 'Skinr',
+    );
+  }
+
+  function setUp() {
+    parent::setUp(array('skinr_test', 'skinr_context_test_default'));
+  }
 
   /**
    * Tests skin configuration listing functionality.
    */
   function testSkinListingWithGroups() {
     $group = (object) array(
+      'gid' => 'block:system__user-menu:skinlistingwithgroup',
       'module' => 'block',
       'element' => 'system__user-menu',
       'title' => 'SkinListingWithGroup',
@@ -168,8 +197,136 @@ class SkinrContextUIBasicTestCase extends SkinrContextUITestCase {
 
     // Verify that the skin configuration appears on the skin configurations overview page.
     $this->drupalGet('admin/structure/skinr');
-    $this->assertLinkByHref('admin/structure/skinr/edit/' . $skin->module . '/' . $skin->element . '/' . $skin->gid, 0, 'Skin configuration was found on overview page.');
+    $this->assertLinkByHref(drupal_encode_path('admin/structure/skinr/edit/' . $skin->module . '/' . $skin->element . '/' . $skin->gid), 0, 'Skin configuration was found on overview page.');
+
+    // Test that revert link doesn't appear for default skin configurations.
+    $default_skin = skinr_skin_load_by_uuid('501ff0c3-db03-0944-9910-3a788f38097a');
+    $this->verbose(highlight_string(print_r($default_skin, TRUE), TRUE));
+    $this->assertNoLinkByHref('admin/structure/skinr/skin/' . $default_skin->sid . '/revert', 0, 'No revert operation is available for default skin configuration.');
+
+    // Test that delete link does not appear for default skin configurations.
+    $this->assertNoLinkByHref('admin/structure/skinr/skin/' . $default_skin->sid . '/delete', 0, 'No delete operation is available for default skin configuration.');
+
+    // Test that revert link appears for skin configurations in code that are
+    // overridden in databse.
+    $default_skin->options = array('options3');
+    skinr_skin_save($default_skin);
+    $this->drupalGet('admin/structure/skinr');
+    $this->assertLinkByHref('admin/structure/skinr/skin/' . $default_skin->sid . '/revert', 0, 'Revert operation is available for overridden skin configuration.');
+
+    // Test that delete link does not appear for overridden skin configurations.
+    $this->assertNoLinkByHref('admin/structure/skinr/skin/' . $default_skin->sid . '/delete', 0, 'No delete operation is available for overridden skin configuration.');
+
+    // Test reverting overridden skin.
+    $this->clickLink(t('revert'), 0);
+    $edit = array(
+      'skinr_settings[bartik][groups][_additional][_additional]' => 'additional',
+    );
+    $this->drupalPost(NULL, array(), t('Revert'));
+
+    // Load an uncached version of the skin configuration object.
+    $default_skin = skinr_skin_load_unchanged($default_skin->sid);
+    $this->assertTrue(skinr_skin_storage($default_skin) == SKINR_STORAGE_IN_CODE, 'Overridden skin configuration was reverted to default.');
 
     // @todo Should we check the filtering and update options functionality?
+  }
+
+  /**
+   * Tests skin configuration and group import and export forms.
+   */
+  function testGroupSkinImportExport() {
+    $this->drupalGet('admin/structure/skinr/import');
+
+    $gid1 = 'node:page:default';
+    $gid2 = 'block:user__online:default';
+    $uuid1 = '16daa322-5ac0-49e4-cda2-809a13bb965b';
+    $uuid2 = '7384adb8-50a8-67d4-2dcd-5acda9b5c76e';
+
+    $edit = array(
+      'skinr_groups' => "\$group = new stdClass();
+\$group->status = TRUE; /* Edit this to false to make a default group disabled initially */
+\$group->api_version = " . SKINR_VERSION . ";
+\$group->gid = '" . $gid1 . "';
+\$group->module = 'block';
+\$group->element = 'system__main';
+\$group->title = 'Default';
+\$group->description = '';
+\$group->conditions = array(
+  'sitewide' => array(
+    'values' => array(
+      1 => 1,
+    ),
+  ),
+);
+\$group->condition_mode = 0;
+\$group->weight = 0;
+\$groups['" . $gid1 . "'] = \$group;
+
+\$group = new stdClass();
+\$group->status = TRUE; /* Edit this to false to make a default group disabled initially */
+\$group->api_version = " . SKINR_VERSION . ";
+\$group->gid = '" . $gid2 . "';
+\$group->module = 'block';
+\$group->element = 'system__user-menu';
+\$group->title = 'Default';
+\$group->description = 'Default export description.';
+\$group->conditions = array(
+  'sitewide' => array(
+    'values' => array(
+      1 => 1,
+    ),
+  ),
+);
+\$group->condition_mode = 0;
+\$group->weight = 0;
+\$groups['" . $gid2 . "'] = \$group;
+",
+      'skinr_skins' => "\$skin = new stdClass();
+\$skin->status = TRUE; /* Edit this to false to make a default skin disabled initially */
+\$skin->api_version = " . SKINR_VERSION . ";
+\$skin->uuid = '" . $uuid1 . "';
+\$skin->theme = 'bartik';
+\$skin->module = 'block';
+\$skin->element = 'system__main';
+\$skin->skin = 'skinr_test_example';
+\$skin->options = array(
+  'option1' => 'option1',
+);
+\$skin->gid = '" . $gid1 . "';
+\$skins['" . $uuid1 . "'] = \$skin;
+
+\$skin = new stdClass();
+\$skin->status = TRUE; /* Edit this to false to make a default skin disabled initially */
+\$skin->api_version = " . SKINR_VERSION . ";
+\$skin->uuid = '" . $uuid2 . "';
+\$skin->theme = 'bartik';
+\$skin->module = 'block';
+\$skin->element = 'system__user-menu';
+\$skin->skin = 'skinr_test_subtheme';
+\$skin->options = array(
+  'option1' => 'option1',
+  'option2' => 'option2',
+);
+\$skin->gid = '" . $gid2 . "';
+\$skins['" . $uuid2 . "'] = \$skin;
+",
+    );
+    $this->drupalPost(NULL, $edit, t('Import'));
+
+    // Now check if the imported skin configuration groups exist.
+    $group1 = skinr_context_group_load($gid1);
+    $group2 = skinr_context_group_load($gid2);
+    $this->assertTrue(isset($group1->gid) && $group1->gid == $gid1 && isset($group2->gid) && $group2->gid == $gid2, 'Successfully imported skin configuration groups.');
+
+    // Now check if the imported skin configurations exist.
+    $skin1 = skinr_skin_load_by_uuid($uuid1);
+    $skin2 = skinr_skin_load_by_uuid($uuid2);
+    $this->assertTrue(isset($skin1->uuid) && $skin1->uuid == $uuid1 && $skin1->gid == $gid1 && isset($skin2->uuid) && $skin2->uuid == $uuid2 && $skin2->gid == $gid2, 'Successfully imported skin configurations with linked groups.');
+
+    // Test export.
+    $this->drupalGet('admin/structure/skinr/export');
+    $this->drupalPost(NULL, array('theme' => 'bartik'), t('Export'));
+    $this->assertFieldByName('skinr_groups', $edit['skinr_groups'], 'Skin configuration group export value is correct.');
+    $this->assertFieldByName('skinr_skins', $edit['skinr_skins'], 'Skin configuration export value is correct.');
   }
 }

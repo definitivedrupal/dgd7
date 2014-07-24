@@ -57,15 +57,21 @@ function skinr_panels_skinr_ui_element_options($theme_name = NULL) {
         if ($handler->handler != 'panel_context') {
           continue;
         }
-        $display = panels_load_display($handler->conf['did']);
+        if (!isset($handler->conf['did'])) {
+          // In code.
+          $display = $handler->conf['display'];
+        }
+        else {
+          $display = panels_load_display($handler->conf['did']);
+        }
 
         // Output display.
         /*
         // No use in outputting display if we can't add classes to it. It's
         // only possible with a custom template override.
-        $name = 'display__' . $display->did;
+        $name = 'display__' . $display->uuid;
         $title = t('Display');
-        $options['panels']['&#160;&#160;&#160;' . $page['data']['title']['data']][$name] = $title;
+        $options['panels']['&#160;&#160;&#160;' . $display->title][$name] = $title;
         */
 
         // Output regions.
@@ -73,17 +79,24 @@ function skinr_panels_skinr_ui_element_options($theme_name = NULL) {
         // No use in outputting regions if we can't add classes to them.
         $layout = panels_get_layout($display->layout);
         foreach ($layout['regions'] as $region_id => $title) {
-          $name = 'region__' . $display->did . '__' . $region_id;
+          $name = 'region__' . $display->uuid . '__' . $region_id;
           $title = t('Region: @region', array('@region' => $title));
-          $options['panels']['&#160;&#160;&#160;' . $page['data']['title']['data']][$name] = $title;
+          $options['panels']['&#160;&#160;&#160;' . $display->title][$name] = $title;
         }
         */
 
         // Output panes.
-        foreach ($display->content as $pid => $pane) {
-          $name = 'pane__' . $display->did . '__' . $pid;
-          $title = t('Pane: @pane_id', array('@pane_id' => $pid));
-          $options['panels']['&#160;&#160;&#160;' . $page['data']['title']['data']][$name] = $title;
+        foreach ($display->content as $pane) {
+          if (!isset($pane->uuid)) {
+            // Old version of panels; skip.
+            $message = 'Pane @pane_id in display @display is missing a UUID property.';
+            drupal_set_message(t($message, array('@pane_id' => $pane->pid, '@display' => $display->title)), 'warning');
+            watchdog('skinr_panels', $message, array('@pane_id' => $pane->pid, '@display' => $display->title), WATCHDOG_WARNING);
+            continue;
+          }
+          $name = 'pane__' . $pane->uuid;
+          $title = t('Pane: @pane_id', array('@pane_id' => $pane->uuid));
+          $options['panels']['&#160;&#160;&#160;' . $display->title][$name] = $title;
         }
       }
     }
@@ -108,7 +121,7 @@ function skinr_panels_skinr_ui_element_options($theme_name = NULL) {
         /*
         // No use in outputting display if we can't add classes to it. It's
         // only possible with a custom template override.
-        $name = 'display__' . $display->did;
+        $name = 'display__' . $display->uuid;
         $title = t('Display');
         $options['panels']['&#160;&#160;&#160;' . $category][$name] = $title;
         */
@@ -118,16 +131,16 @@ function skinr_panels_skinr_ui_element_options($theme_name = NULL) {
         // No use in outputting regions if we can't add classes to them.
         $layout = panels_get_layout($display->layout);
         foreach ($layout['regions'] as $region_id => $title) {
-          $name = 'region__' . $display->did . '__' . $region_id;
+          $name = 'region__' . $display->uuid . '__' . $region_id;
           $title = t('Region: @region', array('@region' => $title));
           $options['panels']['&#160;&#160;&#160;' . $category][$name] = $title;
         }
         */
 
         // Output panes.
-        foreach ($display->content as $pid => $pane) {
-          $name = 'pane__' . $display->did . '__' . $pid;
-          $title = t('Pane: @pane_id', array('@pane_id' => $pid));
+        foreach ($display->content as $pane) {
+          $name = 'pane__' . $pane->uuid;
+          $title = t('Pane: @pane_id', array('@pane_id' => $pane->uuid));
           $options['panels']['&#160;&#160;&#160;' . $category][$name] = $title;
         }
       }
@@ -147,7 +160,8 @@ function skinr_panels_skinr_ui_element_options($theme_name = NULL) {
  */
 function skinr_panels_skinr_ui_element_title($module, $element, $theme_name) {
   if ($module == 'panels') {
-    list($hook, $did, $pid) = explode('__', $element);
+    list($hook, $uuid) = explode('__', $element);
+    $did = _skinr_panels_display_from_uuid($uuid);
     if ($display = panels_load_display($did)) {
       $title = $display->title;
       if (!$title && module_exists('panels_node')) {
@@ -158,20 +172,23 @@ function skinr_panels_skinr_ui_element_title($module, $element, $theme_name) {
           $title = $node->title;
         }
       }
-      return t('Pane %pane on %panel', array('%panel' => $title ? $title : t('display !did', array('!did' => $did)), '%pane' => $pid));
+      return t('Pane %pane on %panel', array('%panel' => $title ? $title : t('display !did', array('!did' => $did)), '%pane' => $uuid));
     }
   }
 }
 
-function _skinr_panels_type($did) {
-  if (module_exists('panels_node')) {
-    $query = db_query("SELECT nid FROM {panels_node} WHERE did = :did", array(
-      ':did' => $did,
-    ));
-    if ($query->countQuery()->execute()->fetchField()) {
-      $type = 'node';
-    }
-  }
+/**
+ * Helper function to retrieve a pane's display ID.
+ *
+ * @param $uuid
+ *
+ * @return
+ *   The pane's display ID.
+ */
+function _skinr_panels_display_from_uuid($uuid) {
+  return db_query("SELECT did FROM {panels_pane} WHERE uuid = :uuid", array(
+    ':uuid' => $uuid,
+  ))->fetchField();
 }
 
 /**
@@ -201,13 +218,12 @@ function skinr_panels_skinr_theme_hooks($module, $element) {
 function skinr_panels_skinr_elements($variables, $hook) {
   $elements = array();
   if ($hook == 'panels_pane') {
-    // @todo Clean this up if we ever get a panels fix.
     $elements['panels'] = array();
-    if (!empty($variables['pane']->did) && !empty($variables['pane']->pid)) {
-      $elements['panels'][] = 'pane__' . $variables['pane']->did . '__' . $variables['pane']->pid;
+    if (!empty($variables['pane']->uuid)) {
+      $elements['panels'][] = 'pane__' . $variables['pane']->uuid;
     }
     else {
-      drupal_set_message(t('Skinr can\'t apply your skin settings to this panel due to limitations in Panels module. Here is a <a href="http://drupal.org/node/1292662">workaround</a>.'), 'warning', FALSE);
+      watchdog('skinr', 'Skinr can\'t apply your skin settings to this panel due to missing UUIDs. Re-export your panels to have their UUIDs added.', array(), WATCHDOG_WARNING);
     }
   }
   return $elements;

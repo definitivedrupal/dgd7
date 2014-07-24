@@ -1,0 +1,23 @@
+<?php
+
+/**
+ * @file
+ * Skinr UI skinable testing module.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function skinr_ui_test_skinable_menu() {
+  $items['skinr-ui-test/element-skinable/%/%'] = array(
+    'title' => 'Test skinability of element through availability of theme hooks',
+    'page callback' => 'skinr_ui_test_skinable_element',
+    'page arguments' => array(2, 3),
+    'access arguments' => array('access content'),
+  );
+  return $items;
+}
+
+function skinr_ui_test_skinable_element($module, $element) {
+  return skinr_ui_element_is_skinable($module, $element) ? 'true' : 'false';
+}

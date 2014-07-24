@@ -74,7 +74,7 @@ class SkinrInstallationTestCase extends DrupalWebTestCase {
 
   public static function getInfo() {
     return array(
-      'name' => 'Installation',
+      'name' => 'Core - Installation',
       'description' => 'Tests basic module installation.',
       'group' => 'Skinr',
     );
@@ -144,15 +144,13 @@ class SkinrInstallationTestCase extends DrupalWebTestCase {
 
 /**
  * Tests API functionality.
- *
- * @link http://drupal.org/node/953336#comment-3738456 Make sure this patch is applied to drupal core @endlink
  */
 class SkinrApiTestCase extends SkinrWebTestCase {
   protected $profile = 'testing';
 
   public static function getInfo() {
     return array(
-      'name' => 'API',
+      'name' => 'Core - API',
       'description' => 'Tests Skinr API functionality.',
       'group' => 'Skinr',
     );
@@ -176,7 +174,9 @@ class SkinrApiTestCase extends SkinrWebTestCase {
     // The expected extensions and their specific properties, if any.
     $all_expected = array(
       // Skinr is always expected.
-      'skinr' => array(),
+      'skinr' => array(
+        'include file' => drupal_get_path('module', 'skinr') . '/skinr.skinr.inc',
+      ),
       // System and node are required core modules, so always expected.
       'system' => array (
         'version' => VERSION,
@@ -191,6 +191,7 @@ class SkinrApiTestCase extends SkinrWebTestCase {
       // skinr_test has been installed.
       'skinr_test' => array(
         'directory' => 'skins',
+        'include file' => drupal_get_path('module', 'skinr_test') . '/skinr_test.skinr.inc',
       ),
       'skinr_test_basetheme' => array(
         'type' => 'theme',
@@ -362,6 +363,11 @@ class SkinrApiTestCase extends SkinrWebTestCase {
     )));
     unset($skin_info['skinr_test_font']);
 
+    // Test that an invalid class is not included.
+    $this->assertTrue(isset($skin_info['skinr_test_invalid_class']), 'Skin with invalid class found.');
+    $this->assertEqual($skin_info['skinr_test_invalid_class']['options']['invalid_class']['class'], array(), 'Invalid skin class is reset to array.');
+    unset($skin_info['skinr_test_invalid_class']);
+
     // skinr_test_example is registered via hook_skinr_skin_PLUGIN_info() in
     // skins/example.inc.
     $this->assertTrue(isset($skin_info['skinr_test_example']), 'Skin registered in plugin file found.');
@@ -396,7 +402,6 @@ class SkinrApiTestCase extends SkinrWebTestCase {
       '@data' => var_export($skin_info, TRUE),
     )));
   }
-
 
   /**
    * Tests hook_skinr_group_info().
@@ -525,42 +530,49 @@ class SkinrApiTestCase extends SkinrWebTestCase {
       'options' => array('option1', 'option2'),
       'status' => 1,
     );
-    $this->assertFalse(skinr_skin_save($skin), 'Skin configuration object was not saved when $skin->theme was empty.');
+    $this->assertFalse(skinr_skin_save($skin), 'Skin configuration object not saved when $skin->theme is empty.');
 
     $skin->theme = 'skinr_test_subtheme';
     $skin->module = '';
-    $this->assertFalse(skinr_skin_save($skin), 'Skin configuration object was not saved when $skin->module was empty.');
+    $this->assertFalse(skinr_skin_save($skin), 'Skin configuration object not saved when $skin->module is empty.');
 
     $skin->module = 'block';
     $skin->element = '';
-    $this->assertFalse(skinr_skin_save($skin), 'Skin configuration object was not saved when $skin->element was empty.');
+    $this->assertFalse(skinr_skin_save($skin), 'Skin configuration object not saved when $skin->element is empty.');
 
     $skin->element = 'system-user-menu';
     $skin->skin = '';
-    $this->assertFalse(skinr_skin_save($skin), 'Skin configuration object was not saved when $skin->skin was empty.');
+    $this->assertFalse(skinr_skin_save($skin), 'Skin configuration object not saved when $skin->skin is empty.');
 
     $skin->skin = 'skinr_test_subtheme';
     $skin->options = '';
-    $this->assertFalse(skinr_skin_save($skin), 'Skin configuration object was not saved when $skin->options was not an array.');
+    $this->assertFalse(skinr_skin_save($skin), 'Skin configuration object not saved when $skin->options is not array.');
 
     $skin->options = array();
-    $this->assertFalse(skinr_skin_save($skin), 'Skin configuration object was not saved when $skin->options was an empty array.');
+    $this->assertFalse(skinr_skin_save($skin), 'Skin configuration object saved when $skin->options is empty array.');
 
     $skin->options = array('option1' => 0, 'option2' => 0);
-    $this->assertFalse(skinr_skin_save($skin), 'Skin configuration object was not saved when $skin->options was a complex empty array.');
+    $this->assertFalse(skinr_skin_save($skin), 'Skin configuration object not saved when $skin->options is complex empty array.');
 
     $skin->options = array('option1', 'option2');
     $this->assertTrue(skinr_skin_save($skin), 'Skin configuration object was saved.');
-    $this->assertTrue(isset($skin->sid), 'The sid was added to the skin configuration object.');
+    $this->assertTrue(isset($skin->sid), 'SID added to skin configuration object.');
+    $this->assertTrue(isset($skin->uuid), 'UUID added to skin configuration object.');
+    $this->assertTrue(uuid_is_valid($skin->uuid), 'UUID for skin configuration object is valid.');
 
     // Test loading a skin configuration.
     $loaded_skin = skinr_skin_load($skin->sid);
-    $this->assertTrue(is_array($loaded_skin->options), 'Options for the skin configuration object were unserialized.');
+    $this->assertTrue(is_array($loaded_skin->options), 'Options for skin configuration object are unserialized.');
 
-    $this->assertTrue($loaded_skin->theme == $skin->theme && $loaded_skin->module == $skin->module && $loaded_skin->element == $skin->element && $loaded_skin->status == $skin->status && $loaded_skin->options[0] == $skin->options[0] && $loaded_skin->options[1] == $skin->options[1], 'Skin configuration object was loaded properly.');
+    $this->assertTrue($loaded_skin->theme == $skin->theme && $loaded_skin->module == $skin->module && $loaded_skin->element == $skin->element && $loaded_skin->status == $skin->status && $loaded_skin->options[0] == $skin->options[0] && $loaded_skin->options[1] == $skin->options[1], 'Skin configuration object loaded.');
+
+    // Test storage indicator.
+    $this->assertTrue(skinr_skin_storage($loaded_skin) == SKINR_STORAGE_IN_DATABASE, 'Storage indicator indicates stored in database.');
 
     // Save a second skin.
+    module_load_include('inc', 'skinr', 'skinr.uuid');
     $second_skin = (object) array(
+      'uuid' => uuid_generate(),
       'theme' => 'skinr_test_subtheme',
       'module' => 'block',
       'element' => 'system__main',
@@ -578,6 +590,127 @@ class SkinrApiTestCase extends SkinrWebTestCase {
     drupal_static_reset('skinr_skin_load_multiple');
     $skins = skinr_skin_load_multiple(FALSE);
     $this->assertTrue(count($skins) == 2 && isset($skins[$skin->sid]->sid) && isset($skins[$second_skin->sid]->sid), 'Successfully loaded all skins.');
+
+    // Test $skin->uuid not overwritten when given.
+    $this->assertTrue($skins[$second_skin->sid]->uuid == $second_skin->uuid, 'UUID for skin configuration not overwritten when manually set.');
+
+    // Test skinr_skin_uuid_to_sid().
+    $this->assertTrue(skinr_skin_uuid_to_sid($second_skin->uuid) == $second_skin->sid, 'Successfully got SID based on UUID for skin configuration object.');
+
+    // Test skinr_skin_sid_to_uuid().
+    $this->assertTrue(skinr_skin_sid_to_uuid($second_skin->sid) == $second_skin->uuid, 'Successfully got UUID based on SID for skin configuration object.');
+
+    // Test skinr_skin_load_by_uuid().
+    $loaded_skin = skinr_skin_load_by_uuid($second_skin->uuid);
+    $this->assertTrue($loaded_skin->sid == $second_skin->sid, 'Skin configuration object loaded using UUID.');
+
+    // Test skinr_skin_load_by_uuid() when bad UUID given.
+    $this->assertFalse(skinr_skin_load_by_uuid(uuid_generate()), 'Skin configuration object not loaded when using non-existing UUID.');
+  }
+
+  /**
+   * Test default skin configurations (in code) with duplicates.
+   */
+  public function testSkinrSkinDefaultsDuplicates() {
+    $uuid = '501ff0c3-db03-0944-9910-3a788f38097a';
+
+    module_enable(array('skinr_test_default'));
+    $default_skins = _skinr_skin_get_defaults();
+    $this->verbose(highlight_string('<?php ' . print_r($default_skins, TRUE), TRUE));
+
+    // Clear caches.
+    drupal_static_reset('_skinr_skin_get_defaults');
+
+    module_enable(array('skinr_test_default_duplicate'));
+    $default_skins = _skinr_skin_get_defaults();
+    $this->verbose(highlight_string('<?php ' . print_r($default_skins, TRUE), TRUE));
+
+    $this->assertFalse(is_array($default_skins[$uuid]), 'Default skin configuration replaced its duplicate.');
+
+    // Clean up.
+    module_disable(array('skinr_test_default_duplicate'));
+    drupal_static_reset('_skinr_skin_get_defaults');
+  }
+
+  /**
+   * Test default skin configurations (in code).
+   */
+  public function testSkinrSkinDefaults() {
+    $uuid = '501ff0c3-db03-0944-9910-3a788f38097a';
+
+    // Default skin configuration object should not exist yet.
+    $this->assertFalse(skinr_skin_uuid_to_sid($uuid), 'Default skin configuration does not exist.');
+
+    module_enable(array('skinr_test_default'));
+
+    // Test loading raw defaults.
+    $default_skins = _skinr_skin_get_defaults();
+
+    // Skin configuration object provided via hook_skinr_skin_defaults() in
+    // skinr_test.skinr_default.inc.
+    $this->assertTrue(isset($default_skins[$uuid]), 'Skin configuration in skinr_test.skinr_default.inc found.');
+    unset($default_skins[$uuid]);
+
+    // After asserting all expected, the list of default skins should be empty.
+    $this->assertTrue(empty($default_skins), t('No unexpected skin configurations found: <pre>@data</pre>', array(
+      '@data' => var_export($default_skins, TRUE),
+    )));
+
+    // Load a default skin configuration object.
+    $skin = skinr_skin_load_by_uuid($uuid);
+    $this->assertTrue($skin && $skin->uuid == $uuid, 'Successfully loaded default skin configuration.');
+
+    // Test storage indicator.
+    $this->assertTrue(skinr_skin_storage($skin) == SKINR_STORAGE_IN_CODE, 'Storage indicator indicates stored in code.');
+
+    // Overridden status should not change storage indicator.
+    $skin->status = 0;
+    skinr_skin_save($skin);
+    $this->assertTrue(skinr_skin_storage($skin) == SKINR_STORAGE_IN_CODE, 'Storage indicator indicates stored in code.');
+
+    // Override a default skin configuration object.
+    $skin->status = 1;
+    $skin->options = array('option3');
+    skinr_skin_save($skin);
+
+    // Test storage indicator.
+    $this->assertTrue(skinr_skin_storage($skin) == SKINR_STORAGE_IN_CODE_OVERRIDDEN, 'Storage indicator indicates stored in code, but overridden in database.');
+
+    // Revert a default skin configuration object.
+    $this->assertTrue(skinr_skin_revert($skin->sid), 'Successfully reverted skin configuration to default.');
+    // Refresh skin configuration data.
+    $skin = skinr_skin_load_by_uuid($uuid);
+
+    // Test storage indicator.
+    $this->assertTrue(skinr_skin_storage($skin) == SKINR_STORAGE_IN_CODE, 'Storage indicator indicates stored in code.');
+
+    // Test re-enabling module containing defaults; re-importing an existing
+    // skin configuration.
+
+    // Override default skin configuration.
+    $skin->options = array('option3');
+    skinr_skin_save($skin);
+
+    // Disable, then re-enable module containing defaults.
+    module_disable(array('skinr_test_default'));
+    module_enable(array('skinr_test_default'));
+
+    // Refresh skin configuration data.
+    $skin = skinr_skin_load_by_uuid($uuid);
+
+    // Test storage indicator.
+    $this->assertTrue(skinr_skin_storage($skin) == SKINR_STORAGE_IN_CODE_OVERRIDDEN, 'After enabling module containing already existing default skin configuration, storage indicator indicates stored in code, but overridden in database.');
+
+    // Now test forced import.
+    $default_skins = _skinr_skin_get_defaults();
+    $default_skin = $default_skins[$uuid];
+    $this->assertTrue(skinr_skin_import($default_skin, TRUE), 'Successfully forced import of existing skin configuration.');
+
+    // Refresh skin configuration data.
+    $skin = skinr_skin_load_by_uuid($uuid);
+
+    // Test storage indicator.
+    $this->assertTrue(skinr_skin_storage($skin) == SKINR_STORAGE_IN_CODE, 'After forcing import of existing default skin configuration, storage indicator indicates stored in code again.');
   }
 }
 
@@ -592,7 +725,7 @@ class SkinrDisplayTestCase extends SkinrWebTestCase {
 
   public static function getInfo() {
     return array(
-      'name' => 'Display',
+      'name' => 'Core - Display',
       'description' => 'Tests if applied skins appear on the front-end.',
       'group' => 'Skinr',
     );
@@ -603,6 +736,7 @@ class SkinrDisplayTestCase extends SkinrWebTestCase {
 
     $this->admin_user = $this->drupalCreateUser(array(
       'administer blocks',
+      'view the administration theme',
     ));
     $this->drupalLogin($this->admin_user);
 
@@ -637,6 +771,26 @@ class SkinrDisplayTestCase extends SkinrWebTestCase {
 
     // Enable Garland.
     theme_enable(array('garland'));
+
+    // Set admin theme to Garland.
+    variable_set('admin_theme', 'garland');
+  }
+
+  public function testCurrentTheme() {
+    $this->drupalGet('skinr-test/current-theme-default');
+    $this->assertText('Current theme is bartik.', 'Current theme is Bartik.');
+
+    $this->drupalGet('skinr-test/current-theme-callback');
+    $this->assertText('Current theme is garland.', 'Current theme is overridden through theme callback to Garland.');
+
+    $this->drupalGet('skinr-test/current-theme-hook-custom-theme');
+    $this->assertText('Current theme is garland.', 'Current theme is overridden through hook_custom_theme() to Garland.');
+
+    $this->drupalGet('admin/skinr-test/current-theme-admin');
+    $this->assertText('Current theme is garland.', 'Current theme is admin theme.');
+
+    $this->drupalGet('admin/skinr-test/current-theme-admin-exclude');
+    $this->assertText('Current theme is bartik.', 'Current theme is not admin theme.');
   }
 
   public function testSkinrDisplayed() {
@@ -653,6 +807,7 @@ class SkinrDisplayTestCase extends SkinrWebTestCase {
     $this->verbose(print_r($skin, TRUE));
 
     // Go to the front page.
+    variable_set('preprocess_css', 0);
     $this->drupalGet('');
     $this->assertSkinrClass('block-system-user-menu', 'font-1', 'CSS class of configured skin option found.');
 
@@ -669,5 +824,67 @@ class SkinrDisplayTestCase extends SkinrWebTestCase {
 
     $js = drupal_get_path('module', 'skinr_test') . '/skinr_test_data.css';
     $this->assertRaw($js, t('Javascript with filename set in settings array was included on page.'));
+
+    // Now test with CSS aggregation on.
+    variable_set('preprocess_css', 1);
+    $this->drupalGet('');
+
+    $css = drupal_get_path('module', 'skinr_test') . '/skinr_test.css';
+    $this->assertRaw($css, t('Stylesheet was included on page while CSS aggregation is enabled.'));
+
+    // Reset state to default.
+    variable_set('preprocess_css', 0);
+
+    // Now test with JS aggregation on.
+    variable_set('preprocess_js', 1);
+    $this->drupalGet('');
+
+    $js = drupal_get_path('module', 'skinr_test') . '/skinr_test.js';
+    $this->assertRaw($js, t('Javascript was included on page JS aggregation is enabled.'));
+
+    // Reset state to default.
+    variable_set('preprocess_js', 0);
+  }
+}
+
+/**
+ * Tests caching after running the update script.
+ */
+class SkinrUpdateScriptTest extends DrupalWebTestCase {
+  protected $profile = 'testing';
+
+  private $update_url;
+  private $update_user;
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Core - Update Script Compatibility',
+      'description' => 'Tests caching after running the update script.',
+      'group' => 'Skinr',
+    );
+  }
+
+  function setUp() {
+    parent::setUp('skinr', 'skinr_test');
+    $this->update_url = $GLOBALS['base_url'] . '/' . drupal_get_path('module', 'skinr') . '/tests/update.php';
+    $this->update_user = $this->drupalCreateUser(array('administer software updates'));
+    theme_enable(array('skinr_test_basetheme'));
+  }
+
+  /**
+   * Tests access to the update script.
+   */
+  function testSkinrImplementsApi() {
+    // Build our list of extensions.
+    $this->drupalGet('skinr-test/skinr-implements-api');
+    $this->assertText('skinr_test_basetheme', 'Skins registered in $basetheme.skinr.inc found.');
+
+    // Simulate running update script.
+    $this->drupalLogin($this->update_user);
+    $this->drupalGet($this->update_url, array('query' => array('drupal_root' => DRUPAL_ROOT), 'external' => TRUE));
+
+    // Ensure we still have correct list of skins.
+    $this->drupalGet('skinr-test/skinr-implements-api');
+    $this->assertText('skinr_test_basetheme', 'Skins registered in $basetheme.skinr.inc found.');
   }
 }

@@ -13,9 +13,9 @@ function skinr_context_schema() {
     'description' => 'Stores skin configuration group data for Skinr.',
     'fields' => array(
       'gid' => array(
-        'description' => 'The primary identifier for a skin configuration group.',
-        'type' => 'serial',
-        'unsigned' => TRUE,
+        'description' => 'Primary Key: Unique machine readable name for this skin configuration group.',
+        'type' => 'varchar',
+        'length' => 96,
         'not null' => TRUE,
       ),
       'module' => array(
@@ -82,8 +82,8 @@ function skinr_context_schema() {
     'fields' => array(
       'gid' => array(
         'description' => 'The skin configuration group ID.',
-        'type' => 'int',
-        'unsigned' => TRUE,
+        'type' => 'varchar',
+        'length' => 96,
         'not null' => TRUE,
       ),
       'sid' => array(
@@ -123,44 +123,68 @@ function skinr_context_enable() {
   foreach ($result as $skin) {
     $skin->options = unserialize($skin->options);
 
-    $group = NULL;
     if (empty($skin->gid)) {
-      // Lookup existing group. Grab the one with the lowest weight for this set.
-      $params = array(
-        'module' => $skin->module,
-        'element' => $skin->element,
-      );
-      $gids = skinr_context_group_get_gids($params);
-      $gid = reset($gids);
-      if (!$gid) {
-        // Create a group.
-        $group = (object) array(
-          'gid' => NULL,
-          'module' => $skin->module,
-          'element' => $skin->element,
-          'title' => $t('Default'),
-          'description' => '',
-          'conditions' => array('sitewide' => array('values' => array(1 => 1))),
-          'condition_mode' => CONTEXT_CONDITION_MODE_OR,
-          'weight' => 0,
-          'status' => 1,
-        );
-        skinr_context_group_save($group);
-        $gid = $group->gid;
-      }
-      $skin->gid = $gid;
+      _skinr_context_add_default_group($skin);
       // Simulate insert to ensure group is linked.
       skinr_context_skinr_skin_insert($skin);
     }
 
-    if (!$group) {
-      $group = skinr_context_group_load($skin->gid);
-    }
-
+    $group = skinr_context_group_load($skin->gid);
     if ($skin->status && $group && !$group->status) {
       // Disable skins where group is disabled.
       $skin->status = 0;
       skinr_skin_save($skin);
     }
+  }
+}
+
+/**
+ * Add machine names to Skinr Configuration Groups.
+ */
+function skinr_context_update_7200() {
+  db_change_field('skinr_groups', 'gid', 'gid', array(
+    'type' => 'varchar',
+    'length' => 96,
+    'not null' => TRUE,
+    'description' => 'Primary Key: Unique machine readable name for this skin configuration group.',
+  ));
+
+  db_drop_index('skinr_group_skins', 'gid');
+  db_change_field('skinr_group_skins', 'gid', 'gid', array(
+    'type' => 'varchar',
+    'length' => 96,
+    'not null' => TRUE,
+    'description' => 'The skin configuration group ID.',
+  ));
+  db_add_index('skinr_group_skins', 'gid', array('gid'));
+
+
+  // Generate a machine name for all existing groups.
+  $machine_names = array();
+
+  $result = db_query("SELECT * FROM {skinr_groups}");
+  foreach ($result as $group) {
+    $suggested_machine_name = $group->module . ':' . $group->element . ':' . strtolower($group->title);
+    $machine_name = $suggested_machine_name;
+    while(isset($machine_names[$machine_name])) {
+      $machine_name = $suggested_machine_name . '_' . $i++;
+    }
+    $machine_names[$machine_name] = $group->gid;
+  }
+
+  foreach ($machine_names as $machine_name => $gid) {
+    db_update('skinr_groups')
+      ->fields(array(
+        'gid' => $machine_name,
+      ))
+      ->condition('gid', $gid)
+      ->execute();
+
+    db_update('skinr_group_skins')
+      ->fields(array(
+        'gid' => $machine_name,
+      ))
+      ->condition('gid', $gid)
+      ->execute();
   }
 }

@@ -68,12 +68,18 @@ function skinr_ui_test_skinr_skin_info() {
 }
 
 function skinr_ui_test_skinr_skinr_ui_test_custom_form($form, $form_state, $context) {
+  $theme = $context['theme'];
+  $skin_name = $context['skin_name'];
+  $skin_info = $context['skin_info'];
+  $value = $context['value'];
+
   $form = array(
     '#type' => 'checkboxes',
     '#title' => t('Custom'),
     '#options' => array(
       'custom' => t('Custom'),
     ),
+    '#default_value' => $value,
   );
   return $form;
 }

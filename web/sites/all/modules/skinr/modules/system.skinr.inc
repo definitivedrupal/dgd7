@@ -45,7 +45,7 @@ function system_skinr_ui_element_title($module, $element, $theme_name) {
     $title = t('Page');
     if (strpos($element, 'region') === 0) {
       // Strip the region__ part off the region name.
-      $region = substr($theme_hooks[0], 8);
+      $region = substr($element, 8);
       $title = t('Region %region', array('%region' => isset($regions[$region]) ? $regions[$region] : $region));
     }
     return $title;
