@@ -225,6 +225,9 @@ function webform_alt_ui_form_alter(&$form, &$form_state, $form_id) {
     _webform_alt_ui_webform_email($form, $form_state);
     _webform_alt_ui_webform_form($form, $form_state);
 
+    // Disables extra palette.
+    $form['ui-wrapper']['live_preview']['#show_palette'] = FALSE;
+
     // Add validation and submission handlers. (Our custom validation must go
     // at the beginning, since it is responsible for adding some elements to
     // the $form_state['values'] array based on other form values which were
@@ -357,7 +360,7 @@ function webform_alt_ui_submit($form, &$form_state) {
 
   // Save modified or created components.
   foreach ($element_ids as $id) {
-    form_builder_webform_save_component($node, $id, $form_cache);
+    form_builder_webform_get_component($node, $id, $form_cache);
   }
 
   // Delete components that have been removed.
@@ -1508,9 +1511,6 @@ function webform_alt_ui_form_webform_admin_settings_alter(&$form, &$form_state, 
   $form['components']['date']['#default_value'] = FALSE;
   $form['components']['time']['#printed'] = TRUE;
   $form['components']['time']['#default_value'] = FALSE;
-
-  // Hide the email settings
-  $form['email']['#access'] = FALSE;
 
   // Retheme the table
   $form['#theme'] = array('webform_alt_ui_admin_settings');
