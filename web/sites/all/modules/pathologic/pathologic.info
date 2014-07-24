@@ -5,9 +5,9 @@ dependencies[] = filter
 core = 7.x
 files[] = pathologic.test
 
-; Information added by drupal.org packaging script on 2012-11-26
-version = "7.x-2.10"
+; Information added by Drupal.org packaging script on 2013-12-14
+version = "7.x-2.12"
 core = "7.x"
 project = "pathologic"
-datestamp = "1353914335"
+datestamp = "1387055607"
 
