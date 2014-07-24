@@ -1,8 +1,8 @@
-name = Follow
-description = Add sitewide and per user links to social network profiles.
+name = Follow Test module
+description = Used for Testing Follow module.
+dependencies[] = follow
+hidden = TRUE
 core = 7.x
-files[] = tests/follow.test
-config = admin/config/services/follow
 
 ; Information added by drupal.org packaging script on 2013-04-25
 version = "7.x-2.0-alpha1"
