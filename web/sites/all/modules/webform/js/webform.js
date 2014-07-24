@@ -18,6 +18,12 @@ Drupal.webform.datepicker = function(context) {
   $('div.webform-datepicker').each(function() {
     var $webformDatepicker = $(this);
     var $calendar = $webformDatepicker.find('input.webform-calendar');
+
+    // Ensure the page we're on actually contains a datepicker.
+    if ($calendar.length == 0) { 
+      return;
+    }
+
     var startDate = $calendar[0].className.replace(/.*webform-calendar-start-(\d{4}-\d{2}-\d{2}).*/, '$1').split('-');
     var endDate = $calendar[0].className.replace(/.*webform-calendar-end-(\d{4}-\d{2}-\d{2}).*/, '$1').split('-');
     var firstDay = $calendar[0].className.replace(/.*webform-calendar-day-(\d).*/, '$1');
@@ -44,9 +50,9 @@ Drupal.webform.datepicker = function(context) {
       maxDate: endDate,
       onSelect: function(dateText, inst) {
         var date = dateText.split('-');
-        $webformDatepicker.find('select.year, input.year').val(+date[0]);
-        $webformDatepicker.find('select.month').val(+date[1]);
-        $webformDatepicker.find('select.day').val(+date[2]);
+        $webformDatepicker.find('select.year, input.year').val(+date[0]).trigger('change');
+        $webformDatepicker.find('select.month').val(+date[1]).trigger('change');
+        $webformDatepicker.find('select.day').val(+date[2]).trigger('change');
       },
       beforeShow: function(input, inst) {
         // Get the select list values.

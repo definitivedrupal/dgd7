@@ -69,6 +69,7 @@ function _webform_edit_grid($component) {
       '#options' => _webform_select_options_from_text($component['extra']['options'], TRUE),
       '#optgroups' => FALSE,
       '#default_value' => FALSE,
+      '#default_value_allowed' => FALSE,
       '#optgroups' => FALSE,
       '#key_type' => 'mixed',
       '#key_type_toggle' => t('Customize option keys (Advanced)'),
@@ -88,6 +89,7 @@ function _webform_edit_grid($component) {
       '#options' => _webform_select_options_from_text($component['extra']['questions'], TRUE),
       '#optgroups' => FALSE,
       '#default_value' => FALSE,
+      '#default_value_allowed' => FALSE,
       '#optgroups' => FALSE,
       '#key_type' => 'mixed',
       '#key_type_toggle' => t('Customize question keys (Advanced)'),
@@ -417,6 +419,7 @@ function theme_webform_grid($variables) {
     // Render each radio button in the row.
     $radios = form_process_radios($question_element);
     foreach (element_children($radios) as $key) {
+      $radios[$key]['#title'] = $question_element['#title'] . ' - ' . $radios[$key]['#title'];
       $radios[$key]['#title_display'] = 'invisible';
       $row[] = array('data' => drupal_render($radios[$key]), 'class' => array('checkbox', 'webform-grid-option'));
     }

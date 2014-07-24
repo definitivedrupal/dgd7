@@ -202,12 +202,16 @@ function webform_expand_time($element) {
   $element['hour'] = array(
     '#prefix' => '',
     '#type' => 'select',
+    '#title' => t('Hour'),
+    '#title_display' => 'invisible',
     '#default_value' => $default_values['hour'],
     '#options' => $hours,
   );
   $element['minute'] = array(
     '#prefix' => ':',
     '#type' => 'select',
+    '#title' => t('Minute'),
+    '#title_display' => 'invisible',
     '#default_value' => $default_values['minute'],
     '#options' => $minutes,
   );
@@ -233,10 +237,13 @@ function webform_expand_time($element) {
 function theme_webform_time($variables) {
   $element = $variables['element'];
 
+  $element['hour']['#attributes']['class'][] = 'hour';
+  $element['minute']['#attributes']['class'][] = 'minute';
+
   // Add error classes to all items within the element.
   if (form_get_error($element)) {
-    $element['hour']['#attributes']['class'] = array('error');
-    $element['minute']['#attributes']['class'] = array('error');
+    $element['hour']['#attributes']['class'][] = 'error';
+    $element['minute']['#attributes']['class'][] = 'error';
   }
 
   $output = '<div class="webform-container-inline">' . drupal_render($element['hour']) . drupal_render($element['minute']) . drupal_render($element['ampm']) . '</div>';
