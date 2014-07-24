@@ -110,7 +110,7 @@ function chatroom_field_widget_form(&$form, &$form_state, $field, $instance, $la
         '#type' => 'fieldset',
         '#title' => 'Chatroom',
         '#collapsible' => TRUE,
-        '#description' => t('Add a chatroom'),
+        '#description' => $chatroom->get('cid') ? t('Edit chatroom') : t('Add a chatroom'),
         'chatroom_title' => array(
           '#title' => t('Chatroom title'),
           '#type' => 'textfield',
@@ -143,8 +143,12 @@ function chatroom_field_widget_form(&$form, &$form_state, $field, $instance, $la
       ),
     );
     if ($chatroom->get('cid')) {
+      $gin_form['chatroom']['chatroom_delete'] = array(
+        '#title' => t('Remove this Chatroom?'),
+        '#type' => 'checkbox',
+      );
       $gin_form['chatroom']['chatroom_archived'] = array(
-        '#title' => t('Is this an archived chatroom?'),
+        '#title' => $chatroom->get('archived') ? t('Reopen this chatroom?') : t('Close this chatroom?'),
         '#type' => 'checkbox',
         '#default_value' => $chatroom->get('archived'),
       );
@@ -223,31 +227,35 @@ function chatroom_field_update($entity_type, $entity, $field, $instance, $langco
   global $user;
 
   foreach ($items as &$item) {
-    $chatroom = new Chatroom($item['chatroom']['chatroom_cid']);
-    $chatroom->set('title', $item['chatroom']['chatroom_title']);
-    $chatroom->set('public', $item['chatroom']['chatroom_public']);
-    $chatroom->set('uid', $user->uid);
-    $allowed_rids = array();
-    foreach ($item['chatroom']['chatroom_read_only_roles'] as $rid) {
-      $allowed_rids[$rid] = (object) array(
-        'rid' => $rid,
-        'read_only' => 1,
-      );
+    if (is_array($item['chatroom'])) {
+      $chatroom = new Chatroom($item['chatroom']['chatroom_cid']);
+      $chatroom->set('title', $item['chatroom']['chatroom_title']);
+      $chatroom->set('public', $item['chatroom']['chatroom_public']);
+      $chatroom->set('uid', $user->uid);
+      $allowed_rids = array();
+      foreach ($item['chatroom']['chatroom_read_only_roles'] as $rid) {
+        $allowed_rids[$rid] = (object) array(
+          'rid' => $rid,
+          'read_only' => 1,
+        );
+      }
+      // Just overwrite any read-only values for the same role.
+      foreach ($item['chatroom']['chatroom_write_roles'] as $rid) {
+        $allowed_rids[$rid] = (object) array(
+          'rid' => $rid,
+          'read_only' => 0,
+        );
+      }
+      $chatroom->set('allowedRids', $allowed_rids);
+      if (isset($item['chatroom']['chatroom_format'])) {
+        $chatroom->set('format', $item['chatroom']['chatroom_format']);
+      }
+      if (isset($item['chatroom']['chatroom_archived'])) {
+        $chatroom->set('archived', $item['chatroom']['chatroom_archived']);
+      }
+      $chatroom->save();
+      $item['cid'] = $chatroom->get('cid');
     }
-    // Just overwrite any read-only values for the same role.
-    foreach ($item['chatroom']['chatroom_write_roles'] as $rid) {
-      $allowed_rids[$rid] = (object) array(
-        'rid' => $rid,
-        'read_only' => 0,
-      );
-    }
-    $chatroom->set('allowedRids', $allowed_rids);
-    if (isset($item['chatroom']['chatroom_format'])) {
-      $chatroom->set('format', $item['chatroom']['chatroom_format']);
-    }
-    $chatroom->set('archived', $item['chatroom']['chatroom_archived']);
-    $chatroom->save();
-    $item['cid'] = $chatroom->get('cid');
   }
 }
 
@@ -266,6 +274,7 @@ function chatroom_field_load($entity_type, $entities, $field, $instances, $langc
  * Implements hook_field_is_empty().
  */
 function chatroom_field_is_empty($item, $field) {
+  return !empty($item['chatroom']['chatroom_delete']);
 }
 
 /**
@@ -287,23 +296,25 @@ function chatroom_field_formatter_view($entity_type, $entity, $field, $instance,
   global $user;
 
   // Add the chatroom js.
-  $chatroom =& $items[0]['chatroom'];
   switch ($display['type']) {
     case 'chatroom_irc':
-      $name = $user->uid ? $user->name : variable_get('anonymous', t('Anonymous'));
-      chatroom_add_js($chatroom);
-      nodejs_send_content_channel_token('chatroom_' . $chatroom->get('cid'), TRUE);
-      $user_online_message = (object) array(
-        'channel' => 'chatroom_' . $chatroom->get('cid'),
-        'callback' => 'chatroomUserOnlineHandler',
-        'data' => array(
-          'cid' => $chatroom->get('cid'),
-          'uid' => $user->uid,
-          'name' => $name,
-        ),
-      );
-      nodejs_send_content_channel_message($user_online_message);
-      return chatroom_field_irc_formatter($entity_type, $entity, $field, $instance, $langcode, $items, $display);
+      if (!empty($items[0]['chatroom'])) {
+        $chatroom =& $items[0]['chatroom'];
+        $name = $user->uid ? $user->name : variable_get('anonymous', t('Anonymous'));
+        chatroom_add_js($chatroom);
+        nodejs_send_content_channel_token('chatroom_' . $chatroom->get('cid'), TRUE);
+        $user_online_message = (object) array(
+          'channel' => 'chatroom_' . $chatroom->get('cid'),
+          'callback' => 'chatroomUserOnlineHandler',
+          'data' => array(
+            'cid' => $chatroom->get('cid'),
+            'uid' => $user->uid,
+            'name' => $name,
+          ),
+        );
+        nodejs_send_content_channel_message($user_online_message);
+        return chatroom_field_irc_formatter($entity_type, $entity, $field, $instance, $langcode, $items, $display);
+      }
     break;
   }
 }
@@ -368,7 +379,6 @@ function chatroom_init() {
 function chatroom_menu() {
   $items = array();
   $items['chatroom/add/chat/ajax'] = array(
-    'type' => MENU_CALLBACK,
     'page callback' => 'chatroom_add_chat_ajax',
     'access arguments' => array('create chatrooom'),
     'type' => MENU_CALLBACK,
@@ -662,10 +672,14 @@ function chatroom_previous_messages($chatroom, $cmid, $limit) {
 function chatroom_get_user_timezone_offset() {
   global $user;
 
-  $offset = variable_get('date_default_timezone', 0);
+  $timezone = variable_get('date_default_timezone', 'UTC');
   if (variable_get('configurable_timezones', TRUE) && isset($user->timezone)) {
-    $offset = $user->timezone;
+    $timezone = $user->timezone;
   }
+
+  $timezone = new DateTimeZone($timezone);
+  $now = new DateTime('now', $timezone);
+  $offset = $timezone->getOffset($now);
   return $offset;
 }
 

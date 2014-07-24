@@ -136,6 +136,17 @@ class Chatroom {
    * @return boolean
    */
   public function userHasAccess($account, $access_type) {
+    // Allow modules to take over access to chatrooms. To avoid ambiguity,
+    // if any modules returns TRUE or FALSE rather than NULL, they win.
+    foreach (module_implements('chatroom_access') as $module) {
+      $function = $module . '_chatroom_access';
+      $access = $function($this, $account, $access_type);
+      if ($access === TRUE || $access === FALSE) {
+        return $access;
+      }
+    }
+
+    // No module cares about access to this chatroom, run our standard checks.
     $admin_role_rid = variable_get('user_admin_role', FALSE);
     if ($account->uid == 1 || ($admin_role_rid && isset($account->roles[$admin_role_rid]))) {
       return TRUE;
@@ -356,7 +367,8 @@ class Chatroom {
    * @return $cmid
    */
   public function loadPrevMsgId() {
-    $message = array_shift($this->loadLatestMessages());
+    $messages = $this->loadLatestMessages();
+    $message = array_shift($messages);
     if (isset($message->cmid)) {
       return $message->cmid;
     }
