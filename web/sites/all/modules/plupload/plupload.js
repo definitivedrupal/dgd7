@@ -1,7 +1,23 @@
 (function($) {
 
 Drupal.plupload = Drupal.plupload || {};
-
+// Add Plupload events for autoupload and autosubmit.
+Drupal.plupload.filesAddedCallback = function (up, files) {
+  setTimeout(function(){up.start()}, 100);
+};
+Drupal.plupload.uploadCompleteCallback = function(up, files) {
+  var $this = $("#"+up.settings.container);
+  // If there is submit_element trigger it.
+  var submit_element = window.Drupal.settings.plupload[$this.attr('id')].submit_element;
+  if (submit_element) {
+    $(submit_element).click();
+  }
+  // Otherwise submit default form.
+  else {
+    var $form = $this.parents('form');
+      $($form[0]).submit();
+  }
+};
 /**
  * Attaches the Plupload behavior to each Plupload form element.
  */
@@ -43,7 +59,22 @@ Drupal.behaviors.plupload = {
         }
         pluploadSettings.runtimes = filteredRuntimes.join(',');
       }
-
+      // Process Plupload events.
+      if (elementSettings['init'] || false) {
+        if (!pluploadSettings.init) {
+          pluploadSettings.init = {};
+        }
+        for (var key in elementSettings['init']) {
+          var callback = elementSettings['init'][key].split('.');
+          var fn = window;
+          for (var j = 0; j < callback.length; j++) {
+            fn = fn[callback[j]];
+          }
+          if (typeof fn === 'function') {
+            pluploadSettings.init[key] = fn;
+          }
+        }
+      }
       // Initialize Plupload for this element.
       $this.pluploadQueue(pluploadSettings);
 
@@ -64,41 +95,41 @@ Drupal.behaviors.pluploadform = {
             'enctype': $form.attr('enctype'),
             'action': $form.attr('action'),
             'target': $form.attr('target')
-        };      
-  
+        };
+
         $(this).submit(function(e) {
           var completedPluploaders = 0;
           var totalPluploaders = $(this).find('.plupload-element').length;
           var errors = '';
-  
+
           $(this).find('.plupload-element').each( function(index){
             var uploader = $(this).pluploadQueue();
-  
+
             var id = $(this).attr('id');
             var defaultSettings = settings.plupload['_default'] ? settings.plupload['_default'] : {};
             var elementSettings = (id && settings.plupload[id]) ? settings.plupload[id] : {};
             var pluploadSettings = $.extend({}, defaultSettings, elementSettings);
-  
+
             //Only allow the submit to proceed if there are files and they've all
             //completed uploading.
-            //@todo Implement a setting for whether the field is required, rather
+            //TODO: Implement a setting for whether the field is required, rather
             //than assuming that all are.
             if (uploader.state == plupload.STARTED) {
-              errors += Drupal.t("Please wait while your files are being uploaded.");              
+              errors += Drupal.t("Please wait while your files are being uploaded.");
             }
             else if (uploader.files.length == 0 && !pluploadSettings.required) {
               completedPluploaders++;
-            }       
-  
-            else if (uploader.files.length == 0) { 
+            }
+
+            else if (uploader.files.length == 0) {
               errors += Drupal.t("@index: You must upload at least one file.\n",{'@index': (index + 1)});
-            }       
-  
+            }
+
             else if (uploader.files.length > 0 && uploader.total.uploaded == uploader.files.length) {
               completedPluploaders++;
-            }       
-  
-            else {  
+            }
+
+            else {
               var stateChangedHandler = function() {
                 if (uploader.total.uploaded == uploader.files.length) {
                   uploader.unbind('StateChanged', stateChangedHandler);
@@ -110,7 +141,13 @@ Drupal.behaviors.pluploadform = {
                     for (var attr in originalFormAttributes) {
                       $form.attr(attr, originalFormAttributes[attr]);
                     }
-                    $form.submit();
+                    // Click a specific element if one is specified.
+                    if (settings.plupload[id].submit_element) {
+                      $(settings.plupload[id].submit_element).click();
+                    }
+                    else {
+                      $form.submit();
+                    }
                     return true;
                   }
                 }
@@ -132,7 +169,7 @@ Drupal.behaviors.pluploadform = {
           else if (0 < errors.length){
             alert(errors);
           }
-         
+
           return false;
         });
       }
