@@ -1,10 +1,12 @@
 name = Nodeblock
 description = Enables use of specified node types as custom blocks.
 core = 7.x
+dependencies[] = block
 files[] = nodeblock.module
-; Information added by drupal.org packaging script on 2011-07-21
-version = "7.x-1.2"
+
+; Information added by Drupal.org packaging script on 2014-03-13
+version = "7.x-1.6"
 core = "7.x"
 project = "nodeblock"
-datestamp = "1311279119"
+datestamp = "1394709816"
 

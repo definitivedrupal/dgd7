@@ -9,5 +9,7 @@ Nodeblock - Use nodes as blocks
 4. Create block nodes and watch them populate your block list!
 
 
+For Omega theme users:
+https://drupal.org/node/1945718
 
 
