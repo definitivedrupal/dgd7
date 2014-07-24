@@ -1,12 +1,17 @@
 <?php
-/*
- * implemntation of hook_context_plugins()
+/**
+ * @file
+ * Define plugin and activate.
+ */
+
+/**
+ * Implements hook_context_plugins().
  */
 function context_breadcrumb_current_page_context_plugins() {
   $plugins = array();
     $plugins['context_breadcrumb_current_page_reaction'] = array(
       'handler' => array(
-      'path' => drupal_get_path('module', 'context_breadcrumb_current_page') .'/plugins',
+      'path' => drupal_get_path('module', 'context_breadcrumb_current_page') . '/plugins',
       'file' => 'context_breadcrumb_current_page_reaction.inc',
       'class' => 'context_breadcrumb_current_page_reaction',
       'parent' => 'context_reaction',
@@ -16,8 +21,8 @@ function context_breadcrumb_current_page_context_plugins() {
 }
 
 
-/*
- * implemntation of hook_context_registry()
+/**
+ * Implements hook_context_registry().
  */
 function context_breadcrumb_current_page_context_registry() {
   return array(
@@ -31,11 +36,11 @@ function context_breadcrumb_current_page_context_registry() {
   );
 }
 
-/*
- * implemntation of hook_process_page()
+/**
+ * Implements hook_process_page().
  */
 function context_breadcrumb_current_page_preprocess_page(&$vars) {
   if ($plugin = context_get_plugin('reaction', 'breadcrumb_current_page')) {
     $plugin->execute($vars);
-  } 
+  }
 }
