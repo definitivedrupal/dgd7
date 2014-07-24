@@ -241,14 +241,35 @@
  *     that only send an e-mail, but do not store it in the database.
  *     Note that forms that specify 'entity' also need to specify 'post_id' in
  *     the 'mapping' (see below).
- *   - report access callback: (optional) A function name to invoke to check
- *     access to Mollom's dedicated "report to Mollom" form, which should return
- *     either TRUE or FALSE (similar to menu access callbacks).
+ *   - delete form: (optional) The $form_id of a delete confirmation form
+ *     constructor function for 'entity'. Mollom automatically adds the
+ *     "Report as inappropriate" options to this confirmation form. Requires a
+ *     'post_id' mapping via hook_mollom_form_info(). Requires the delete
+ *     confirmation form constructor to assign the mapped post_id key in $form
+ *     as a #value. See http://drupal.org/node/645374 for examples. Optionally
+ *     limit access to report options by defining 'report access' permissions.
+ *   - report path: (optional) A Drupal system path pattern to be used for
+ *     reporting an entity to Mollom via a "Report to Mollom" link in e-mail
+ *     notifications. This typically points to the menu router path that allows
+ *     to delete an entity. The placeholder '%id' is dynamically replaced with
+ *     the entity ID. For example, user_mollom_form_list() specifies
+ *     'user/%id/cancel'.
  *   - report access: (optional) A list containing user permission strings, from
  *     which the current user needs to have at least one. Should only be used if
  *     no "report access callback" was defined.
+ *   - report access callback: (optional) A function name to invoke to check
+ *     access to Mollom's dedicated "report to Mollom" form, which should return
+ *     either TRUE or FALSE (similar to menu access callbacks).
  *   - report delete callback: (optional) A function name to invoke to delete an
- *     entity after reporting it to Mollom.
+ *     entity after reporting it to Mollom.  The callback will receive the
+ *     entity id as an argument.
+ *   - entity report access callback: (optional) A function name to invoke to
+ *     determine if a user has access to report the entity that the form is for.
+ *     In order for a user to have the option to flag content as inappropriate,
+ *     the user must have the "report to mollom" permission as well as access to
+ *     report the specific entity.
+ *     Note: This function is required if the flag is inappropriate feature is
+ *     desired on the form.
  *
  * @see hook_mollom_form_info()
  */
@@ -257,16 +278,37 @@ function hook_mollom_form_list() {
   $forms['mymodule_comment_form'] = array(
     'title' => t('Comment form'),
     'entity' => 'mymodule_comment',
+    // Mollom does not know how to determine access and the callback to invoke
+    // for reporting and deleting the entity, so your module needs to manually
+    // output links to Mollom's generic "Report to Mollom" form on
+    // 'mollom/report/[entity]/[id]' and supply the following two callbacks.
+    // This kind of integration is deprecated. Use the delete confirmation form
+    // integration below instead.
     'report access callback' => 'mymodule_comment_report_access',
     'report delete callback' => 'mymodule_comment_report_delete',
+    'entity report access callback' => 'mymodule_comment_report_access',
   );
   // Mymodule's user registration form.
   $forms['mymodule_user_register'] = array(
     'title' => t('User registration form'),
-    'entity' => 'user',
-    'report access' => array('administer comments', 'bypass node access'),
-    // Make it private, so it's not a hook_user_delete() implementation.
-    'report delete callback' => '_mymodule_user_delete',
+    'entity' => 'mymodule_user',
+    // Mollom will automatically integrate with the delete confirmation form and
+    // send feedback for the 'entity' specified above and the 'post_id'
+    // specified via hook_mollom_form_info(). The delete confirmation form has
+    // to provide the ID of the entity in the mapped post_id key
+    // (here: $form_state['values']['uid']).
+    // @see http://drupal.org/node/645374
+    'delete form' => 'mymodule_user_delete_confirm_form',
+    // Optionally specify an include file that contains the delete confirmation
+    // form constructor to be loaded. The array keys map to function arguments
+    // of module_load_include().
+    'delete form file' => array(
+      'name' => 'mymodule.pages',
+    ),
+    // Specify where to find the delete confirmation form for e-mails.
+    'report path' => 'user/%id/cancel',
+    // Optionally limit access to report options on the delete confirmation form.
+    'report access' => array('administer users', 'bypass node access'),
   );
   return $forms;
 }
@@ -297,6 +339,7 @@ function hook_mollom_form_list_alter(&$form_list) {
  *     - MOLLOM_MODE_ANALYSIS: Text analysis of submitted form values with
  *       fallback to CAPTCHA.
  *     - MOLLOM_MODE_CAPTCHA: CAPTCHA-only protection.
+ *   - type: Internal use only.
  *   - bypass access: (optional) A list of user permissions to check for the
  *     current user to determine whether to protect the form with Mollom or do
  *     not validate submitted form values. If the current user has at least one
