@@ -6,9 +6,9 @@ dependencies[] = multiform
 hidden = TRUE
 
 files[] = multiform_test.module
-; Information added by drupal.org packaging script on 2012-01-29
-version = "7.x-1.0"
+; Information added by Drupal.org packaging script on 2014-06-11
+version = "7.x-1.1"
 core = "7.x"
 project = "multiform"
-datestamp = "1327823749"
+datestamp = "1402457628"
 

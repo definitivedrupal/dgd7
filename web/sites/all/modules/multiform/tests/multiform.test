@@ -4,7 +4,7 @@
  *
  *
  *
- * @author Kálmán Hosszu - hosszu.kalman@gmail.com - http://premiumcmsthemes.com http://www.kalman-hosszu.com
+ * @author Kálmán Hosszu - http://drupal.org/user/267481
  */
 
 class MultiformTestCase extends DrupalWebTestCase {
