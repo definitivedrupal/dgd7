@@ -1,12 +1,17 @@
 <?php
-/*
- * implemntation of hook_context_plugins()
+/**
+ * @file
+ * Define bool plugin and activate for bool field.
+ */
+
+/**
+ * Implements hook_context_plugins().
  */
 function context_bool_field_context_plugins() {
   $plugins = array();
     $plugins['context_bool_field_condition'] = array(
       'handler' => array(
-      'path' => drupal_get_path('module', 'context_bool_field') .'/plugins',
+      'path' => drupal_get_path('module', 'context_bool_field') . '/plugins',
       'file' => 'context_bool_field_condition.inc',
       'class' => 'context_bool_field_condition',
       'parent' => 'context_condition',
@@ -16,10 +21,10 @@ function context_bool_field_context_plugins() {
 }
 
 
-/*
- * implemntation of hook_context_registry()
+/**
+ * Implements hook_context_registry().
  */
-function context_bool_field_context_registry() { 
+function context_bool_field_context_registry() {
   return array(
     'conditions' => array(
       'field_bool' => array(
@@ -31,11 +36,11 @@ function context_bool_field_context_registry() {
   );
 }
 
-/*
- * implemntation of hook_process_page()
+/**
+ * Implements hook_node_view().
  */
 function context_bool_field_node_view($node, $view_mode, $langcode) {
-  if ($plugin = context_get_plugin('condition', 'field_bool') and  $node == menu_get_object()) {
+  if (($plugin = context_get_plugin('condition', 'field_bool')) && ($node == menu_get_object())) {
     $plugin->execute($node, $view_mode, $langcode);
-  } 
+  }
 }
