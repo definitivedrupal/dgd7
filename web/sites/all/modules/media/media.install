@@ -663,6 +663,7 @@ function media_update_7017() {
   // prior to media_update_7016(), run it again in order to capture those
   // configurations too.
   if (db_table_exists('file_display')) {
+    module_load_include('install', 'file_entity', 'file_entity');
     file_entity_update_7001();
   }
 }

@@ -7,9 +7,9 @@ dependencies[] = ctools
 files[] = file_entity.field.inc
 configure = admin/config/media/file-types
 
-; Information added by drupal.org packaging script on 2012-06-30
-version = "7.x-1.2"
+; Information added by Drupal.org packaging script on 2014-01-08
+version = "7.x-1.4"
 core = "7.x"
 project = "media"
-datestamp = "1341095504"
+datestamp = "1389219517"
 

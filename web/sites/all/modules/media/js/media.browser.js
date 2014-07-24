@@ -18,7 +18,7 @@ Drupal.behaviors.experimentalMediaBrowser = {
       Drupal.media.browser.finalizeSelection();
     }
     $('#media-browser-tabset').tabs({
-      show: Drupal.media.browser.resizeIframe
+      load: Drupal.media.browser.resizeIframe
     });
 
     $('.media-browser-tab').each( Drupal.media.browser.validateButtons );

@@ -95,10 +95,10 @@ function media_internet_add_validate($form, &$form_state) {
     $provider = media_internet_get_provider($embed_code);
     $provider->validate();
   } catch (MediaInternetNoHandlerException $e) {
-    form_set_error('url', $e->getMessage());
+    form_set_error('embed_code', $e->getMessage());
     return;
   } catch (MediaInternetValidationException $e) {
-    form_set_error('url', $e->getMessage());
+    form_set_error('embed_code', $e->getMessage());
     return;
   }
 
@@ -108,7 +108,7 @@ function media_internet_add_validate($form, &$form_state) {
     try {
       $file = $provider->getFileObject();
     } catch (Exception $e) {
-      form_set_error('url', $e->getMessage());
+      form_set_error('embed_code', $e->getMessage());
       return;
     }
 
@@ -125,7 +125,7 @@ function media_internet_add_validate($form, &$form_state) {
       else {
         $message .= ' ' . array_pop($errors);
       }
-      form_set_error('url', $message);
+      form_set_error('embed_code', $message);
       return FALSE;
     }
   }
@@ -159,12 +159,12 @@ function media_internet_add_submit($form, &$form_state) {
     $file = $provider->save();
   }
   catch (Exception $e) {
-    form_set_error('url', $e->getMessage());
+    form_set_error('embed_code', $e->getMessage());
     return;
   }
 
   if (!$file->fid) {
-    form_set_error('url', t('The file %file could not be saved. An unknown error has occurred.', array('%file' => $embed_code)));
+    form_set_error('embed_code', t('The file %file could not be saved. An unknown error has occurred.', array('%file' => $embed_code)));
     return;
   }
 
