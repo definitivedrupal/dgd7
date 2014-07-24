@@ -116,7 +116,7 @@ function imce_js($user, $scheme, $jsop = '') {
   //disable devel log.
   $GLOBALS['devel_shutdown'] = FALSE;
   //for upload we must return plain text header.
-  drupal_add_http_header('Content-Type', 'text/' . ($jsop == 'upload' ? 'html' : 'javascript') . '; charset=utf-8');
+  drupal_add_http_header('Content-Type', (!empty($_POST['html_response']) ? 'text/html' : 'application/json') . '; charset=utf-8');
   print drupal_json_encode($response);
   exit();
 }
@@ -144,6 +144,7 @@ function imce_upload_form($form, &$form_state, $ref) {
     '#submit' => $imce['perm']['upload'] ? array('imce_upload_submit') : NULL,
   );
   $form = array('fset_upload' => array('#type' => 'fieldset', '#title' => t('Upload file')) + $form);
+  $form['html_response'] = array('#type' => 'hidden', '#default_value' => '1');
   $form['#attributes']['enctype'] = 'multipart/form-data';
   $form['#action'] = $imce['url'];
   return $form;
@@ -259,7 +260,7 @@ function imce_fileop_form_validate($form, &$form_state) {
     return form_error($form['filenames'], t('Please select a file.'));
   }
 
-  //filenames come seperated by colon
+  //filenames come separated by colon
   $filenames = explode(':', $form_state['values']['filenames']);
   $cnt = count($filenames);
   //check the number of files.
@@ -424,10 +425,6 @@ function imce_delete_filepath($uri) {
     // Force delete file. Prevent running file_usage_list() second time.
     if (!file_delete($file, TRUE)) {
       return FALSE;
-    }
-    // Remove imce usage
-    if ($is_imce) {
-      file_usage_delete($file, 'imce');
     }
   }
   // Not in db. Probably loaded via ftp.
