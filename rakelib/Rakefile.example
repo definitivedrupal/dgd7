@@ -1,0 +1,10 @@
+ENVIRONMENTS = {
+  "live" => ["example@sojourner.mayfirst.org",
+             "/home/members/agariclabs/sites/example.com/web",
+             "stable",
+            ],
+  "test" => ["vlad@simone.mayfirst.org",
+             "/var/local/drupal/example-test/web",
+            ],
+}
+TAGNAMES = %w(qa stable)
