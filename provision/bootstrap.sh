@@ -1,29 +1,25 @@
 #!/usr/bin/env bash
 export DEBIAN_FRONTEND=noninteractive
+cp -r /vagrant/provision/etc/apt/* /etc/apt/
 
 apt-get update
 apt-get -y upgrade
 apt-get -y install \
-  rake \
-  ruby-sass \
-  ruby-compass
+	rake \
+	ruby-sass \
+	ruby-compass
+apt-get -y autoremove
 
 cp -r /vagrant/provision/etc/* /etc/
-
-export DRAKE=/usr/local/share/drake
-if [ ! -d $DRAKE ]; then
-	git clone vlad@simone.mayfirst.org:/srv/git/agaric/drake.git $DRAKE
-fi
-
 chmod -R u+w /vagrant/web/sites/default
 cp /vagrant/provision/settings.php /vagrant/web/sites/default/
 
 export FILES=/var/local/drupal
 if [ ! -d $FILES ]; then
 	mkdir -p $FILES
-	chown -R www-data:staff $FILES
-	chmod -R g+w $FILES
 fi
+chown -R www-data:staff $FILES
+chmod -R g+ws $FILES
 
 if [ ! -L /vagrant/web/sites/default/files ]; then
 	ln -s $FILES /vagrant/web/sites/default/files
