@@ -178,7 +178,14 @@
  *   );
  * @endcode
  */
-$databases = array();
+$databases['default']['default'] = array(
+  'driver' => 'mysql',
+  'database' => 'drupal-dgd7',
+  'username' => 'drupal',
+  'password' => 'o6VQpRRR',
+  'host' => 'localhost',
+  'prefix' => '',
+);
 
 /**
  * Access control for update.php script.
