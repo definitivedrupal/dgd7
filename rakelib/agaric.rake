@@ -28,7 +28,7 @@ ENVIRONMENTS.keys.each do |env|
   end
 
   task compass_env do
-    Dir.glob("build/#{env}/sites/all/themes/**/config.rb") do |project|
+    Dir.glob("build/#{env}/sites/*/themes/**/config.rb") do |project|
       sh "compass compile -e production --force #{File.dirname(project)}"
     end
   end
