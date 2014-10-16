@@ -52,7 +52,7 @@ ENVIRONMENTS.keys.each do |env|
   end
 
   desc "Build the #{env} environment."
-  task build_env => [:clean, "build/#{env}", compass_env, settings_target, build_version]
+  task build_env => [:clean, "build/#{env}", settings_target, build_version]
 
   desc "Upload #{env} environment to the configured host."
   task upload_env => build_env do
