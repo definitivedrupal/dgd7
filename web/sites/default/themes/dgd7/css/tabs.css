@@ -18,13 +18,11 @@ ul.tabs {
   color: #fff;
   margin: 0 0.2em 0 0;
   padding: 0;
-  display: -moz-inline-box;
-  -moz-box-orient: vertical;
+  display: -moz-inline-stack;
   display: inline-block;
   vertical-align: middle;
   *vertical-align: auto;
-}
-.tabs li {
+  zoom: 1;
   *display: inline;
 }
 
@@ -47,25 +45,20 @@ ul.tabs {
 }
 .primary a {
   padding: 0 1em;
-  -moz-transition-property: none;
-  -webkit-transition-property: none;
-  -o-transition-property: none;
-  transition-property: none;
-  -moz-transition-duration: 1s;
-  -webkit-transition-duration: 1s;
-  -o-transition-duration: 1s;
-  transition-duration: 1s;
+  -webkit-transition: none 1s;
+  -moz-transition: none 1s;
+  -o-transition: none 1s;
+  transition: none 1s;
 }
 .primary a:hover, .primary a:focus, .primary a:active, .primary a.active {
   background-color: #fff;
   color: #000;
   font-weight: bold;
   text-decoration: none;
-  -moz-border-radius: 6px 6px 0 0;
   -webkit-border-radius: 6px 6px 0 0;
-  -o-border-radius: 6px 6px 0 0;
+  -moz-border-radius: 6px 6px 0 0;
   -ms-border-radius: 6px 6px 0 0;
-  -khtml-border-radius: 6px 6px 0 0;
+  -o-border-radius: 6px 6px 0 0;
   border-radius: 6px 6px 0 0;
 }
 
@@ -87,11 +80,10 @@ ul.secondary {
   font-weight: bold;
   padding: 0.2em 1em;
   text-transform: uppercase;
-  -moz-border-radius: 3px;
   -webkit-border-radius: 3px;
-  -o-border-radius: 3px;
+  -moz-border-radius: 3px;
   -ms-border-radius: 3px;
-  -khtml-border-radius: 3px;
+  -o-border-radius: 3px;
   border-radius: 3px;
 }
 .secondary a:hover, .secondary a:focus, .secondary a:active, .secondary a.active {
