@@ -104,7 +104,7 @@ ENVIRONMENTS.keys.each do |env|
 
   desc "Compile Sass to CSS in the local environment."
   task "compass_compile" do
-    Dir.glob("web/sites/all/themes/**/config.rb") do |project|
+    Dir.glob("web/sites/*/themes/**/config.rb") do |project|
       sh "compass compile #{File.dirname(project)}"
     end
   end
