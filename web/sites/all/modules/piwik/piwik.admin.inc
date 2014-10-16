@@ -40,6 +40,11 @@ function piwik_admin_settings_form($form_state) {
     '#maxlength' => 255,
     '#description' => t('The URL to your Piwik base directory with SSL certificate installed. Required if you track a SSL enabled website. Example: "https://www.example.com/piwik/".'),
   );
+  // Required for automated form save testing only.
+  $form['account']['piwik_url_skiperror'] = array(
+    '#type' => 'hidden',
+    '#default_value' => FALSE,
+  );
 
   // Visibility settings.
   $form['tracking_title'] = array(
@@ -94,8 +99,8 @@ function piwik_admin_settings_form($form_state) {
 
   if ($visibility == 2 && !$php_access) {
     $form['tracking']['page_vis_settings'] = array();
-    $form['tracking']['page_vis_settings']['visibility'] = array('#type' => 'value', '#value' => 2);
-    $form['tracking']['page_vis_settings']['pages'] = array('#type' => 'value', '#value' => $pages);
+    $form['tracking']['page_vis_settings']['piwik_visibility_pages'] = array('#type' => 'value', '#value' => 2);
+    $form['tracking']['page_vis_settings']['piwik_pages'] = array('#type' => 'value', '#value' => $pages);
   }
   else {
     $options = array(
@@ -168,6 +173,12 @@ function piwik_admin_settings_form($form_state) {
       t('Tracking off by default, users with %permission permission can opt in', $t_permission)
     ),
     '#default_value' => variable_get('piwik_custom', 0),
+  );
+  $form['tracking']['user_vis_settings']['piwik_trackuserid'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Track User ID'),
+    '#default_value' => variable_get('piwik_trackuserid', 0),
+    '#description' => t('User ID enables the analysis of groups of sessions, across devices, using a unique, persistent, and non-personally identifiable ID string representing a user. <a href="@url">Learn more about the benefits of using User ID</a>.', array('@url' => 'http://piwik.org/docs/user-id/')),
   );
 
   // Link specific configurations.
@@ -425,16 +436,26 @@ function piwik_admin_settings_form_validate($form, &$form_state) {
     form_set_error('piwik_site_id', t('A valid Piwik site ID is an integer only.'));
   }
 
-  $url = $form_state['values']['piwik_url_http'] . 'piwik.php';
+  $piwik_url = $form_state['values']['piwik_url_http'];
+  if ('/' != drupal_substr($piwik_url, -1, 1)) {
+    $piwik_url = $piwik_url . '/';
+    $form_state['values']['piwik_url_http'] = $piwik_url;
+  }
+  $url = $piwik_url . 'piwik.php';
   $result = drupal_http_request($url);
-  if ($result->code != 200) {
+  if ($result->code != 200 && $form_state['values']['piwik_url_skiperror'] == FALSE) {
     form_set_error('piwik_url_http', t('The validation of "@url" failed with error "@error" (HTTP code @code).', array('@url' => check_url($url), '@error' => $result->error, '@code' => $result->code)));
   }
 
   if (!empty($form_state['values']['piwik_url_https'])) {
-    $url = $form_state['values']['piwik_url_https'] . 'piwik.php';
+    $piwik_url = $form_state['values']['piwik_url_https'];
+    if ('/' != drupal_substr($piwik_url, -1, 1)) {
+      $piwik_url = $piwik_url . '/';
+      $form_state['values']['piwik_url_https'] = $piwik_url;
+    }
+    $url = $piwik_url . 'piwik.php';
     $result = drupal_http_request($url);
-    if ($result->code != 200) {
+    if ($result->code != 200 && $form_state['values']['piwik_url_skiperror'] == FALSE) {
       form_set_error('piwik_url_https', t('The validation of "@url" failed with error "@error" (HTTP code @code).', array('@url' => check_url($url), '@error' => $result->error, '@code' => $result->code)));
     }
   }

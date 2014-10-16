@@ -226,6 +226,14 @@ function piwik_page_alter(&$page) {
     $script .= '_paq.push(["setSiteId", ' . drupal_json_encode(variable_get('piwik_site_id', '')) . ']);';
     $script .= '_paq.push(["setTrackerUrl", u+"piwik.php"]);';
 
+    // Track logged in users across all devices.
+    if (variable_get('piwik_trackuserid', 0) && user_is_logged_in()) {
+      // The USER_ID value should be a unique, persistent, and non-personally
+      // identifiable string identifier that represents a user or signed-in
+      // account across devices.
+      $script .= '_paq.push(["setUserId", ' . drupal_json_encode(drupal_base64_encode(drupal_get_hash_salt() . $user->uid)) . ']);';
+    }
+
     // Set custom data.
     if (!empty($set_custom_data)) {
       foreach ($set_custom_data as $custom_data) {
