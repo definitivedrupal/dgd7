@@ -8,3 +8,4 @@ ENVIRONMENTS = {
             ],
 }
 TAGNAMES = %w(qa stable)
+DRUPAL = "web"
