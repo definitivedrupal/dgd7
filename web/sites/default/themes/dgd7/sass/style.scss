@@ -424,7 +424,7 @@ div.field-tags ul {
  
 nav[role=navigation] {
   background: $yellow;
-  @include linear-gradient(color-stops(rgb(255,204,0) 42%, rgb(232,187,9) 71%));
+  @include background-image(linear-gradient(rgb(255,204,0) 42%, rgb(232,187,9) 71%));
   padding: 0;
   text-align: center;
 }
@@ -481,7 +481,7 @@ nav[role=navigation] {
   color: #000;
   font-family: $serif;
   .content {
-    @include linear-gradient(color-stops(#f5f5f5 40%, #fff 70%));  
+    @include background-image(linear-gradient(#f5f5f5 40%, #fff 70%));
     border-top: solid 1px #777;
     border-bottom: solid 1px #ddd;
     color: #000;
