@@ -736,7 +736,7 @@ abstract class DatabaseConnection extends PDO {
     // to expand it out into a comma-delimited set of placeholders.
     foreach (array_filter($args, 'is_array') as $key => $data) {
       $new_keys = array();
-      foreach ($data as $i => $value) {
+      foreach (array_values($data) as $i => $value) {
         // This assumes that there are no other placeholders that use the same
         // name.  For example, if the array placeholder is defined as :example
         // and there is already an :example_2 placeholder, this will generate
@@ -2832,7 +2832,7 @@ function db_drop_table($table) {
  *   will be set to the value of the key in all rows. This is most useful for
  *   creating NOT NULL columns with no default value in existing tables.
  * @param $keys_new
- *   Optional keys and indexes specification to be created on the table along
+ *   (optional) Keys and indexes specification to be created on the table along
  *   with adding the field. The format is the same as a table specification, but
  *   without the 'fields' element. If you are adding a type 'serial' field, you
  *   MUST specify at least one key or index including it in this array. See
@@ -3012,7 +3012,7 @@ function db_drop_index($table, $name) {
  * @param $spec
  *   The field specification for the new field.
  * @param $keys_new
- *   Optional keys and indexes specification to be created on the table along
+ *   (optional) Keys and indexes specification to be created on the table along
  *   with changing the field. The format is the same as a table specification
  *   but without the 'fields' element.
  */
