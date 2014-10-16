@@ -174,7 +174,7 @@ input[type="submit"],
 .form-actions > a,
 .form-actions > a:visited {
   background-color: #444;
-  @include linear-gradient(color-stops(#222 40%, #444 70%));
+  @include background-image(linear-gradient(#222 40%, #444 70%));
   border: solid 1px #444;
   color: #fff;
   line-height: 2;
