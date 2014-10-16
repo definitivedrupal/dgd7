@@ -35,10 +35,6 @@ class votingapi_views_handler_field_value extends views_handler_field_numeric {
     }
   }
 
-  function element_type($none_supported = FALSE, $default_empty = FALSE, $inline = FALSE) {
-    return 'div';
-  }
-
   /**
    * Called to determine what to tell the clicksorter.
    */

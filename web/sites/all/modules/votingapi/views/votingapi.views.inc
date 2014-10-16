@@ -275,15 +275,18 @@ function votingapi_views_data_alter(&$views_data) {
 
   //Get all entity types in the system and register as relationship.
   $entity_types = entity_get_info();
+  $default_relationships = array();
   foreach($entity_types as $key => $entity_type) {
-    $default_relationships[] = array(
-      'description' => $entity_type['label'],
-      'entity_type' => $key,
-      'base_table' => $entity_type['base table'],
-      'entity_id_column' => $entity_type['entity keys']['id'],
-      'pseudo_vote' => 'votingapi_vote',    // for legacy compatability w/RC1.
-      'pseudo_cache' => 'votingapi_cache',  // for legacy compatability w/RC1.
-    );
+    if (isset($entity_type['base table'])) {
+      $default_relationships[] = array(
+        'description' => $entity_type['label'],
+        'entity_type' => $key,
+        'base_table' => $entity_type['base table'],
+        'entity_id_column' => $entity_type['entity keys']['id'],
+        'pseudo_vote' => 'votingapi_vote',    // for legacy compatability w/RC1.
+        'pseudo_cache' => 'votingapi_cache',  // for legacy compatability w/RC1.
+      );
+    }
   }
 
   foreach ($default_relationships as $data) {

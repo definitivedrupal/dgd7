@@ -97,36 +97,6 @@ function mymodule_votingapi_results_alter(&$results, $entity_type, $entity_id) {
   }
 }
 
-An example of advanced Views integration
-========================================
-VotingAPI provides Views Relationship connections for votes cast on nodes and comments. If your module casts other types of votes that should be made available via Views, it needs to implement hook_votingapi_relationships().
-
-
-function mymodule_votingapi_relationships() {
-  $relationships[] = array(
-    // 'description' is used to construct the field description in the Views UI.
-    'description' => t('nodes'),
-    // 'entity_type' contain the value that your module stores in the voting
-    // api 'entity_type' column. 'node', 'comment', etc.
-    'entity_type' => 'node',
-    // 'base_table' contain the name of the Views base table that stores the
-    // data your votes apply to.
-    'base_table' => 'node',
-    // 'entity_id_column' contains the name of the views field that represents
-    // your base_table's primary key. This column will be joined against the
-    // voting api 'entity_id' column.
-    'entity_id_column' => 'nid',
-    // VotingAPI constructs pseudo-tables so that multiple relationships can
-    // point to the same base table (normal and translation-based votes nodes
-    // for example. These two columns allow you to override the names of the
-    // pseudo-tables. You probably don't need to change this part unless you're
-    // nedjo.
-    'pseudo_vote' => 'votingapi_vote',
-    'pseudo_cache' => 'votingapi_cache',
-  );
-  return $relationships;
-}
-
 An example of a custom Views value formatter
 ============================================
 VotingAPI's Views integration can present vote results as simple numbers, but most users will want to see something a bit snazzier. By implementing hook_votingapi_views_formatters(), you can expose a custom formatter for any given VotingAPI view field. For the View field that's passed in, your hook should return an array of key => value pairs, where the key is a the name of a callback function that will format the values from the database.

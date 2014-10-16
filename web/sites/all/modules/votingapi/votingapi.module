@@ -131,6 +131,10 @@ function votingapi_set_votes(&$votes, $criteria = NULL) {
     $votes = array($votes);
   }
 
+  // Allow other modules to modify or unset/remove votes.
+  // module_invoke_all does not allow passing variables by reference
+  // http://api.drupal.org/api/drupal/includes%21module.inc/function/module_invoke_all/7#comment-35778
+  drupal_alter(array('votingapi_preset_votes'), $votes);
   // Handle clearing out old votes if they exist.
   if (!isset($criteria)) {
     // If the calling function didn't explicitly set criteria for vote deletion,

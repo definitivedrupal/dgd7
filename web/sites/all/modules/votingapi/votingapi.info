@@ -10,9 +10,9 @@ files[] = views/votingapi_views_handler_field_value.inc
 files[] = views/votingapi_views_handler_sort_nullable.inc
 files[] = views/votingapi_views_handler_relationship.inc
 
-; Information added by drupal.org packaging script on 2013-03-22
-version = "7.x-2.11"
+; Information added by Drupal.org packaging script on 2014-08-14
+version = "7.x-2.12"
 core = "7.x"
 project = "votingapi"
-datestamp = "1363989617"
+datestamp = "1407995929"
 

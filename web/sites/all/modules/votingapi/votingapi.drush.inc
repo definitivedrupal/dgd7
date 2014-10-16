@@ -2,8 +2,8 @@
 
 /**
  * @file
- *  Generate votingapi votes, recalculate results for existing votes, or flush
- *  VotingAPI data entirely.
+ *  Drush commands to generate votingapi votes, recalculate results
+ *  for existing votes, or flush VotingAPI data entirely.
  */
 
 /**
@@ -57,7 +57,6 @@ function votingapi_drush_command() {
   return $items;
 }
 
-
 /**
  * Command callback. Generate a number of votes.
  */
@@ -68,84 +67,10 @@ function drush_votingapi_generate_votes($entity_type = 'node', $vote_type = 'per
     'types' => drush_get_option('types'),
   );
 
+  require_once(drupal_get_path('module', 'votingapi') . '/votingapi.devel.inc');
   votingapi_generate_votes($entity_type, $vote_type, $options);
 
   drush_log(t('Generating @vtype votes for @etype entities.', array('@vtype' => $vote_type, '@etype' => $entity_type)), 'success');
-}
-
-/**
- * Utility function to generate votes.
- */
-function votingapi_generate_votes($entity_type = 'node', $vote_type = 'percent', $options = array()) {
-  module_load_include('inc', 'devel_generate');
-  $options += array(
-    'age' => 36000,
-    'types' => array(),
-    'kill' => FALSE,
-  );
-
-  if (!empty($options['kill_votes'])) {
-    db_truncate('votingapi_vote');
-    db_truncate('votingapi_cache');
-  }
-
-  if (($schema = drupal_get_schema($entity_type)) && ($entity_id_column = array_shift($schema['primary key']))) {
-    // oh look we found a schema yay
-  }
-  else {
-    $entity_type = 'node';
-    $entity_id_column = 'nid';
-  }
-  $uids = devel_get_users();
-
-  $query = db_select($entity_type, 'e')->fields('e', array($entity_id_column));
-  if ($entity_type == 'node' && !empty($options['types'])) {
-    $query->condition('e.type', $options['types'], 'IN');
-  }
-  $results = $query->execute()->fetchAll(PDO::FETCH_ASSOC);
-
-  foreach ($results as $entity) {
-    _votingapi_cast_votes($entity_type, $entity[$entity_id_column], $options['age'], $uids, $vote_type);
-  }
-}
-
-/**
- * Utility function to generate votes on a node by a set of users.
- */
-function _votingapi_cast_votes($etype, $eid, $timestamp = 0, $uids = array(), $style = 'percent') {
-  $votes = array();
-  static $tags;
-  if (!isset($tags)) {
-    $tags = explode(' ', devel_create_greeking(30));
-  }
-  foreach ($uids as $uid) {
-    switch ($style) {
-      case 'percent':
-        $votes[] = array(
-          'uid' => $uid,
-          'entity_type' => $etype,
-          'entity_id' => $eid,
-          'value_type' => 'percent',
-          'timestamp' => REQUEST_TIME - mt_rand(0, $timestamp),
-          'value' => mt_rand(1, 5) * 20,
-          'tag' => $tags[mt_rand(0, 30)],
-        );
-        break;
-      case 'points':
-        if (rand(0, 3)) {
-          $votes[] = array(
-            'uid' => $uid,
-            'entity_type' => $etype,
-            'entity_id' => $eid,
-            'value_type' => 'points',
-            'timestamp' => REQUEST_TIME - mt_rand(0, $timestamp),
-            'value' => rand(0, 1) ? 1 : -1,
-          );
-        }
-        break;
-    }
-  }
-  votingapi_set_votes($votes, array());
 }
 
 /**
@@ -172,7 +97,6 @@ function drush_votingapi_recalculate($entity_type = 'node', $entity_id = NULL) {
 
   drush_log($message, 'success');
 }
-
 
 /**
  * Command callback. Flush votes and results.
